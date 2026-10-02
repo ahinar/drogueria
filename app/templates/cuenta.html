@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Mi cuenta{% endblock %}
+{% block contenido %}
+<div class="tarjeta angosta">
+  <h1>Mi cuenta</h1>
+  <p><strong>{{ g.user.nombre }}</strong> · {{ g.user.usuario }} · {{ g.user.rol|rol_nombre }}</p>
+  <h2>Cambiar contraseña</h2>
+  <form method="post">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>Contraseña actual
+      <input type="password" name="actual" autocomplete="current-password" required>
+    </label>
+    <label>Contraseña nueva (mínimo 8 caracteres)
+      <input type="password" name="nueva" autocomplete="new-password" required>
+    </label>
+    <label>Repite la contraseña nueva
+      <input type="password" name="confirmar" autocomplete="new-password" required>
+    </label>
+    <button type="submit" class="btn">Guardar</button>
+  </form>
+</div>
+{% endblock %}

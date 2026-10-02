@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}Inicio{% endblock %}
+{% block contenido %}
+<h1>Hola, {{ g.user.nombre }}</h1>
+<p class="suave">Este sistema está en construcción por fases. Lo que ya funciona: usuarios con roles, bitácora de auditoría y respaldos.</p>
+
+<div class="rejilla">
+  <div class="modulo apagado"><h2>🌡️ Temperaturas</h2><p>Registro con alarma sonora y visual.</p><span class="etiqueta">Fase 1</span></div>
+  <div class="modulo apagado"><h2>📦 Recepción técnica</h2><p>Alimenta el inventario y guarda el formato en PDF.</p><span class="etiqueta">Fase 1</span></div>
+  <div class="modulo apagado"><h2>🗃️ Inventario por lote</h2><p>Vencimientos, estados y kardex.</p><span class="etiqueta">Fase 1</span></div>
+  <div class="modulo apagado"><h2>🛒 Ventas (POS)</h2><p>Venta rápida con lector de código de barras.</p><span class="etiqueta">Fase 2</span></div>
+  <div class="modulo apagado"><h2>📈 Utilidades</h2><p>Ganancias por día, semana, mes o rango.</p><span class="etiqueta">Fase 2</span></div>
+  {% if g.user.rol == 'administrador' %}
+  <a class="modulo" href="{{ url_for('admin.usuarios') }}"><h2>👥 Usuarios</h2><p>Crear usuarios y asignar roles.</p></a>
+  <a class="modulo" href="{{ url_for('admin.respaldos') }}"><h2>💾 Respaldos</h2><p>Copias de seguridad de la base de datos.</p></a>
+  {% endif %}
+  {% if g.user.rol in ('administrador', 'director_tecnico') %}
+  <a class="modulo" href="{{ url_for('admin.bitacora') }}"><h2>📋 Bitácora</h2><p>Quién hizo qué y cuándo.</p></a>
+  {% endif %}
+</div>
+
+<p class="suave">Dirección de este sistema en la red del local: <strong>{{ request.host_url }}</strong></p>
+{% endblock %}

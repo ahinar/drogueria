@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block titulo %}Configuración inicial{% endblock %}
+{% block contenido %}
+<div class="tarjeta angosta">
+  <h1>Configuración inicial</h1>
+  <p>Crea el usuario <strong>administrador</strong>. Solo se hace una vez, en el primer arranque.</p>
+  <form method="post">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>Nombre completo
+      <input type="text" name="nombre" required autofocus>
+    </label>
+    <label>Usuario (letras, números, punto o guion)
+      <input type="text" name="usuario" autocomplete="username" required>
+    </label>
+    <label>Contraseña (mínimo 8 caracteres)
+      <input type="password" name="clave" autocomplete="new-password" required>
+    </label>
+    <label>Repite la contraseña
+      <input type="password" name="confirmar" autocomplete="new-password" required>
+    </label>
+    <button type="submit" class="btn">Crear administrador</button>
+  </form>
+</div>
+{% endblock %}

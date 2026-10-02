@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Respaldos{% endblock %}
+{% block contenido %}
+<div class="fila-titulo">
+  <h1>Respaldos</h1>
+  <form method="post" class="en-linea">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button type="submit" class="btn">Crear respaldo ahora</button>
+  </form>
+</div>
+<p class="suave">Carpeta: <code>{{ carpeta }}</code>{% if extra %} · Copia adicional en: <code>{{ extra }}</code>{% endif %}.
+  El sistema hace un respaldo automático al iniciar si el último tiene más de 24 horas.
+  Cada respaldo se verifica al crearlo.</p>
+<div class="tabla-scroll">
+<table>
+  <thead><tr><th>Archivo</th><th>Fecha</th><th>Tamaño</th></tr></thead>
+  <tbody>
+  {% for r in lista %}
+    <tr><td>{{ r.nombre }}</td><td>{{ r.fecha }}</td><td>{{ r.kb }} KB</td></tr>
+  {% else %}
+    <tr><td colspan="3">Todavía no hay respaldos.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

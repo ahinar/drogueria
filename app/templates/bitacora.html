@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Bitácora{% endblock %}
+{% block contenido %}
+<div class="fila-titulo">
+  <h1>Bitácora</h1>
+  <form method="get" class="en-linea buscador">
+    <input type="search" name="q" value="{{ q }}" placeholder="Buscar acción, usuario o detalle">
+    <button type="submit" class="btn">Buscar</button>
+  </form>
+</div>
+<p class="suave">{{ total }} registro(s). La bitácora no se puede editar ni borrar.</p>
+<div class="tabla-scroll">
+<table>
+  <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th><th>IP</th></tr></thead>
+  <tbody>
+  {% for f in filas %}
+    <tr>
+      <td class="nowrap">{{ f.fecha }}</td>
+      <td>{{ f.usuario_nombre or '—' }}</td>
+      <td>{{ f.accion }}</td>
+      <td>{{ f.detalle or '' }}</td>
+      <td>{{ f.ip or '' }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="5">Sin registros.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+<div class="paginas">
+  {% if pagina > 1 %}<a class="btn" href="{{ url_for('admin.bitacora', q=q, pagina=pagina-1) }}">← Anterior</a>{% endif %}
+  <span>Página {{ pagina }} de {{ paginas }}</span>
+  {% if pagina < paginas %}<a class="btn" href="{{ url_for('admin.bitacora', q=q, pagina=pagina+1) }}">Siguiente →</a>{% endif %}
+</div>
+{% endblock %}

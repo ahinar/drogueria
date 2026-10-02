@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Usuarios{% endblock %}
+{% block contenido %}
+<div class="fila-titulo">
+  <h1>Usuarios</h1>
+  <a class="btn" href="{{ url_for('admin.usuario_nuevo') }}">+ Nuevo usuario</a>
+</div>
+<div class="tabla-scroll">
+<table>
+  <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Estado</th><th>Último ingreso</th><th></th></tr></thead>
+  <tbody>
+  {% for u in usuarios %}
+    <tr class="{{ '' if u.activo else 'inactivo' }}">
+      <td>{{ u.nombre }}</td>
+      <td>{{ u.usuario }}</td>
+      <td>{{ u.rol|rol_nombre }}</td>
+      <td>{{ 'Activo' if u.activo else 'Inactivo' }}</td>
+      <td>{{ u.ultimo_ingreso or '—' }}</td>
+      <td class="acciones">
+        <a href="{{ url_for('admin.usuario_clave', uid=u.id) }}">Cambiar contraseña</a>
+        <form method="post" action="{{ url_for('admin.usuario_estado', uid=u.id) }}" class="en-linea">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-link">{{ 'Desactivar' if u.activo else 'Activar' }}</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

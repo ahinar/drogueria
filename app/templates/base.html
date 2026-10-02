@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Inicio{% endblock %} · Droguería</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+  <header class="barra">
+    <a class="marca" href="{{ url_for('main.inicio') }}">💊 Droguería · Calidad y POS</a>
+    {% if g.user %}
+    <nav>
+      <a href="{{ url_for('main.inicio') }}">Inicio</a>
+      {% if g.user.rol == 'administrador' %}<a href="{{ url_for('admin.usuarios') }}">Usuarios</a>{% endif %}
+      {% if g.user.rol in ('administrador', 'director_tecnico') %}<a href="{{ url_for('admin.bitacora') }}">Bitácora</a>{% endif %}
+      {% if g.user.rol == 'administrador' %}<a href="{{ url_for('admin.respaldos') }}">Respaldos</a>{% endif %}
+    </nav>
+    <div class="usuario">
+      <a href="{{ url_for('auth.cuenta') }}">{{ g.user.nombre }}</a>
+      <span class="rol">{{ g.user.rol|rol_nombre }}</span>
+      <form method="post" action="{{ url_for('auth.logout') }}" class="en-linea">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-link">Salir</button>
+      </form>
+    </div>
+    {% endif %}
+  </header>
+
+  <main class="contenedor">
+    {% with mensajes = get_flashed_messages(with_categories=true) %}
+      {% for categoria, mensaje in mensajes %}
+        <div class="aviso {{ categoria }}">{{ mensaje }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block contenido %}{% endblock %}
+  </main>
+</body>
+</html>
