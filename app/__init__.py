@@ -44,11 +44,13 @@ def create_app(test_config=None):
     base_datos.init_db(app.config["DB_PATH"])
     base_datos.init_app(app)
 
-    from . import admin, auth, main
+    from . import admin, auth, main, productos, proveedores
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(admin.bp)
     app.register_blueprint(main.bp)
+    app.register_blueprint(productos.bp)
+    app.register_blueprint(proveedores.bp)
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
 

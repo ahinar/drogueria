@@ -1,4 +1,4 @@
-"""Configuración del sistema. Los valores se pueden cambiar con variables de entorno."""
+"""Configuración del sistema. Los valores se pueden cambiar con variables de entorno. config.py"""
 import os
 from pathlib import Path
 

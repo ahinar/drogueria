@@ -54,6 +54,63 @@ MIGRATIONS = [
             valor TEXT
         );
         """,
+
+        
+    ),
+        (
+        2,
+        """
+        CREATE TABLE proveedores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nit TEXT NOT NULL UNIQUE,
+            razon_social TEXT NOT NULL,
+            nombre_comercial TEXT,
+            contacto TEXT,
+            telefono TEXT,
+            correo TEXT,
+            direccion TEXT,
+            ciudad TEXT,
+            concepto_sanitario TEXT,
+            concepto_vence TEXT,
+            certificaciones TEXT,
+            observaciones TEXT,
+            activo INTEGER NOT NULL DEFAULT 1,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT
+        );
+        CREATE INDEX idx_proveedores_razon ON proveedores (razon_social);
+        CREATE INDEX idx_proveedores_activo ON proveedores (activo);
+
+        CREATE TABLE productos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            codigo_barras TEXT,
+            nombre TEXT NOT NULL,
+            principio_activo TEXT,
+            concentracion TEXT,
+            forma_farmaceutica TEXT,
+            registro_sanitario TEXT,
+            registro_vence TEXT,
+            fabricante TEXT,
+            unidad TEXT,
+            iva_tipo TEXT NOT NULL DEFAULT 'gravado'
+                CHECK (iva_tipo IN ('excluido', 'exento', 'gravado')),
+            iva_tarifa REAL NOT NULL DEFAULT 19.0,
+            precio_venta REAL NOT NULL DEFAULT 0,
+            precio_maximo REAL,
+            stock_minimo INTEGER NOT NULL DEFAULT 0,
+            requiere_formula INTEGER NOT NULL DEFAULT 0,
+            cadena_frio INTEGER NOT NULL DEFAULT 0,
+            control_especial INTEGER NOT NULL DEFAULT 0,
+            observaciones TEXT,
+            activo INTEGER NOT NULL DEFAULT 1,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT
+        );
+        CREATE INDEX idx_productos_codigo_barras ON productos (codigo_barras);
+        CREATE INDEX idx_productos_nombre ON productos (nombre);
+        CREATE INDEX idx_productos_activo ON productos (activo);
+        """,
     ),
 ]
 

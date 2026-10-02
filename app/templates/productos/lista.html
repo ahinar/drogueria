@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block titulo %}Productos{% endblock %}
+{% block contenido %}
+<h1>Productos</h1>
+
+<form method="get" class="filtros">
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nombre, código, principio activo…">
+  <select name="filtro">
+    <option value="activos" {% if filtro=='activos' %}selected{% endif %}>Solo activos</option>
+    <option value="inactivos" {% if filtro=='inactivos' %}selected{% endif %}>Solo inactivos</option>
+    <option value="todos" {% if filtro=='todos' %}selected{% endif %}>Todos</option>
+    <option value="frio" {% if filtro=='frio' %}selected{% endif %}>Cadena de frío</option>
+    <option value="control" {% if filtro=='control' %}selected{% endif %}>Control especial</option>
+    <option value="formula" {% if filtro=='formula' %}selected{% endif %}>Requiere fórmula</option>
+  </select>
+  <button type="submit">Filtrar</button>
+  {% if g.user['rol'] in ('administrador', 'director_tecnico') %}
+    <a class="boton" href="{{ url_for('productos.nuevo') }}">+ Nuevo producto</a>
+  {% endif %}
+</form>
+
+<table class="tabla">
+  <thead>
+    <tr>
+      <th>Código</th><th>Nombre</th><th>Principio activo</th>
+      <th>Precio</th><th>IVA</th><th>Alertas</th><th>Estado</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in productos %}
+    <tr class="{% if not p['activo'] %}inactivo{% endif %}">
+      <td>{{ p['codigo'] }}</td>
+      <td>{{ p['nombre'] }}{% if p['concentracion'] %} <small>{{ p['concentracion'] }}</small>{% endif %}</td>
+      <td>{{ p['principio_activo'] or '—' }}</td>
+      <td>${{ '%.2f'|format(p['precio_venta']) }}</td>
+      <td>{{ p['iva_tipo'] }} {{ '%.0f'|format(p['iva_tarifa']) }}%</td>
+      <td>
+        {% if p['cadena_frio'] %}<span class="tag frio">❄ Frío</span>{% endif %}
+        {% if p['control_especial'] %}<span class="tag control">⚠ Control</span>{% endif %}
+        {% if p['requiere_formula'] %}<span class="tag formula">℞ Fórmula</span>{% endif %}
+      </td>
+      <td>{{ 'Activo' if p['activo'] else 'Inactivo' }}</td>
+      <td>
+        {% if g.user['rol'] in ('administrador', 'director_tecnico') %}
+          <a href="{{ url_for('productos.editar', prod_id=p['id']) }}">Editar</a>
+          <form method="post" action="{{ url_for('productos.activar', prod_id=p['id']) }}" style="display:inline">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button type="submit">{{ 'Desactivar' if p['activo'] else 'Activar' }}</button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8">No hay productos que coincidan.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

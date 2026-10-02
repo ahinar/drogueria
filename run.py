@@ -1,6 +1,8 @@
 """Arranca el servidor. Úsalo en el PC principal del local: python run.py"""
 import logging
 import socket
+import sys
+import traceback
 
 from waitress import serve
 
@@ -22,6 +24,23 @@ def ip_local() -> str:
 
 app = create_app()
 
+
+def con_diagnostico(wsgi_app):
+    """Envuelve la app para imprimir CUALQUIER excepción que Waitress atrape."""
+    def wrapper(environ, start_response):
+        try:
+            return wsgi_app(environ, start_response)
+        except Exception:
+            print("\n" + "=" * 70, flush=True)
+            print(f"EXCEPCIÓN NO CAPTURADA en {environ.get('REQUEST_METHOD')} {environ.get('PATH_INFO')}",
+                  file=sys.stderr, flush=True)
+            print("=" * 70, file=sys.stderr, flush=True)
+            traceback.print_exc(file=sys.stderr)
+            print("=" * 70, file=sys.stderr, flush=True)
+            raise
+    return wrapper
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ip = ip_local()
@@ -31,4 +50,4 @@ if __name__ == "__main__":
     print(f" Desde otro PC (LAN): http://{ip}:{config.PORT}")
     print(" Para detenerlo: cierra esta ventana o presiona Ctrl+C")
     print("=" * 60)
-    serve(app, host=config.HOST, port=config.PORT, threads=8)
+    serve(con_diagnostico(app), host=config.HOST, port=config.PORT, threads=4)

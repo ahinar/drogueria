@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Proveedores{% endblock %}
+{% block contenido %}
+<h1>Proveedores</h1>
+
+<form method="get" class="filtros">
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por NIT, razón social, contacto…">
+  <select name="filtro">
+    <option value="activos" {% if filtro=='activos' %}selected{% endif %}>Solo activos</option>
+    <option value="inactivos" {% if filtro=='inactivos' %}selected{% endif %}>Solo inactivos</option>
+    <option value="todos" {% if filtro=='todos' %}selected{% endif %}>Todos</option>
+  </select>
+  <button type="submit">Filtrar</button>
+  {% if g.user['rol'] in ('administrador', 'director_tecnico') %}
+    <a class="boton" href="{{ url_for('proveedores.nuevo') }}">+ Nuevo proveedor</a>
+  {% endif %}
+</form>
+
+<table class="tabla">
+  <thead>
+    <tr><th>NIT</th><th>Razón social</th><th>Contacto</th><th>Teléfono</th><th>Concepto sanitario</th><th>Estado</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for p in proveedores %}
+    <tr class="{% if not p['activo'] %}inactivo{% endif %}">
+      <td>{{ p['nit'] }}</td>
+      <td>{{ p['razon_social'] }}{% if p['nombre_comercial'] %} <small>({{ p['nombre_comercial'] }})</small>{% endif %}</td>
+      <td>{{ p['contacto'] or '—' }}</td>
+      <td>{{ p['telefono'] or '—' }}</td>
+      <td>{{ p['concepto_sanitario'] or '—' }}{% if p['concepto_vence'] %} <small>vence {{ p['concepto_vence'] }}</small>{% endif %}</td>
+      <td>{{ 'Activo' if p['activo'] else 'Inactivo' }}</td>
+      <td>
+        {% if g.user['rol'] in ('administrador', 'director_tecnico') %}
+          <a href="{{ url_for('proveedores.editar', prov_id=p['id']) }}">Editar</a>
+          <form method="post" action="{{ url_for('proveedores.activar', prov_id=p['id']) }}" style="display:inline">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button type="submit">{{ 'Desactivar' if p['activo'] else 'Activar' }}</button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7">No hay proveedores que coincidan.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

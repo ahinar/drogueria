@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Editar proveedor' if proveedor else 'Nuevo proveedor' }}{% endblock %}
+{% block contenido %}
+<h1>{{ 'Editar proveedor' if proveedor else 'Nuevo proveedor' }}</h1>
+
+<form method="post" class="formulario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+  <fieldset>
+    <legend>Identificación</legend>
+    <label>NIT * <input type="text" name="nit" required value="{{ proveedor['nit'] if proveedor else '' }}"></label>
+    <label>Razón social * <input type="text" name="razon_social" required value="{{ proveedor['razon_social'] if proveedor else '' }}"></label>
+    <label>Nombre comercial <input type="text" name="nombre_comercial" value="{{ proveedor['nombre_comercial'] if proveedor and proveedor['nombre_comercial'] else '' }}"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Contacto</legend>
+    <label>Persona de contacto <input type="text" name="contacto" value="{{ proveedor['contacto'] if proveedor and proveedor['contacto'] else '' }}"></label>
+    <label>Teléfono <input type="text" name="telefono" value="{{ proveedor['telefono'] if proveedor and proveedor['telefono'] else '' }}"></label>
+    <label>Correo <input type="email" name="correo" value="{{ proveedor['correo'] if proveedor and proveedor['correo'] else '' }}"></label>
+    <label>Dirección <input type="text" name="direccion" value="{{ proveedor['direccion'] if proveedor and proveedor['direccion'] else '' }}"></label>
+    <label>Ciudad <input type="text" name="ciudad" value="{{ proveedor['ciudad'] if proveedor and proveedor['ciudad'] else '' }}"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Documentación sanitaria</legend>
+    <label>Concepto sanitario <input type="text" name="concepto_sanitario" value="{{ proveedor['concepto_sanitario'] if proveedor and proveedor['concepto_sanitario'] else '' }}"></label>
+    <label>Vence <input type="date" name="concepto_vence" value="{{ proveedor['concepto_vence'] if proveedor and proveedor['concepto_vence'] else '' }}"></label>
+    <label>Certificaciones (BPM, etc.) <textarea name="certificaciones" rows="2">{{ proveedor['certificaciones'] if proveedor and proveedor['certificaciones'] else '' }}</textarea></label>
+  </fieldset>
+
+  <label>Observaciones <textarea name="observaciones" rows="3">{{ proveedor['observaciones'] if proveedor and proveedor['observaciones'] else '' }}</textarea></label>
+
+  <div class="acciones">
+    <button type="submit">Guardar</button>
+    <a class="boton secundario" href="{{ url_for('proveedores.lista') }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

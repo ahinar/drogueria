@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Editar producto' if producto else 'Nuevo producto' }}{% endblock %}
+{% block contenido %}
+<h1>{{ 'Editar producto' if producto else 'Nuevo producto' }}</h1>
+
+<form method="post" class="formulario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+    <fieldset>
+    <legend>Identificación</legend>
+    <label>Código interno * <input type="text" name="codigo" required value="{{ producto['codigo'] if producto else '' }}"></label>
+    <label>Código de barras <input type="text" name="codigo_barras" value="{{ producto['codigo_barras'] if producto and producto['codigo_barras'] else '' }}"></label>
+    <label>Nombre * <input type="text" name="nombre" required value="{{ producto['nombre'] if producto else '' }}"></label>
+    <label>Principio activo <input type="text" name="principio_activo" list="lista_principios" value="{{ producto['principio_activo'] if producto and producto['principio_activo'] else '' }}"></label>
+    <label>Concentración <input type="text" name="concentracion" list="lista_concentraciones" value="{{ producto['concentracion'] if producto and producto['concentracion'] else '' }}"></label>
+    <label>Forma farmacéutica <input type="text" name="forma_farmaceutica" list="lista_formas" value="{{ producto['forma_farmaceutica'] if producto and producto['forma_farmaceutica'] else '' }}"></label>
+    <label>Unidad <input type="text" name="unidad" placeholder="unidad, caja, frasco…" value="{{ producto['unidad'] if producto and producto['unidad'] else '' }}"></label>
+  </fieldset>
+
+    <fieldset>
+    <legend>Registro sanitario</legend>
+    <label>Registro INVIMA <input type="text" name="registro_sanitario" value="{{ producto['registro_sanitario'] if producto and producto['registro_sanitario'] else '' }}"></label>
+    <label>Vence <input type="date" name="registro_vence" value="{{ producto['registro_vence'] if producto and producto['registro_vence'] else '' }}"></label>
+    <label>Fabricante <input type="text" name="fabricante" list="lista_fabricantes" value="{{ producto['fabricante'] if producto and producto['fabricante'] else '' }}"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Precio e IVA</legend>
+    <label>Tipo de IVA
+      <select name="iva_tipo">
+        {% for clave, texto in iva_tipos.items() %}
+          <option value="{{ clave }}" {% if producto and producto['iva_tipo']==clave %}selected{% endif %}>{{ texto }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Tarifa IVA (%) <input type="number" step="0.01" name="iva_tarifa" value="{{ producto['iva_tarifa'] if producto else 19 }}"></label>
+    <label>Precio de venta * <input type="number" step="0.01" name="precio_venta" required value="{{ producto['precio_venta'] if producto else 0 }}"></label>
+    <label>Precio máximo regulado <input type="number" step="0.01" name="precio_maximo" value="{{ producto['precio_maximo'] if producto and producto['precio_maximo'] else '' }}"></label>
+    <label>Stock mínimo <input type="number" name="stock_minimo" value="{{ producto['stock_minimo'] if producto else 0 }}"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Condiciones especiales</legend>
+    <label><input type="checkbox" name="requiere_formula" {% if producto and producto['requiere_formula'] %}checked{% endif %}> Requiere fórmula médica</label>
+    <label><input type="checkbox" name="cadena_frio" {% if producto and producto['cadena_frio'] %}checked{% endif %}> Cadena de frío (2–8 °C)</label>
+    <label><input type="checkbox" name="control_especial" {% if producto and producto['control_especial'] %}checked{% endif %}> Control especial (FNE)</label>
+  </fieldset>
+
+  <label>Observaciones <textarea name="observaciones" rows="3">{{ producto['observaciones'] if producto and producto['observaciones'] else '' }}</textarea></label>
+
+  <datalist id="lista_principios">
+    {% for v in valores.principios %}<option value="{{ v }}">{% endfor %}
+  </datalist>
+  <datalist id="lista_concentraciones">
+    {% for v in valores.concentraciones %}<option value="{{ v }}">{% endfor %}
+  </datalist>
+  <datalist id="lista_formas">
+    {% for v in valores.formas %}<option value="{{ v }}">{% endfor %}
+  </datalist>
+  <datalist id="lista_fabricantes">
+    {% for v in valores.fabricantes %}<option value="{{ v }}">{% endfor %}
+  </datalist>
+
+  <div class="acciones">
+    <button type="submit">Guardar</button>
+    <a class="boton secundario" href="{{ url_for('productos.lista') }}">Cancelar</a>
+  </div>
+</form>
+<script>
+(function () {
+  const selTipo = document.querySelector('select[name="iva_tipo"]');
+  const inpTarifa = document.querySelector('input[name="iva_tarifa"]');
+  if (!selTipo || !inpTarifa) return;
+
+  function ajustar() {
+    const sinIva = selTipo.value === 'excluido' || selTipo.value === 'exento';
+    if (sinIva) {
+      inpTarifa.value = '0';
+      inpTarifa.readOnly = true;
+      inpTarifa.style.background = '#eef2f5';
+    } else {
+      inpTarifa.readOnly = false;
+      inpTarifa.style.background = '';
+      if (parseFloat(inpTarifa.value) === 0) inpTarifa.value = '19';
+    }
+  }
+  selTipo.addEventListener('change', ajustar);
+  ajustar();
+})();
+</script>
+{% endblock %}
