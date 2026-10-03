@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block titulo %}Zonas de temperatura{% endblock %}
+{% block contenido %}
+<h1>Zonas de temperatura</h1>
+
+<div class="filtros">
+  <a class="boton" href="{{ url_for('temperaturas.zonas_nueva') }}">+ Nueva zona</a>
+  <a class="boton secundario" href="{{ url_for('temperaturas.inicio') }}">Volver a Temperaturas</a>
+</div>
+
+<table class="tabla">
+  <thead>
+    <tr>
+      <th>Zona</th>
+      <th>Rango</th>
+      <th>Humedad</th>
+      <th>Horarios</th>
+      <th>Días</th>
+      <th>Lecturas</th>
+      <th>Estado</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for z in zonas %}
+    <tr class="{% if not z['activa'] %}inactivo{% endif %}">
+      <td>
+        <strong>{{ z['nombre'] }}</strong><br>
+        <small>{{ z['descripcion'] or '' }}</small>
+      </td>
+      <td>{{ z['temp_min'] }}–{{ z['temp_max'] }} °C</td>
+      <td>{% if z['controla_humedad'] %}{{ z['humedad_min'] }}–{{ z['humedad_max'] }} %{% else %}—{% endif %}</td>
+      <td>{{ z['horarios'] }}</td>
+      <td>{{ z['dias_semana'] }}</td>
+      <td>
+        {% if z['lecturas'] %}
+          {{ z['lecturas'] }}
+        {% else %}
+          <span class="suave">0</span>
+        {% endif %}
+      </td>
+      <td>{{ 'Activa' if z['activa'] else 'Inactiva' }}</td>
+      <td>
+        <a href="{{ url_for('temperaturas.zonas_editar', zona_id=z['id']) }}">Editar</a>
+
+        <form method="post" action="{{ url_for('temperaturas.zonas_activar', zona_id=z['id']) }}" style="display:inline">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit">{{ 'Desactivar' if z['activa'] else 'Activar' }}</button>
+        </form>
+
+        {% if not z['lecturas'] %}
+          <form method="post" action="{{ url_for('temperaturas.zonas_eliminar', zona_id=z['id']) }}"
+                style="display:inline"
+                class="form-eliminar"
+                data-nombre="{{ z['nombre'] }}">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button type="submit" class="peligro">Eliminar</button>
+          </form>
+        {% else %}
+          <button type="button" disabled title="No se puede eliminar: tiene lecturas registradas">Eliminar</button>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+document.querySelectorAll('.form-eliminar').forEach(function (form) {
+  form.addEventListener('submit', function (e) {
+    const nombre = form.dataset.nombre || 'esta zona';
+    if (!confirm('¿Eliminar la zona "' + nombre + '"? Esta acción no se puede deshacer.')) {
+      e.preventDefault();
+    }
+  });
+});
+</script>
+{% endblock %}

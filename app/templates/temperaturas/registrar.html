@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar lectura{% endblock %}
+{% block contenido %}
+<h1>Registrar lectura · {{ zona['nombre'] }}</h1>
+<p class="suave">
+  Rango permitido: {{ zona['temp_min'] }}–{{ zona['temp_max'] }} °C
+  {% if zona['controla_humedad'] %} · Humedad: {{ zona['humedad_min'] }}–{{ zona['humedad_max'] }} %{% endif %}
+</p>
+
+<form method="post" class="formulario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="programada_para" value="{{ request.args.get('programada_para', '') }}">
+
+  <fieldset>
+    <legend>Lectura</legend>
+    <label>Temperatura (°C) * <input type="number" step="0.1" name="temperatura" required autofocus></label>
+    {% if zona['controla_humedad'] %}
+      <label>Humedad relativa (%) <input type="number" step="0.1" name="humedad"></label>
+    {% endif %}
+    <label>Observaciones <textarea name="observaciones" rows="2"></textarea></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Solo si la lectura está fuera de rango</legend>
+    <label>Acción correctiva <textarea name="accion_correctiva" rows="3"
+      placeholder="Ej: Se verificó la nevera, se ajustó el termostato. Se trasladaron medicamentos a nevera de respaldo."></textarea></label>
+  </fieldset>
+
+  <div class="acciones">
+    <button type="submit">Guardar lectura</button>
+    <a class="boton secundario" href="{{ url_for('temperaturas.inicio') }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

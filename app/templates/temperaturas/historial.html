@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titulo %}Historial de temperaturas{% endblock %}
+{% block contenido %}
+<h1>Historial de temperaturas</h1>
+
+<form method="get" class="filtros">
+  <select name="zona_id">
+    <option value="">Todas las zonas</option>
+    {% for z in zonas %}
+      <option value="{{ z['id'] }}" {% if zona_id == z['id'] %}selected{% endif %}>{{ z['nombre'] }}</option>
+    {% endfor %}
+  </select>
+  <label>Desde <input type="date" name="desde" value="{{ desde }}"></label>
+  <label>Hasta <input type="date" name="hasta" value="{{ hasta }}"></label>
+  <label><input type="checkbox" name="fuera" value="1" {% if solo_fuera %}checked{% endif %}> Solo fuera de rango</label>
+  <button type="submit">Filtrar</button>
+</form>
+
+<table class="tabla">
+  <thead>
+    <tr><th>Fecha</th><th>Zona</th><th>Temp</th><th>Humedad</th><th>En rango</th><th>Usuario</th><th>Acción correctiva</th></tr>
+  </thead>
+  <tbody>
+    {% for f in filas %}
+    <tr>
+      <td>{{ f['fecha'] }}</td>
+      <td>{{ f['zona_nombre'] }}</td>
+      <td>{{ f['temperatura'] }} °C</td>
+      <td>{% if f['humedad'] is not none %}{{ f['humedad'] }} %{% else %}—{% endif %}</td>
+      <td>{% if f['dentro_de_rango'] %}✔{% else %}<span class="tag control">FUERA</span>{% endif %}</td>
+      <td>{{ f['usuario_nombre'] or '—' }}</td>
+      <td>{{ f['accion_correctiva'] or '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7">Sin registros que coincidan.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

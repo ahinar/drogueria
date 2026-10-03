@@ -44,13 +44,15 @@ def create_app(test_config=None):
     base_datos.init_db(app.config["DB_PATH"])
     base_datos.init_app(app)
 
-    from . import admin, auth, main, productos, proveedores
+    from . import admin, auth, configuracion, main, productos, proveedores, temperaturas
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(admin.bp)
     app.register_blueprint(main.bp)
     app.register_blueprint(productos.bp)
     app.register_blueprint(proveedores.bp)
+    app.register_blueprint(temperaturas.bp)
+    app.register_blueprint(configuracion.bp)
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
 
@@ -79,5 +81,14 @@ def create_app(test_config=None):
                 log.info("Respaldo automático creado: %s", nuevo)
         except Exception:  # un fallo de respaldo nunca debe impedir que arranque el sistema
             log.exception("No se pudo hacer el respaldo automático al iniciar")
+            
+    from .configuracion import obtener_config as _obtener_config
+
+    @app.context_processor
+    def _config_global():
+        try:
+            return {"config_negocio": _obtener_config()}
+        except Exception:
+            return {"config_negocio": {}}       
 
     return app

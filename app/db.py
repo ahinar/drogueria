@@ -112,6 +112,66 @@ MIGRATIONS = [
         CREATE INDEX idx_productos_activo ON productos (activo);
         """,
     ),
+        (
+        3,
+        """
+        CREATE TABLE zonas_temperatura (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            descripcion TEXT,
+            temp_min REAL NOT NULL,
+            temp_max REAL NOT NULL,
+            controla_humedad INTEGER NOT NULL DEFAULT 0,
+            humedad_min REAL,
+            humedad_max REAL,
+            horarios TEXT NOT NULL DEFAULT '09:00,18:00',
+            dias_semana TEXT NOT NULL DEFAULT '1,2,3,4,5,6,7',
+            activa INTEGER NOT NULL DEFAULT 1,
+            minutos_tolerancia INTEGER NOT NULL DEFAULT 30,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT
+        );
+
+        CREATE TABLE equipos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'termohigrometro'
+                CHECK (tipo IN ('termohigrometro', 'nevera', 'data_logger')),
+            marca TEXT,
+            modelo TEXT,
+            serie TEXT,
+            zona_id INTEGER,
+            fecha_calibracion TEXT,
+            proxima_calibracion TEXT,
+            observaciones TEXT,
+            activo INTEGER NOT NULL DEFAULT 1,
+            creado_en TEXT NOT NULL,
+            FOREIGN KEY (zona_id) REFERENCES zonas_temperatura (id)
+        );
+
+        CREATE TABLE temperatura_registros (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            zona_id INTEGER NOT NULL,
+            equipo_id INTEGER,
+            fecha TEXT NOT NULL,
+            programada_para TEXT,
+            temperatura REAL NOT NULL,
+            humedad REAL,
+            dentro_de_rango INTEGER NOT NULL DEFAULT 1,
+            accion_correctiva TEXT,
+            corregido_por INTEGER,
+            corregido_en TEXT,
+            observaciones TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            FOREIGN KEY (zona_id) REFERENCES zonas_temperatura (id),
+            FOREIGN KEY (equipo_id) REFERENCES equipos (id)
+        );
+        CREATE INDEX idx_temp_reg_zona_fecha ON temperatura_registros (zona_id, fecha);
+        CREATE INDEX idx_temp_reg_fecha ON temperatura_registros (fecha);
+        """,
+    ),
 ]
 
 
@@ -148,6 +208,27 @@ def init_db(ruta) -> int:
                         conn.rollback()
                     raise
                 actual = version
+                        # Sembrar zonas típicas si la tabla está vacía.
+        try:
+            hay_zonas = conn.execute("SELECT 1 FROM zonas_temperatura LIMIT 1").fetchone()
+            if not hay_zonas:
+                from datetime import datetime as _dt
+                semilla = [
+                    ("Nevera", "Medicamentos refrigerados 2–8 °C", 2.0, 8.0, 1, 0.0, 75.0, "09:00,18:00", 0),
+                    ("Ambiente", "Bodega y área de venta", 0.0, 30.0, 1, 0.0, 75.0, "09:00,18:00", 1),
+                    ("Vitrina", "Mostrador principal", 0.0, 30.0, 0, None, None, "09:00", 0),
+                    ("Cuarentena", "Producto en cuarentena", 0.0, 30.0, 0, None, None, "09:00", 0),
+                ]
+                for n, d, tmin, tmax, ch, hmin, hmax, hor, act in semilla:
+                    conn.execute(
+                        "INSERT INTO zonas_temperatura (nombre, descripcion, temp_min, temp_max, "
+                        "controla_humedad, humedad_min, humedad_max, horarios, dias_semana, activa, "
+                        "minutos_tolerancia, creado_en) VALUES (?,?,?,?,?,?,?,?, '1,2,3,4,5,6,7', ?, 30, ?)",
+                        (n, d, tmin, tmax, ch, hmin, hmax, hor, act, _dt.now().isoformat(sep=" ", timespec="seconds")),
+                    )
+                conn.commit()
+        except sqlite3.OperationalError:
+            pass  # la tabla aún no existe (primera pasada): la sembrará en la siguiente ejecución
         return actual
     finally:
         conn.close()

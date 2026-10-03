@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block titulo %}Temperaturas{% endblock %}
+{% block contenido %}
+<h1>🌡️ Control de temperatura y humedad</h1>
+<p class="suave">Registro con alarma. La alarma aparece en pantalla cuando ya pasó la hora programada y no hay lectura.</p>
+
+<div class="rejilla">
+  {% for r in resumen %}
+  <div class="modulo {% if not r.zona['activa'] %}apagado{% endif %}">
+    <h2>{{ r.zona['nombre'] }}</h2>
+    <p class="suave">{{ r.zona['descripcion'] or '' }}</p>
+    <p>
+      Rango: <strong>{{ r.zona['temp_min'] }}–{{ r.zona['temp_max'] }} °C</strong>
+      {% if r.zona['controla_humedad'] %}
+        · Humedad: <strong>{{ r.zona['humedad_min'] }}–{{ r.zona['humedad_max'] }} %</strong>
+      {% endif %}
+    </p>
+    <p>Horarios: <strong>{{ r.zona['horarios'] }}</strong></p>
+    {% if r.ultima %}
+      <p>Última lectura: <strong>{{ r.ultima['fecha'] }}</strong> —
+         {{ r.ultima['temperatura'] }} °C{% if r.ultima['humedad'] %} · {{ r.ultima['humedad'] }} %{% endif %}
+         {% if not r.ultima['dentro_de_rango'] %}<span class="tag control">FUERA DE RANGO</span>{% endif %}
+      </p>
+    {% else %}
+      <p class="suave">Sin lecturas todavía.</p>
+    {% endif %}
+    {% if r.zona['activa'] %}
+      <a class="boton" href="{{ url_for('temperaturas.registrar_lectura', zona_id=r.zona['id']) }}">Registrar lectura</a>
+    {% else %}
+      <span class="etiqueta">Desactivada</span>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<div style="margin-top:1.5rem">
+  <a class="boton secundario" href="{{ url_for('temperaturas.historial') }}">Ver historial</a>
+  {% if g.user.rol in ('administrador', 'director_tecnico') %}
+    <a class="boton secundario" href="{{ url_for('temperaturas.zonas_lista') }}">Configurar zonas</a>
+  {% endif %}
+</div>
+
+<!-- Contenedor de alarma visual (oculto por defecto) -->
+<div id="alarma-temp" class="alarma-oculta" role="alert" aria-live="assertive">
+  <div class="alarma-caja">
+    <h2>⏰ REGISTRO DE TEMPERATURA PENDIENTE</h2>
+    <ul id="alarma-lista"></ul>
+    <div class="alarma-acciones">
+      <button type="button" id="alarma-silenciar">🔇 Silenciar sonido</button>
+      <button type="button" id="alarma-cerrar">Cerrar (volverá a aparecer)</button>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/alarma.js') }}"></script>
+{% endblock %}

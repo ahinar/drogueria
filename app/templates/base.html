@@ -12,11 +12,15 @@
     {% if g.user %}
     <nav>
       <a href="{{ url_for('main.inicio') }}">Inicio</a>
+      <a href="{{ url_for('temperaturas.inicio') }}">Temperaturas</a>
       <a href="{{ url_for('productos.lista') }}">Productos</a>
       <a href="{{ url_for('proveedores.lista') }}">Proveedores</a>
-      {% if g.user.rol == 'administrador' %}<a href="{{ url_for('admin.usuarios') }}">Usuarios</a>{% endif %}
-      {% if g.user.rol in ('administrador', 'director_tecnico') %}<a href="{{ url_for('admin.bitacora') }}">Bitácora</a>{% endif %}
-      {% if g.user.rol == 'administrador' %}<a href="{{ url_for('admin.respaldos') }}">Respaldos</a>{% endif %}
+      {% if g.user.rol in ('administrador', 'director_tecnico') %}
+        <a href="{{ url_for('admin.bitacora') }}">Bitácora</a>
+      {% endif %}
+      {% if g.user.rol == 'administrador' %}
+        <a href="{{ url_for('admin.usuarios') }}">Usuarios</a>
+      {% endif %}
     </nav>
     <div class="usuario">
       <a href="{{ url_for('auth.cuenta') }}">{{ g.user.nombre }}</a>

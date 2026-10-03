@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block titulo %}Configuración del negocio{% endblock %}
+{% block contenido %}
+<h1>⚙️ Configuración del negocio</h1>
+<p class="suave">Estos datos aparecen en los informes, PDFs y comprobantes internos. Mantenlos actualizados.</p>
+
+<form method="post" class="formulario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+  <fieldset>
+    <legend>Identificación</legend>
+    {% for clave, titulo, tipo in campos %}
+      {% if clave in ('nit','razon_social','nombre_comercial') %}
+        <label>{{ titulo }} <input type="{{ tipo }}" name="{{ clave }}" value="{{ valores[clave] }}"></label>
+      {% endif %}
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
+    <legend>Ubicación y contacto</legend>
+    {% for clave, titulo, tipo in campos %}
+      {% if clave in ('direccion','ciudad','departamento','telefono','celular','correo','sitio_web','horario') %}
+        <label>{{ titulo }} <input type="{{ tipo }}" name="{{ clave }}" value="{{ valores[clave] }}"></label>
+      {% endif %}
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
+    <legend>Director Técnico</legend>
+    {% for clave, titulo, tipo in campos %}
+      {% if clave in ('regente_nombre','regente_documento','regente_tarjeta') %}
+        <label>{{ titulo }} <input type="{{ tipo }}" name="{{ clave }}" value="{{ valores[clave] }}"></label>
+      {% endif %}
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
+    <legend>Pie de página para comprobantes</legend>
+    <label>Texto legal que aparecerá al pie de cada PDF o comprobante
+      <textarea name="pie_pagina" rows="2">{{ valores['pie_pagina'] }}</textarea>
+    </label>
+  </fieldset>
+
+  <div class="acciones">
+    <button type="submit">Guardar configuración</button>
+  </div>
+</form>
+{% endblock %}

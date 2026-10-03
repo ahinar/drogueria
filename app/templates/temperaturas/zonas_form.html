@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Editar zona' if zona else 'Nueva zona' }}{% endblock %}
+{% block contenido %}
+<h1>{{ 'Editar zona · ' + zona['nombre'] if zona else 'Nueva zona de temperatura' }}</h1>
+
+<form method="post" class="formulario"
+      action="{{ url_for('temperaturas.zonas_editar', zona_id=zona['id']) if zona else url_for('temperaturas.zonas_nueva') }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+  <fieldset>
+    <legend>Identificación</legend>
+    {% if not zona %}
+      <label>Nombre de la zona * <input type="text" name="nombre" required value="" placeholder="Ej: Nevera de respaldo"></label>
+    {% else %}
+      <label>Nombre <input type="text" value="{{ zona['nombre'] }}" disabled></label>
+    {% endif %}
+    <label>Descripción <input type="text" name="descripcion" value="{{ zona['descripcion'] if zona and zona['descripcion'] else '' }}"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Rango de temperatura</legend>
+    <label>Mínima (°C) * <input type="number" step="0.1" name="temp_min" required value="{{ zona['temp_min'] if zona else '' }}"></label>
+    <label>Máxima (°C) * <input type="number" step="0.1" name="temp_max" required value="{{ zona['temp_max'] if zona else '' }}"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Humedad</legend>
+    <label><input type="checkbox" name="controla_humedad" {% if zona and zona['controla_humedad'] %}checked{% endif %}> Controlar humedad en esta zona</label>
+    <label>Humedad mínima (%) <input type="number" step="0.1" name="humedad_min" value="{{ zona['humedad_min'] if zona and zona['humedad_min'] is not none else '' }}"></label>
+    <label>Humedad máxima (%) <input type="number" step="0.1" name="humedad_max" value="{{ zona['humedad_max'] if zona and zona['humedad_max'] is not none else '' }}"></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Programación</legend>
+    <label>Horarios (separados por coma, formato HH:MM)
+      <input type="text" name="horarios" value="{{ zona['horarios'] if zona else '09:00,18:00' }}" placeholder="09:00,18:00">
+    </label>
+    <label>Días de la semana (1=lunes … 7=domingo)
+      <div style="display:flex;gap:.8rem;flex-wrap:wrap">
+        {% set letras = {1:'Lun',2:'Mar',3:'Mié',4:'Jue',5:'Vie',6:'Sáb',7:'Dom'} %}
+        {% set seleccionados = (zona['dias_semana'] if zona else '1,2,3,4,5,6,7').split(',') %}
+        {% for n in [1,2,3,4,5,6,7] %}
+          <label style="display:inline-block">
+            <input type="checkbox" name="dias" value="{{ n }}"
+              {% if n|string in seleccionados %}checked{% endif %}>
+            {{ letras[n] }}
+          </label>
+        {% endfor %}
+      </div>
+    </label>
+    <label>Minutos de tolerancia antes de la alarma
+      <input type="number" name="minutos_tolerancia" value="{{ zona['minutos_tolerancia'] if zona else 30 }}">
+    </label>
+  </fieldset>
+
+  <div class="acciones">
+    <button type="submit">{{ 'Guardar cambios' if zona else 'Crear zona' }}</button>
+    <a class="boton secundario" href="{{ url_for('temperaturas.zonas_lista') }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

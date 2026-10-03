@@ -92,3 +92,156 @@ code { background: #eaf0f5; padding: .1rem .35rem; border-radius: 4px; }
 }
 .formulario input[type="checkbox"] { margin-right: .4rem; }
 .acciones { display: flex; gap: .6rem; margin-top: 1rem; }
+
+/* --- Alarma de temperaturas --- */
+.alarma-oculta { display: none !important; }
+
+#alarma-temp {
+  position: fixed;
+  inset: 0;
+  background: rgba(180, 0, 0, 0.92);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: parpadeo 1s infinite;
+}
+
+@keyframes parpadeo {
+  0%, 100% { background: rgba(180, 0, 0, 0.92); }
+  50%      { background: rgba(255, 40, 40, 0.95); }
+}
+
+.alarma-caja {
+  background: #fff;
+  color: #700;
+  border-radius: .6rem;
+  padding: 2rem 2.5rem;
+  max-width: 600px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .4);
+  text-align: center;
+}
+
+.alarma-caja h2 {
+  margin-top: 0;
+  font-size: 1.6rem;
+  color: #b00;
+}
+
+.alarma-caja ul {
+  text-align: left;
+  margin: 1rem 0 1.5rem;
+  padding-left: 1.2rem;
+  font-size: 1.05rem;
+}
+
+.alarma-caja ul li {
+  margin: .4rem 0;
+}
+
+.alarma-acciones {
+  display: flex;
+  gap: .8rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.alarma-acciones button {
+  padding: .6rem 1.2rem;
+  font-size: 1rem;
+  border-radius: .3rem;
+  border: none;
+  cursor: pointer;
+  background: #b00;
+  color: #fff;
+}
+
+.alarma-acciones button:hover { opacity: .9; }
+
+.alarma-acciones button#alarma-silenciar { background: #666; }
+
+/* Botón de eliminar (peligro) */
+button.peligro,
+.boton.peligro {
+  background: #b3261e;
+  color: #fff;
+}
+button.peligro:hover,
+.boton.peligro:hover {
+  background: #8c1d18;
+}
+
+button:disabled,
+.boton:disabled {
+  background: #ccc;
+  color: #666;
+  cursor: not-allowed;
+  opacity: .7;
+}
+
+/* --- Sección de títulos del inicio --- */
+.titulo-seccion {
+  margin: 1.5rem 0 .8rem;
+  font-size: 1.1rem;
+  color: #0a6ebd;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-weight: 600;
+}
+
+/* --- Tarjetas de módulos --- */
+.modulo {
+  display: block;
+  background: #fff;
+  border: 1px solid #d8e0e6;
+  border-radius: .5rem;
+  padding: 1rem 1.2rem;
+  text-decoration: none;
+  color: inherit;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  position: relative;
+}
+
+.modulo h2 {
+  margin: 0 0 .4rem;
+  font-size: 1.05rem;
+  color: #0a4f8a;
+}
+
+.modulo p {
+  margin: 0;
+  color: #555;
+  font-size: .9rem;
+  line-height: 1.35;
+}
+
+/* Solo las tarjetas activas (enlaces) reaccionan al hover */
+a.modulo:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .08);
+  border-color: #0a6ebd;
+}
+
+/* Tarjetas deshabilitadas (próximamente) */
+.modulo.apagado {
+  background: #f4f6f8;
+  border-color: #e3e8ec;
+  color: #8a95a0;
+  cursor: default;
+}
+
+.modulo.apagado h2 { color: #7a8794; }
+.modulo.apagado p  { color: #98a4b0; }
+
+.modulo .etiqueta {
+  display: inline-block;
+  position: absolute;
+  top: .8rem;
+  right: .8rem;
+  background: #e3e8ec;
+  color: #68737d;
+  font-size: .72rem;
+  padding: .15rem .5rem;
+  border-radius: .8rem;
+  font-weight: 600;
+}
