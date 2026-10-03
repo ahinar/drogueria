@@ -44,7 +44,8 @@ def create_app(test_config=None):
     base_datos.init_db(app.config["DB_PATH"])
     base_datos.init_app(app)
 
-    from . import admin, auth, configuracion, main, productos, proveedores, temperaturas
+    from . import (admin, auth, configuracion, main, productos, proveedores,
+                   reportes, temperaturas)
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(admin.bp)
@@ -53,6 +54,7 @@ def create_app(test_config=None):
     app.register_blueprint(proveedores.bp)
     app.register_blueprint(temperaturas.bp)
     app.register_blueprint(configuracion.bp)
+    app.register_blueprint(reportes.bp)
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
 

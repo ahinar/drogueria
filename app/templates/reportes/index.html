@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}Reportes{% endblock %}
+{% block contenido %}
+<h1>📊 Reportes</h1>
+<p class="suave">Informes para inspección, control interno y consulta. Todos se pueden descargar en PDF.</p>
+
+<div class="rejilla">
+  <a class="modulo" href="{{ url_for('reportes.temperaturas') }}">
+    <h2>🌡️ Temperaturas</h2>
+    <p>Historial con gráfico de evolución. Descargable en PDF.</p>
+  </a>
+
+  <div class="modulo apagado">
+    <h2>📦 Recepciones</h2>
+    <p>Recepción técnica por período.</p>
+    <span class="etiqueta">Fase 1.3</span>
+  </div>
+
+  <div class="modulo apagado">
+    <h2>🗃️ Vencimientos</h2>
+    <p>Productos próximos a vencer.</p>
+    <span class="etiqueta">Fase 1.4</span>
+  </div>
+
+  <div class="modulo apagado">
+    <h2>🛒 Ventas</h2>
+    <p>Ventas por período y por usuario.</p>
+    <span class="etiqueta">Fase 2</span>
+  </div>
+
+  <div class="modulo apagado">
+    <h2>📈 Utilidades</h2>
+    <p>Ganancias por día, semana, mes o rango.</p>
+    <span class="etiqueta">Fase 2</span>
+  </div>
+
+  <div class="modulo apagado">
+    <h2>🧾 Modo Inspección</h2>
+    <p>Paquete completo de un período para la Secretaría de Salud.</p>
+    <span class="etiqueta">Fase 4</span>
+  </div>
+</div>
+{% endblock %}

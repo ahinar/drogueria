@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block titulo %}Reporte de temperaturas{% endblock %}
+{% block contenido %}
+<h1>🌡️ Reporte de temperaturas</h1>
+
+<form method="get" class="filtros">
+  <select name="zona_id">
+    <option value="">Todas las zonas</option>
+    {% for z in zonas %}
+      <option value="{{ z['id'] }}" {% if filtros.zona_id == z['id'] %}selected{% endif %}>{{ z['nombre'] }}</option>
+    {% endfor %}
+  </select>
+  <label>Desde <input type="date" name="desde" value="{{ filtros.desde }}"></label>
+  <label>Hasta <input type="date" name="hasta" value="{{ filtros.hasta }}"></label>
+  <label><input type="checkbox" name="fuera" value="1" {% if filtros.fuera %}checked{% endif %}> Solo fuera de rango</label>
+  <button type="submit">Filtrar</button>
+  <a class="boton" href="{{ url_for('reportes.temperaturas_pdf', **request.args) }}">📄 Descargar PDF</a>
+</form>
+
+<p class="suave">Total de registros: <strong>{{ total }}</strong>{% if total > 500 %} (mostrando los últimos 500){% endif %}</p>
+
+<h2 class="titulo-seccion">Evolución</h2>
+<div style="background:#fff;border:1px solid #d8e0e6;border-radius:.5rem;padding:1rem;position:relative;height:380px">
+  <canvas id="grafico-temp" style="height:340px;width:100%"></canvas>
+</div>
+
+<h2 class="titulo-seccion">Detalle</h2>
+<table class="tabla">
+  <thead>
+    <tr><th>Fecha</th><th>Zona</th><th>Temp</th><th>Humedad</th><th>En rango</th><th>Usuario</th><th>Acción correctiva</th></tr>
+  </thead>
+  <tbody>
+    {% for f in filas %}
+    <tr>
+      <td>{{ f['fecha'] }}</td>
+      <td>{{ f['zona_nombre'] }}</td>
+      <td>{{ '%.1f'|format(f['temperatura']) }} °C</td>
+      <td>{% if f['humedad'] is not none %}{{ '%.1f'|format(f['humedad']) }} %{% else %}—{% endif %}</td>
+      <td>{% if f['dentro_de_rango'] %}✔{% else %}<span class="tag control">FUERA</span>{% endif %}</td>
+      <td>{{ f['usuario_nombre'] or '—' }}</td>
+      <td>{{ f['accion_correctiva'] or '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7">Sin registros con esos filtros.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script id="datos-temp" type="application/json">{{ datos|tojson }}</script>
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script id="datos-temp" type="application/json">{{ datos|tojson }}</script>
+<script>
+(function () {
+  const canvas = document.getElementById('grafico-temp');
+  if (!canvas) return;
+
+  const datos = JSON.parse(document.getElementById('datos-temp').textContent);
+  if (!datos.length) {
+    canvas.parentElement.innerHTML = '<p class="suave" style="text-align:center;padding:2rem">Sin datos para graficar.</p>';
+    return;
+  }
+
+  // Etiquetas del eje X (fechas como texto)
+  const etiquetas = datos.map(d => d.fecha);
+
+  // Agrupar por zona
+  const zonasSet = {};
+  datos.forEach((d) => {
+    if (!zonasSet[d.zona]) zonasSet[d.zona] = { valores: [], colores: [] };
+    zonasSet[d.zona].valores.push(d.temperatura);
+    zonasSet[d.zona].colores.push(d.en_rango ? null : '#b3261e');
+  });
+
+  const paleta = ['#0a6ebd', '#2e8b57', '#c9812c', '#8a2d8a', '#b3261e'];
+
+  const datasets = Object.keys(zonasSet).map((zona, i) => {
+    const color = paleta[i % paleta.length];
+    return {
+      label: zona,
+      data: zonasSet[zona].valores,
+      borderColor: color,
+      backgroundColor: color + '33',
+      tension: 0.25,
+      pointRadius: 4,
+      pointBackgroundColor: zonasSet[zona].colores.map(c => c || color),
+      pointBorderColor: zonasSet[zona].colores.map(c => c || color),
+      pointBorderWidth: 2,
+    };
+  });
+
+  new Chart(canvas, {
+    type: 'line',
+    data: { labels: etiquetas, datasets: datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          title: { display: true, text: 'Registros' },
+          ticks: { maxRotation: 60, minRotation: 0, autoSkip: true, maxTicksLimit: 15 },
+        },
+        y: {
+          title: { display: true, text: 'Temperatura (°C)' },
+        },
+      },
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            title: (items) => etiquetas[items[0].dataIndex],
+            afterLabel: (ctx) => {
+              const original = datos[ctx.dataIndex];
+              return original && !original.en_rango ? '⚠ Fuera de rango' : '';
+            },
+          },
+        },
+      },
+    },
+  });
+})();
+</script>
+{% endblock %}
