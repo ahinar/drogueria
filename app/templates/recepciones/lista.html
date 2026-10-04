@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titulo %}Recepciones{% endblock %}
+{% block contenido %}
+<h1>📦 Recepciones técnicas</h1>
+
+<form method="get" class="filtros">
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por número, factura o proveedor…">
+  <select name="filtro">
+    <option value="">Todos los estados</option>
+    {% for clave, texto in estados.items() %}
+      <option value="{{ clave }}" {% if filtro==clave %}selected{% endif %}>{{ texto }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filtrar</button>
+  <a class="boton" href="{{ url_for('recepciones.nueva') }}">+ Nueva recepción</a>
+</form>
+
+<table class="tabla">
+  <thead>
+    <tr>
+      <th>Número</th>
+      <th>Fecha</th>
+      <th>Proveedor</th>
+      <th>Factura</th>
+      <th>Estado</th>
+      <th>Recibido por</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in filas %}
+    <tr>
+      <td><strong>{{ r['numero'] }}</strong></td>
+      <td><small>{{ r['fecha'] }}</small></td>
+      <td>{{ r['proveedor_nombre'] }}</td>
+      <td>{{ r['factura_numero'] or '—' }}</td>
+      <td>
+        <span class="tag-estado estado-{{ r['estado'] }}">
+          {{ estados.get(r['estado'], r['estado']) }}
+        </span>
+      </td>
+      <td>{{ r['recibido_por_nombre'] or '—' }}</td>
+      <td>
+        <a href="{{ url_for('recepciones.ver', rec_id=r['id']) }}">Ver</a>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7">No hay recepciones registradas.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

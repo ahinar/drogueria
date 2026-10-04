@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block titulo %}Unidades de medida{% endblock %}
+{% block contenido %}
+<h1>📏 Unidades de medida</h1>
+<p class="suave">Define cómo se vende cada producto: por Unidad, por Sello x 10, por Caja x 100, etc. La "cantidad" indica cuántas unidades base contiene.</p>
+
+<div class="filtros">
+  <a class="boton" href="{{ url_for('unidades.nueva') }}">+ Nueva unidad</a>
+</div>
+
+<table class="tabla">
+  <thead>
+    <tr><th>Nombre</th><th>Cantidad</th><th>Unidad de referencia</th><th>Estado</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for u in filas %}
+    <tr class="{% if not u['activo'] %}inactivo{% endif %}">
+      <td><strong>{{ u['nombre'] }}</strong></td>
+      <td>{{ u['cantidad'] }}</td>
+      <td>{{ u['ref_nombre'] or '—' }}</td>
+      <td>{{ 'Activa' if u['activo'] else 'Inactiva' }}</td>
+      <td>
+        <a href="{{ url_for('unidades.editar', uid=u['id']) }}">Editar</a>
+        <form method="post" action="{{ url_for('unidades.activar', uid=u['id']) }}" style="display:inline">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit">{{ 'Desactivar' if u['activo'] else 'Activar' }}</button>
+        </form>
+        {% if u['nombre'] != 'Unidad' %}
+        <form method="post" action="{{ url_for('unidades.eliminar', uid=u['id']) }}"
+              style="display:inline" class="form-eliminar" data-nombre="{{ u['nombre'] }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="peligro">Eliminar</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script>
+document.querySelectorAll('.form-eliminar').forEach(function (form) {
+  form.addEventListener('submit', function (e) {
+    const nombre = form.dataset.nombre || 'esta unidad';
+    if (!confirm('¿Eliminar "' + nombre + '"?')) e.preventDefault();
+  });
+});
+</script>
+{% endblock %}

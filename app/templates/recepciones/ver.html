@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block titulo %}Recepción {{ rec['numero'] }}{% endblock %}
+{% block contenido %}
+<h1>📦 Recepción {{ rec['numero'] }}</h1>
+
+<div class="rece-acciones">
+  <a class="boton secundario" href="{{ url_for('recepciones.lista') }}">← Volver</a>
+  <a class="boton" href="{{ url_for('recepciones.pdf', rec_id=rec['id']) }}">📄 Descargar PDF</a>
+</div>
+
+<div class="rece-info">
+  <div class="rece-info-campo">
+    <span class="rece-label">Estado</span>
+    <span class="tag-estado estado-{{ rec['estado'] }}">
+      {{ estados.get(rec['estado'], rec['estado']) }}
+    </span>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Fecha</span>
+    <strong>{{ rec['fecha'] }}</strong>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Proveedor</span>
+    <strong>{{ proveedor['razon_social'] if proveedor else '—' }}</strong>
+    <small>NIT {{ proveedor['nit'] if proveedor else '—' }}</small>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Factura</span>
+    <strong>{{ rec['factura_numero'] or '—' }}</strong>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Remisión</span>
+    <strong>{{ rec['remision_numero'] or '—' }}</strong>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Temperatura llegada</span>
+    <strong>{% if rec['temperatura_llegada'] is not none %}{{ rec['temperatura_llegada'] }} °C{% else %}—{% endif %}</strong>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Recibido por</span>
+    <strong>{{ rec['recibido_por_nombre'] or '—' }}</strong>
+  </div>
+  {% if rec['aprobado_por_nombre'] %}
+  <div class="rece-info-campo">
+    <span class="rece-label">Aprobado por</span>
+    <strong>{{ rec['aprobado_por_nombre'] }}</strong>
+    <small>{{ rec['aprobado_en'] }}</small>
+  </div>
+  {% endif %}
+</div>
+
+{% if rec['observaciones'] %}
+<div class="rece-observaciones">
+  <strong>Observaciones:</strong> {{ rec['observaciones'] }}
+</div>
+{% endif %}
+
+<h2 class="titulo-seccion">Líneas</h2>
+<table class="tabla">
+  <thead>
+    <tr>
+      <th>Producto</th>
+      <th>Lote</th>
+      <th>Vence</th>
+      <th>Cant. Fact.</th>
+      <th>Cant. Rec.</th>
+      <th>Costo</th>
+      <th>Empaque</th>
+      <th>Resultado</th>
+      <th>Motivo</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for l in lineas %}
+    <tr>
+      <td>
+        <strong>{{ l['producto_codigo'] }}</strong><br>
+        <small>{{ l['producto_nombre'] }}</small>
+      </td>
+      <td>{{ l['lote'] or '—' }}</td>
+      <td>{{ l['vencimiento'] or '—' }}</td>
+      <td>{{ '%.2f'|format(l['cantidad_facturada']) }}</td>
+      <td>{{ '%.2f'|format(l['cantidad_recibida']) }}</td>
+      <td>${{ '%.2f'|format(l['costo_unitario']) }}</td>
+      <td>{{ empaques.get(l['estado_empaque'], l['estado_empaque']) }}</td>
+      <td>
+        <span class="tag-resultado res-{{ l['resultado'] }}">
+          {{ resultados.get(l['resultado'], l['resultado']) }}
+        </span>
+      </td>
+      <td>{{ l['motivo_rechazo'] or '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if rec['foto_ruta'] %}
+<h2 class="titulo-seccion">Adjunto</h2>
+<img src="{{ url_for('static', filename=rec['foto_ruta']) }}"
+     alt="Adjunto de la recepción"
+     style="max-width:400px;border:1px solid #d8e0e6;border-radius:.4rem">
+{% endif %}
+
+{% if rec['estado'] in ('cuarentena', 'borrador') %}
+  {% if g.user['rol'] in ('administrador', 'director_tecnico') %}
+  <div class="rece-decision">
+    <h2 class="titulo-seccion">Decisión</h2>
+    <form method="post" action="{{ url_for('recepciones.aprobar', rec_id=rec['id']) }}" style="display:inline">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button type="submit" class="boton-pos" style="display:inline-flex">
+        ✅ Aprobar y crear lotes
+      </button>
+    </form>
+
+    <form method="post" action="{{ url_for('recepciones.rechazar', rec_id=rec['id']) }}"
+          class="form-rechazar" style="margin-top:1rem">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label>Motivo del rechazo
+        <input type="text" name="motivo" required placeholder="Ej: Empaques dañados, temperatura fuera de rango…">
+      </label>
+      <button type="submit" class="boton peligro">❌ Rechazar recepción</button>
+    </form>
+  </div>
+  {% endif %}
+{% endif %}
+{% endblock %}

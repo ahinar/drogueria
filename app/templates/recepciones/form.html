@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+{% block titulo %}Nueva recepción{% endblock %}
+{% block contenido %}
+<h1>📦 Nueva recepción técnica</h1>
+
+<form method="post" enctype="multipart/form-data" class="form-tabs">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+  <section class="tab-panel activo">
+    <fieldset>
+      <legend>Datos generales</legend>
+
+      <div class="grid-3-compact">
+        <label>Número *
+          <input type="text" name="numero" required value="{{ numero_sugerido }}">
+        </label>
+        <label>Proveedor *
+          <select name="proveedor_id" required>
+            <option value="">— Seleccionar —</option>
+            {% for p in proveedores %}
+              <option value="{{ p['id'] }}">{{ p['razon_social'] }} ({{ p['nit'] }})</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Factura N°
+          <input type="text" name="factura_numero">
+        </label>
+      </div>
+
+      <div class="grid-3-compact">
+        <label>Remisión N°
+          <input type="text" name="remision_numero">
+        </label>
+        <label>Temperatura de llegada (°C)
+          <input type="number" step="0.1" name="temperatura_llegada" placeholder="Solo si aplica">
+        </label>
+        <label>Foto del empaque/factura (opcional)
+          <input type="file" name="foto" accept="image/*,.pdf">
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Líneas de la recepción</legend>
+
+      <table class="tabla tabla-recepcion" id="tabla-lineas">
+        <thead>
+          <tr>
+            <th style="width:24%">Producto</th>
+            <th style="width:9%">Lote</th>
+            <th style="width:9%">Vence</th>
+            <th style="width:8%">Cant. Fact.</th>
+            <th style="width:8%">Cant. Rec.</th>
+            <th style="width:8%">Costo</th>
+            <th style="width:8%">Empaque</th>
+            <th style="width:9%">Resultado</th>
+            <th style="width:12%">Motivo (si rechazado)</th>
+            <th style="width:5%"></th>
+          </tr>
+        </thead>
+        <tbody id="lineas-body">
+          <tr class="linea">
+            <td>
+              <div class="producto-con-boton">
+                <select name="linea_producto_id" class="sel-producto" required>
+                  <option value="">— Producto —</option>
+                  {% for p in productos %}
+                    <option value="{{ p['id'] }}"
+                            data-rs="{{ p['registro_sanitario'] or '' }}"
+                            data-rs-vence="{{ p['registro_vence'] or '' }}"
+                            data-vence="{{ p['maneja_vencimiento'] }}"
+                            data-frio="{{ p['cadena_frio'] }}"
+                            data-control="{{ p['control_especial'] }}">
+                      {{ p['codigo'] }} — {{ p['nombre'] }}
+                    </option>
+                  {% endfor %}
+                </select>
+                <button type="button" class="btn-mas btn-nuevo-producto" title="Crear producto nuevo">+</button>
+              </div>
+              <small class="hint-rs">RS: —</small>
+            </td>
+            <td><input type="text" name="linea_lote"></td>
+            <td><input type="date" name="linea_vencimiento"></td>
+            <td><input type="number" name="linea_cantidad_facturada" step="0.01" value="0"></td>
+            <td><input type="number" name="linea_cantidad_recibida" step="0.01" value="0"></td>
+            <td><input type="number" name="linea_costo" step="0.01" value="0"></td>
+            <td>
+              <select name="linea_empaque">
+                {% for k, v in empaques.items() %}
+                  <option value="{{ k }}">{{ v }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td>
+              <select name="linea_resultado">
+                {% for k, v in resultados.items() %}
+                  <option value="{{ k }}">{{ v }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td><input type="text" name="linea_motivo"></td>
+            <td><button type="button" class="peligro btn-quitar-linea">✕</button></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <button type="button" id="btn-agregar-linea" class="boton secundario" style="margin-top:.5rem">
+        + Agregar línea
+      </button>
+    </fieldset>
+
+    <label style="margin-top:1rem">Observaciones generales
+      <textarea name="observaciones" rows="3"></textarea>
+    </label>
+  </section>
+
+  <div class="acciones acciones-form">
+    <button type="submit">💾 Guardar recepción</button>
+    <a class="boton secundario" href="{{ url_for('recepciones.lista') }}">Cancelar</a>
+  </div>
+</form>
+
+<!-- ============ MODAL: alta rápida de producto ============ -->
+<div id="modal-producto" class="modal-oculto">
+  <div class="modal-caja">
+    <h2>Nuevo producto (alta rápida)</h2>
+    <p class="suave" style="margin-top:0">Datos mínimos. Podrás completar el resto en Productos.</p>
+
+    <div class="grid-2">
+      <label>Código (auto si lo dejas vacío)
+        <input type="text" id="np-codigo" autocomplete="off" placeholder="P00001">
+      </label>
+      <label>Nombre *
+        <input type="text" id="np-nombre" autocomplete="off" required>
+      </label>
+    </div>
+
+    <div class="grid-2">
+      <label>Registro INVIMA
+        <input type="text" id="np-registro" autocomplete="off">
+      </label>
+      <label>Vence registro
+        <input type="date" id="np-registro-vence">
+      </label>
+    </div>
+
+    <div class="grid-2">
+      <label>Precio de venta
+        <input type="number" step="0.01" id="np-precio" value="0">
+      </label>
+      <label>Unidad de venta *
+        <select id="np-unidad">
+          {% for u in unidades %}
+            <option value="{{ u['id'] }}" {% if u['nombre'] == 'Unidad' %}selected{% endif %}>
+              {{ u['nombre'] }}{% if u['cantidad'] != 1 %} (×{{ u['cantidad'] }}){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <fieldset>
+      <legend>Condiciones</legend>
+      <label class="switch-linea">
+        <input type="checkbox" id="np-maneja-vence" checked>
+        Maneja vencimiento
+      </label>
+      <label class="switch-linea">
+        <input type="checkbox" id="np-formula">
+        Requiere fórmula médica
+      </label>
+      <label class="switch-linea">
+        <input type="checkbox" id="np-frio">
+        Cadena de frío
+      </label>
+      <label class="switch-linea">
+        <input type="checkbox" id="np-control">
+        Control especial (FNE)
+      </label>
+    </fieldset>
+
+    <p id="np-error" class="aviso error" style="display:none"></p>
+
+    <div class="modal-acciones">
+      <button type="button" id="np-cancelar" class="boton secundario">Cancelar</button>
+      <button type="button" id="np-guardar" class="boton">Crear y agregar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const body = document.getElementById('lineas-body');
+  const csrfToken = document.querySelector('input[name="_csrf"]').value;
+
+  // ===== Mostrar RS al lado del select de producto =====
+  function actualizarRS(selectEl) {
+    const opt = selectEl.options[selectEl.selectedIndex];
+    const hint = selectEl.parentElement.parentElement.querySelector('.hint-rs');
+    if (!hint) return;
+    if (!opt || !opt.value) {
+      hint.textContent = 'RS: —';
+      hint.classList.remove('sin-rs');
+      return;
+    }
+    const rs = opt.dataset.rs;
+    const vence = opt.dataset.rsVence;
+    const frio = opt.dataset.frio === '1';
+    const control = opt.dataset.control === '1';
+
+    if (rs) {
+      let texto = 'RS: ' + rs;
+      if (vence) texto += ' · Vence: ' + vence;
+      hint.textContent = texto;
+      hint.classList.remove('sin-rs');
+    } else {
+      hint.textContent = '⚠ SIN registro INVIMA';
+      hint.classList.add('sin-rs');
+    }
+    if (frio) hint.textContent += ' · ❄ Frío';
+    if (control) hint.textContent += ' · ⚠ Control';
+  }
+
+  body.addEventListener('change', function (e) {
+    if (e.target.classList.contains('sel-producto')) {
+      actualizarRS(e.target);
+    }
+  });
+
+  // Inicializar los ya existentes
+  body.querySelectorAll('.sel-producto').forEach(actualizarRS);
+
+  // ===== Agregar / quitar líneas =====
+  document.getElementById('btn-agregar-linea').addEventListener('click', function () {
+    const primera = body.querySelector('tr.linea');
+    const nueva = primera.cloneNode(true);
+    nueva.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+    nueva.querySelectorAll('select').forEach(function (s) { s.selectedIndex = 0; });
+    nueva.querySelector('input[name="linea_cantidad_facturada"]').value = '0';
+    nueva.querySelector('input[name="linea_cantidad_recibida"]').value = '0';
+    nueva.querySelector('input[name="linea_costo"]').value = '0';
+    body.appendChild(nueva);
+    actualizarRS(nueva.querySelector('.sel-producto'));
+  });
+
+  body.addEventListener('click', function (e) {
+    if (e.target.classList.contains('btn-quitar-linea')) {
+      const filas = body.querySelectorAll('tr.linea');
+      if (filas.length === 1) {
+        alert('Debes dejar al menos una línea.');
+        return;
+      }
+      e.target.closest('tr').remove();
+    }
+  });
+
+  // ===== Modal: alta rápida de producto =====
+  const modal = document.getElementById('modal-producto');
+  const npNombre = document.getElementById('np-nombre');
+  const npCodigo = document.getElementById('np-codigo');
+  const npRegistro = document.getElementById('np-registro');
+  const npRegistroVence = document.getElementById('np-registro-vence');
+  const npPrecio = document.getElementById('np-precio');
+  const npUnidad = document.getElementById('np-unidad');
+  const npManejaVence = document.getElementById('np-maneja-vence');
+  const npFormula = document.getElementById('np-formula');
+  const npFrio = document.getElementById('np-frio');
+  const npControl = document.getElementById('np-control');
+  const npError = document.getElementById('np-error');
+  const npGuardar = document.getElementById('np-guardar');
+  const npCancelar = document.getElementById('np-cancelar');
+
+  let lineaOrigenSelect = null;
+
+  function abrirModalProducto(selectEl) {
+    lineaOrigenSelect = selectEl;
+    npNombre.value = '';
+    npCodigo.value = '';
+    npRegistro.value = '';
+    npRegistroVence.value = '';
+    npPrecio.value = '0';
+    npFormula.checked = false;
+    npFrio.checked = false;
+    npControl.checked = false;
+    npManejaVence.checked = true;
+    npError.style.display = 'none';
+    modal.classList.remove('modal-oculto');
+    setTimeout(function () { npNombre.focus(); }, 50);
+  }
+
+  function cerrarModal() { modal.classList.add('modal-oculto'); }
+
+  body.addEventListener('click', function (e) {
+    if (e.target.classList.contains('btn-nuevo-producto')) {
+      const sel = e.target.parentElement.querySelector('.sel-producto');
+      abrirModalProducto(sel);
+    }
+  });
+
+  npCancelar.addEventListener('click', cerrarModal);
+  modal.addEventListener('click', function (e) { if (e.target === modal) cerrarModal(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modal.classList.contains('modal-oculto')) cerrarModal();
+  });
+
+  npGuardar.addEventListener('click', async function () {
+    const nombre = npNombre.value.trim();
+    if (!nombre) { npError.textContent = 'El nombre es obligatorio.'; npError.style.display = 'block'; return; }
+    if ((npFrio.checked || npControl.checked) && !npRegistro.value.trim()) {
+      npError.textContent = 'Cadena de frío o control especial exige registro INVIMA.';
+      npError.style.display = 'block';
+      return;
+    }
+
+    const datos = new FormData();
+    datos.append('_csrf', csrfToken);
+    datos.append('nombre', nombre);
+    datos.append('codigo', npCodigo.value.trim());
+    datos.append('registro_sanitario', npRegistro.value.trim());
+    datos.append('registro_vence', npRegistroVence.value);
+    datos.append('precio_venta', npPrecio.value || '0');
+    datos.append('unidad_venta_id', npUnidad.value);
+    if (npManejaVence.checked) datos.append('maneja_vencimiento', '1');
+    if (npFormula.checked) datos.append('requiere_formula', '1');
+    if (npFrio.checked) datos.append('cadena_frio', '1');
+    if (npControl.checked) datos.append('control_especial', '1');
+
+    npGuardar.disabled = true;
+    npGuardar.textContent = 'Creando…';
+    npError.style.display = 'none';
+
+    try {
+      const resp = await fetch('/recepciones/api/crear-producto', {
+        method: 'POST', body: datos, credentials: 'same-origin',
+      });
+      const json = await resp.json();
+      if (!json.ok) {
+        npError.textContent = json.error || 'No se pudo crear.';
+        npError.style.display = 'block';
+        return;
+      }
+      // Agregar la opción al select y seleccionarla
+      const sel = lineaOrigenSelect;
+      const op = document.createElement('option');
+      op.value = json.id;
+      op.textContent = json.codigo + ' — ' + json.nombre;
+      op.dataset.rs = json.registro_sanitario || '';
+      op.dataset.manejaVence = json.maneja_vencimiento || '1';
+      op.selected = true;
+      sel.appendChild(op);
+      sel.value = json.id;
+      actualizarRS(sel);
+      cerrarModal();
+    } catch (e) {
+      npError.textContent = 'Error de conexión: ' + e.message;
+      npError.style.display = 'block';
+    } finally {
+      npGuardar.disabled = false;
+      npGuardar.textContent = 'Crear y agregar';
+    }
+  });
+})();
+</script>
+{% endblock %}

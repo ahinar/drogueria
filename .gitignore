@@ -7,3 +7,5 @@ db/*.db-shm
 db/secret.key
 backups/*.db
 pdfs/*.pdf
+.vscode/
+*.log

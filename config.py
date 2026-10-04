@@ -18,3 +18,5 @@ STATIC_DIR = BASE_DIR / "static"
 HOST = os.environ.get("DROGUERIA_HOST", "0.0.0.0")  # 0.0.0.0 = visible en la red local
 PORT = int(os.environ.get("DROGUERIA_PORT", "5000"))
 SESSION_HORAS = int(os.environ.get("DROGUERIA_SESION_HORAS", "10"))
+
+UPLOADS_DIR = BASE_DIR / "static" / "uploads"

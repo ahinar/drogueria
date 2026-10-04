@@ -1,15 +1,41 @@
-"""Productos: CRUD con bitácora. No se borran, se desactivan."""
+"""Productos: CRUD con bitácora, catálogos, categorías, usos, presentaciones y unidad de venta."""
 import sqlite3
 
 from flask import (Blueprint, abort, flash, redirect, render_template, request,
                    url_for)
 from .audit import registrar
 from .auth import login_required, roles_required
+from .catalogos import opciones as cat_opciones
 from .db import ahora, get_db
+
+def _valores_existentes(campo):
+    """Valores ya usados en productos (para datalist)."""
+    filas = get_db().execute(
+        "SELECT DISTINCT " + campo + " FROM productos "
+        "WHERE " + campo + " IS NOT NULL AND " + campo + " != '' "
+        "ORDER BY " + campo + " COLLATE NOCASE"
+    ).fetchall()
+    return [f[0] for f in filas]
 
 bp = Blueprint("productos", __name__, url_prefix="/productos")
 
 IVA_TIPOS = {"excluido": "Excluido", "exento": "Exento", "gravado": "Gravado"}
+
+
+def _siguiente_codigo():
+    """Genera el siguiente código interno P00001, P00002, ..."""
+    db = get_db()
+    filas = db.execute(
+        "SELECT codigo FROM productos WHERE codigo LIKE 'P%' "
+        "ORDER BY CAST(SUBSTR(codigo, 2) AS INTEGER) DESC LIMIT 1"
+    ).fetchone()
+    if filas is None:
+        return "P00001"
+    try:
+        n = int(filas["codigo"][1:]) + 1
+    except ValueError:
+        return "P00001"
+    return f"P{n:05d}"
 
 
 def _obtener(prod_id):
@@ -19,52 +45,86 @@ def _obtener(prod_id):
     return fila
 
 
+def _categorias_de(prod_id):
+    return [f["catalogo_id"] for f in get_db().execute(
+        "SELECT catalogo_id FROM productos_categorias WHERE producto_id = ?", (prod_id,)
+    ).fetchall()]
+
+
+def _usos_de(prod_id):
+    return [f["catalogo_id"] for f in get_db().execute(
+        "SELECT catalogo_id FROM productos_usos WHERE producto_id = ?", (prod_id,)
+    ).fetchall()]
+
+
+def _unidades():
+    return get_db().execute(
+        "SELECT id, nombre, cantidad FROM unidades_medida WHERE activo = 1 "
+        "ORDER BY cantidad, nombre"
+    ).fetchall()
+
+
+def _contexto_formulario(producto=None):
+    return {
+        "formas": cat_opciones("forma_farmaceutica"),
+        "principios": cat_opciones("principio"),
+        "laboratorios": cat_opciones("laboratorio"),
+        "categorias": cat_opciones("categoria"),
+        "usos": cat_opciones("uso"),
+        "unidades": _unidades(),
+        "iva_tipos": IVA_TIPOS,
+        "categorias_sel": _categorias_de(producto["id"]) if producto else [],
+        "usos_sel": _usos_de(producto["id"]) if producto else [],
+        "codigo_sugerido": _siguiente_codigo() if not producto else None,
+        "producto": producto,
+        "concentraciones": _valores_existentes("concentracion"),
+    }
+
+
 @bp.route("/")
 @login_required
 def lista():
     q = request.args.get("q", "").strip()
     filtro = request.args.get("filtro", "activos")
-    sql = "SELECT * FROM productos"
+
+    sql = (
+        "SELECT p.*, "
+        "  (SELECT GROUP_CONCAT(c.nombre, ', ') "
+        "   FROM productos_categorias pc JOIN catalogos c ON c.id = pc.catalogo_id "
+        "   WHERE pc.producto_id = p.id) AS categorias_txt, "
+        "  (SELECT nombre FROM catalogos WHERE id = p.principio_id) AS principio_nombre, "
+        "  (SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS laboratorio_nombre, "
+        "  (SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre "
+        "FROM productos p"
+    )
     cond, params = [], []
     if filtro == "activos":
-        cond.append("activo = 1")
+        cond.append("p.activo = 1")
     elif filtro == "inactivos":
-        cond.append("activo = 0")
+        cond.append("p.activo = 0")
     elif filtro == "frio":
-        cond.append("activo = 1 AND cadena_frio = 1")
+        cond.append("p.activo = 1 AND p.cadena_frio = 1")
     elif filtro == "control":
-        cond.append("activo = 1 AND control_especial = 1")
+        cond.append("p.activo = 1 AND p.control_especial = 1")
     elif filtro == "formula":
-        cond.append("activo = 1 AND requiere_formula = 1")
+        cond.append("p.activo = 1 AND p.requiere_formula = 1")
+
     if q:
-        cond.append("(codigo LIKE ? OR codigo_barras LIKE ? OR nombre LIKE ? OR principio_activo LIKE ?)")
+        cond.append(
+            "(p.codigo LIKE ? OR p.codigo_barras LIKE ? OR p.nombre LIKE ? "
+            "OR p.descripcion LIKE ? OR p.grupo LIKE ? "
+            "OR p.principio_id IN (SELECT id FROM catalogos WHERE nombre LIKE ?) "
+            "OR p.laboratorio_id IN (SELECT id FROM catalogos WHERE nombre LIKE ?))"
+        )
         like = f"%{q}%"
-        params += [like, like, like, like]
+        params += [like, like, like, like, like, like, like]
+
     if cond:
         sql += " WHERE " + " AND ".join(cond)
-    sql += " ORDER BY nombre COLLATE NOCASE"
+    sql += " ORDER BY p.nombre COLLATE NOCASE"
     filas = get_db().execute(sql, params).fetchall()
     return render_template("productos/lista.html", productos=filas, q=q, filtro=filtro)
 
-def _valores_existentes():
-    """Valores ya usados en productos, para autocompletar el formulario."""
-    db = get_db()
-
-    def valores(campo):
-        # El campo viene solo de llamadas internas (no del usuario), por eso es seguro.
-        filas = db.execute(
-            "SELECT DISTINCT " + campo + " FROM productos "
-            "WHERE " + campo + " IS NOT NULL AND " + campo + " != '' "
-            "ORDER BY " + campo + " COLLATE NOCASE"
-        ).fetchall()
-        return [f[0] for f in filas]
-
-    return {
-        "principios": valores("principio_activo"),
-        "concentraciones": valores("concentracion"),
-        "formas": valores("forma_farmaceutica"),
-        "fabricantes": valores("fabricante"),
-    }
 
 def _leer_formulario():
     def num(campo, defecto=0.0):
@@ -81,26 +141,40 @@ def _leer_formulario():
         except ValueError:
             return defecto
 
+    def cat(campo):
+        v = request.form.get(campo, "").strip()
+        try:
+            return int(v) if v else None
+        except ValueError:
+            return None
+
+    iva_tipo = request.form.get("iva_tipo", "gravado")
     return {
         "codigo": request.form.get("codigo", "").strip(),
         "codigo_barras": request.form.get("codigo_barras", "").strip() or None,
         "nombre": request.form.get("nombre", "").strip(),
-        "principio_activo": request.form.get("principio_activo", "").strip() or None,
+        "descripcion": request.form.get("descripcion", "").strip() or None,
+        "grupo": request.form.get("grupo", "").strip() or None,
+        "principio_id": cat("principio_id"),
+        "laboratorio_id": cat("laboratorio_id"),
+        "forma_farmaceutica_id": cat("forma_farmaceutica_id"),
+        "unidad_venta_id": cat("unidad_venta_id"),
         "concentracion": request.form.get("concentracion", "").strip() or None,
-        "forma_farmaceutica": request.form.get("forma_farmaceutica", "").strip() or None,
         "registro_sanitario": request.form.get("registro_sanitario", "").strip() or None,
         "registro_vence": request.form.get("registro_vence", "").strip() or None,
-        "fabricante": request.form.get("fabricante", "").strip() or None,
-        "unidad": request.form.get("unidad", "").strip() or None,
-        "iva_tipo": (iva_tipo := request.form.get("iva_tipo", "gravado")),
+        "iva_tipo": iva_tipo,
         "iva_tarifa": 0.0 if iva_tipo in ("excluido", "exento") else num("iva_tarifa", 19.0),
+        "precio_compra": num("precio_compra", 0.0),
         "precio_venta": num("precio_venta", 0.0),
         "precio_maximo": num("precio_maximo") or None,
         "stock_minimo": ent("stock_minimo", 0),
         "requiere_formula": 1 if request.form.get("requiere_formula") else 0,
         "cadena_frio": 1 if request.form.get("cadena_frio") else 0,
         "control_especial": 1 if request.form.get("control_especial") else 0,
+        "maneja_vencimiento": 1 if request.form.get("maneja_vencimiento") else 0,
         "observaciones": request.form.get("observaciones", "").strip() or None,
+        "categorias": [int(x) for x in request.form.getlist("categorias") if x.isdigit()],
+        "usos": [int(x) for x in request.form.getlist("usos") if x.isdigit()],
     }
 
 
@@ -112,11 +186,26 @@ def _validar(datos):
         errores.append("El nombre es obligatorio.")
     if datos["iva_tipo"] not in IVA_TIPOS:
         errores.append("Tipo de IVA no válido.")
-    if datos["precio_venta"] < 0:
-        errores.append("El precio de venta no puede ser negativo.")
+    if datos["precio_venta"] < 0 or datos["precio_compra"] < 0:
+        errores.append("Los precios no pueden ser negativos.")
+    if not datos["unidad_venta_id"]:
+        errores.append("Debes seleccionar la unidad de venta (por ejemplo 'Unidad' o 'Sello x 10').")
     if datos["control_especial"] and not datos["registro_sanitario"]:
         errores.append("Un producto de control especial debe tener registro sanitario INVIMA.")
+    if datos["control_especial"] or datos["cadena_frio"]:
+        datos["maneja_vencimiento"] = 1
     return errores
+
+
+def _guardar_relaciones(db, prod_id, categorias, usos):
+    db.execute("DELETE FROM productos_categorias WHERE producto_id = ?", (prod_id,))
+    db.execute("DELETE FROM productos_usos WHERE producto_id = ?", (prod_id,))
+    for cid in categorias:
+        db.execute("INSERT OR IGNORE INTO productos_categorias (producto_id, catalogo_id) VALUES (?, ?)",
+                   (prod_id, cid))
+    for uid in usos:
+        db.execute("INSERT OR IGNORE INTO productos_usos (producto_id, catalogo_id) VALUES (?, ?)",
+                   (prod_id, uid))
 
 
 @bp.route("/nuevo", methods=["GET", "POST"])
@@ -130,20 +219,25 @@ def nuevo():
             db = get_db()
             try:
                 cur = db.execute(
-                    "INSERT INTO productos (codigo, codigo_barras, nombre, principio_activo, concentracion, "
-                    "forma_farmaceutica, registro_sanitario, registro_vence, fabricante, unidad, iva_tipo, "
-                    "iva_tarifa, precio_venta, precio_maximo, stock_minimo, requiere_formula, cadena_frio, "
-                    "control_especial, observaciones, activo, creado_en) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)",
-                    (datos["codigo"], datos["codigo_barras"], datos["nombre"], datos["principio_activo"],
-                     datos["concentracion"], datos["forma_farmaceutica"], datos["registro_sanitario"],
-                     datos["registro_vence"], datos["fabricante"], datos["unidad"], datos["iva_tipo"],
-                     datos["iva_tarifa"], datos["precio_venta"], datos["precio_maximo"],
-                     datos["stock_minimo"], datos["requiere_formula"], datos["cadena_frio"],
-                     datos["control_especial"], datos["observaciones"], ahora()),
+                    "INSERT INTO productos (codigo, codigo_barras, nombre, descripcion, grupo, "
+                    "principio_id, laboratorio_id, forma_farmaceutica_id, unidad_venta_id, "
+                    "concentracion, registro_sanitario, registro_vence, iva_tipo, iva_tarifa, "
+                    "precio_compra, precio_venta, precio_maximo, stock_minimo, requiere_formula, "
+                    "cadena_frio, control_especial, maneja_vencimiento, observaciones, activo, creado_en) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)",
+                    (datos["codigo"], datos["codigo_barras"], datos["nombre"], datos["descripcion"],
+                     datos["grupo"], datos["principio_id"], datos["laboratorio_id"],
+                     datos["forma_farmaceutica_id"], datos["unidad_venta_id"],
+                     datos["concentracion"], datos["registro_sanitario"], datos["registro_vence"],
+                     datos["iva_tipo"], datos["iva_tarifa"], datos["precio_compra"],
+                     datos["precio_venta"], datos["precio_maximo"], datos["stock_minimo"],
+                     datos["requiere_formula"], datos["cadena_frio"], datos["control_especial"],
+                     datos["maneja_vencimiento"], datos["observaciones"], ahora()),
                 )
+                pid = cur.lastrowid
+                _guardar_relaciones(db, pid, datos["categorias"], datos["usos"])
                 db.commit()
-                registrar("producto_creado", "productos", cur.lastrowid,
+                registrar("producto_creado", "productos", pid,
                           f"código={datos['codigo']} nombre={datos['nombre']}")
                 flash("Producto creado.", "ok")
                 return redirect(url_for("productos.lista"))
@@ -151,8 +245,7 @@ def nuevo():
                 errores.append("Ya existe un producto con ese código.")
         for e in errores:
             flash(e, "error")
-    return render_template("productos/form.html", producto=None, iva_tipos=IVA_TIPOS,
-                           valores=_valores_existentes())
+    return render_template("productos/form.html", **_contexto_formulario())
 
 
 @bp.route("/<int:prod_id>/editar", methods=["GET", "POST"])
@@ -167,18 +260,22 @@ def editar(prod_id):
             db = get_db()
             try:
                 db.execute(
-                    "UPDATE productos SET codigo=?, codigo_barras=?, nombre=?, principio_activo=?, "
-                    "concentracion=?, forma_farmaceutica=?, registro_sanitario=?, registro_vence=?, "
-                    "fabricante=?, unidad=?, iva_tipo=?, iva_tarifa=?, precio_venta=?, precio_maximo=?, "
-                    "stock_minimo=?, requiere_formula=?, cadena_frio=?, control_especial=?, observaciones=?, "
+                    "UPDATE productos SET codigo=?, codigo_barras=?, nombre=?, descripcion=?, grupo=?, "
+                    "principio_id=?, laboratorio_id=?, forma_farmaceutica_id=?, unidad_venta_id=?, "
+                    "concentracion=?, registro_sanitario=?, registro_vence=?, iva_tipo=?, iva_tarifa=?, "
+                    "precio_compra=?, precio_venta=?, precio_maximo=?, stock_minimo=?, requiere_formula=?, "
+                    "cadena_frio=?, control_especial=?, maneja_vencimiento=?, observaciones=?, "
                     "actualizado_en=? WHERE id=?",
-                    (datos["codigo"], datos["codigo_barras"], datos["nombre"], datos["principio_activo"],
-                     datos["concentracion"], datos["forma_farmaceutica"], datos["registro_sanitario"],
-                     datos["registro_vence"], datos["fabricante"], datos["unidad"], datos["iva_tipo"],
-                     datos["iva_tarifa"], datos["precio_venta"], datos["precio_maximo"],
-                     datos["stock_minimo"], datos["requiere_formula"], datos["cadena_frio"],
-                     datos["control_especial"], datos["observaciones"], ahora(), prod_id),
+                    (datos["codigo"], datos["codigo_barras"], datos["nombre"], datos["descripcion"],
+                     datos["grupo"], datos["principio_id"], datos["laboratorio_id"],
+                     datos["forma_farmaceutica_id"], datos["unidad_venta_id"],
+                     datos["concentracion"], datos["registro_sanitario"], datos["registro_vence"],
+                     datos["iva_tipo"], datos["iva_tarifa"], datos["precio_compra"],
+                     datos["precio_venta"], datos["precio_maximo"], datos["stock_minimo"],
+                     datos["requiere_formula"], datos["cadena_frio"], datos["control_especial"],
+                     datos["maneja_vencimiento"], datos["observaciones"], ahora(), prod_id),
                 )
+                _guardar_relaciones(db, prod_id, datos["categorias"], datos["usos"])
                 db.commit()
                 registrar("producto_editado", "productos", prod_id, f"código={datos['codigo']}")
                 flash("Producto actualizado.", "ok")
@@ -187,8 +284,7 @@ def editar(prod_id):
                 errores.append("Ya existe otro producto con ese código.")
         for e in errores:
             flash(e, "error")
-    return render_template("productos/form.html", producto=producto, iva_tipos=IVA_TIPOS,
-                           valores=_valores_existentes())
+    return render_template("productos/form.html", **_contexto_formulario(producto))
 
 
 @bp.route("/<int:prod_id>/activar", methods=["POST"])

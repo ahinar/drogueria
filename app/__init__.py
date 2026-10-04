@@ -35,6 +35,7 @@ def create_app(test_config=None):
         SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=config.SESSION_HORAS),
         MAX_CONTENT_LENGTH=5 * 1024 * 1024,
+        UPLOADS_DIR=str(config.UPLOADS_DIR),
     )
     if test_config:
         app.config.update(test_config)
@@ -44,8 +45,8 @@ def create_app(test_config=None):
     base_datos.init_db(app.config["DB_PATH"])
     base_datos.init_app(app)
 
-    from . import (admin, auth, configuracion, main, productos, proveedores,
-                   reportes, temperaturas)
+    from . import (admin, auth, catalogos, configuracion, main, productos,
+                   proveedores, recepciones, reportes, temperaturas, unidades)
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(admin.bp)
@@ -55,6 +56,9 @@ def create_app(test_config=None):
     app.register_blueprint(temperaturas.bp)
     app.register_blueprint(configuracion.bp)
     app.register_blueprint(reportes.bp)
+    app.register_blueprint(catalogos.bp)
+    app.register_blueprint(unidades.bp)
+    app.register_blueprint(recepciones.bp)
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
 

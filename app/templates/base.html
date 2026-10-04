@@ -3,43 +3,163 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block titulo %}Inicio{% endblock %} · Droguería</title>
+  <title>{% block titulo %}Inicio{% endblock %} · Fervifarma</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
 </head>
-<body>
-  <header class="barra">
-    <a class="marca" href="{{ url_for('main.inicio') }}">💊 Droguería · Calidad y POS</a>
-    {% if g.user %}
-    <nav>
-      <a href="{{ url_for('main.inicio') }}">Inicio</a>
-      <a href="{{ url_for('temperaturas.inicio') }}">Temperaturas</a>
-      <a href="{{ url_for('productos.lista') }}">Productos</a>
-      <a href="{{ url_for('proveedores.lista') }}">Proveedores</a>
+<body class="layout">
+
+  {% if g.user %}
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="sidebar-logo">💊</span>
+      <span class="sidebar-brand-text">Fervifarma</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="sidebar-link {% if request.endpoint == 'main.inicio' %}activo{% endif %}"
+         href="{{ url_for('main.inicio') }}" title="Inicio">
+        <span class="ico">🏠</span><span class="txt">Inicio</span>
+      </a>
+
+      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('temperaturas.') %}activo{% endif %}"
+         href="{{ url_for('temperaturas.inicio') }}" title="Temperaturas">
+        <span class="ico">🌡️</span><span class="txt">Temperaturas</span>
+      </a>
+
+      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('productos.') %}activo{% endif %}"
+         href="{{ url_for('productos.lista') }}" title="Productos">
+        <span class="ico">💊</span><span class="txt">Productos</span>
+      </a>
+            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('recepciones.') %}activo{% endif %}"
+         href="{{ url_for('recepciones.lista') }}" title="Recepciones">
+        <span class="ico">📦</span><span class="txt">Recepciones</span>
+      </a>
+
+      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('reportes.') %}activo{% endif %}"
+         href="{{ url_for('reportes.index') }}" title="Reportes">
+        <span class="ico">📊</span><span class="txt">Reportes</span>
+      </a>
+
+      <!-- ===== Sección Administración (desplegable) ===== -->
+      <button type="button" class="sidebar-link sidebar-group" data-group="admin"
+              title="Administración">
+        <span class="ico">🗂️</span>
+        <span class="txt">Administración</span>
+        <span class="chevron">▾</span>
+      </button>
+      <div class="sidebar-submenu" data-group-content="admin">
+        <a class="sidebar-sublink deshabilitado" href="#" title="Próximamente (Fase 1.5)">
+          <span class="ico">👥</span><span class="txt">Clientes</span>
+        </a>
+                     
+        <a class="sidebar-sublink {% if request.endpoint and request.endpoint.startswith('proveedores.') %}activo{% endif %}"
+           href="{{ url_for('proveedores.lista') }}">
+          <span class="ico">🚚</span><span class="txt">Proveedores</span>
+        </a>
+        <a class="sidebar-sublink {% if request.endpoint == 'catalogos.index' %}activo{% endif %}"
+           href="{{ url_for('catalogos.index') }}">
+          <span class="ico">🗂️</span><span class="txt">Catálogos</span>
+        </a>
+        <a class="sidebar-sublink {% if request.endpoint and request.endpoint.startswith('unidades.') %}activo{% endif %}"
+           href="{{ url_for('unidades.lista') }}">
+          <span class="ico">📏</span><span class="txt">Unidades de medida</span>
+        </a>
+      </div>
+
+      <!-- ===== Módulos de administración exclusivos ===== -->
       {% if g.user.rol in ('administrador', 'director_tecnico') %}
-        <a href="{{ url_for('admin.bitacora') }}">Bitácora</a>
+      <a class="sidebar-link {% if request.endpoint == 'admin.bitacora' %}activo{% endif %}"
+         href="{{ url_for('admin.bitacora') }}" title="Bitácora">
+        <span class="ico">📋</span><span class="txt">Bitácora</span>
+      </a>
       {% endif %}
+
       {% if g.user.rol == 'administrador' %}
-        <a href="{{ url_for('admin.usuarios') }}">Usuarios</a>
+      <a class="sidebar-link {% if request.endpoint == 'admin.usuarios' %}activo{% endif %}"
+         href="{{ url_for('admin.usuarios') }}" title="Usuarios">
+        <span class="ico">👤</span><span class="txt">Usuarios</span>
+      </a>
+      <a class="sidebar-link {% if request.endpoint == 'configuracion.ver' %}activo{% endif %}"
+         href="{{ url_for('configuracion.ver') }}" title="Configuración">
+        <span class="ico">⚙️</span><span class="txt">Configuración</span>
+      </a>
+      <a class="sidebar-link {% if request.endpoint == 'admin.respaldos' %}activo{% endif %}"
+         href="{{ url_for('admin.respaldos') }}" title="Respaldos">
+        <span class="ico">💾</span><span class="txt">Respaldos</span>
+      </a>
       {% endif %}
     </nav>
-    <div class="usuario">
-      <a href="{{ url_for('auth.cuenta') }}">{{ g.user.nombre }}</a>
-      <span class="rol">{{ g.user.rol|rol_nombre }}</span>
-      <form method="post" action="{{ url_for('auth.logout') }}" class="en-linea">
-        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-        <button type="submit" class="btn-link">Salir</button>
-      </form>
-    </div>
-    {% endif %}
-  </header>
 
-  <main class="contenedor">
-    {% with mensajes = get_flashed_messages(with_categories=true) %}
-      {% for categoria, mensaje in mensajes %}
-        <div class="aviso {{ categoria }}">{{ mensaje }}</div>
-      {% endfor %}
-    {% endwith %}
-    {% block contenido %}{% endblock %}
-  </main>
+    <div class="sidebar-footer">
+      <span class="sidebar-user">{{ g.user.nombre }}</span>
+      <span class="sidebar-rol">{{ g.user.rol|rol_nombre }}</span>
+    </div>
+  </aside>
+  {% endif %}
+
+  <!-- ===================== MAIN ===================== -->
+  <div class="main" id="main">
+    {% if g.user %}
+    <header class="topbar">
+      <button type="button" class="topbar-toggle" id="toggleSidebar" title="Mostrar/ocultar menú">☰</button>
+      <div class="topbar-title">{% block titulo_barra %}{% block titulo_inner %}{% endblock %}{% endblock %}</div>
+      <div class="topbar-right">
+        <form method="post" action="{{ url_for('auth.logout') }}" class="en-linea">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="btn-link">Salir</button>
+        </form>
+      </div>
+    </header>
+    {% endif %}
+
+    <main class="contenido">
+      {% with mensajes = get_flashed_messages(with_categories=true) %}
+        {% for categoria, mensaje in mensajes %}
+          <div class="aviso {{ categoria }}">{{ mensaje }}</div>
+        {% endfor %}
+      {% endwith %}
+      {% block contenido %}{% endblock %}
+    </main>
+  </div>
+
+  <script>
+  (function () {
+    const body = document.body;
+    const btn = document.getElementById('toggleSidebar');
+    const sidebar = document.getElementById('sidebar');
+
+    // Preferencia de colapso guardada en el navegador.
+    const guardado = localStorage.getItem('sidebar-colapsado') === '1';
+    if (guardado) body.classList.add('sidebar-colapsado');
+
+    if (btn && sidebar) {
+      btn.addEventListener('click', function () {
+        body.classList.toggle('sidebar-colapsado');
+        const colapsado = body.classList.contains('sidebar-colapsado');
+        localStorage.setItem('sidebar-colapsado', colapsado ? '1' : '0');
+      });
+    }
+
+    // Submenús desplegables (Administración, etc.)
+    document.querySelectorAll('.sidebar-group').forEach(function (grupo) {
+      const key = 'submenu-' + grupo.dataset.group;
+      const contenido = document.querySelector('[data-group-content="' + grupo.dataset.group + '"]');
+      if (!contenido) return;
+
+      // Estado guardado
+      if (localStorage.getItem(key) === '1') {
+        grupo.classList.add('abierto');
+        contenido.classList.add('abierto');
+      }
+
+      grupo.addEventListener('click', function () {
+        const abierto = contenido.classList.toggle('abierto');
+        grupo.classList.toggle('abierto', abierto);
+        localStorage.setItem(key, abierto ? '1' : '0');
+      });
+    });
+  })();
+  </script>
 </body>
 </html>

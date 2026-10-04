@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Editar' if item else 'Nuevo' }} · {{ titulo }}{% endblock %}
+{% block contenido %}
+<h1>{{ icono }} {{ 'Editar' if item else 'Nuevo' }} · {{ titulo }}</h1>
+
+<form method="post" class="formulario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+  <fieldset>
+    <legend>Datos</legend>
+    <label>Nombre * <input type="text" name="nombre" required autofocus
+                         value="{{ item['nombre'] if item else '' }}"></label>
+    <label>Descripción <textarea name="descripcion" rows="3">{{ item['descripcion'] if item and item['descripcion'] else '' }}</textarea></label>
+  </fieldset>
+
+  <div class="acciones">
+    <button type="submit">{{ 'Guardar cambios' if item else 'Crear' }}</button>
+    <a class="boton secundario" href="{{ url_for('catalogos.lista', tipo=tipo) }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

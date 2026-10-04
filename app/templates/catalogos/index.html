@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block titulo %}Administración · Catálogos{% endblock %}
+{% block contenido %}
+<h1>🗂️ Administración · Catálogos</h1>
+<p class="suave">Listas maestras que se usan en toda la aplicación. Actívalas, desactívalas o agrega nuevas.</p>
+
+<div class="rejilla">
+  {% for r in resumen %}
+  <a class="modulo" href="{{ url_for('catalogos.lista', tipo=r.tipo) }}">
+    <h2>{{ r.icono }} {{ r.titulo }}</h2>
+    <p>{{ r.total }} activo{{ 's' if r.total != 1 else '' }}</p>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,100 +1,164 @@
 {% extends "base.html" %}
 {% block titulo %}Inicio{% endblock %}
 {% block contenido %}
-<h1>Hola, {{ g.user.nombre }}</h1>
-<p class="suave">
-  Este sistema está en construcción por fases. Lo que ya funciona:
-  temperaturas con alarma, productos, proveedores, usuarios con roles,
-  bitácora de auditoría, configuración del negocio y respaldos.
-</p>
 
-<h2 class="titulo-seccion">Módulos activos</h2>
+<!-- ============ ENCABEZADO ============ -->
+<div class="dashboard-hero">
+  <div class="dashboard-hero-info">
+    <span class="dashboard-hero-saludo">{{ saludo }},</span>
+    <h1 class="dashboard-hero-nombre">{{ g.user.nombre }}</h1>
+    <span class="dashboard-hero-fecha">{{ hoy }}</span>
+  </div>
+  <div class="dashboard-hero-acciones">
+    <a class="boton-pos" href="{{ url_for('main.pos') }}">
+      🛒 Comenzar a vender
+    </a>
+    <div class="dashboard-hero-badges">
+      <span class="badge-verde">🟢 Servidor local activo</span>
+      <span class="badge-azul">📅 {{ g.user.rol|rol_nombre }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ALERTAS CRÍTICAS ============ -->
+{% if temperatura.pendientes %}
+<div class="alerta-critica">
+  <div class="alerta-critica-icono">⚠️</div>
+  <div class="alerta-critica-contenido">
+    <strong>Temperatura pendiente de registrar hoy</strong>
+    <p>
+      {% for p in temperatura.pendientes %}
+        {{ p.zona }} ({{ p.hora }}){% if not loop.last %} · {% endif %}
+      {% endfor %}
+    </p>
+  </div>
+  <a class="boton peligro" href="{{ url_for('temperaturas.inicio') }}">Registrar ahora</a>
+</div>
+{% endif %}
+
+<!-- ============ 4 TARJETAS ============ -->
+<div class="tarjetas-kpi">
+
+  <div class="kpi-card {% if temperatura.pendientes %}kpi-alerta{% elif temperatura.al_dia %}kpi-ok{% endif %}">
+    <div class="kpi-icono">🌡️</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Temperatura hoy</span>
+      {% if temperatura.al_dia %}
+        <strong class="kpi-valor kpi-valor-ok">Al día</strong>
+        <span class="kpi-detalle">Última: {{ temperatura.ultima['temperatura'] }} °C — {{ temperatura.ultima['zona_nombre'] }}</span>
+      {% elif temperatura.pendientes %}
+        <strong class="kpi-valor kpi-valor-alerta">{{ temperatura.pendientes|length }} pendiente(s)</strong>
+        <span class="kpi-detalle">Ir a Temperaturas</span>
+      {% else %}
+        <strong class="kpi-valor">—</strong>
+        <span class="kpi-detalle">Sin zonas activas</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="kpi-card kpi-ok">
+    <div class="kpi-icono">💊</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Productos activos</span>
+      <strong class="kpi-valor">{{ productos.total }}</strong>
+      <span class="kpi-detalle">{{ productos.con_minimo }} con stock mínimo definido</span>
+    </div>
+  </div>
+
+  <div class="kpi-card kpi-pendiente">
+    <div class="kpi-icono">⏳</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Lotes por vencer</span>
+      <strong class="kpi-valor">—</strong>
+      <span class="kpi-detalle">Disponible en Fase 1.4</span>
+    </div>
+  </div>
+
+  <div class="kpi-card kpi-pendiente">
+    <div class="kpi-icono">💰</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Ventas del día</span>
+      <strong class="kpi-valor">$0</strong>
+      <span class="kpi-detalle">Disponible en Fase 2</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ DETALLE EN 2 COLUMNAS ============ -->
+<div class="dashboard-grid">
+
+  <div class="panel">
+    <h2 class="panel-titulo">🌡️ Últimas lecturas de temperatura</h2>
+    {% if ultimas_temperaturas %}
+      <table class="tabla-compacta">
+        <thead>
+          <tr><th>Fecha</th><th>Zona</th><th>Temp</th><th>Humedad</th><th>Estado</th></tr>
+        </thead>
+        <tbody>
+          {% for t in ultimas_temperaturas %}
+          <tr>
+            <td><small>{{ t['fecha'] }}</small></td>
+            <td>{{ t['zona_nombre'] }}</td>
+            <td>{{ '%.1f'|format(t['temperatura']) }} °C</td>
+            <td>{% if t['humedad'] is not none %}{{ '%.1f'|format(t['humedad']) }} %{% else %}—{% endif %}</td>
+            <td>
+              {% if t['dentro_de_rango'] %}<span class="tag-ok">OK</span>
+              {% else %}<span class="tag-error">FUERA</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a class="boton secundario" href="{{ url_for('temperaturas.inicio') }}">Ver todas</a>
+    {% else %}
+      <p class="suave">Aún no hay lecturas de temperatura registradas.</p>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2 class="panel-titulo">💊 Últimos productos agregados</h2>
+    {% if ultimos_productos %}
+      <table class="tabla-compacta">
+        <thead>
+          <tr><th>Código</th><th>Nombre</th></tr>
+        </thead>
+        <tbody>
+          {% for p in ultimos_productos %}
+          <tr>
+            <td><small>{{ p['codigo'] }}</small></td>
+            <td>{{ p['nombre'] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <a class="boton secundario" href="{{ url_for('productos.lista') }}">Ver todos</a>
+    {% else %}
+      <p class="suave">Aún no hay productos en el catálogo.</p>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- ============ ACCESOS RÁPIDOS ============ -->
+<h2 class="titulo-seccion">Accesos rápidos</h2>
 <div class="rejilla">
   <a class="modulo" href="{{ url_for('temperaturas.inicio') }}">
     <h2>🌡️ Temperaturas</h2>
     <p>Registro con alarma sonora y visual.</p>
   </a>
-
   <a class="modulo" href="{{ url_for('productos.lista') }}">
     <h2>💊 Productos</h2>
-    <p>Catálogo con INVIMA, precios, IVA y control especial.</p>
+    <p>Catálogo con INVIMA, precios e IVA.</p>
   </a>
-
   <a class="modulo" href="{{ url_for('proveedores.lista') }}">
     <h2>🚚 Proveedores</h2>
     <p>NIT, contacto y documentación sanitaria.</p>
   </a>
-
   <a class="modulo" href="{{ url_for('reportes.index') }}">
     <h2>📊 Reportes</h2>
     <p>Informes con gráficos y PDF para inspección.</p>
   </a>
-
-  {% if g.user.rol in ('administrador', 'director_tecnico') %}
-  <a class="modulo" href="{{ url_for('admin.bitacora') }}">
-    <h2>📋 Bitácora</h2>
-    <p>Quién hizo qué y cuándo. Registro inmutable.</p>
-  </a>
-  {% endif %}
-
-  {% if g.user.rol == 'administrador' %}
-  <a class="modulo" href="{{ url_for('admin.usuarios') }}">
-    <h2>👥 Usuarios</h2>
-    <p>Crear usuarios y asignar roles.</p>
-  </a>
-
-  <a class="modulo" href="{{ url_for('configuracion.ver') }}">
-    <h2>⚙️ Configuración</h2>
-    <p>Datos del negocio y del Director Técnico.</p>
-  </a>
-
-  <a class="modulo" href="{{ url_for('admin.respaldos') }}">
-    <h2>💾 Respaldos</h2>
-    <p>Copias de seguridad de la base de datos.</p>
-  </a>
-  {% endif %}
 </div>
 
-<h2 class="titulo-seccion">Próximamente</h2>
-<div class="rejilla">
-  <div class="modulo apagado">
-    <h2>📦 Recepción técnica</h2>
-    <p>Alimenta el inventario y guarda el formato en PDF.</p>
-    <span class="etiqueta">Fase 1.3</span>
-  </div>
-
-  <div class="modulo apagado">
-    <h2>🗃️ Inventario por lote</h2>
-    <p>Vencimientos, estados y kardex.</p>
-    <span class="etiqueta">Fase 1.4</span>
-  </div>
-
-  <div class="modulo apagado">
-    <h2>🛒 Ventas (POS)</h2>
-    <p>Venta rápida con lector de código de barras.</p>
-    <span class="etiqueta">Fase 2</span>
-  </div>
-
-  <div class="modulo apagado">
-    <h2>📈 Utilidades</h2>
-    <p>Ganancias por día, semana, mes o rango.</p>
-    <span class="etiqueta">Fase 2</span>
-  </div>
-
-  <div class="modulo apagado">
-    <h2>🔄 Devoluciones</h2>
-    <p>Devoluciones a proveedor y de cliente.</p>
-    <span class="etiqueta">Fase 3</span>
-  </div>
-
-  <div class="modulo apagado">
-    <h2>🚨 Alertas INVIMA</h2>
-    <p>Cruce automático de lotes afectados.</p>
-    <span class="etiqueta">Fase 3</span>
-  </div>
-</div>
-
-<p class="suave" style="margin-top:1.5rem">
-  Dirección de este sistema en la red del local: <strong>{{ request.host_url }}</strong>
-</p>
 {% endblock %}

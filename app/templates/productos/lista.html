@@ -4,7 +4,7 @@
 <h1>Productos</h1>
 
 <form method="get" class="filtros">
-  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nombre, código, principio activo…">
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por nombre, código, principio, laboratorio…">
   <select name="filtro">
     <option value="activos" {% if filtro=='activos' %}selected{% endif %}>Solo activos</option>
     <option value="inactivos" {% if filtro=='inactivos' %}selected{% endif %}>Solo inactivos</option>
@@ -22,18 +22,33 @@
 <table class="tabla">
   <thead>
     <tr>
-      <th>Código</th><th>Nombre</th><th>Principio activo</th>
-      <th>Precio</th><th>IVA</th><th>Alertas</th><th>Estado</th><th></th>
+      <th>Código</th>
+      <th>Nombre</th>
+      <th>Principio / Lab</th>
+      <th>Categorías</th>
+      <th>Precio de venta</th>
+      <th>Alertas</th>
+      <th>Estado</th>
+      <th></th>
     </tr>
   </thead>
   <tbody>
     {% for p in productos %}
     <tr class="{% if not p['activo'] %}inactivo{% endif %}">
       <td>{{ p['codigo'] }}</td>
-      <td>{{ p['nombre'] }}{% if p['concentracion'] %} <small>{{ p['concentracion'] }}</small>{% endif %}</td>
-      <td>{{ p['principio_activo'] or '—' }}</td>
-      <td>${{ '%.2f'|format(p['precio_venta']) }}</td>
-      <td>{{ p['iva_tipo'] }} {{ '%.0f'|format(p['iva_tarifa']) }}%</td>
+      <td>
+        {{ p['nombre'] }}
+        {% if p['concentracion'] %} <small>{{ p['concentracion'] }}</small>{% endif %}
+      </td>
+      <td>
+        {{ p['principio_nombre'] or '—' }}<br>
+        <small>{{ p['laboratorio_nombre'] or '—' }}</small>
+      </td>
+      <td><small>{{ p['categorias_txt'] or '—' }}</small></td>
+      <td>
+        <strong>${{ '%.0f'|format(p['precio_venta']) }}</strong><br>
+        <small>por {{ p['unidad_nombre'] or 'Unidad' }}</small>
+      </td>
       <td>
         {% if p['cadena_frio'] %}<span class="tag frio">❄ Frío</span>{% endif %}
         {% if p['control_especial'] %}<span class="tag control">⚠ Control</span>{% endif %}
