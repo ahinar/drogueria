@@ -1153,3 +1153,129 @@ a.modulo:hover {
   box-sizing: border-box;
 }
 .tabla-recepcion td { padding: .35rem .3rem; vertical-align: top; }
+
+/* Barra de escaneo */
+.barra-escanear {
+  margin-bottom: .7rem;
+}
+.barra-escanear input {
+  width: 100%;
+  padding: .55rem .8rem;
+  border: 2px solid #0a6ebd;
+  border-radius: .35rem;
+  font-size: .95rem;
+  background: #f7fbff;
+}
+.barra-escanear input:focus {
+  outline: none;
+  border-color: #085a9c;
+  box-shadow: 0 0 0 3px rgba(10, 110, 189, .15);
+}
+
+/* Modal grande */
+.modal-caja-grande { max-width: 640px; }
+
+/* =========================================================
+   AUTOCOMPLETADO DE PRODUCTOS
+   ========================================================= */
+.buscar-producto-wrap {
+  display: flex;
+  gap: .25rem;
+  align-items: center;
+}
+.buscar-producto-wrap .buscar-producto {
+  flex: 1;
+  min-width: 0;
+  padding: .3rem .5rem;
+  border: 1px solid #c8d2da;
+  border-radius: .25rem;
+  font-size: .82rem;
+  height: 30px;
+}
+.buscar-producto-wrap .buscar-producto:focus {
+  outline: none;
+  border-color: #0a6ebd;
+  box-shadow: 0 0 0 2px rgba(10, 110, 189, .15);
+}
+
+/* Panel flotante de resultados */
+.panel-resultados-oculto { display: none; }
+
+.panel-resultados {
+  background: #fff;
+  border: 1px solid #c8d2da;
+  border-radius: .35rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .15);
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 99999;
+  font-size: .85rem;
+}
+
+.resultado-item {
+  display: flex;
+  gap: .7rem;
+  padding: .5rem .8rem;
+  cursor: pointer;
+  border-bottom: 1px solid #eef2f5;
+  align-items: center;
+}
+.resultado-item:last-child { border-bottom: none; }
+.resultado-item:hover { background: #eaf3fb; }
+
+.resultado-codigo {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: #0a4f8a;
+  min-width: 70px;
+  font-size: .82rem;
+}
+
+.resultado-info { flex: 1; min-width: 0; }
+.resultado-nombre {
+  font-weight: 600;
+  color: #2c3e50;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.resultado-detalle {
+  color: #6b7885;
+  font-size: .76rem;
+  margin-top: .1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resultado-vacio {
+  padding: .8rem 1rem;
+  color: #7a8794;
+  font-style: italic;
+  text-align: center;
+}
+
+/* Hint del registro sanitario */
+.hint-rs {
+  display: block;
+  font-size: .72rem;
+  color: #0d6b3d;
+  margin-top: .2rem;
+  line-height: 1.25;
+}
+.hint-rs.sin-rs { color: #b3261e; font-weight: 700; }
+
+/* Tabla compacta */
+.tabla-recepcion input,
+.tabla-recepcion select {
+  width: 100%;
+  padding: .25rem .35rem;
+  border: 1px solid #c8d2da;
+  border-radius: .25rem;
+  font-size: .78rem;
+  height: 28px;
+  box-sizing: border-box;
+}
+.tabla-recepcion td { padding: .35rem .3rem; vertical-align: top; }
+
+.modal-caja-grande { max-width: 640px; }

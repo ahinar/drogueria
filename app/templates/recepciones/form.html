@@ -23,7 +23,7 @@
           </select>
         </label>
         <label>Factura N°
-          <input type="text" name="factura_numero">
+          <input type="text" name="factura_numero" placeholder="Al menos factura o remisión">
         </label>
       </div>
 
@@ -46,7 +46,7 @@
       <table class="tabla tabla-recepcion" id="tabla-lineas">
         <thead>
           <tr>
-            <th style="width:24%">Producto</th>
+            <th style="width:26%">Producto</th>
             <th style="width:9%">Lote</th>
             <th style="width:9%">Vence</th>
             <th style="width:8%">Cant. Fact.</th>
@@ -54,27 +54,16 @@
             <th style="width:8%">Costo</th>
             <th style="width:8%">Empaque</th>
             <th style="width:9%">Resultado</th>
-            <th style="width:12%">Motivo (si rechazado)</th>
+            <th style="width:10%">Motivo</th>
             <th style="width:5%"></th>
           </tr>
         </thead>
         <tbody id="lineas-body">
           <tr class="linea">
             <td>
-              <div class="producto-con-boton">
-                <select name="linea_producto_id" class="sel-producto" required>
-                  <option value="">— Producto —</option>
-                  {% for p in productos %}
-                    <option value="{{ p['id'] }}"
-                            data-rs="{{ p['registro_sanitario'] or '' }}"
-                            data-rs-vence="{{ p['registro_vence'] or '' }}"
-                            data-vence="{{ p['maneja_vencimiento'] }}"
-                            data-frio="{{ p['cadena_frio'] }}"
-                            data-control="{{ p['control_especial'] }}">
-                      {{ p['codigo'] }} — {{ p['nombre'] }}
-                    </option>
-                  {% endfor %}
-                </select>
+              <div class="buscar-producto-wrap">
+                <input type="text" class="buscar-producto" placeholder="Escribe o escanea…" autocomplete="off">
+                <input type="hidden" name="linea_producto_id" class="linea-producto-id">
                 <button type="button" class="btn-mas btn-nuevo-producto" title="Crear producto nuevo">+</button>
               </div>
               <small class="hint-rs">RS: —</small>
@@ -120,15 +109,18 @@
   </div>
 </form>
 
+<!-- Panel flotante global para resultados de búsqueda -->
+<div id="panel-resultados" class="panel-resultados-oculto"></div>
+
 <!-- ============ MODAL: alta rápida de producto ============ -->
 <div id="modal-producto" class="modal-oculto">
-  <div class="modal-caja">
+  <div class="modal-caja modal-caja-grande">
     <h2>Nuevo producto (alta rápida)</h2>
     <p class="suave" style="margin-top:0">Datos mínimos. Podrás completar el resto en Productos.</p>
 
     <div class="grid-2">
-      <label>Código (auto si lo dejas vacío)
-        <input type="text" id="np-codigo" autocomplete="off" placeholder="P00001">
+      <label>Código interno
+        <input type="text" id="np-codigo" autocomplete="off" placeholder="Auto si lo dejas vacío">
       </label>
       <label>Nombre *
         <input type="text" id="np-nombre" autocomplete="off" required>
@@ -136,8 +128,25 @@
     </div>
 
     <div class="grid-2">
+      <label>Concentración
+        <input type="text" id="np-concentracion" placeholder="Ej: 500 mg">
+      </label>
+      <label>Laboratorio *
+        <div class="campo-con-boton">
+          <select id="np-laboratorio" required>
+            <option value="">— Seleccionar —</option>
+            {% for l in laboratorios %}
+              <option value="{{ l['id'] }}">{{ l['nombre'] }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn-mas" id="np-nuevo-lab" title="Crear laboratorio">+</button>
+        </div>
+      </label>
+    </div>
+
+    <div class="grid-2">
       <label>Registro INVIMA
-        <input type="text" id="np-registro" autocomplete="off">
+        <input type="text" id="np-registro" autocomplete="off" placeholder="Ej: INVIMA-2024M-12345">
       </label>
       <label>Vence registro
         <input type="date" id="np-registro-vence">
@@ -161,22 +170,24 @@
 
     <fieldset>
       <legend>Condiciones</legend>
-      <label class="switch-linea">
-        <input type="checkbox" id="np-maneja-vence" checked>
-        Maneja vencimiento
-      </label>
-      <label class="switch-linea">
-        <input type="checkbox" id="np-formula">
-        Requiere fórmula médica
-      </label>
-      <label class="switch-linea">
-        <input type="checkbox" id="np-frio">
-        Cadena de frío
-      </label>
-      <label class="switch-linea">
-        <input type="checkbox" id="np-control">
-        Control especial (FNE)
-      </label>
+      <div class="grid-2">
+        <label class="switch-linea">
+          <input type="checkbox" id="np-maneja-vence" checked>
+          Maneja vencimiento
+        </label>
+        <label class="switch-linea">
+          <input type="checkbox" id="np-formula">
+          Requiere fórmula médica
+        </label>
+        <label class="switch-linea">
+          <input type="checkbox" id="np-frio">
+          Cadena de frío
+        </label>
+        <label class="switch-linea">
+          <input type="checkbox" id="np-control">
+          Control especial (FNE)
+        </label>
+      </div>
     </fieldset>
 
     <p id="np-error" class="aviso error" style="display:none"></p>
@@ -192,61 +203,247 @@
 (function () {
   const body = document.getElementById('lineas-body');
   const csrfToken = document.querySelector('input[name="_csrf"]').value;
+  const panel = document.getElementById('panel-resultados');
+  let inputActivo = null;
 
-  // ===== Mostrar RS al lado del select de producto =====
-  function actualizarRS(selectEl) {
-    const opt = selectEl.options[selectEl.selectedIndex];
-    const hint = selectEl.parentElement.parentElement.querySelector('.hint-rs');
+  // ===== Utilidades =====
+  function escaparHTML(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function actualizarHint(wrap) {
+    const hidden = wrap.querySelector('.linea-producto-id');
+    const hint = wrap.parentElement.querySelector('.hint-rs');
     if (!hint) return;
-    if (!opt || !opt.value) {
+    const id = hidden.value;
+    if (!id) {
       hint.textContent = 'RS: —';
       hint.classList.remove('sin-rs');
       return;
     }
-    const rs = opt.dataset.rs;
-    const vence = opt.dataset.rsVence;
-    const frio = opt.dataset.frio === '1';
-    const control = opt.dataset.control === '1';
-
-    if (rs) {
-      let texto = 'RS: ' + rs;
-      if (vence) texto += ' · Vence: ' + vence;
-      hint.textContent = texto;
-      hint.classList.remove('sin-rs');
+    const partes = [];
+    if (hidden.dataset.rs) {
+      let t = 'RS: ' + hidden.dataset.rs;
+      if (hidden.dataset.rsVence) t += ' · vence ' + hidden.dataset.rsVence;
+      partes.push(t);
     } else {
-      hint.textContent = '⚠ SIN registro INVIMA';
-      hint.classList.add('sin-rs');
+      partes.push('⚠ SIN registro INVIMA');
     }
-    if (frio) hint.textContent += ' · ❄ Frío';
-    if (control) hint.textContent += ' · ⚠ Control';
+    if (hidden.dataset.frio === '1') partes.push('❄ Frío');
+    if (hidden.dataset.control === '1') partes.push('⚠ Control');
+    hint.textContent = partes.join(' · ');
+    hint.classList.toggle('sin-rs', !hidden.dataset.rs);
   }
 
-  body.addEventListener('change', function (e) {
-    if (e.target.classList.contains('sel-producto')) {
-      actualizarRS(e.target);
+  function seleccionarProducto(wrap, p) {
+    const input = wrap.querySelector('.buscar-producto');
+    const hidden = wrap.querySelector('.linea-producto-id');
+    input.value = p.codigo + ' · ' + p.nombre + (p.concentracion ? ' ' + p.concentracion : '')
+                + (p.laboratorio ? ' — ' + p.laboratorio : '');
+    hidden.value = p.id;
+    hidden.dataset.rs = p.registro || '';
+    hidden.dataset.rsVence = p.registro_vence || '';
+    hidden.dataset.vence = p.maneja_vencimiento ? '1' : '0';
+    hidden.dataset.frio = p.cadena_frio ? '1' : '0';
+    hidden.dataset.control = p.control_especial ? '1' : '0';
+    actualizarHint(wrap);
+    ocultarPanel();
+  }
+
+  function ocultarPanel() {
+    panel.classList.add('panel-resultados-oculto');
+    panel.classList.remove('panel-resultados');
+    panel.innerHTML = '';
+  }
+
+  function posicionarPanel(input) {
+    const r = input.getBoundingClientRect();
+    panel.style.position = 'absolute';
+    panel.style.top = (r.bottom + window.scrollY + 2) + 'px';
+    panel.style.left = (r.left + window.scrollX) + 'px';
+    panel.style.width = Math.max(r.width, 480) + 'px';
+  }
+
+  function mostrarResultados(input, resultados) {
+    if (!resultados.length) {
+      panel.innerHTML = '<div class="resultado-vacio">Sin resultados. Usa el botón + para crear el producto.</div>';
+    } else {
+      panel.innerHTML = resultados.map(function (p) {
+        const partes = [p.nombre];
+        if (p.concentracion) partes.push(p.concentracion);
+        if (p.forma) partes.push(p.forma);
+        const nombreCompleto = partes.join(' ');
+        const lab = p.laboratorio ? ' — ' + p.laboratorio : '';
+        const unidad = p.unidad ? ' · ' + p.unidad : '';
+        const precio = p.precio ? ' · $' + Number(p.precio).toFixed(0) : '';
+        const rs = p.registro ? ' · RS: ' + p.registro : ' · ⚠ SIN RS';
+        return '<div class="resultado-item" data-id="' + p.id + '"'
+             + ' data-codigo="' + escaparHTML(p.codigo) + '"'
+             + ' data-nombre="' + escaparHTML(p.nombre) + '"'
+             + ' data-concentracion="' + escaparHTML(p.concentracion) + '"'
+             + ' data-laboratorio="' + escaparHTML(p.laboratorio) + '"'
+             + ' data-forma="' + escaparHTML(p.forma) + '"'
+             + ' data-unidad="' + escaparHTML(p.unidad) + '"'
+             + ' data-precio="' + (p.precio || 0) + '"'
+             + ' data-rs="' + escaparHTML(p.registro) + '"'
+             + ' data-rs-vence="' + escaparHTML(p.registro_vence) + '"'
+             + ' data-vence="' + (p.maneja_vencimiento ? '1' : '0') + '"'
+             + ' data-frio="' + (p.cadena_frio ? '1' : '0') + '"'
+             + ' data-control="' + (p.control_especial ? '1' : '0') + '">'
+             + '<div class="resultado-codigo">' + escaparHTML(p.codigo) + '</div>'
+             + '<div class="resultado-info">'
+             +   '<div class="resultado-nombre">' + escaparHTML(nombreCompleto + lab) + '</div>'
+             +   '<div class="resultado-detalle">' + escaparHTML(unidad + precio + rs) + '</div>'
+             + '</div>'
+             + '</div>';
+      }).join('');
+    }
+    posicionarPanel(input);
+    panel.classList.remove('panel-resultados-oculto');
+    panel.classList.add('panel-resultados');
+  }
+
+  // ===== Buscar productos =====
+  let timeoutBusqueda = null;
+
+  async function buscarProductos(input, q) {
+    try {
+      const resp = await fetch('/recepciones/api/buscar-productos?q=' + encodeURIComponent(q));
+      const json = await resp.json();
+      if (input !== inputActivo) return;
+      if (json.ok) mostrarResultados(input, json.resultados);
+    } catch (e) { /* silencio */ }
+  }
+
+  async function buscarBarras(input, codigo) {
+    try {
+      const resp = await fetch('/recepciones/api/buscar-barras?codigo=' + encodeURIComponent(codigo));
+      const json = await resp.json();
+      if (json.ok && json.producto) {
+        const wrap = input.closest('.buscar-producto-wrap');
+        seleccionarProducto(wrap, json.producto);
+        const tr = wrap.closest('tr');
+        tr.querySelector('input[name="linea_cantidad_recibida"]').focus();
+      } else {
+        // No encontrado por barras: intenta búsqueda normal
+        buscarProductos(input, codigo);
+      }
+    } catch (e) { /* silencio */ }
+  }
+
+  // ===== Eventos delegados =====
+  body.addEventListener('input', function (e) {
+    if (!e.target.classList.contains('buscar-producto')) return;
+    const input = e.target;
+    inputActivo = input;
+    const q = input.value.trim();
+    if (q.length < 3) {
+      ocultarPanel();
+      return;
+    }
+    clearTimeout(timeoutBusqueda);
+    timeoutBusqueda = setTimeout(function () {
+      if (/^\d{8,}$/.test(q)) {
+        buscarBarras(input, q);
+      } else {
+        buscarProductos(input, q);
+      }
+    }, 220);
+  });
+
+  body.addEventListener('keydown', function (e) {
+    if (!e.target.classList.contains('buscar-producto')) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const input = e.target;
+      const q = input.value.trim();
+      if (!q) return;
+      if (/^\d{8,}$/.test(q)) {
+        buscarBarras(input, q);
+      } else {
+        // Seleccionar el primer resultado
+        const primero = panel.querySelector('.resultado-item');
+        if (primero) primero.click();
+      }
+    } else if (e.key === 'Escape') {
+      ocultarPanel();
     }
   });
 
-  // Inicializar los ya existentes
-  body.querySelectorAll('.sel-producto').forEach(actualizarRS);
+  body.addEventListener('focusin', function (e) {
+    if (!e.target.classList.contains('buscar-producto')) return;
+    inputActivo = e.target;
+    const q = e.target.value.trim();
+    if (q.length >= 3) buscarProductos(e.target, q);
+  });
+
+  body.addEventListener('focusout', function (e) {
+    if (!e.target.classList.contains('buscar-producto')) return;
+    setTimeout(function () {
+      if (document.activeElement === panel || panel.contains(document.activeElement)) return;
+      ocultarPanel();
+    }, 180);
+  });
+
+  // Clic en un resultado
+  panel.addEventListener('mousedown', function (e) {
+    e.preventDefault(); // evita el blur del input
+  });
+
+  panel.addEventListener('click', function (e) {
+    const item = e.target.closest('.resultado-item');
+    if (!item || !inputActivo) return;
+    const wrap = inputActivo.closest('.buscar-producto-wrap');
+    const p = {
+      id: item.dataset.id,
+      codigo: item.dataset.codigo,
+      nombre: item.dataset.nombre,
+      concentracion: item.dataset.concentracion,
+      laboratorio: item.dataset.laboratorio,
+      forma: item.dataset.forma,
+      unidad: item.dataset.unidad,
+      precio: parseFloat(item.dataset.precio) || 0,
+      registro: item.dataset.rs,
+      registro_vence: item.dataset.rsVence,
+      maneja_vencimiento: item.dataset.vence === '1' ? 1 : 0,
+      cadena_frio: item.dataset.frio === '1' ? 1 : 0,
+      control_especial: item.dataset.control === '1' ? 1 : 0,
+    };
+    seleccionarProducto(wrap, p);
+    // Enfocar cantidad recibida
+    const tr = wrap.closest('tr');
+    tr.querySelector('input[name="linea_cantidad_recibida"]').focus();
+  });
 
   // ===== Agregar / quitar líneas =====
   document.getElementById('btn-agregar-linea').addEventListener('click', function () {
     const primera = body.querySelector('tr.linea');
     const nueva = primera.cloneNode(true);
-    nueva.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+    nueva.querySelectorAll('input').forEach(function (i) {
+      i.value = '';
+      if (i.dataset) {
+        i.dataset.rs = '';
+        i.dataset.rsVence = '';
+        i.dataset.vence = '';
+        i.dataset.frio = '';
+        i.dataset.control = '';
+      }
+    });
     nueva.querySelectorAll('select').forEach(function (s) { s.selectedIndex = 0; });
     nueva.querySelector('input[name="linea_cantidad_facturada"]').value = '0';
     nueva.querySelector('input[name="linea_cantidad_recibida"]').value = '0';
     nueva.querySelector('input[name="linea_costo"]').value = '0';
+    nueva.querySelector('.hint-rs').textContent = 'RS: —';
+    nueva.querySelector('.hint-rs').classList.remove('sin-rs');
     body.appendChild(nueva);
-    actualizarRS(nueva.querySelector('.sel-producto'));
+    nueva.querySelector('.buscar-producto').focus();
   });
 
   body.addEventListener('click', function (e) {
     if (e.target.classList.contains('btn-quitar-linea')) {
-      const filas = body.querySelectorAll('tr.linea');
-      if (filas.length === 1) {
+      if (body.querySelectorAll('tr.linea').length === 1) {
         alert('Debes dejar al menos una línea.');
         return;
       }
@@ -254,10 +451,12 @@
     }
   });
 
-  // ===== Modal: alta rápida de producto =====
+  // ===== MODAL alta rápida =====
   const modal = document.getElementById('modal-producto');
   const npNombre = document.getElementById('np-nombre');
   const npCodigo = document.getElementById('np-codigo');
+  const npConcentracion = document.getElementById('np-concentracion');
+  const npLaboratorio = document.getElementById('np-laboratorio');
   const npRegistro = document.getElementById('np-registro');
   const npRegistroVence = document.getElementById('np-registro-vence');
   const npPrecio = document.getElementById('np-precio');
@@ -269,33 +468,31 @@
   const npError = document.getElementById('np-error');
   const npGuardar = document.getElementById('np-guardar');
   const npCancelar = document.getElementById('np-cancelar');
+  const npNuevoLab = document.getElementById('np-nuevo-lab');
 
-  let lineaOrigenSelect = null;
-
-  function abrirModalProducto(selectEl) {
-    lineaOrigenSelect = selectEl;
-    npNombre.value = '';
-    npCodigo.value = '';
-    npRegistro.value = '';
-    npRegistroVence.value = '';
-    npPrecio.value = '0';
-    npFormula.checked = false;
-    npFrio.checked = false;
-    npControl.checked = false;
-    npManejaVence.checked = true;
-    npError.style.display = 'none';
-    modal.classList.remove('modal-oculto');
-    setTimeout(function () { npNombre.focus(); }, 50);
-  }
-
-  function cerrarModal() { modal.classList.add('modal-oculto'); }
+  let wrapOrigen = null;
 
   body.addEventListener('click', function (e) {
     if (e.target.classList.contains('btn-nuevo-producto')) {
-      const sel = e.target.parentElement.querySelector('.sel-producto');
-      abrirModalProducto(sel);
+      wrapOrigen = e.target.closest('.buscar-producto-wrap');
+      npNombre.value = '';
+      npCodigo.value = '';
+      npConcentracion.value = '';
+      npLaboratorio.value = '';
+      npRegistro.value = '';
+      npRegistroVence.value = '';
+      npPrecio.value = '0';
+      npFormula.checked = false;
+      npFrio.checked = false;
+      npControl.checked = false;
+      npManejaVence.checked = true;
+      npError.style.display = 'none';
+      modal.classList.remove('modal-oculto');
+      setTimeout(function () { npNombre.focus(); }, 50);
     }
   });
+
+  function cerrarModal() { modal.classList.add('modal-oculto'); }
 
   npCancelar.addEventListener('click', cerrarModal);
   modal.addEventListener('click', function (e) { if (e.target === modal) cerrarModal(); });
@@ -303,9 +500,35 @@
     if (e.key === 'Escape' && !modal.classList.contains('modal-oculto')) cerrarModal();
   });
 
+  npNuevoLab.addEventListener('click', async function () {
+    const nombre = prompt('Nombre del laboratorio:');
+    if (!nombre || !nombre.trim()) return;
+    const datos = new FormData();
+    datos.append('nombre', nombre.trim());
+    datos.append('_csrf', csrfToken);
+    try {
+      const resp = await fetch('/admin/catalogos/laboratorio/api/crear', {
+        method: 'POST', body: datos, credentials: 'same-origin',
+      });
+      const json = await resp.json();
+      if (!json.ok) { alert('Error: ' + (json.error || 'no se pudo crear.')); return; }
+      let op = npLaboratorio.querySelector('option[value="' + json.id + '"]');
+      if (!op) {
+        op = document.createElement('option');
+        op.value = json.id;
+        op.textContent = json.nombre;
+        npLaboratorio.appendChild(op);
+      }
+      npLaboratorio.value = json.id;
+    } catch (e) {
+      alert('Error de conexión: ' + e.message);
+    }
+  });
+
   npGuardar.addEventListener('click', async function () {
     const nombre = npNombre.value.trim();
     if (!nombre) { npError.textContent = 'El nombre es obligatorio.'; npError.style.display = 'block'; return; }
+    if (!npLaboratorio.value) { npError.textContent = 'El laboratorio es obligatorio.'; npError.style.display = 'block'; return; }
     if ((npFrio.checked || npControl.checked) && !npRegistro.value.trim()) {
       npError.textContent = 'Cadena de frío o control especial exige registro INVIMA.';
       npError.style.display = 'block';
@@ -316,6 +539,8 @@
     datos.append('_csrf', csrfToken);
     datos.append('nombre', nombre);
     datos.append('codigo', npCodigo.value.trim());
+    datos.append('concentracion', npConcentracion.value.trim());
+    datos.append('laboratorio_id', npLaboratorio.value);
     datos.append('registro_sanitario', npRegistro.value.trim());
     datos.append('registro_vence', npRegistroVence.value);
     datos.append('precio_venta', npPrecio.value || '0');
@@ -339,17 +564,21 @@
         npError.style.display = 'block';
         return;
       }
-      // Agregar la opción al select y seleccionarla
-      const sel = lineaOrigenSelect;
-      const op = document.createElement('option');
-      op.value = json.id;
-      op.textContent = json.codigo + ' — ' + json.nombre;
-      op.dataset.rs = json.registro_sanitario || '';
-      op.dataset.manejaVence = json.maneja_vencimiento || '1';
-      op.selected = true;
-      sel.appendChild(op);
-      sel.value = json.id;
-      actualizarRS(sel);
+      // Seleccionar el producto en la línea de origen
+      const wrap = wrapOrigen;
+      const p = {
+        id: json.id,
+        codigo: json.codigo,
+        nombre: json.nombre,
+        concentracion: json.concentracion || '',
+        laboratorio: json.laboratorio || '',
+        registro: json.registro_sanitario || '',
+        registro_vence: '',
+        maneja_vencimiento: json.maneja_vencimiento || 0,
+        cadena_frio: json.cadena_frio || 0,
+        control_especial: json.control_especial || 0,
+      };
+      seleccionarProducto(wrap, p);
       cerrarModal();
     } catch (e) {
       npError.textContent = 'Error de conexión: ' + e.message;
