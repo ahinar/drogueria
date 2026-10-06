@@ -48,16 +48,19 @@ def _ultima_lectura(zona_id):
 
 
 def _pendientes():
-    """Devuelve las zonas cuya próxima lectura programada ya venció."""
+    """Devuelve las zonas cuya próxima lectura programada ya venció y no se ha registrado."""
     db = get_db()
     ahora_dt = datetime.now()
-    hoy_iso = ahora_dt.strftime("%Y-%m-%d")
-    dia_semana = ahora_dt.isoweekday()  # 1=lunes..7=domingo
+    hoy = ahora_dt.date().isoformat()
+    dia_semana = ahora_dt.isoweekday()
     pendientes = []
     zonas = db.execute("SELECT * FROM zonas_temperatura WHERE activa = 1").fetchall()
+
     for zona in zonas:
+        # Verificar si hoy aplica según el día de la semana
         if str(dia_semana) not in (zona["dias_semana"] or "").split(","):
             continue
+
         horarios = [h.strip() for h in (zona["horarios"] or "").split(",") if h.strip()]
         for hora in horarios:
             try:
@@ -65,12 +68,19 @@ def _pendientes():
             except ValueError:
                 continue
             programada = ahora_dt.replace(hour=hh, minute=mm, second=0, microsecond=0)
-            if ahora_dt < programada + timedelta(minutes=zona["minutos_tolerancia"]):
+            tolerancia = zona["minutos_tolerancia"] or 30
+
+            # Solo pendiente si ya pasó la hora + tolerancia
+            if ahora_dt < programada + timedelta(minutes=tolerancia):
                 continue
-            # ¿Ya hay registro para esa hora programada hoy?
+
+            # ¿Hay alguna lectura para esta zona hoy DESPUÉS de la hora programada?
             existe = db.execute(
-                "SELECT 1 FROM temperatura_registros WHERE zona_id = ? AND programada_para = ? LIMIT 1",
-                (zona["id"], programada.isoformat(sep=" ", timespec="minutes")),
+                "SELECT 1 FROM temperatura_registros "
+                "WHERE zona_id = ? AND fecha >= ? AND fecha LIKE ? LIMIT 1",
+                (zona["id"],
+                 programada.isoformat(sep=" ", timespec="seconds"),
+                 f"{hoy}%"),
             ).fetchone()
             if existe:
                 continue

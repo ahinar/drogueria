@@ -65,14 +65,20 @@
     </div>
   </div>
 
-  <div class="kpi-card kpi-pendiente">
+  <a class="kpi-card {% if productos.por_vencer_30 > 0 %}kpi-alerta{% elif productos.por_vencer_90 > 0 %}kpi-pendiente{% else %}kpi-ok{% endif %}"
+     href="{{ url_for('inventario.vencimientos') }}" style="text-decoration:none">
     <div class="kpi-icono">⏳</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Lotes por vencer</span>
-      <strong class="kpi-valor">—</strong>
-      <span class="kpi-detalle">Disponible en Fase 1.4</span>
+      <strong class="kpi-valor {% if productos.por_vencer_30 > 0 %}kpi-valor-alerta{% endif %}">
+        {{ productos.por_vencer_30 }}
+      </strong>
+      <span class="kpi-detalle">
+        {% if productos.por_vencer_90 > 0 %}{{ productos.por_vencer_90 }} en 90 días ·{% endif %}
+        {{ productos.total_lotes }} lotes activos
+      </span>
     </div>
-  </div>
+  </a>
 
   <div class="kpi-card kpi-pendiente">
     <div class="kpi-icono">💰</div>

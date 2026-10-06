@@ -36,6 +36,11 @@
         <span class="ico">📦</span><span class="txt">Recepciones</span>
       </a>
 
+      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('inventario.') %}activo{% endif %}"
+         href="{{ url_for('inventario.inicio') }}" title="Inventario">
+        <span class="ico">🗃️</span><span class="txt">Inventario</span>
+      </a>
+
       <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('reportes.') %}activo{% endif %}"
          href="{{ url_for('reportes.index') }}" title="Reportes">
         <span class="ico">📊</span><span class="txt">Reportes</span>
@@ -122,6 +127,19 @@
       {% block contenido %}{% endblock %}
     </main>
   </div>
+
+    <!-- ============ ALARMA GLOBAL DE TEMPERATURA ============ -->
+  <div id="alarma-temp" class="alarma-oculta" role="alert" aria-live="assertive">
+    <div class="alarma-caja">
+      <h2>⏰ REGISTRO DE TEMPERATURA PENDIENTE</h2>
+      <ul id="alarma-lista"></ul>
+      <div class="alarma-acciones">
+        <button type="button" id="alarma-silenciar">🔇 Silenciar sonido</button>
+        <button type="button" id="alarma-cerrar">⏰ Aplazar 10 minutos</button>
+      </div>
+    </div>
+  </div>
+  <script src="{{ url_for('static', filename='js/alarma.js') }}"></script>
 
   <script>
   (function () {

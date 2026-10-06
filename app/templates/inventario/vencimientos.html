@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block titulo %}Semáforo de vencimientos{% endblock %}
+{% block contenido %}
+<h1>🚦 Semáforo de vencimientos</h1>
+<p class="suave">Total de lotes activos: <strong>{{ total }}</strong></p>
+
+{% macro tabla_lotes(items, vacio) %}
+  {% if items %}
+  <table class="tabla">
+    <thead>
+      <tr><th>Código</th><th>Producto</th><th>Lote</th><th>Vence</th><th>Cantidad</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for l in items %}
+      <tr>
+        <td>{{ l['producto_codigo'] }}</td>
+        <td>
+          {{ l['producto_nombre'] }}
+          {% if l['lab_nombre'] %}<br><small>{{ l['lab_nombre'] }}</small>{% endif %}
+        </td>
+        <td>{{ l['lote'] or '—' }}</td>
+        <td>{{ l['vencimiento'] or '—' }}</td>
+        <td>{{ '%.0f'|format(l['cantidad_disponible']) }}</td>
+        <td><a href="{{ url_for('inventario.lote_ver', lote_id=l['id']) }}">Ver</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="suave">{{ vacio }}</p>
+  {% endif %}
+{% endmacro %}
+
+<h2 class="titulo-seccion" style="color:#8c1d18">⚫ Vencidos ({{ grupos.vencidos|length }})</h2>
+{{ tabla_lotes(grupos.vencidos, "No hay lotes vencidos. ¡Excelente!") }}
+
+<h2 class="titulo-seccion" style="color:#b3261e">🔴 Vencen en menos de 30 días ({{ grupos.rojo|length }})</h2>
+{{ tabla_lotes(grupos.rojo, "No hay lotes en este rango.") }}
+
+<h2 class="titulo-seccion" style="color:#a67c00">🟡 Vencen en 30 a 90 días ({{ grupos.amarillo|length }})</h2>
+{{ tabla_lotes(grupos.amarillo, "No hay lotes en este rango.") }}
+
+<h2 class="titulo-seccion" style="color:#0d6b3d">🟢 Vencen en más de 90 días ({{ grupos.verde|length }})</h2>
+{{ tabla_lotes(grupos.verde, "No hay lotes en este rango.") }}
+
+<h2 class="titulo-seccion" style="color:#7a8794">⚪ Sin fecha de vencimiento ({{ grupos.sin|length }})</h2>
+{{ tabla_lotes(grupos.sin, "No hay lotes sin vencimiento.") }}
+{% endblock %}

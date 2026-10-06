@@ -7,32 +7,43 @@
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
 
   <section class="tab-panel activo">
+    {% if error_cabecera %}
+    <div class="aviso error" style="margin-bottom:1rem">{{ error_cabecera }}</div>
+    {% endif %}
+
     <fieldset>
       <legend>Datos generales</legend>
 
       <div class="grid-3-compact">
         <label>Número *
-          <input type="text" name="numero" required value="{{ numero_sugerido }}">
+          <input type="text" name="numero" required
+                 value="{{ valores_previos.numero if valores_previos else numero_sugerido }}">
         </label>
         <label>Proveedor *
           <select name="proveedor_id" required>
             <option value="">— Seleccionar —</option>
             {% for p in proveedores %}
-              <option value="{{ p['id'] }}">{{ p['razon_social'] }} ({{ p['nit'] }})</option>
+              <option value="{{ p['id'] }}"
+                {% if valores_previos and valores_previos.proveedor_id == p['id']|string %}selected{% endif %}>
+                {{ p['razon_social'] }} ({{ p['nit'] }})
+              </option>
             {% endfor %}
           </select>
         </label>
-        <label>Factura N°
-          <input type="text" name="factura_numero" placeholder="Al menos factura o remisión">
+        <label>Factura N° (o remisión)
+          <input type="text" name="factura_numero" placeholder="Al menos factura o remisión"
+                 value="{{ valores_previos.factura_numero if valores_previos else '' }}">
         </label>
       </div>
 
       <div class="grid-3-compact">
         <label>Remisión N°
-          <input type="text" name="remision_numero">
+          <input type="text" name="remision_numero"
+                 value="{{ valores_previos.remision_numero if valores_previos else '' }}">
         </label>
         <label>Temperatura de llegada (°C)
-          <input type="number" step="0.1" name="temperatura_llegada" placeholder="Solo si aplica">
+          <input type="number" step="0.1" name="temperatura_llegada" placeholder="Solo si aplica"
+                 value="{{ valores_previos.temperatura_llegada if valores_previos else '' }}">
         </label>
         <label>Foto del empaque/factura (opcional)
           <input type="file" name="foto" accept="image/*,.pdf">
@@ -47,18 +58,65 @@
         <thead>
           <tr>
             <th style="width:26%">Producto</th>
-            <th style="width:9%">Lote</th>
-            <th style="width:9%">Vence</th>
-            <th style="width:8%">Cant. Fact.</th>
-            <th style="width:8%">Cant. Rec.</th>
-            <th style="width:8%">Costo</th>
-            <th style="width:8%">Empaque</th>
-            <th style="width:9%">Resultado</th>
-            <th style="width:10%">Motivo</th>
+            <th style="width:10%">Lote</th>
+            <th style="width:10%">Vence</th>
+            <th style="width:9%">Cant. Rec.</th>
+            <th style="width:9%">Costo</th>
+            <th style="width:10%">Temp. ingreso °C</th>
+            <th style="width:9%">Empaque</th>
+            <th style="width:10%">Resultado</th>
+            <th style="width:12%">Motivo</th>
             <th style="width:5%"></th>
           </tr>
         </thead>
         <tbody id="lineas-body">
+          {% if lineas_previas %}
+            {% for lp in lineas_previas %}
+            <tr class="linea">
+              <td>
+                <div class="buscar-producto-wrap">
+                  <input type="text" class="buscar-producto" autocomplete="off"
+                         placeholder="Escribe o escanea…"
+                         value="{{ lp.producto_codigo }} · {{ lp.producto_nombre }}{% if lp.concentracion %} {{ lp.concentracion }}{% endif %}">
+                  <input type="hidden" name="linea_producto_id" class="linea-producto-id"
+                         value="{{ lp.producto_id }}"
+                         data-rs="{{ lp.registro_sanitario }}"
+                         data-rs-vence="{{ lp.registro_vence }}"
+                         data-vence="{{ lp.maneja_vencimiento }}"
+                         data-frio="{{ lp.cadena_frio }}"
+                         data-control="{{ lp.control_especial }}">
+                  <button type="button" class="btn-mas btn-nuevo-producto" title="Crear producto nuevo">+</button>
+                </div>
+                <small class="hint-rs {% if not lp.registro_sanitario %}sin-rs{% endif %}">
+                  {% if lp.registro_sanitario %}RS: {{ lp.registro_sanitario }}{% else %}⚠ SIN registro INVIMA{% endif %}
+                </small>
+              </td>
+              <td><input type="text" name="linea_lote" value="{{ lp.lote }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
+              <td><input type="date" name="linea_vencimiento" value="{{ lp.vencimiento }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
+              <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="{{ lp.cantidad_recibida }}" required></td>
+              <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="{{ lp.costo_unitario }}" required></td>
+              <td><input type="number" step="0.1" name="linea_temperatura_ingreso"
+                         class="input-temp-ingreso"
+                         value="{{ lp.temperatura_ingreso if lp.temperatura_ingreso else '' }}"></td>
+              <td>
+                <select name="linea_empaque">
+                  {% for k, v in empaques.items() %}
+                    <option value="{{ k }}" {% if lp.estado_empaque == k %}selected{% endif %}>{{ v }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td>
+                <select name="linea_resultado">
+                  {% for k, v in resultados.items() %}
+                    <option value="{{ k }}" {% if lp.resultado == k %}selected{% endif %}>{{ v }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td><input type="text" name="linea_motivo" value="{{ lp.motivo_rechazo }}"></td>
+              <td><button type="button" class="peligro btn-quitar-linea">✕</button></td>
+            </tr>
+            {% endfor %}
+          {% else %}
           <tr class="linea">
             <td>
               <div class="buscar-producto-wrap">
@@ -70,9 +128,10 @@
             </td>
             <td><input type="text" name="linea_lote"></td>
             <td><input type="date" name="linea_vencimiento"></td>
-            <td><input type="number" name="linea_cantidad_facturada" step="0.01" value="0"></td>
-            <td><input type="number" name="linea_cantidad_recibida" step="0.01" value="0"></td>
-            <td><input type="number" name="linea_costo" step="0.01" value="0"></td>
+            <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="0" required></td>
+            <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="0" required></td>
+            <td><input type="number" step="0.1" name="linea_temperatura_ingreso"
+                       class="input-temp-ingreso" style="display:none"></td>
             <td>
               <select name="linea_empaque">
                 {% for k, v in empaques.items() %}
@@ -90,8 +149,23 @@
             <td><input type="text" name="linea_motivo"></td>
             <td><button type="button" class="peligro btn-quitar-linea">✕</button></td>
           </tr>
+          {% endif %}
         </tbody>
       </table>
+            <div class="totales-recepcion" id="totales-recepcion">
+        <div class="total-linea">
+          <span>Total líneas:</span>
+          <strong id="total-lineas">0</strong>
+        </div>
+        <div class="total-linea">
+          <span>Unidades recibidas:</span>
+          <strong id="total-unidades">0</strong>
+        </div>
+        <div class="total-linea total-grande">
+          <span>Valor total del inventario:</span>
+          <strong id="total-valor">$0</strong>
+        </div>
+      </div>
 
       <button type="button" id="btn-agregar-linea" class="boton secundario" style="margin-top:.5rem">
         + Agregar línea
@@ -99,7 +173,7 @@
     </fieldset>
 
     <label style="margin-top:1rem">Observaciones generales
-      <textarea name="observaciones" rows="3"></textarea>
+      <textarea name="observaciones" rows="3">{{ valores_previos.observaciones if valores_previos else '' }}</textarea>
     </label>
   </section>
 
@@ -112,65 +186,75 @@
 <!-- Panel flotante global para resultados de búsqueda -->
 <div id="panel-resultados" class="panel-resultados-oculto"></div>
 
+
 <!-- ============ MODAL: alta rápida de producto ============ -->
 <div id="modal-producto" class="modal-oculto">
-  <div class="modal-caja modal-caja-grande">
-    <h2>Nuevo producto (alta rápida)</h2>
-    <p class="suave" style="margin-top:0">Datos mínimos. Podrás completar el resto en Productos.</p>
-
-    <div class="grid-2">
-      <label>Código interno
-        <input type="text" id="np-codigo" autocomplete="off" placeholder="Auto si lo dejas vacío">
-      </label>
-      <label>Nombre *
-        <input type="text" id="np-nombre" autocomplete="off" required>
-      </label>
+  <div class="modal-caja modal-caja-formulario">
+    <div class="modal-header">
+      <h2>Nuevo producto</h2>
+      <p class="suave">Alta rápida desde recepción. Podrás completar más datos en Productos.</p>
     </div>
 
-    <div class="grid-2">
-      <label>Concentración
-        <input type="text" id="np-concentracion" placeholder="Ej: 500 mg">
-      </label>
-      <label>Laboratorio *
-        <div class="campo-con-boton">
-          <select id="np-laboratorio" required>
-            <option value="">— Seleccionar —</option>
-            {% for l in laboratorios %}
-              <option value="{{ l['id'] }}">{{ l['nombre'] }}</option>
+    <div class="modal-body">
+      <!-- ===== Identificación ===== -->
+      <div class="modal-seccion">Identificación</div>
+      <div class="modal-grid-2">
+        <label>Código interno
+          <input type="text" id="np-codigo" autocomplete="off" placeholder="Auto si lo dejas vacío">
+        </label>
+        <label>Nombre *
+          <input type="text" id="np-nombre" autocomplete="off" required>
+        </label>
+      </div>
+
+      <div class="modal-grid-2">
+        <label>Concentración
+          <input type="text" id="np-concentracion" placeholder="Ej: 500 mg">
+        </label>
+        <label>Laboratorio *
+          <div class="campo-con-boton">
+            <select id="np-laboratorio" required>
+              <option value="">— Seleccionar —</option>
+              {% for l in laboratorios %}
+                <option value="{{ l['id'] }}">{{ l['nombre'] }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" class="btn-mas" id="np-nuevo-lab" title="Crear laboratorio">+</button>
+          </div>
+        </label>
+      </div>
+
+      <!-- ===== Registro sanitario ===== -->
+      <div class="modal-seccion">Registro sanitario</div>
+      <div class="modal-grid-2">
+        <label>Registro INVIMA
+          <input type="text" id="np-registro" autocomplete="off" placeholder="Ej: INVIMA-2024M-12345">
+        </label>
+        <label>Vence registro
+          <input type="date" id="np-registro-vence">
+        </label>
+      </div>
+
+      <!-- ===== Precios ===== -->
+      <div class="modal-seccion">Precio y venta</div>
+      <div class="modal-grid-2">
+        <label>Precio de venta
+          <input type="number" step="0.01" id="np-precio" value="0">
+        </label>
+        <label>Unidad de venta *
+          <select id="np-unidad">
+            {% for u in unidades %}
+              <option value="{{ u['id'] }}" {% if u['nombre'] == 'Unidad' %}selected{% endif %}>
+                {{ u['nombre'] }}{% if u['cantidad'] != 1 %} (×{{ u['cantidad'] }}){% endif %}
+              </option>
             {% endfor %}
           </select>
-          <button type="button" class="btn-mas" id="np-nuevo-lab" title="Crear laboratorio">+</button>
-        </div>
-      </label>
-    </div>
+        </label>
+      </div>
 
-    <div class="grid-2">
-      <label>Registro INVIMA
-        <input type="text" id="np-registro" autocomplete="off" placeholder="Ej: INVIMA-2024M-12345">
-      </label>
-      <label>Vence registro
-        <input type="date" id="np-registro-vence">
-      </label>
-    </div>
-
-    <div class="grid-2">
-      <label>Precio de venta
-        <input type="number" step="0.01" id="np-precio" value="0">
-      </label>
-      <label>Unidad de venta *
-        <select id="np-unidad">
-          {% for u in unidades %}
-            <option value="{{ u['id'] }}" {% if u['nombre'] == 'Unidad' %}selected{% endif %}>
-              {{ u['nombre'] }}{% if u['cantidad'] != 1 %} (×{{ u['cantidad'] }}){% endif %}
-            </option>
-          {% endfor %}
-        </select>
-      </label>
-    </div>
-
-    <fieldset>
-      <legend>Condiciones</legend>
-      <div class="grid-2">
+      <!-- ===== Condiciones ===== -->
+      <div class="modal-seccion">Condiciones</div>
+      <div class="modal-grid-2">
         <label class="switch-linea">
           <input type="checkbox" id="np-maneja-vence" checked>
           Maneja vencimiento
@@ -188,7 +272,17 @@
           Control especial (FNE)
         </label>
       </div>
-    </fieldset>
+
+      <p id="np-error" class="aviso error" style="display:none;margin-top:1rem"></p>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" id="np-cancelar" class="boton secundario">Cancelar</button>
+      <button type="button" id="np-guardar" class="boton">Guardar</button>
+    </div>
+  </div>
+</div> 
+   </fieldset>
 
     <p id="np-error" class="aviso error" style="display:none"></p>
 
@@ -206,7 +300,6 @@
   const panel = document.getElementById('panel-resultados');
   let inputActivo = null;
 
-  // ===== Utilidades =====
   function escaparHTML(s) {
     const d = document.createElement('div');
     d.textContent = s;
@@ -237,6 +330,29 @@
     hint.classList.toggle('sin-rs', !hidden.dataset.rs);
   }
 
+    function ajustarRequeridos(tr) {
+    const hidden = tr.querySelector('.linea-producto-id');
+    const lote = tr.querySelector('input[name="linea_lote"]');
+    const vence = tr.querySelector('input[name="linea_vencimiento"]');
+    const tempIng = tr.querySelector('.input-temp-ingreso');
+    if (!hidden || !lote || !vence) return;
+    if (!hidden.value) {
+      lote.required = false;
+      vence.required = false;
+      if (tempIng) { tempIng.style.display = 'none'; tempIng.required = false; }
+    } else {
+      const maneja = hidden.dataset.vence === '1';
+      const frio = hidden.dataset.frio === '1';
+      lote.required = maneja;
+      vence.required = maneja;
+      if (tempIng) {
+        tempIng.style.display = frio ? '' : 'none';
+        tempIng.required = frio;
+        if (!frio) tempIng.value = '';
+      }
+    }
+  }
+
   function seleccionarProducto(wrap, p) {
     const input = wrap.querySelector('.buscar-producto');
     const hidden = wrap.querySelector('.linea-producto-id');
@@ -250,6 +366,8 @@
     hidden.dataset.control = p.control_especial ? '1' : '0';
     actualizarHint(wrap);
     ocultarPanel();
+    const tr = wrap.closest('tr');
+    if (tr) ajustarRequeridos(tr);
   }
 
   function ocultarPanel() {
@@ -305,7 +423,6 @@
     panel.classList.add('panel-resultados');
   }
 
-  // ===== Buscar productos =====
   let timeoutBusqueda = null;
 
   async function buscarProductos(input, q) {
@@ -327,29 +444,21 @@
         const tr = wrap.closest('tr');
         tr.querySelector('input[name="linea_cantidad_recibida"]').focus();
       } else {
-        // No encontrado por barras: intenta búsqueda normal
         buscarProductos(input, codigo);
       }
     } catch (e) { /* silencio */ }
   }
 
-  // ===== Eventos delegados =====
   body.addEventListener('input', function (e) {
     if (!e.target.classList.contains('buscar-producto')) return;
     const input = e.target;
     inputActivo = input;
     const q = input.value.trim();
-    if (q.length < 3) {
-      ocultarPanel();
-      return;
-    }
+    if (q.length < 3) { ocultarPanel(); return; }
     clearTimeout(timeoutBusqueda);
     timeoutBusqueda = setTimeout(function () {
-      if (/^\d{8,}$/.test(q)) {
-        buscarBarras(input, q);
-      } else {
-        buscarProductos(input, q);
-      }
+      if (/^\d{8,}$/.test(q)) buscarBarras(input, q);
+      else buscarProductos(input, q);
     }, 220);
   });
 
@@ -360,10 +469,8 @@
       const input = e.target;
       const q = input.value.trim();
       if (!q) return;
-      if (/^\d{8,}$/.test(q)) {
-        buscarBarras(input, q);
-      } else {
-        // Seleccionar el primer resultado
+      if (/^\d{8,}$/.test(q)) buscarBarras(input, q);
+      else {
         const primero = panel.querySelector('.resultado-item');
         if (primero) primero.click();
       }
@@ -387,10 +494,7 @@
     }, 180);
   });
 
-  // Clic en un resultado
-  panel.addEventListener('mousedown', function (e) {
-    e.preventDefault(); // evita el blur del input
-  });
+  panel.addEventListener('mousedown', function (e) { e.preventDefault(); });
 
   panel.addEventListener('click', function (e) {
     const item = e.target.closest('.resultado-item');
@@ -412,12 +516,10 @@
       control_especial: item.dataset.control === '1' ? 1 : 0,
     };
     seleccionarProducto(wrap, p);
-    // Enfocar cantidad recibida
     const tr = wrap.closest('tr');
     tr.querySelector('input[name="linea_cantidad_recibida"]').focus();
   });
 
-  // ===== Agregar / quitar líneas =====
   document.getElementById('btn-agregar-linea').addEventListener('click', function () {
     const primera = body.querySelector('tr.linea');
     const nueva = primera.cloneNode(true);
@@ -430,14 +532,18 @@
         i.dataset.frio = '';
         i.dataset.control = '';
       }
+      if (i.name === 'linea_cantidad_recibida' || i.name === 'linea_costo') {
+        i.value = '0';
+      }
+      i.required = false;
     });
     nueva.querySelectorAll('select').forEach(function (s) { s.selectedIndex = 0; });
-    nueva.querySelector('input[name="linea_cantidad_facturada"]').value = '0';
-    nueva.querySelector('input[name="linea_cantidad_recibida"]').value = '0';
-    nueva.querySelector('input[name="linea_costo"]').value = '0';
-    nueva.querySelector('.hint-rs').textContent = 'RS: —';
-    nueva.querySelector('.hint-rs').classList.remove('sin-rs');
+    const hint = nueva.querySelector('.hint-rs');
+    if (hint) { hint.textContent = 'RS: —'; hint.classList.remove('sin-rs'); }
+    const temp = nueva.querySelector('.input-temp-ingreso');
+    if (temp) { temp.style.display = 'none'; temp.value = ''; }
     body.appendChild(nueva);
+    ajustarRequeridos(nueva);
     nueva.querySelector('.buscar-producto').focus();
   });
 
@@ -450,6 +556,8 @@
       e.target.closest('tr').remove();
     }
   });
+
+  body.querySelectorAll('tr.linea').forEach(ajustarRequeridos);
 
   // ===== MODAL alta rápida =====
   const modal = document.getElementById('modal-producto');
@@ -564,7 +672,6 @@
         npError.style.display = 'block';
         return;
       }
-      // Seleccionar el producto en la línea de origen
       const wrap = wrapOrigen;
       const p = {
         id: json.id,
@@ -588,6 +695,48 @@
       npGuardar.textContent = 'Crear y agregar';
     }
   });
+
+    // ===== Totales de la recepción =====
+  function recalcularTotales() {
+    let unidades = 0;
+    let valor = 0;
+    let lineas = 0;
+    body.querySelectorAll('tr.linea').forEach(function (tr) {
+      const hidden = tr.querySelector('.linea-producto-id');
+      if (!hidden || !hidden.value) return;
+      const cant = parseFloat(tr.querySelector('input[name="linea_cantidad_recibida"]').value) || 0;
+      const costo = parseFloat(tr.querySelector('input[name="linea_costo"]').value) || 0;
+      unidades += cant;
+      valor += cant * costo;
+      lineas += 1;
+    });
+    document.getElementById('total-lineas').textContent = lineas;
+    document.getElementById('total-unidades').textContent = unidades.toFixed(2);
+    document.getElementById('total-valor').textContent = '$' + valor.toLocaleString('es-CO', {
+      minimumFractionDigits: 0, maximumFractionDigits: 0
+    });
+  }
+
+  // Recalcular cuando cambia cualquier cantidad o costo
+  body.addEventListener('input', function (e) {
+    if (e.target.name === 'linea_cantidad_recibida' || e.target.name === 'linea_costo') {
+      recalcularTotales();
+    }
+  });
+
+  // Recalcular al agregar/quitar líneas
+  document.getElementById('btn-agregar-linea').addEventListener('click', recalcularTotales);
+  body.addEventListener('click', function (e) {
+    if (e.target.classList.contains('btn-quitar-linea')) {
+      setTimeout(recalcularTotales, 50);
+    }
+  });
+
+  // Recalcular al seleccionar producto (por si el navegador ya tiene valores)
+  const _seleccionarOrig = seleccionarProducto;
+  // Al agregar nueva línea también recalcular
+  setTimeout(recalcularTotales, 100);
+
 })();
 </script>
 {% endblock %}

@@ -43,7 +43,6 @@ MIGRATIONS = [
         );
         CREATE INDEX idx_bitacora_fecha ON bitacora (fecha);
 
-        -- La bitácora es un registro de auditoría: no se puede editar ni borrar.
         CREATE TRIGGER bitacora_no_editar BEFORE UPDATE ON bitacora
         BEGIN SELECT RAISE(ABORT, 'La bitácora no se puede modificar'); END;
         CREATE TRIGGER bitacora_no_borrar BEFORE DELETE ON bitacora
@@ -54,10 +53,8 @@ MIGRATIONS = [
             valor TEXT
         );
         """,
-
-        
     ),
-        (
+    (
         2,
         """
         CREATE TABLE proveedores (
@@ -112,7 +109,7 @@ MIGRATIONS = [
         CREATE INDEX idx_productos_activo ON productos (activo);
         """,
     ),
-        (
+    (
         3,
         """
         CREATE TABLE zonas_temperatura (
@@ -172,8 +169,7 @@ MIGRATIONS = [
         CREATE INDEX idx_temp_reg_fecha ON temperatura_registros (fecha);
         """,
     ),
-
-        (
+    (
         4,
         """
         CREATE TABLE catalogos (
@@ -190,11 +186,9 @@ MIGRATIONS = [
         CREATE INDEX idx_catalogos_activo ON catalogos (activo);
         """,
     ),
-
-        (
+    (
         5,
         """
-        -- ===== Campos nuevos en productos =====
         ALTER TABLE productos ADD COLUMN descripcion TEXT;
         ALTER TABLE productos ADD COLUMN grupo TEXT;
         ALTER TABLE productos ADD COLUMN precio_compra REAL NOT NULL DEFAULT 0;
@@ -203,14 +197,9 @@ MIGRATIONS = [
         ALTER TABLE productos ADD COLUMN forma_farmaceutica_id INTEGER;
         ALTER TABLE productos ADD COLUMN maneja_vencimiento INTEGER NOT NULL DEFAULT 1;
 
-        -- ===== Limpieza de catálogos =====
-        -- Renombrar "presentacion" a "forma_farmaceutica" (evita confusión con presentaciones de empaque)
         UPDATE catalogos SET tipo = 'forma_farmaceutica' WHERE tipo = 'presentacion';
-
-        -- Desactivar el catálogo de medidas (ya no se usa: la unidad base es siempre "Unidad")
         UPDATE catalogos SET activo = 0 WHERE tipo = 'medida';
 
-        -- ===== Tablas nuevas =====
         CREATE TABLE productos_categorias (
             producto_id INTEGER NOT NULL,
             catalogo_id INTEGER NOT NULL,
@@ -242,13 +231,10 @@ MIGRATIONS = [
         CREATE INDEX idx_presentaciones_producto ON presentaciones_producto (producto_id);
         """,
     ),
-            (
+    (
         6,
         """
-        -- Renombrar el catálogo "presentacion" a "forma_farmaceutica"
         UPDATE catalogos SET tipo = 'forma_farmaceutica' WHERE tipo = 'presentacion';
-
-        -- Desactivar el catálogo "medida" (ya no se usa, la unidad base es siempre "Unidad")
         UPDATE catalogos SET activo = 0 WHERE tipo = 'medida';
         """,
     ),
@@ -270,8 +256,7 @@ MIGRATIONS = [
         ALTER TABLE productos ADD COLUMN unidad_venta_id INTEGER;
         """,
     ),
-
-        (
+    (
         8,
         """
         CREATE TABLE recepciones (
@@ -366,6 +351,19 @@ MIGRATIONS = [
         CREATE INDEX idx_mov_inv_lote ON movimientos_inventario (lote_id);
         """,
     ),
+    (
+        9,
+        """
+        ALTER TABLE recepcion_lineas ADD COLUMN temperatura_ingreso REAL;
+        ALTER TABLE recepcion_lineas ADD COLUMN clasificacion_defecto TEXT;
+        """,
+    ),
+        (
+        10,
+        """
+        ALTER TABLE productos ADD COLUMN creado_en_importacion INTEGER NOT NULL DEFAULT 0;
+        """,
+    ),
 ]
 
 
@@ -377,8 +375,9 @@ def conectar(ruta) -> sqlite3.Connection:
     conn.execute("PRAGMA synchronous = FULL")
     return conn
 
+
 def _asegurar_columnas_productos(conn):
-    """Agrega columnas faltantes en `productos` (por si la migración 5 se aplicó en una versión anterior)."""
+    """Agrega columnas faltantes en productos (por si una migración se aplicó antes)."""
     existentes = {r[1] for r in conn.execute("PRAGMA table_info(productos)").fetchall()}
     requeridas = [
         ("descripcion", "TEXT"),
@@ -397,6 +396,26 @@ def _asegurar_columnas_productos(conn):
             cambios = True
     if cambios:
         conn.commit()
+
+
+def _asegurar_columnas_recepcion_lineas(conn):
+    """Agrega columnas faltantes en recepcion_lineas."""
+    try:
+        existentes = {r[1] for r in conn.execute("PRAGMA table_info(recepcion_lineas)").fetchall()}
+    except sqlite3.OperationalError:
+        return
+    requeridas = [
+        ("temperatura_ingreso", "REAL"),
+        ("clasificacion_defecto", "TEXT"),
+    ]
+    cambios = False
+    for nombre, tipo in requeridas:
+        if nombre not in existentes:
+            conn.execute(f"ALTER TABLE recepcion_lineas ADD COLUMN {nombre} {tipo}")
+            cambios = True
+    if cambios:
+        conn.commit()
+
 
 def init_db(ruta) -> int:
     """Crea la base si no existe y aplica las migraciones pendientes. Devuelve la versión final."""
@@ -422,7 +441,8 @@ def init_db(ruta) -> int:
                         conn.rollback()
                     raise
                 actual = version
-        # Sembrar zonas típicas si la tabla está vacía.
+
+        # Sembrar zonas típicas
         try:
             hay_zonas = conn.execute("SELECT 1 FROM zonas_temperatura LIMIT 1").fetchone()
             if not hay_zonas:
@@ -438,13 +458,14 @@ def init_db(ruta) -> int:
                         "INSERT INTO zonas_temperatura (nombre, descripcion, temp_min, temp_max, "
                         "controla_humedad, humedad_min, humedad_max, horarios, dias_semana, activa, "
                         "minutos_tolerancia, creado_en) VALUES (?,?,?,?,?,?,?,?, '1,2,3,4,5,6,7', ?, 30, ?)",
-                        (n, d, tmin, tmax, ch, hmin, hmax, hor, act, _dt.now().isoformat(sep=" ", timespec="seconds")),
+                        (n, d, tmin, tmax, ch, hmin, hmax, hor, act,
+                         _dt.now().isoformat(sep=" ", timespec="seconds")),
                     )
                 conn.commit()
         except sqlite3.OperationalError:
-            pass  # la tabla aún no existe (primera pasada): la sembrará en la siguiente ejecución
+            pass
 
-        # Sembrar catálogos típicos si la tabla está vacía.
+        # Sembrar catálogos típicos
         try:
             hay_catalogos = conn.execute("SELECT 1 FROM catalogos LIMIT 1").fetchone()
             if not hay_catalogos:
@@ -472,13 +493,10 @@ def init_db(ruta) -> int:
                         "Deficiencia de vitaminas", "Cicatrizante",
                         "Conjuntivitis", "Dermatitis",
                     ],
-                    "tipo_pago": [
-                        "Efectivo", "Tarjeta", "Davivienda", "Nequi",
-                    ],
+                    "tipo_pago": ["Efectivo", "Tarjeta", "Davivienda", "Nequi"],
                     "laboratorio": [],
                     "principio": [],
                 }
-                
                 for tipo, nombres in semillas.items():
                     for nombre in nombres:
                         conn.execute(
@@ -488,9 +506,9 @@ def init_db(ruta) -> int:
                         )
                 conn.commit()
         except sqlite3.OperationalError:
-            pass  # la tabla aún no existe (primera pasada)
+            pass
 
-                # Sembrar la unidad base "Unidad" si no existe.
+        # Sembrar unidad base "Unidad"
         try:
             hay = conn.execute("SELECT 1 FROM unidades_medida LIMIT 1").fetchone()
             if not hay:
@@ -504,7 +522,9 @@ def init_db(ruta) -> int:
         except sqlite3.OperationalError:
             pass
 
+        # Asegurar columnas
         _asegurar_columnas_productos(conn)
+        _asegurar_columnas_recepcion_lineas(conn)
 
         return actual
     finally:

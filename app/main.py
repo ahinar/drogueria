@@ -1,6 +1,6 @@
 """Home / Dashboard principal."""
 from datetime import datetime, date
-
+from datetime import timedelta
 from flask import Blueprint, render_template
 
 from .auth import login_required
@@ -31,28 +31,43 @@ def _fecha_larga_es():
 def _estado_temperatura(db):
     """Consulta si hoy ya se registró la temperatura de las zonas activas."""
     hoy = date.today().isoformat()
+    ahora_dt = datetime.now()
+    dia_semana = ahora_dt.isoweekday()
+
     zonas = db.execute(
-        "SELECT id, nombre, horarios FROM zonas_temperatura WHERE activa = 1"
+        "SELECT id, nombre, horarios, dias_semana, minutos_tolerancia "
+        "FROM zonas_temperatura WHERE activa = 1"
     ).fetchall()
 
     pendientes = []
     for z in zonas:
+        # Verificar si hoy aplica
+        if str(dia_semana) not in (z["dias_semana"] or "").split(","):
+            continue
+
         horarios = [h.strip() for h in (z["horarios"] or "").split(",") if h.strip()]
         for h in horarios:
+            try:
+                hh, mm = map(int, h.split(":"))
+            except ValueError:
+                continue
+            programada = ahora_dt.replace(hour=hh, minute=mm, second=0, microsecond=0)
+            tolerancia = z["minutos_tolerancia"] or 30
+
+            # Solo cuenta como pendiente si ya pasó la hora + tolerancia
+            if ahora_dt < programada + timedelta(minutes=tolerancia):
+                continue
+
+            # ¿Hay alguna lectura hoy DESPUÉS de la hora programada?
             existe = db.execute(
                 "SELECT 1 FROM temperatura_registros "
-                "WHERE zona_id = ? AND fecha LIKE ? LIMIT 1",
-                (z["id"], f"{hoy}%"),
+                "WHERE zona_id = ? AND fecha >= ? AND fecha LIKE ? LIMIT 1",
+                (z["id"],
+                 programada.isoformat(sep=" ", timespec="seconds"),
+                 f"{hoy}%"),
             ).fetchone()
             if not existe:
-                try:
-                    hh, mm = map(int, h.split(":"))
-                    programada = datetime.now().replace(hour=hh, minute=mm, second=0)
-                    if datetime.now() > programada:
-                        pendientes.append({"zona": z["nombre"], "hora": h})
-                        break
-                except ValueError:
-                    continue
+                pendientes.append({"zona": z["nombre"], "hora": h})
 
     ultima = db.execute(
         "SELECT r.*, z.nombre AS zona_nombre "
@@ -69,12 +84,48 @@ def _estado_temperatura(db):
 
 
 def _productos_alertas(db):
-    """Productos activos y con stock bajo."""
+    """Productos activos + alertas reales de inventario."""
+    from datetime import date, timedelta
     total = db.execute("SELECT COUNT(*) FROM productos WHERE activo = 1").fetchone()[0]
-    con_minimo = db.execute(
-        "SELECT COUNT(*) FROM productos WHERE activo = 1 AND stock_minimo > 0"
-    ).fetchone()[0]
-    return {"total": total, "con_minimo": con_minimo}
+
+    hoy = date.today().isoformat()
+    limite_30 = (date.today() + timedelta(days=30)).isoformat()
+    limite_90 = (date.today() + timedelta(days=90)).isoformat()
+
+    try:
+        por_vencer_30 = db.execute(
+            "SELECT COUNT(*) FROM lotes WHERE estado = 'disponible' "
+            "AND cantidad_disponible > 0 AND vencimiento IS NOT NULL "
+            "AND vencimiento <= ? AND vencimiento >= ?",
+            (limite_30, hoy),
+        ).fetchone()[0]
+
+        por_vencer_90 = db.execute(
+            "SELECT COUNT(*) FROM lotes WHERE estado = 'disponible' "
+            "AND cantidad_disponible > 0 AND vencimiento IS NOT NULL "
+            "AND vencimiento <= ? AND vencimiento >= ?",
+            (limite_90, hoy),
+        ).fetchone()[0]
+
+        vencidos = db.execute(
+            "SELECT COUNT(*) FROM lotes WHERE cantidad_disponible > 0 "
+            "AND vencimiento IS NOT NULL AND vencimiento < ?",
+            (hoy,),
+        ).fetchone()[0]
+
+        total_lotes = db.execute(
+            "SELECT COUNT(*) FROM lotes WHERE cantidad_disponible > 0"
+        ).fetchone()[0]
+    except Exception:
+        por_vencer_30 = por_vencer_90 = vencidos = total_lotes = 0
+
+    return {
+        "total": total,
+        "por_vencer_30": por_vencer_30,
+        "por_vencer_90": por_vencer_90,
+        "vencidos": vencidos,
+        "total_lotes": total_lotes,
+    }
 
 
 def _ventas_hoy(db):

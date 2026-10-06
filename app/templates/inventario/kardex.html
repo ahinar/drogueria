@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block titulo %}Kardex · {{ producto['nombre'] }}{% endblock %}
+{% block contenido %}
+<h1>📋 Kardex · {{ producto['codigo'] }} — {{ producto['nombre'] }}</h1>
+
+<div class="rece-acciones">
+  <a class="boton secundario" href="{{ url_for('inventario.kardex_buscar') }}">← Buscar otro</a>
+  <a class="boton secundario" href="{{ url_for('productos.editar', prod_id=producto['id']) }}">Editar producto</a>
+</div>
+
+<div class="rece-info">
+  <div class="rece-info-campo">
+    <span class="rece-label">Producto</span>
+    <strong>{{ producto['nombre'] }}</strong>
+    {% if producto['concentracion'] %}<small>{{ producto['concentracion'] }}</small>{% endif %}
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Lotes activos</span>
+    <strong>{{ total_lotes['n'] }}</strong>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Stock total</span>
+    <strong style="font-size:1.3rem">{{ '%.0f'|format(total_lotes['total']) }}</strong>
+    <small>unidades base</small>
+  </div>
+</div>
+
+<h2 class="titulo-seccion">Lotes actuales</h2>
+<table class="tabla">
+  <thead>
+    <tr><th>Lote</th><th>Vence</th><th>Cantidad</th><th>Costo</th><th>Estado</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for l in lotes %}
+    <tr>
+      <td>{{ l['lote'] or '—' }}</td>
+      <td>{{ l['vencimiento'] or '—' }}</td>
+      <td>{{ '%.0f'|format(l['cantidad_disponible']) }}</td>
+      <td>${{ '%.2f'|format(l['costo_unitario']) }}</td>
+      <td>{{ estados.get(l['estado'], l['estado']) }}</td>
+      <td><a href="{{ url_for('inventario.lote_ver', lote_id=l['id']) }}">Ver</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">Sin lotes activos.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2 class="titulo-seccion">Historial de movimientos</h2>
+<table class="tabla">
+  <thead>
+    <tr><th>Fecha</th><th>Lote</th><th>Tipo</th><th>Cantidad</th><th>Referencia</th><th>Usuario</th></tr>
+  </thead>
+  <tbody>
+    {% for m in movimientos %}
+    <tr>
+      <td><small>{{ m['fecha'] }}</small></td>
+      <td>{{ m['lote_nombre'] or '—' }}</td>
+      <td>{{ m['tipo']|capitalize }}</td>
+      <td>{{ '%.2f'|format(m['cantidad']) }}</td>
+      <td>{{ m['referencia'] or '—' }}</td>
+      <td>{{ m['usuario_nombre'] or '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">Sin movimientos registrados.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

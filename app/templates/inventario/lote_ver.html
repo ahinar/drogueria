@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block titulo %}Lote · {{ lote['producto_nombre'] }}{% endblock %}
+{% block contenido %}
+<h1>🗃️ Lote de {{ lote['producto_nombre'] }}</h1>
+
+<div class="rece-acciones">
+  <a class="boton secundario" href="{{ url_for('inventario.lotes') }}">← Volver</a>
+  <a class="boton secundario" href="{{ url_for('inventario.kardex', producto_id=lote['producto_id']) }}">
+    📋 Ver kardex del producto
+  </a>
+</div>
+
+<div class="rece-info">
+  <div class="rece-info-campo">
+    <span class="rece-label">Código</span>
+    <strong>{{ lote['producto_codigo'] }}</strong>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Producto</span>
+    <strong>{{ lote['producto_nombre'] }}</strong>
+    {% if lote['concentracion'] %}<small>{{ lote['concentracion'] }}</small>{% endif %}
+    {% if lote['lab_nombre'] %}<small>{{ lote['lab_nombre'] }}</small>{% endif %}
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Lote</span>
+    <strong>{{ lote['lote'] or '—' }}</strong>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Vencimiento</span>
+    <strong>{{ lote['vencimiento'] or '—' }}</strong>
+    {% if dias is not none %}
+      <span class="semaforo s-{{ semaforo_color }}">{{ semaforo_texto }}</span>
+    {% endif %}
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Cantidad disponible</span>
+    <strong style="font-size:1.3rem">{{ '%.0f'|format(lote['cantidad_disponible']) }}</strong>
+    <small>Inicial: {{ '%.0f'|format(lote['cantidad_inicial']) }}</small>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Costo unitario</span>
+    <strong>${{ '%.2f'|format(lote['costo_unitario']) }}</strong>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Estado</span>
+    <span class="tag-estado estado-{{ lote['estado'] }}">{{ estados.get(lote['estado'], lote['estado']) }}</span>
+    {% if lote['motivo_bloqueo'] %}<small>Motivo: {{ lote['motivo_bloqueo'] }}</small>{% endif %}
+  </div>
+</div>
+
+{% if g.user['rol'] in ('administrador', 'director_tecnico') %}
+<div class="rece-decision">
+  <h2 class="titulo-seccion">Acciones</h2>
+
+  <div class="acciones-lote">
+    {% if lote['estado'] == 'bloqueado' %}
+      <form method="post" action="{{ url_for('inventario.lote_desbloquear', lote_id=lote['id']) }}" style="display:inline">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button type="submit" class="boton">🔓 Desbloquear</button>
+      </form>
+    {% elif lote['estado'] == 'disponible' %}
+      <form method="post" action="{{ url_for('inventario.lote_bloquear', lote_id=lote['id']) }}"
+            class="form-inline" style="display:inline-block">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="text" name="motivo" placeholder="Motivo del bloqueo" required>
+        <button type="submit" class="boton peligro">🚫 Bloquear</button>
+      </form>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('inventario.lote_ajustar', lote_id=lote['id']) }}"
+          class="form-inline" style="margin-top:.7rem;display:block">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label style="display:inline">Nueva cantidad:
+        <input type="number" step="0.01" name="cantidad" value="{{ lote['cantidad_disponible'] }}" required style="width:120px;display:inline-block">
+      </label>
+      <input type="text" name="motivo" placeholder="Motivo del ajuste (conteo físico, merma, etc.)" required style="width:340px;display:inline-block">
+      <button type="submit" class="boton secundario">📝 Ajustar</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<h2 class="titulo-seccion">Movimientos del lote</h2>
+<table class="tabla">
+  <thead>
+    <tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Referencia</th><th>Usuario</th></tr>
+  </thead>
+  <tbody>
+    {% for m in movimientos %}
+    <tr>
+      <td><small>{{ m['fecha'] }}</small></td>
+      <td>{{ m['tipo']|capitalize }}</td>
+      <td>{{ '%.2f'|format(m['cantidad']) }}</td>
+      <td>{{ m['referencia'] or '—' }}</td>
+      <td>{{ m['usuario_nombre'] or '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">Sin movimientos registrados.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

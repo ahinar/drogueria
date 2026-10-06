@@ -40,17 +40,5 @@
   {% endif %}
 </div>
 
-<!-- Contenedor de alarma visual (oculto por defecto) -->
-<div id="alarma-temp" class="alarma-oculta" role="alert" aria-live="assertive">
-  <div class="alarma-caja">
-    <h2>⏰ REGISTRO DE TEMPERATURA PENDIENTE</h2>
-    <ul id="alarma-lista"></ul>
-    <div class="alarma-acciones">
-      <button type="button" id="alarma-silenciar">🔇 Silenciar sonido</button>
-      <button type="button" id="alarma-cerrar">Cerrar (volverá a aparecer)</button>
-    </div>
-  </div>
-</div>
 
-<script src="{{ url_for('static', filename='js/alarma.js') }}"></script>
 {% endblock %}

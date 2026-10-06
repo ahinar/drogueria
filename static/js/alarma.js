@@ -6,47 +6,52 @@
   const lista = document.getElementById('alarma-lista');
   const btnSilenciar = document.getElementById('alarma-silenciar');
   const btnCerrar = document.getElementById('alarma-cerrar');
-  const INTERVALO = 30 * 1000; // 30 segundos
+  const INTERVALO = 30 * 1000;              // consultar cada 30 s
+  const DURACION_APLAZO = 10 * 60 * 1000;   // 10 minutos
+  const DURACION_SILENCIO = 10 * 60 * 1000; // 10 minutos
 
   let audioCtx = null;
   let sonando = false;
   let intervaloBeep = null;
+  let aplazadoHasta = 0;
+  let silenciadoHasta = 0;
+  let suspendido = false; // true cuando el usuario está saliendo a registrar
 
-  // --- Sonido con Web Audio API ---
+  // ===== Sonido suave =====
   function beep() {
     if (!audioCtx) {
       try {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      } catch (e) {
-        return; // navegador sin soporte: se ignora el sonido
-      }
+      } catch (e) { return; }
     }
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
-    osc.type = 'square';
-    osc.frequency.value = 880;
-    gain.gain.value = 0.15;
+    osc.type = 'sine';
+    osc.frequency.value = 660;
+    gain.gain.value = 0.08;
     osc.connect(gain).connect(audioCtx.destination);
     osc.start();
-    osc.stop(audioCtx.currentTime + 0.25);
+    osc.stop(audioCtx.currentTime + 0.15);
   }
 
   function iniciarSonido() {
     if (sonando) return;
     sonando = true;
     beep();
-    intervaloBeep = setInterval(beep, 800);
+    intervaloBeep = setInterval(beep, 3000);
   }
 
   function detenerSonido() {
     sonando = false;
-    if (intervaloBeep) {
-      clearInterval(intervaloBeep);
-      intervaloBeep = null;
-    }
+    if (intervaloBeep) { clearInterval(intervaloBeep); intervaloBeep = null; }
   }
 
-  // --- Mostrar la pantalla roja ---
+  function ocultar() {
+    contenedor.classList.add('alarma-oculta');
+    detenerSonido();
+  }
+
+  // ===== Mostrar pantalla roja =====
   function mostrar(pendientes) {
     if (!pendientes.length) return;
 
@@ -59,14 +64,26 @@
       a.href = '/temperaturas/registrar/' + p.zona_id + '?programada_para=' + encodeURIComponent(p.programada_para);
       a.textContent = ' Registrar ahora';
       a.style.marginLeft = '.5rem';
+
+      // Al hacer clic: silenciar, ocultar y suspender la alarma antes de navegar
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        suspendido = true;
+        detenerSonido();
+        ocultar();
+        // Pequeña pausa para que se vea que se cerró, y luego navega
+        setTimeout(function () {
+          window.location.href = a.href;
+        }, 100);
+      });
+
       li.appendChild(a);
       lista.appendChild(li);
     });
 
     contenedor.classList.remove('alarma-oculta');
-    iniciarSonido();
+    if (Date.now() >= silenciadoHasta) iniciarSonido();
 
-    // Notificación nativa del navegador (si el usuario la autorizó)
     if (window.Notification && Notification.permission === 'granted') {
       new Notification('Droguería — temperatura pendiente', {
         body: pendientes.map(function (p) { return p.zona + ' a las ' + p.hora; }).join('\n'),
@@ -74,48 +91,51 @@
     }
   }
 
-  function ocultar() {
-    contenedor.classList.add('alarma-oculta');
-    detenerSonido();
-  }
-
-  // --- Consultar pendientes ---
+  // ===== Consultar pendientes =====
   function consultar() {
+    // Si el usuario aplazó o está saliendo a registrar, no consultar nada
+    if (suspendido) return;
+    if (Date.now() < aplazadoHasta) { ocultar(); return; }
+
     fetch('/temperaturas/api/pendientes', { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : { pendientes: [] }; })
       .then(function (data) {
+        if (suspendido) return;
         const pendientes = (data && data.pendientes) || [];
-        if (pendientes.length) {
-          mostrar(pendientes);
-        } else {
+        if (!pendientes.length) {
           ocultar();
+          return;
         }
+        mostrar(pendientes);
       })
-      .catch(function () { /* silencio: si falla, se reintenta en 30 s */ });
+      .catch(function () { /* silencio */ });
   }
 
-  // --- Botones ---
+  // ===== Botones =====
   if (btnSilenciar) {
     btnSilenciar.addEventListener('click', function () {
       detenerSonido();
-      btnSilenciar.textContent = '🔇 Silencio';
+      silenciadoHasta = Date.now() + DURACION_SILENCIO;
+      btnSilenciar.textContent = '🔇 Sonido silenciado 10 min';
+      setTimeout(function () {
+        btnSilenciar.textContent = '🔇 Silenciar sonido';
+      }, DURACION_SILENCIO);
     });
   }
 
   if (btnCerrar) {
     btnCerrar.addEventListener('click', function () {
+      aplazadoHasta = Date.now() + DURACION_APLAZO;
       ocultar();
-      // Vuelve a aparecer si siguen pendientes.
-      setTimeout(consultar, 5000);
     });
   }
 
-  // --- Pedir permiso de notificaciones (una sola vez) ---
+  // ===== Pedir permiso de notificaciones =====
   if (window.Notification && Notification.permission === 'default') {
     Notification.requestPermission();
   }
 
-  // --- Primer chequeo y luego cada 30 s ---
+  // ===== Primer chequeo y luego cada 30 s =====
   consultar();
   setInterval(consultar, INTERVALO);
 })();

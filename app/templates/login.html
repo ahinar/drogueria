@@ -1,17 +1,33 @@
-{% extends "base.html" %}
-{% block titulo %}Ingresar{% endblock %}
-{% block contenido %}
-<div class="tarjeta angosta">
-  <h1>Ingresar</h1>
-  <form method="post">
-    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <label>Usuario
-      <input type="text" name="usuario" autocomplete="username" required autofocus>
-    </label>
-    <label>Contraseña
-      <input type="password" name="clave" autocomplete="current-password" required>
-    </label>
-    <button type="submit" class="btn">Entrar</button>
-  </form>
-</div>
-{% endblock %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ingresar · Fervifarma</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-logo">💊</div>
+    <h1>Fervifarma</h1>
+    <p class="suave">Sistema de gestión · Calidad y POS</p>
+
+    {% with mensajes = get_flashed_messages(with_categories=true) %}
+      {% for categoria, mensaje in mensajes %}
+        <div class="aviso {{ categoria }}">{{ mensaje }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="post">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label>Usuario
+        <input type="text" name="usuario" required autofocus autocomplete="username">
+      </label>
+      <label>Contraseña
+        <input type="password" name="clave" required autocomplete="current-password">
+      </label>
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>

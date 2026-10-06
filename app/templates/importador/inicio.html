@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block titulo %}Importar productos{% endblock %}
+{% block contenido %}
+<h1>📥 Importar productos desde Excel o CSV</h1>
+<p class="suave">Carga masiva de tu catálogo. Soporta archivos <b>.xlsx</b> y <b>.csv</b>.</p>
+
+<div class="panel">
+  <h2 class="panel-titulo">Paso 1 · Descarga la plantilla</h2>
+  <p class="suave">Usa la plantilla para asegurar que las columnas tengan el nombre correcto. También puedes usar tu propio archivo si los encabezados coinciden.</p>
+  <div class="acciones">
+    <a class="boton" href="{{ url_for('importador.plantilla', formato='xlsx') }}">📄 Plantilla Excel (.xlsx)</a>
+    <a class="boton secundario" href="{{ url_for('importador.plantilla', formato='csv') }}">📄 Plantilla CSV</a>
+  </div>
+</div>
+
+<div class="panel" style="margin-top:1rem">
+  <h2 class="panel-titulo">Paso 2 · Sube tu archivo</h2>
+  <form method="post" action="{{ url_for('importador.previsualizar') }}" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>Archivo (.xlsx o .csv)
+      <input type="file" name="archivo" accept=".xlsx,.csv" required>
+    </label>
+    <p class="suave">
+      Los productos con un código ya existente serán <b>omitidos</b> automáticamente.
+      Los catálogos (laboratorios, categorías, principios) se crearán si no existen.
+    </p>
+    <button type="submit" class="boton">Ver previsualización</button>
+  </form>
+</div>
+
+<div class="panel" style="margin-top:1rem;background:#f9fbfc">
+  <h2 class="panel-titulo">📌 Columnas reconocidas</h2>
+  <p class="suave">El sistema reconoce los siguientes encabezados. Los que tengan <b>*</b> son obligatorios.</p>
+  <ul class="suave">
+    <li><b>Código interno *</b></li>
+    <li>Código de barras</li>
+    <li><b>Nombre *</b></li>
+    <li>Descripción</li>
+    <li>Grupo</li>
+    <li>Concentración</li>
+    <li>Principio activo</li>
+    <li>Laboratorio</li>
+    <li>Forma farmacéutica</li>
+    <li>Registro INVIMA</li>
+    <li>Vence INVIMA</li>
+    <li>Precio compra</li>
+    <li>Precio venta *</li>
+    <li>Precio máximo</li>
+    <li>IVA tipo</li>
+    <li>IVA tarifa %</li>
+    <li>Stock mínimo</li>
+    <li>Requiere fórmula (SI/NO)</li>
+    <li>Cadena de frío (SI/NO)</li>
+    <li>Control especial (SI/NO)</li>
+    <li>Maneja vencimiento (SI/NO)</li>
+    <li>Categorías (separadas por coma)</li>
+    <li>Observaciones</li>
+  </ul>
+</div>
+{% endblock %}

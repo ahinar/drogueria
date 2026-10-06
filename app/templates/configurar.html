@@ -1,24 +1,39 @@
-{% extends "base.html" %}
-{% block titulo %}Configuración inicial{% endblock %}
-{% block contenido %}
-<div class="tarjeta angosta">
-  <h1>Configuración inicial</h1>
-  <p>Crea el usuario <strong>administrador</strong>. Solo se hace una vez, en el primer arranque.</p>
-  <form method="post">
-    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <label>Nombre completo
-      <input type="text" name="nombre" required autofocus>
-    </label>
-    <label>Usuario (letras, números, punto o guion)
-      <input type="text" name="usuario" autocomplete="username" required>
-    </label>
-    <label>Contraseña (mínimo 8 caracteres)
-      <input type="password" name="clave" autocomplete="new-password" required>
-    </label>
-    <label>Repite la contraseña
-      <input type="password" name="confirmar" autocomplete="new-password" required>
-    </label>
-    <button type="submit" class="btn">Crear administrador</button>
-  </form>
-</div>
-{% endblock %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Configurar administrador · Fervifarma</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-logo">💊</div>
+    <h1>Bienvenido</h1>
+    <p class="suave">Crea el primer usuario administrador del sistema.</p>
+
+    {% with mensajes = get_flashed_messages(with_categories=true) %}
+      {% for categoria, mensaje in mensajes %}
+        <div class="aviso {{ categoria }}">{{ mensaje }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="post">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label>Nombre completo
+        <input type="text" name="nombre" required autofocus>
+      </label>
+      <label>Usuario (3 a 30 caracteres)
+        <input type="text" name="usuario" required>
+      </label>
+      <label>Contraseña (mínimo 8 caracteres)
+        <input type="password" name="clave" required>
+      </label>
+      <label>Confirmar contraseña
+        <input type="password" name="confirmar" required>
+      </label>
+      <button type="submit">Crear administrador</button>
+    </form>
+  </div>
+</body>
+</html>

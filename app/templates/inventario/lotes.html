@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block titulo %}Lotes{% endblock %}
+{% block contenido %}
+<h1>🗃️ Lotes de inventario</h1>
+
+<form method="get" class="filtros">
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por código, nombre o lote…">
+  <select name="estado">
+    <option value="">Todos los estados</option>
+    {% for k, v in estados.items() %}
+      <option value="{{ k }}" {% if estado==k %}selected{% endif %}>{{ v }}</option>
+    {% endfor %}
+  </select>
+  <select name="vencimiento">
+    <option value="">Cualquier vencimiento</option>
+    <option value="30" {% if vencimiento=='30' %}selected{% endif %}>Por vencer &lt; 30 días</option>
+    <option value="90" {% if vencimiento=='90' %}selected{% endif %}>Por vencer &lt; 90 días</option>
+    <option value="vencidos" {% if vencimiento=='vencidos' %}selected{% endif %}>Vencidos</option>
+  </select>
+  <button type="submit">Filtrar</button>
+</form>
+
+<table class="tabla">
+  <thead>
+    <tr>
+      <th>Código</th>
+      <th>Producto</th>
+      <th>Lote</th>
+      <th>Vence</th>
+      <th>Semáforo</th>
+      <th>Cantidad</th>
+      <th>Costo</th>
+      <th>Estado</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in filas %}
+    <tr>
+      <td>{{ f['producto_codigo'] }}</td>
+      <td>
+        {{ f['producto_nombre'] }}
+        {% if f['concentracion'] %} <small>{{ f['concentracion'] }}</small>{% endif %}
+        {% if f['lab_nombre'] %}<br><small>{{ f['lab_nombre'] }}</small>{% endif %}
+      </td>
+      <td>{{ f['lote'] or '—' }}</td>
+      <td>{{ f['vencimiento'] or '—' }}</td>
+      <td><span class="semaforo s-{{ f['semaforo_color'] }}">{{ f['semaforo_texto'] }}</span></td>
+      <td>{{ '%.0f'|format(f['cantidad_disponible']) }}</td>
+      <td>${{ '%.2f'|format(f['costo_unitario']) }}</td>
+      <td>{{ estados.get(f['estado'], f['estado']) }}</td>
+      <td><a href="{{ url_for('inventario.lote_ver', lote_id=f['id']) }}">Ver</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9">Sin lotes que coincidan con los filtros.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

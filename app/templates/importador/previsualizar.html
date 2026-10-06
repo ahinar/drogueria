@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block titulo %}Previsualización de importación{% endblock %}
+{% block contenido %}
+<h1>🔍 Previsualización</h1>
+<p class="suave">Revisa antes de confirmar. Se muestran las primeras 50 filas.</p>
+
+<div class="tarjetas-kpi" style="margin-bottom:1.2rem">
+  <div class="kpi-card kpi-ok">
+    <div class="kpi-icono">✅</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Listas para importar</span>
+      <strong class="kpi-valor">{{ validas }}</strong>
+      <span class="kpi-detalle">de {{ total }} filas</span>
+    </div>
+  </div>
+  <div class="kpi-card kpi-pendiente">
+    <div class="kpi-icono">⏭️</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Ya existen (se omiten)</span>
+      <strong class="kpi-valor">{{ duplicadas }}</strong>
+    </div>
+  </div>
+  <div class="kpi-card kpi-alerta">
+    <div class="kpi-icono">⚠️</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Con errores</span>
+      <strong class="kpi-valor kpi-valor-alerta">{{ con_error }}</strong>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2 class="panel-titulo">Columnas detectadas</h2>
+  <p class="suave">
+    {% for campo, enc in mapa.items() %}
+      <span class="chip" style="cursor:default">{{ campo }} → <b>{{ enc }}</b></span>
+    {% endfor %}
+  </p>
+</div>
+
+<table class="tabla" style="margin-top:1rem">
+  <thead>
+    <tr><th>#</th><th>Código</th><th>Nombre</th><th>Estado</th><th>Observaciones</th></tr>
+  </thead>
+  <tbody>
+    {% for a in analisis %}
+    <tr>
+      <td>{{ a.fila }}</td>
+      <td><small>{{ a.codigo }}</small></td>
+      <td>{{ a.nombre }}</td>
+      <td>
+        {% if a.estado == 'ok' %}<span class="tag-ok">Listo</span>
+        {% elif a.estado == 'duplicado' %}<span class="tag-error" style="background:#fff2c2;color:#7a5a00">Omitir (existe)</span>
+        {% else %}<span class="tag-error">Error</span>{% endif %}
+      </td>
+      <td><small>{{ a.errores|join(' · ') }}</small></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<form method="post" action="{{ url_for('importador.confirmar') }}" style="margin-top:1.5rem">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <button type="submit" class="boton">✅ Confirmar e importar {{ validas }} producto(s)</button>
+  <a class="boton secundario" href="{{ url_for('importador.inicio') }}">Cancelar</a>
+</form>
+{% endblock %}
