@@ -1,4 +1,4 @@
-# PROYECTO: Sistema de gestión de calidad + POS para droguería
+# PROYECTO: Sistema de gestión de calidad + POS para droguería Fervifarma
 
 > Documento maestro. Se adjunta al inicio de cada chat nuevo para retomar el trabajo sin perder el hilo.
 
@@ -10,166 +10,397 @@
 4. Al terminar cada paso: guarda los archivos, prueba que funcione y actualiza la sección 8 (Estado).
 5. Si el chat se llena, no pasa nada: abre uno nuevo y repite desde el punto 1.
 
-## 1. Decisiones ya tomadas
+## 1. Decisiones tomadas
 
-- Es un programa para una droguería en Colombia con **gestión de calidad + POS**.
-- **Temperaturas:** registro con recordatorios sonoros y visuales llamativos.
-- **Recepción técnica:** alimenta el inventario y guarda el formato de cada recepción según la ley.
+- Programa para una droguería en Colombia con **gestión de calidad + POS**.
+- **Temperaturas:** registro con recordatorios sonoros y visuales llamativos, una lectura AM y una PM por zona.
+- **Recepción técnica:** alimenta el inventario, guarda el Acta en PDF según la norma.
 - **Utilidades y ganancias** calculadas por períodos.
-- **Fácil y sencillo**, con datos que se puedan guardar.
-- Se usarían **dos computadores a la vez** en el local.
-- **Sin facturación electrónica por ahora**, pero el sistema debe quedar listo para agregarla después.
-- A futuro: conexión a alertas sanitarias (INVIMA) y a información de medicamentos, con IA.
+- **Fácil y sencillo**, datos respaldados.
+- **Dos computadores en el local:** mostrador (servidor) y bodega (cliente por navegador).
+- **Sin facturación electrónica por ahora**, pero con campos reservados para agregarla.
+- A futuro: conexión a alertas sanitarias (INVIMA), IA para clasificación de productos.
+- **Control especial (FNE):** el flujo completo se deja para una fase posterior.
 
 ## 2. Stack técnico (CONFIRMADO: Flask + SQLite)
 
-- **Python + Flask + SQLite** (un solo archivo `.db`), interfaz web en la red local.
-- PC principal (mostrador) = servidor. PC secundario (bodega) entra por navegador, sin instalar nada.
-- Funciona **sin internet**. Internet solo para avisos al celular y funciones futuras.
-- Alternativa más simple si se usa un solo computador: Excel con macros (menos robusta para registros legales).
+- **Python + Flask + SQLite**, interfaz web en la red local.
+- PC principal = servidor. PC secundario = cliente por navegador.
+- Funciona **sin internet**.
+- **Pillow** para imágenes, **reportlab** para PDFs, **openpyxl** para Excel, **Chart.js** local para gráficos, **Waitress** para servir en producción.
 
-### Estructura de carpetas sugerida
-
-```
-drogueria/
-  app/            (rutas, modelos, plantillas HTML)
-  db/             (drogueria.db)
-  pdfs/           (formatos de recepción, reportes)
-  backups/        (copias automáticas)
-  static/         (estilos, sonidos de alarma)
-  tests/
-  PROYECTO.md     (este documento)
-```
+### Estructura de carpetas
 
 ### Principios
 
 - Los registros legales (temperaturas, recepciones) **no se editan ni se borran**: una corrección es un registro nuevo que referencia al anterior, con motivo. Las ventas se **anulan**, no se borran.
-- **Bitácora de auditoría:** quién hizo qué y cuándo.
-- **Roles:** Administrador (dueño), Director Técnico, Auxiliar.
-- **Respaldo diario automático** de la base de datos y de los PDF, con copia adicional semanal.
-- Servidor solo en red local, con usuarios y contraseñas.
+- **Bitácora inmutable** con triggers a nivel de SQLite.
+- **Roles:** Administrador, Director Técnico, Auxiliar.
+- **Respaldo diario automático** verificado con `PRAGMA integrity_check`.
+- Servidor solo en red local.
 
-## 3. Modelo de datos (tablas y campos clave)
+## 3. Modelo de datos (tablas implementadas)
 
-- **usuarios:** nombre, usuario, clave (cifrada), rol, activo.
-- **productos:** código, código de barras, nombre, principio activo, concentración, forma farmacéutica, registro sanitario INVIMA, fabricante, unidad, tratamiento de IVA (excluido/exento/gravado) y tarifa, precio de venta, precio máximo de venta (si aplica), stock mínimo, requiere fórmula, cadena de frío, control especial.
-- **proveedores:** NIT, razón social, contacto, documentos (concepto sanitario, certificaciones), estado.
-- **clientes:** tipo y número de documento, nombre, correo (por defecto "consumidor final").
-- **recepciones:** número, fecha y hora, proveedor, factura o remisión, temperatura de llegada, resultado (aceptada / cuarentena / rechazada), recibido por, aprobado por, observaciones, ruta del PDF.
-- **recepcion_lineas:** producto, lote, fecha de vencimiento, cantidad facturada, cantidad recibida, costo unitario, estado del empaque, resultado por línea.
-- **lotes:** producto, lote, vencimiento, cantidad disponible, costo, estado (cuarentena, disponible, bloqueado, agotado, rechazado), motivo de bloqueo.
-- **movimientos_inventario (kardex):** fecha, lote, tipo (recepción, venta, devolución, ajuste, baja), cantidad, referencia, usuario.
-- **ventas:** consecutivo interno, fecha y hora, cliente, forma de pago, subtotal, descuento, IVA, total, usuario, estado (interno / anulada). Campos **reservados y vacíos** para facturación electrónica: número de factura, CUFE, estado DIAN, rutas PDF/XML.
-- **venta_lineas:** producto, lote, cantidad, precio unitario, descuento, tarifa IVA, valor IVA, total.
-- **devoluciones:** vínculo a la venta o recepción original, motivo, líneas (base de futuras notas crédito).
-- **zonas_temperatura:** nombre (bodega, vitrina, nevera), rango de temperatura, rango de humedad, frecuencia de lectura, horas programadas.
-- **temperatura_registros:** zona, fecha y hora, temperatura, humedad, usuario, dentro de rango (sí/no), acción correctiva, vínculo a corrección.
-- **equipos:** termohigrómetro/nevera, ubicación, fecha de calibración, próximo vencimiento.
-- **gastos:** fecha, categoría, descripción, valor, usuario.
-- **config:** datos del emisor (NIT, razón social, dirección), numeración, parámetros de alertas.
-- **bitacora:** fecha, usuario, acción, tabla, registro.
-- **alertas_sanitarias** *(fase 3)*: fuente, fecha, enlace, producto, registro sanitario, lotes, medida, estado de revisión.
-- **alertas_coincidencias** *(fase 3)*: alerta, lote afectado, revisado por, acción tomada.
-- **documentos** *(fase 4)*: nombre, tipo (PNO, formato), versión, fecha de vigencia, archivo.
+### Base
+- `usuarios`: nombre, usuario, clave_hash, rol, activo, creado_en, ultimo_ingreso.
+- `bitacora`: fecha, usuario_id, usuario_nombre, accion, tabla, registro_id, detalle, ip. **Con triggers que impiden UPDATE y DELETE.**
+- `config`: clave (PK), valor. Almacena NIT, razón social, dirección, teléfono, regente, `logo_ruta`, `pie_pagina`.
+- `schema_version`: versiones de migración aplicadas.
 
-## 4. Reglas de negocio
+### Catálogos
+- `catalogos`: tipo (categoria / forma_farmaceutica / principio / laboratorio / uso / tipo_pago), nombre, descripcion, activo. Único por (tipo, nombre).
+- `unidades_medida`: nombre, cantidad (factor), referencia_id, activo.
 
-**Estados de lote:** cuarentena → disponible (al aprobar la recepción) → agotado. Un lote puede quedar bloqueado (vencido, alerta sanitaria) o rechazado.
+### Productos y proveedores
+- `proveedores`: NIT, razón social, nombre_comercial, contacto, teléfono, correo, dirección, ciudad, concepto sanitario, concepto_vence, certificaciones, activo.
+- `productos`: código único, código de barras, nombre, descripción, grupo, `principio_id`, `laboratorio_id`, `forma_farmaceutica_id`, `unidad_venta_id`, concentración, registro_sanitario, registro_vence, precio_compra, precio_venta, precio_maximo, IVA (tipo + tarifa), stock_minimo, requiere_formula, cadena_frio, control_especial, maneja_vencimiento, imagen, activo.
+- `productos_categorias`: M:N producto ↔ categorías.
+- `productos_usos`: M:N producto ↔ usos.
+- `presentaciones_producto` (antigua tabla, sin uso actual).
+
+### Temperaturas
+- `zonas_temperatura`: nombre, descripción, temp_min, temp_max, controla_humedad, humedad_min, humedad_max, horarios, dias_semana, minutos_tolerancia, activa.
+- `temperatura_registros`: zona_id, equipo_id, fecha, programada_para, temperatura, humedad, dentro_de_rango, accion_correctiva, usuario_id, usuario_nombre.
+- `equipos`: nombre, tipo, marca, modelo, serie, zona_id, fecha_calibracion, proxima_calibracion (sin uso aún).
+
+### Recepción técnica e inventario
+- `recepciones`: número único (REC-####), fecha, proveedor_id, factura_numero, remision_numero, temperatura_llegada, estado (borrador/cuarentena/aprobada/rechazada), recibido_por, aprobado_por, observaciones, foto_ruta.
+- `recepcion_lineas`: recepcion_id, producto_id, lote, vencimiento, cantidad_facturada, cantidad_recibida, costo_unitario, estado_empaque, resultado, motivo_rechazo, temperatura_ingreso, clasificacion_defecto.
+- `lotes`: producto_id, lote, vencimiento, cantidad_inicial, cantidad_disponible, costo_unitario, estado (cuarentena/disponible/bloqueado/agotado/rechazado), motivo_bloqueo, recepcion_id, recepcion_linea_id.
+- `movimientos_inventario`: fecha, lote_id, producto_id, tipo (recepcion/venta/devolucion/ajuste/baja/traslado), cantidad, referencia, referencia_id, usuario_id, usuario_nombre, observaciones.
+
+### POS y contabilidad
+- `cajas`: número único, abierta_en, abierta_por, efectivo_inicial, detalle_apertura (JSON), cerrada_en, cerrada_por, efectivo_contado, diferencia, detalle_cierre (JSON), observaciones_apertura, observaciones_cierre, estado.
+- `caja_movimientos`: caja_id, fecha, tipo (ingreso/salida), forma_pago (efectivo/nequi/davivienda/tarjeta), monto, motivo, usuario_id, usuario_nombre.
+- `ventas`: consecutivo (V-####), fecha, caja_id, cliente_nombre, cliente_documento, subtotal, descuento, iva, total, forma_pago, monto_recibido, cambio, observaciones, usuario_id, usuario_nombre, estado (completada/anulada), motivo_anulacion, anulada_en, anulada_por, y campos reservados para facturación electrónica (factura_numero, cufe, estado_dian, pdf_ruta, xml_ruta).
+- `venta_lineas`: venta_id, producto_id, producto_codigo, producto_nombre, presentacion, factor, cantidad, precio_unitario, descuento_linea, iva_tipo, iva_tarifa, subtotal, iva_valor, total, lotes_json.
+
+## 4. Reglas de negocio implementadas
+
+**Estados de lote:** cuarentena → disponible (al aprobar la recepción) → agotado. Puede quedar bloqueado o rechazado.
 
 **Recepción técnica:**
-- Se registra proveedor, factura o remisión, y por cada línea el producto, lote, vencimiento, cantidad y estado del empaque, más la temperatura de llegada si aplica.
-- Resultado: aceptada, cuarentena o rechazada. Solo lo aceptado genera lotes **disponibles**.
-- Al cerrar se genera un **PDF inmutable** con fecha, hora y responsables.
-
-**Venta:**
-- Descuenta del lote con **vencimiento más próximo**.
-- No permite vender lotes vencidos, bloqueados, en cuarentena o rechazados.
-- Avisa si el producto está próximo a vencer (rangos configurables, por ejemplo 90/60/30 días).
-- Avisa o bloquea si el precio supera el precio máximo de venta regulado.
-- El comprobante dice: **"Comprobante interno, no válido como factura"**.
+- Requiere proveedor + (factura o remisión) + al menos una línea.
+- Por línea: producto, cantidad recibida > 0, costo > 0. Si el producto maneja vencimiento, también lote y vencimiento obligatorios.
+- Guarda el Acta de Recepción Técnica en PDF con logo y firmas.
+- Solo lo aceptado genera lotes disponibles.
 
 **Temperaturas:**
-- Frecuencia y rangos **configurables por zona** (los valores por defecto se confirman con la Secretaría de Salud y el fabricante).
-- Nivel 1: a la hora programada, ventana llamativa (colores que destellan) con sonido hasta que se registre.
-- Nivel 2: si pasan X minutos sin registro, aviso al celular del Director Técnico o del dueño.
-- Lectura fuera de rango: obliga a registrar acción correctiva antes de cerrar.
+- Máximo **una lectura AM y una PM por zona por día**.
+- AM: antes de las 12:00. PM: de 12:00 a 19:00. Noche: después de las 19:00 (para zonas configuradas con 3 horarios).
+- Alarma sonora y visual **global** en todas las páginas cuando hay lectura pendiente.
+- Botones: silenciar sonido (10 min) y aplazar 10 minutos.
+- Lectura fuera de rango → obliga acción correctiva.
 
-**Utilidades:**
-- Costo por lote (consistente con el descuento por vencimiento).
+**POS:**
+- Solo una caja abierta a la vez.
+- Movimientos de caja: ingreso / salida por efectivo, Nequi o Davivienda.
+- Cierre de caja: desglose por forma de pago, arqueo con diferencia.
+- Venta: descuenta del lote con **vencimiento más próximo (FEFO)**.
+
+**Utilidades (pendiente):**
 - Utilidad bruta = ventas netas − costo de lo vendido.
-- Utilidad neta = utilidad bruta − gastos − mermas (vencidos, dañados, ajustes).
-- Períodos: día, semana, mes y rango libre.
+- Utilidad neta = utilidad bruta − gastos − mermas.
 
-**Facturación electrónica (futuro):** módulo "facturador" separado. Hoy funciona en modo interno; después se reemplaza por el adaptador del proveedor elegido sin tocar POS, inventario ni reportes.
+## 5. Módulos implementados
 
-## 5. Pantallas por puesto
+### 5.1 Dashboard (Inicio)
+- Saludo personalizado, fecha en español.
+- Tarjeta de temperatura (Al día / X pendientes).
+- Tarjeta de productos activos.
+- Tarjeta de lotes por vencer (clicable a semáforo).
+- Tarjeta de ventas del día (pendiente del POS completo).
+- Panel de últimas lecturas de temperatura.
+- Panel de últimos productos agregados.
+- Botón verde "Comenzar a vender".
 
-- **Mostrador:** inicio de sesión, POS, alarma de temperaturas, consulta de inventario, devoluciones.
-- **Bodega:** recepción técnica, consulta de inventario, vencimientos.
-- **Administrador:** utilidades y reportes, productos, proveedores, usuarios, gastos, configuración, respaldos.
+### 5.2 Productos
+- CRUD completo con validaciones.
+- Tabs: General / Inventario / Categorías y usos / Notas.
+- Código interno auto-generado (P00001, P00002…).
+- Múltiples categorías y usos.
+- Imagen del producto con preview.
+- Vista Mosaico / Lista con toggle.
+- Autocompletado de concentración.
+- Cálculo de precio sugerido (÷ 1 − margen).
+- Alta rápida desde recepción.
 
-## 6. Plan por fases
+### 5.3 Proveedores
+- CRUD con NIT, razón social, contacto, documentación sanitaria.
 
-### Fase 0: base
-- Instalar Python y Flask, crear estructura y base de datos.
-- Inicio de sesión con roles y bitácora.
-- **Listo cuando:** ambos PCs abren el sistema, entran con usuario y el respaldo diario funciona.
+### 5.4 Catálogos (Administración)
+- Índice con 7 tarjetas.
+- Categorías, Formas farmacéuticas, Principios activos, Laboratorios, Usos, Tipos de pago.
+- CRUD completo, activar / desactivar.
+- Predefinidos: 15 categorías, 14 formas, 20 usos, 4 tipos de pago.
 
-### Fase 1: calidad e inventario
-- 1.1 Productos y proveedores.
-- 1.2 Temperaturas con alarma y bitácora.
-- 1.3 Recepción técnica con PDF.
-- 1.4 Inventario por lote y kardex.
-- **Listo cuando:** una recepción real aprobada crea lotes disponibles, genera su PDF y las lecturas de temperatura quedan registradas con recordatorio.
+### 5.5 Unidades de medida
+- CRUD tipo Odoo: Unidad (factor 1), Sello x 10 (factor 10), Caja x 100 (factor 100), etc.
+- No permite referenciarse a sí misma ni eliminar la base.
+- Bloquea eliminar si está en uso.
 
-### Fase 2: ventas y utilidades
-- 2.1 POS interno con lector de código de barras.
-- 2.2 Gastos (reutilizando la plantilla actual de control de gastos).
-- 2.3 Reporte de utilidades por período.
-- 2.4 Control de vencimientos.
-- **Listo cuando:** una jornada de ventas descuenta inventario y el reporte de utilidades coincide con un cálculo manual.
+### 5.6 Temperaturas
+- Pantalla principal con las zonas y su último registro.
+- Registrar lectura con validación de turno AM/PM.
+- Historial con filtros (zona, rango, fuera de rango).
+- Gráfico de evolución (Chart.js local).
+- Reporte PDF con logo.
+- Plantilla mensual en PDF (una hoja A4).
+- Alarma global con sonido + notificación + pantalla roja.
 
-### Fase 3: alertas y precios
-- 3.1 Devoluciones.
-- 3.2 Precios máximos de venta.
-- 3.3 Alertas INVIMA con cruce automático de lotes.
-- **Listo cuando:** una alerta de prueba bloquea el lote coincidente y queda registrada la verificación.
+### 5.7 Recepción técnica
+- Formulario con cabecera y líneas dinámicas.
+- Autocompletado de productos.
+- Muestra registro INVIMA debajo del producto.
+- Alta rápida de productos desde el "+" con modal.
+- Validaciones HTML5 + validación de servidor con preservación de datos.
+- Acta de Recepción Técnica en PDF con:
+  - Encabezado con logo y datos del negocio.
+  - Detalle con DCI, forma, presentación, INVIMA, lote, vencimiento, vida útil %.
+  - Concepto técnico automático.
+  - Firmas de recibido y aprobado.
+- Estados: cuarentena → aprobada / rechazada.
+- Al aprobar crea lotes disponibles + movimiento de kardex.
 
-### Fase 4: gestión documental y cumplimiento
-- Documentos (PNO) con versiones, plan de saneamiento, capacitaciones, calibraciones, farmacovigilancia, modo inspección.
-- **Listo cuando:** se exportan los registros de un período en un solo paquete.
+### 5.8 Inventario por lote
+- Pantalla de resumen con KPIs (por vencer 30, 90 días, vencidos, cuarentena, bloqueados).
+- Lista de lotes con filtros.
+- Semáforo de vencimiento.
+- Detalle de lote con acciones (bloquear, desbloquear, ajustar).
+- Kardex por producto.
+- Reporte de semáforo de vencimientos.
 
-### Fase 5: facturación electrónica
+### 5.9 POS
+- Apertura de caja con conteo por denominación (billetes + monedas).
+- Pantalla principal con layout de 2 columnas.
+- Menú lateral derecho (drawer) con 8 opciones.
+- Movimientos de caja (ingreso / salida) para efectivo, Nequi, Davivienda.
+- Cierre de caja como modal con desglose completo.
+- Modal de conteo reutilizable.
+
+### 5.10 Importador (parcial)
+- Descarga de plantilla .xlsx / .csv.
+- Vista previa con análisis de errores.
+- Detección de duplicados por código.
+- Creación automática de catálogos.
+- **Pendiente:** probar con Excel real de 1500+ productos.
+
+### 5.11 Configuración
+- Datos del negocio, Director Técnico, pie legal.
+- Subida de logo (cualquier formato: JPG, PNG, WEBP, GIF, TIFF, BMP, HEIC).
+- Conversión automática de TIFF/BMP/HEIC a PNG.
+- Redimensionado automático.
+
+### 5.12 Reportes
+- Índice con tarjetas.
+- Reporte de temperaturas con gráfico y PDF.
+- Plantilla mensual de temperaturas.
+- **Pendientes:** recepciones, vencimientos, ventas, utilidades, top productos.
+
+### 5.13 Bitácora
+- Registro inmutable de todas las acciones.
+- Filtros y paginación.
+
+### 5.14 Respaldos
+- Botón manual con verificación de integridad.
+- Automático cada 24 horas al arrancar.
+- Retención configurable (30 por defecto).
+- Carpeta adicional opcional (USB / nube).
+
+## 6. Sistema de imágenes
+
+### Formatos aceptados
+- **Directos:** JPG, JPEG, PNG, WEBP, GIF.
+- **Con conversión a PNG:** TIFF, TIF, BMP, HEIC, HEIF.
+
+### Límites
+- Logo: 2 MB, redimensionado a 800×800.
+- Foto de producto: 5 MB, redimensionado a 1200×1200.
+- Adjunto de recepción: 5 MB.
+- Carpeta: `static/uploads/<categoria>/`.
+
+## 7. Plan por fases
+
+### Fase 0: base ✅
+- Instalar Python y Flask, estructura, base de datos.
+- Login con roles, bitácora inmutable, respaldos.
+
+### Fase 1: calidad e inventario ✅
+- **1.1** Productos, proveedores, catálogos, unidades de medida.
+- **1.2** Temperaturas con alarma + historial + reportes PDF.
+- **1.3** Recepción técnica con Acta PDF.
+- **1.4** Inventario por lote, kardex, semáforo.
+- **1.5a** Importador de productos (parcial).
+- **1.5b** Inventario inicial (pendiente).
+
+### Fase 2: ventas y contabilidad 🔄
+- **2.1** POS interno (en progreso, falta carrito).
+- **2.2** Gastos discriminados (pendiente).
+- **2.3** Utilidades por período (pendiente).
+- **2.4** Estado de resultados (pendiente).
+- **2.5** IVA con prorrateo (pendiente).
+- **2.6** Flujo de caja (pendiente).
+
+### Fase 3: alertas y precios ⏳
+- **3.1** Devoluciones.
+- **3.2** Precios máximos de venta.
+- **3.3** Alertas INVIMA con cruce de lotes.
+- **3.4** Control especial (FNE) — flujo completo.
+
+### Fase 4: gestión documental y cumplimiento ⏳
+- Documentos (PNO) con versiones.
+- Plan de saneamiento, capacitaciones, calibraciones.
+- Farmacovigilancia.
+- **Modo Inspección** (paquete ZIP).
+
+### Fase 5: facturación electrónica ⏳
 - Escoger proveedor y conectar el adaptador.
 
-### Fase 6: resumen de noticias con IA
-- Circulares, resoluciones y alertas resumidas en el tablero, siempre con enlace a la fuente.
+### Fase 6: IA y automatización ⏳
+- Sugerencia de categorías y principio activo al escribir nombre.
+- Búsqueda semántica.
+- Imágenes automáticas por código de barras.
+- Resumen de noticias regulatorias.
 
-## 7. Pendientes por confirmar
+### Fase 7: empaquetado y distribución ⏳
+- Ventana nativa con pywebview (sin CMD).
+- Ejecutable .exe con PyInstaller.
+- Instalador con Inno Setup.
+- Arranque automático en Windows 11 LTSC.
+- Ícono personalizado.
 
-- Confirmar la propuesta técnica (Flask + SQLite) o elegir Excel.
-- Con la Secretaría de Salud: formatos exigidos, frecuencia de lecturas, tiempo de conservación de registros.
-- Con el contador: si estás obligado a facturación electrónica y desde cuándo.
-- Si la droguería dispensa medicamentos de control especial.
-- Si aplica el reporte de precios (SISMED).
-- Proveedor de facturación electrónica y de mensajería para avisos (por ejemplo Telegram o correo).
+## 8. Pendientes por hacer
 
-## 8. Estado del proyecto (actualizar al final de cada sesión)
+### Inmediatos
+- [ ] Terminar el carrito funcional del POS (agregar producto, cobrar, comprobante).
+- [ ] Probar el importador con el Excel real (1500+ productos).
+- [ ] Inventario inicial (cargar stock real de la droguería).
+- [ ] Módulo de gastos discriminados.
+- [ ] Reporte de utilidades por período.
 
-- [~] Fase 0: código entregado y probado con 22 pruebas automáticas; falta instalarlo y probarlo en el local (ver LEEME.md)
-- [ ] 1.1 Productos y proveedores
-- [ ] 1.2 Temperaturas
-- [ ] 1.3 Recepción técnica
-- [ ] 1.4 Inventario por lote
-- [ ] 2.1 POS interno
-- [ ] 2.2 Gastos
+### Corto plazo
+- [ ] Estado de Resultados simplificado.
+- [ ] Reporte de IVA con prorrateo (Art. 490 ET).
+- [ ] Flujo de caja.
+- [ ] Reportes adicionales: recepciones, vencimientos, ventas, top productos.
+- [ ] Reemplazar todos los `confirm()` nativos por el modal de confirmación.
+
+### Mediano plazo
+- [ ] Devoluciones (a proveedor y de cliente).
+- [ ] Control de precios máximos con alerta.
+- [ ] Módulo de control especial (FNE) con libro oficial.
+- [ ] Gestión documental (POE).
+- [ ] Modo Inspección.
+
+### Largo plazo
+- [ ] IA para clasificación automática de productos.
+- [ ] Búsqueda semántica.
+- [ ] Imágenes automáticas por código de barras.
+- [ ] Facturación electrónica DIAN.
+- [ ] App móvil.
+- [ ] Alertas a Telegram / WhatsApp.
+
+## 9. Pendientes por confirmar (con el usuario y terceros)
+
+- **Con la Secretaría de Salud:** formatos exactos exigidos, frecuencia de lecturas, tiempo de conservación de registros.
+- **Con el contador:**
+  - ¿Obligado a facturación electrónica? ¿Desde cuándo?
+  - Régimen tributario (responsable de IVA o no).
+  - Prorrateo de IVA: ¿lo maneja hoy?
+  - Formato de Estado de Resultados preferido.
+- **Con el proveedor tecnológico** (si aplica): facturación electrónica.
+- **Sobre el local:** horarios exactos de apertura/cierre, días de mercado.
+
+## 10. Registro de migraciones (schema_version)
+
+| Versión | Contenido |
+|---|---|
+| 1 | usuarios, bitacora, config |
+| 2 | proveedores, productos |
+| 3 | zonas_temperatura, equipos, temperatura_registros |
+| 4 | catalogos |
+| 5 | campos nuevos en productos, productos_categorias, productos_usos, presentaciones_producto |
+| 6 | renombrado de catálogos (presentacion → forma_farmaceutica) |
+| 7 | unidades_medida |
+| 8 | recepciones, recepcion_lineas, lotes, movimientos_inventario |
+| 9 | temperatura_ingreso + clasificacion_defecto en recepcion_lineas |
+| 10 | creado_en_importacion en productos |
+| 11 | imagen en productos |
+| 12 | cajas, ventas, venta_lineas |
+| 13 | detalle_apertura y detalle_cierre en cajas |
+| 14 | caja_movimientos |
+
+## 11. Estado del proyecto (actualizar al final de cada sesión)
+
+- [x] Fase 0: base completa
+- [x] 1.1 Productos, proveedores, catálogos, unidades
+- [x] 1.2 Temperaturas con alarma y reportes
+- [x] 1.3 Recepción técnica con Acta PDF
+- [x] 1.4 Inventario por lote
+- [~] 1.5a Importador (código listo, sin probar con Excel real)
+- [ ] 1.5b Inventario inicial
+- [~] 2.1 POS (apertura, cierre, movimientos listos; falta carrito)
+- [ ] 2.2 Gastos discriminados
 - [ ] 2.3 Utilidades
-- [ ] 2.4 Vencimientos
+- [ ] 2.4 Estado de resultados
+- [ ] 2.5 IVA con prorrateo
+- [ ] 2.6 Flujo de caja
 - [ ] 3.1 Devoluciones
 - [ ] 3.2 Precios máximos
 - [ ] 3.3 Alertas INVIMA
-- [ ] Fase 4
-- [ ] Fase 5
-- [ ] Fase 6
+- [ ] 3.4 Control especial (FNE)
+- [ ] Fase 4: Gestión documental
+- [ ] Fase 5: Facturación electrónica
+- [ ] Fase 6: IA
+- [ ] Fase 7: Empaquetado
 
-**Última sesión:** 2026-09-19. Se confirmó Flask + SQLite y se entregó la Fase 0 (usuarios con 3 roles, bitácora inmutable, respaldos verificados, servidor con waitress). Sigue: instalar en el PC principal, crear el administrador, abrir desde el 2.º PC y luego pasar al paso 1.1 (productos y proveedores).
+**Última sesión:** 2026-10-07. Se completó:
+- Sistema de imágenes (cualquier formato) con logo en login, sidebar y PDFs.
+- Rediseño del dashboard con KPIs y alertas reales.
+- Módulo de inventario por lote con kardex y semáforo.
+- Plantilla mensual de temperaturas en PDF (una hoja A4).
+- Importador de productos (pendiente prueba real).
+- POS Bloque 1: apertura/cierre de caja con conteo por denominación.
+- Menú lateral derecho del POS con ingresos/salidas de efectivo.
+- Modal de cierre de caja con desglose por forma de pago.
+- Modal de confirmación global (reemplazo de `confirm()` nativo).
+- Cambio de layout: sidebar fijo, main con margin-left, modales flotan correctamente.
+
+**Siguiente:** Módulo de contabilidad básica (gastos + utilidades + estado de resultados).
+
+---
+
+## 12. Notas técnicas importantes
+
+### Layout CSS
+- `body.layout`: sin `display: flex`.
+- `.sidebar`: `position: fixed` a la izquierda.
+- `.main`: `margin-left: 240px` (62px colapsado).
+- Modales: `position: fixed; inset: 0` con `z-index: 10000`.
+
+### Modales
+- Todos usan `id` específicos: `#modal-crear`, `#modal-producto`, `#modal-conteo`, `#modal-confirmar`, `#modal-cierre-caja`, `#modal-movimiento`.
+- Se cargan como bloques `{% block modales %}` en `base.html`.
+- Se evitan `confirm()` nativos; se usa `window.confirmar()` (promesa).
+
+### JavaScript
+- `static/js/alarma.js`: alarma global de temperatura.
+- `static/js/pos.js`: POS completo (drawer, movimientos, cierre).
+- `static/js/chart.umd.min.js`: gráficos.
+
+### Base de datos
+- `PRAGMA journal_mode = WAL` para concurrencia.
+- `PRAGMA foreign_keys = ON`.
+- Bitácora con triggers inmutables.
+- `schema_version` para migraciones incrementales.
+- `_asegurar_columnas_productos()` como red de seguridad.
+
+### Respaldos
+- Uso de `sqlite3.backup()` (API oficial, seguro con WAL).
+- Verificación con `PRAGMA integrity_check`.
+- Retención de 30 por defecto.
+- Carpeta adicional opcional (`BACKUP_EXTRA_DIR`).
+
+---
+
+**Última actualización:** 2026-10-07
