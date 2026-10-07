@@ -1,0 +1,88 @@
+<!-- ============ MODAL DE CIERRE DE CAJA ============ -->
+<div id="modal-cierre-caja" class="modal-oculto">
+  <div class="modal-caja modal-caja-cierre">
+    <div class="modal-header">
+      <h2>Cierre de caja registradora</h2>
+      <span class="cierre-info" id="cierre-n-ordenes">0 órdenes · $ 0</span>
+    </div>
+
+    <div class="modal-body">
+      <!-- EFECTIVO -->
+      <div class="cierre-seccion">
+        <div class="cierre-seccion-titulo">
+          <span>Efectivo</span>
+          <strong id="cierre-efectivo-total">$ 0</strong>
+        </div>
+        <div class="cierre-linea"><span>Apertura</span><strong id="cierre-efectivo-apertura">$ 0</strong></div>
+        <div class="cierre-linea"><span>Ventas del turno</span><strong id="cierre-efectivo-ventas">$ 0</strong></div>
+        <div class="cierre-linea"><span>Ingresos</span><strong id="cierre-efectivo-ingresos">+ $ 0</strong></div>
+        <div class="cierre-linea"><span>Salidas</span><strong id="cierre-efectivo-salidas">− $ 0</strong></div>
+        <div class="cierre-linea cierre-linea-total">
+          <span>Efectivo esperado</span>
+          <strong id="cierre-efectivo-esperado">$ 0</strong>
+        </div>
+        <div class="cierre-linea" style="margin-top:.5rem">
+          <span>Efectivo contado</span>
+          <div style="display:flex;gap:.4rem;align-items:center">
+            <input type="text" id="cierre-efectivo-contado" readonly
+                   style="text-align:right;max-width:140px" value="$ 0">
+            <button type="button" class="boton secundario" id="btn-contar-cierre-modal"
+                    style="padding:.3rem .6rem;font-size:.8rem">🧮 Contar</button>
+          </div>
+        </div>
+        <div class="cierre-linea cierre-linea-diferencia">
+          <span>Diferencia</span>
+          <strong id="cierre-efectivo-diferencia">$ 0</strong>
+        </div>
+      </div>
+
+      <!-- NEQUI -->
+      <div class="cierre-seccion">
+        <div class="cierre-seccion-titulo">
+          <span>Nequi</span>
+          <strong id="cierre-nequi-total">$ 0</strong>
+        </div>
+        <div class="cierre-linea"><span>Ventas del turno</span><strong id="cierre-nequi-ventas">$ 0</strong></div>
+        <div class="cierre-linea"><span>Ingresos</span><strong id="cierre-nequi-ingresos">+ $ 0</strong></div>
+        <div class="cierre-linea"><span>Salidas</span><strong id="cierre-nequi-salidas">− $ 0</strong></div>
+      </div>
+
+      <!-- DAVIVIENDA -->
+      <div class="cierre-seccion">
+        <div class="cierre-seccion-titulo">
+          <span>Davivienda</span>
+          <strong id="cierre-davivienda-total">$ 0</strong>
+        </div>
+        <div class="cierre-linea"><span>Ventas del turno</span><strong id="cierre-davivienda-ventas">$ 0</strong></div>
+        <div class="cierre-linea"><span>Ingresos</span><strong id="cierre-davivienda-ingresos">+ $ 0</strong></div>
+        <div class="cierre-linea"><span>Salidas</span><strong id="cierre-davivienda-salidas">− $ 0</strong></div>
+      </div>
+
+      <!-- TARJETA -->
+      <div class="cierre-seccion">
+        <div class="cierre-seccion-titulo">
+          <span>Tarjeta</span>
+          <strong id="cierre-tarjeta-total">$ 0</strong>
+        </div>
+        <div class="cierre-linea"><span>Ventas del turno</span><strong id="cierre-tarjeta-ventas">$ 0</strong></div>
+      </div>
+
+      <!-- OBSERVACIONES -->
+      <div class="cierre-seccion">
+        <div class="cierre-seccion-titulo">
+          <span>Nota de cierre</span>
+        </div>
+        <textarea id="cierre-observaciones" rows="2"
+                  placeholder="Agregar una nota de cierre…"
+                  style="width:100%;padding:.5rem;border:1px solid #c8d2da;border-radius:.3rem;font-size:.9rem;font-family:inherit"></textarea>
+      </div>
+
+      <p id="cierre-error" class="aviso error" style="display:none;margin-top:1rem"></p>
+    </div>
+
+    <div class="modal-footer modal-footer-cierre">
+      <button type="button" class="boton secundario" id="cierre-descartar">Descartar</button>
+      <button type="button" class="boton peligro" id="cierre-confirmar">🔒 Cerrar caja registradora</button>
+    </div>
+  </div>
+</div>

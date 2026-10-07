@@ -2,10 +2,39 @@
 {% block titulo %}Configuración del negocio{% endblock %}
 {% block contenido %}
 <h1>⚙️ Configuración del negocio</h1>
-<p class="suave">Estos datos aparecen en los informes, PDFs y comprobantes internos. Mantenlos actualizados.</p>
+<p class="suave">Estos datos aparecen en los informes, PDFs y comprobantes internos.</p>
 
-<form method="post" class="formulario">
+<form method="post" enctype="multipart/form-data" class="formulario">
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+
+  <fieldset>
+    <legend>Logo del negocio</legend>
+
+    {% if valores.logo_ruta %}
+      <div class="logo-preview">
+        <img src="{{ url_for('static', filename=valores.logo_ruta) }}" alt="Logo actual">
+        <div class="logo-preview-info">
+          <p class="suave">Logo actual</p>
+          <button type="submit" name="_accion" value="eliminar_logo"
+                  class="boton peligro"
+                  onclick="return confirm('¿Eliminar el logo?');">
+            🗑️ Eliminar logo
+          </button>
+        </div>
+      </div>
+    {% else %}
+      <p class="suave">Aún no has subido un logo. Se usará el ícono por defecto 💊.</p>
+    {% endif %}
+
+    <label>Subir o reemplazar logo
+      <input type="file" name="logo" accept="image/*">
+    </label>
+    <p class="suave">
+      Formatos aceptados: JPG, PNG, WEBP, GIF, TIFF, BMP, HEIC.
+      Los formatos que el navegador no muestra se convierten automáticamente a PNG.
+      Tamaño máximo: 2 MB. Se redimensiona a 800×800 px como máximo.
+    </p>
+  </fieldset>
 
   <fieldset>
     <legend>Identificación</legend>
@@ -42,7 +71,7 @@
   </fieldset>
 
   <div class="acciones">
-    <button type="submit">Guardar configuración</button>
+    <button type="submit" name="_accion" value="guardar">Guardar configuración</button>
   </div>
 </form>
 {% endblock %}

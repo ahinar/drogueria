@@ -2,6 +2,11 @@
 {% block titulo %}Registrar lectura{% endblock %}
 {% block contenido %}
 <h1>Registrar lectura · {{ zona['nombre'] }}</h1>
+{% if turno %}
+<p class="aviso ok">
+  Registrando la lectura de la <b>{{ turno }}</b> de hoy. Solo se permite una lectura por turno.
+</p>
+{% endif %}
 <p class="suave">
   Rango permitido: {{ zona['temp_min'] }}–{{ zona['temp_max'] }} °C
   {% if zona['controla_humedad'] %} · Humedad: {{ zona['humedad_min'] }}–{{ zona['humedad_max'] }} %{% endif %}

@@ -3,6 +3,7 @@ import os
 import sqlite3
 from datetime import datetime
 from io import BytesIO
+from .pdf_utils import encabezado_pdf
 
 from flask import (Blueprint, abort, current_app, flash, g, jsonify, redirect,
                    render_template, request, send_file, url_for)
@@ -645,19 +646,13 @@ def pdf(rec_id):
 
     elementos = []
 
-    # ===== ENCABEZADO =====
-    elementos.append(Paragraph(config.get("razon_social") or "Droguería", titulo))
-    partes_empresa = []
-    if config.get("nit"): partes_empresa.append(f"NIT {config['nit']}")
-    if config.get("direccion"): partes_empresa.append(config["direccion"])
-    if config.get("ciudad"): partes_empresa.append(config["ciudad"])
-    if config.get("telefono"): partes_empresa.append(f"Tel. {config['telefono']}")
-    if partes_empresa:
-        elementos.append(Paragraph(" · ".join(partes_empresa), subtit))
-    elementos.append(Spacer(1, 4))
-
-    elementos.append(Paragraph(f"ACTA DE RECEPCIÓN TÉCNICA N° {rec['numero']}", encab))
-    elementos.append(Spacer(1, 6))
+    # ===== ENCABEZADO con logo =====
+    from .pdf_utils import encabezado_pdf
+    elementos.extend(encabezado_pdf(
+        config,
+        f"ACTA DE RECEPCIÓN TÉCNICA N° {rec['numero']}"
+    ))
+    elementos.append(Spacer(1, 8))
 
     # ===== DATOS GENERALES =====
     fecha_dt = rec["fecha"]

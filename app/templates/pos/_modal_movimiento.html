@@ -1,0 +1,34 @@
+<!-- ============ MODAL DE MOVIMIENTO (ingreso/salida) ============ -->
+<div id="modal-movimiento" class="modal-oculto">
+  <div class="modal-caja">
+    <h2 id="mov-titulo">Movimiento de caja</h2>
+
+    <form id="form-movimiento">
+      <input type="hidden" name="tipo" id="mov-tipo" value="ingreso">
+
+      <label>Forma de pago
+        <select name="forma_pago" id="mov-forma-pago">
+          <option value="efectivo">Efectivo</option>
+          <option value="nequi">Nequi</option>
+          <option value="davivienda">Davivienda</option>
+        </select>
+      </label>
+
+      <label>Monto *
+        <input type="number" step="1" name="monto" id="mov-monto" required autofocus>
+      </label>
+
+      <label>Motivo / Observación
+        <textarea name="motivo" id="mov-motivo" rows="2"
+                  placeholder="Ej: pago de domicilio, retiro para caja fuerte, compra de insumos…"></textarea>
+      </label>
+
+      <p id="mov-error" class="aviso error" style="display:none"></p>
+    </form>
+
+    <div class="modal-acciones">
+      <button type="button" class="boton secundario" id="mov-cancelar">Cancelar</button>
+      <button type="button" class="boton" id="mov-guardar">Guardar</button>
+    </div>
+  </div>
+</div>

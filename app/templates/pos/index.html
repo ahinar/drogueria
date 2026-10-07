@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block titulo %}Punto de venta{% endblock %}
+{% block contenido %}
+<div class="pos-layout">
+
+  <!-- ============ COLUMNA IZQUIERDA: CARRITO ============ -->
+  <aside class="pos-carrito">
+    <div class="pos-carrito-header">
+      <span class="pos-caja-numero">Caja #{{ caja['numero'] }}</span>
+      <span class="pos-caja-hora">{{ caja['abierta_en'][11:16] }}</span>
+    </div>
+
+    <div class="pos-carrito-items" id="pos-carrito-items">
+      <p class="suave" style="text-align:center;padding:2rem 1rem">
+        Carrito vacío.<br>Busca un producto para comenzar.
+      </p>
+    </div>
+
+    <div class="pos-carrito-totales">
+      <div class="pos-linea-total">
+        <span>Subtotal</span>
+        <strong id="pos-subtotal">$0</strong>
+      </div>
+      <div class="pos-linea-total">
+        <span>Descuento</span>
+        <strong id="pos-descuento">$0</strong>
+      </div>
+      <div class="pos-linea-total">
+        <span>IVA</span>
+        <strong id="pos-iva">$0</strong>
+      </div>
+      <div class="pos-linea-total pos-linea-grande">
+        <span>TOTAL</span>
+        <strong id="pos-total">$0</strong>
+      </div>
+    </div>
+
+    <div class="pos-acciones-cliente">
+      <button type="button" class="boton-chico sec" id="btn-cliente">👤 Cliente</button>
+      <button type="button" class="boton-chico sec" id="btn-nota">📝 Nota</button>
+    </div>
+
+    <div class="pos-numpad">
+      <button type="button" data-key="1">1</button>
+      <button type="button" data-key="2">2</button>
+      <button type="button" data-key="3">3</button>
+      <button type="button" data-key="cantidad" class="pos-numpad-accion">Cant.</button>
+      <button type="button" data-key="4">4</button>
+      <button type="button" data-key="5">5</button>
+      <button type="button" data-key="6">6</button>
+      <button type="button" data-key="descuento" class="pos-numpad-accion">%</button>
+      <button type="button" data-key="7">7</button>
+      <button type="button" data-key="8">8</button>
+      <button type="button" data-key="9">9</button>
+      <button type="button" data-key="precio" class="pos-numpad-accion">Precio</button>
+      <button type="button" data-key="0">0</button>
+      <button type="button" data-key=".">,</button>
+      <button type="button" data-key="borrar" class="pos-numpad-borrar">⌫</button>
+      <button type="button" data-key="borrar-todo" class="pos-numpad-borrar">C</button>
+    </div>
+
+    <button type="button" class="pos-btn-pago" id="btn-pago" disabled>
+      💵 PAGO
+    </button>
+  </aside>
+
+  <!-- ============ COLUMNA DERECHA: BÚSQUEDA Y PRODUCTOS ============ -->
+  <main class="pos-productos">
+    <div class="pos-busqueda">
+      <input type="text" id="pos-input-busqueda"
+             placeholder="🔍 Buscar por nombre, código, principio activo o escanear código de barras…"
+             autocomplete="off" autofocus>
+      <button type="button" class="pos-btn-menu" id="btn-menu-pos" title="Menú">
+        ☰
+      </button>
+    </div>
+
+    <div class="pos-categorias" id="pos-categorias">
+      <button type="button" class="pos-cat activo" data-cat="">Todas</button>
+      {% for c in categorias %}
+        <button type="button" class="pos-cat" data-cat="{{ c['id'] }}">{{ c['nombre'] }}</button>
+      {% endfor %}
+    </div>
+
+    <div class="pos-grid" id="pos-grid">
+      <p class="suave" style="padding:2rem;text-align:center;grid-column:1/-1">
+        Escribe para buscar productos, o escanea un código de barras.
+      </p>
+    </div>
+  </main>
+
+  <!-- ============ MENÚ LATERAL DERECHO ============ -->
+  <div id="pos-drawer" hidden>
+    <div class="pos-drawer-content">
+      <div class="pos-drawer-header">
+        <span>Caja #{{ caja['numero'] }}</span>
+        <button type="button" class="pos-drawer-close" id="btn-menu-cerrar">×</button>
+      </div>
+
+      <nav class="pos-drawer-nav">
+        <button type="button" class="pos-drawer-item" data-accion="cerrar-caja">
+          <span class="pos-drawer-ico">🔒</span>
+          <span>Cerrar caja</span>
+        </button>
+        <button type="button" class="pos-drawer-item" data-accion="ingreso-efectivo">
+          <span class="pos-drawer-ico">💵</span>
+          <span>Ingreso de efectivo</span>
+        </button>
+        <button type="button" class="pos-drawer-item" data-accion="salida-efectivo">
+          <span class="pos-drawer-ico">💸</span>
+          <span>Salida de efectivo</span>
+        </button>
+        <button type="button" class="pos-drawer-item" data-accion="ultimas-ventas">
+          <span class="pos-drawer-ico">🧾</span>
+          <span>Últimas ventas</span>
+        </button>
+        <button type="button" class="pos-drawer-item" data-accion="cliente">
+          <span class="pos-drawer-ico">👤</span>
+          <span>Cliente</span>
+        </button>
+        <button type="button" class="pos-drawer-item" data-accion="nota">
+          <span class="pos-drawer-ico">📝</span>
+          <span>Nota</span>
+        </button>
+        <button type="button" class="pos-drawer-item" data-accion="consulta-inventario">
+          <span class="pos-drawer-ico">📦</span>
+          <span>Consulta de inventario</span>
+        </button>
+        <button type="button" class="pos-drawer-item" data-accion="reimprimir">
+          <span class="pos-drawer-ico">🖨️</span>
+          <span>Reimprimir último</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+</div>
+
+<!-- URLs expuestas al JS -->
+<input type="hidden" id="url-api-movimiento" value="{{ url_for('pos.api_movimiento') }}">
+<input type="hidden" id="url-api-resumen" value="{{ url_for('pos.api_resumen_caja') }}">
+<input type="hidden" id="url-api-cerrar" value="{{ url_for('pos.api_cerrar_caja') }}">
+<input type="hidden" id="url-cierre-confirmacion" value="{{ url_for('pos.cierre_confirmacion', caja_id=0) }}">
+
+{% endblock %}
+
+{% block modales %}
+{% include "pos/_modal_cierre.html" %}
+{% include "pos/_modal_movimiento.html" %}
+{% include "pos/_modal_conteo.html" %}
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='js/pos.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block titulo %}Abrir caja{% endblock %}
+{% block contenido %}
+<h1>🔓 Abrir caja</h1>
+<p class="suave">Registra el efectivo inicial del turno. Puedes contarlo por denominación o escribir el total directamente.</p>
+
+<form method="post" class="formulario" style="max-width:520px" id="form-abrir">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="denominaciones" id="denominaciones-json" value="{}">
+
+  <fieldset>
+    <legend>Apertura de caja</legend>
+
+    <label>Número de caja
+      <input type="text" value="{{ numero_sugerido }}" readonly>
+    </label>
+
+    <label>Efectivo inicial *
+      <div style="display:flex;gap:.5rem;align-items:stretch">
+        <input type="number" step="1" name="efectivo_inicial" id="efectivo_inicial"
+               value="0" required autofocus style="flex:1">
+        <button type="button" class="boton secundario" id="btn-contar-apertura" style="white-space:nowrap">
+          🧮 Contar
+        </button>
+      </div>
+    </label>
+
+    <label>Observaciones (opcional)
+      <textarea name="observaciones_apertura" rows="2"></textarea>
+    </label>
+  </fieldset>
+
+  <div class="acciones">
+    <button type="submit">Abrir caja</button>
+    <a class="boton secundario" href="{{ url_for('main.inicio') }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block modales %}
+{% include "pos/_modal_conteo.html" %}
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+(function () {
+  const modal = document.getElementById('modal-conteo');
+  const totalSpan = document.getElementById('conteo-total-valor');
+  const jsonInput = document.getElementById('denominaciones-json');
+  const inputEfectivo = document.getElementById('efectivo_inicial');
+  const btnAbrir = document.getElementById('btn-contar-apertura');
+  const btnConfirmar = document.getElementById('conteo-confirmar');
+  const btnCancelar = document.getElementById('conteo-cancelar');
+
+  function calcularTotal() {
+    let total = 0;
+    const detalle = {};
+    document.querySelectorAll('#modal-conteo .conteo-fila').forEach(function (fila) {
+      const valor = parseInt(fila.dataset.valor, 10);
+      const cant = parseInt(fila.querySelector('.conteo-input').value, 10) || 0;
+      if (cant > 0) {
+        total += valor * cant;
+        detalle[valor] = cant;
+      }
+    });
+    totalSpan.textContent = '$ ' + total.toLocaleString('es-CO');
+    return { total, detalle };
+  }
+
+  modal.addEventListener('click', function (e) {
+    if (!e.target.classList.contains('conteo-btn')) return;
+    const fila = e.target.closest('.conteo-fila');
+    const input = fila.querySelector('.conteo-input');
+    let v = parseInt(input.value, 10) || 0;
+    if (e.target.textContent === '+') v += 1;
+    else v = Math.max(0, v - 1);
+    input.value = v;
+    calcularTotal();
+  });
+
+  modal.addEventListener('input', function (e) {
+    if (!e.target.classList.contains('conteo-input')) return;
+    calcularTotal();
+  });
+
+  btnAbrir.addEventListener('click', function () {
+    document.querySelectorAll('#modal-conteo .conteo-input').forEach(i => i.value = 0);
+    calcularTotal();
+    modal.classList.remove('modal-oculto');
+  });
+
+  btnConfirmar.addEventListener('click', function () {
+    const { total, detalle } = calcularTotal();
+    inputEfectivo.value = total;
+    jsonInput.value = JSON.stringify(detalle);
+    modal.classList.add('modal-oculto');
+  });
+
+  btnCancelar.addEventListener('click', function () {
+    modal.classList.add('modal-oculto');
+  });
+
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) modal.classList.add('modal-oculto');
+  });
+})();
+</script>
+{% endblock %}

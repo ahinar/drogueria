@@ -2,3 +2,8 @@ Flask>=3.0,<4
 waitress>=3.0,<4
 reportlab
 openpyxl
+Flask>=3.0,<4
+waitress>=3.0,<4
+reportlab
+openpyxl
+Pillow

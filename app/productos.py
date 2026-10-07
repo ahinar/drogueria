@@ -1,4 +1,4 @@
-"""Productos: CRUD con bitácora, catálogos, categorías, usos, presentaciones y unidad de venta."""
+"""Productos: CRUD con bitácora, catálogos, categorías múltiples, usos y presentaciones."""
 import sqlite3
 
 from flask import (Blueprint, abort, flash, redirect, render_template, request,
@@ -7,15 +7,7 @@ from .audit import registrar
 from .auth import login_required, roles_required
 from .catalogos import opciones as cat_opciones
 from .db import ahora, get_db
-
-def _valores_existentes(campo):
-    """Valores ya usados en productos (para datalist)."""
-    filas = get_db().execute(
-        "SELECT DISTINCT " + campo + " FROM productos "
-        "WHERE " + campo + " IS NOT NULL AND " + campo + " != '' "
-        "ORDER BY " + campo + " COLLATE NOCASE"
-    ).fetchall()
-    return [f[0] for f in filas]
+from .utils_imagenes import guardar_imagen, eliminar_imagen
 
 bp = Blueprint("productos", __name__, url_prefix="/productos")
 
@@ -23,7 +15,6 @@ IVA_TIPOS = {"excluido": "Excluido", "exento": "Exento", "gravado": "Gravado"}
 
 
 def _siguiente_codigo():
-    """Genera el siguiente código interno P00001, P00002, ..."""
     db = get_db()
     filas = db.execute(
         "SELECT codigo FROM productos WHERE codigo LIKE 'P%' "
@@ -77,7 +68,6 @@ def _contexto_formulario(producto=None):
         "usos_sel": _usos_de(producto["id"]) if producto else [],
         "codigo_sugerido": _siguiente_codigo() if not producto else None,
         "producto": producto,
-        "concentraciones": _valores_existentes("concentracion"),
     }
 
 
@@ -86,6 +76,9 @@ def _contexto_formulario(producto=None):
 def lista():
     q = request.args.get("q", "").strip()
     filtro = request.args.get("filtro", "activos")
+    vista = request.args.get("vista", "").strip()
+    if not vista:
+        vista = request.cookies.get("productos_vista", "grid")
 
     sql = (
         "SELECT p.*, "
@@ -123,7 +116,13 @@ def lista():
         sql += " WHERE " + " AND ".join(cond)
     sql += " ORDER BY p.nombre COLLATE NOCASE"
     filas = get_db().execute(sql, params).fetchall()
-    return render_template("productos/lista.html", productos=filas, q=q, filtro=filtro)
+
+    respuesta = render_template("productos/lista.html",
+                                productos=filas, q=q, filtro=filtro, vista=vista)
+    from flask import make_response
+    resp = make_response(respuesta)
+    resp.set_cookie("productos_vista", vista, max_age=60 * 60 * 24 * 365)
+    return resp
 
 
 def _leer_formulario():
@@ -189,7 +188,7 @@ def _validar(datos):
     if datos["precio_venta"] < 0 or datos["precio_compra"] < 0:
         errores.append("Los precios no pueden ser negativos.")
     if not datos["unidad_venta_id"]:
-        errores.append("Debes seleccionar la unidad de venta (por ejemplo 'Unidad' o 'Sello x 10').")
+        errores.append("Debes seleccionar la unidad de venta.")
     if datos["control_especial"] and not datos["registro_sanitario"]:
         errores.append("Un producto de control especial debe tener registro sanitario INVIMA.")
     if datos["control_especial"] or datos["cadena_frio"]:
@@ -236,6 +235,18 @@ def nuevo():
                 )
                 pid = cur.lastrowid
                 _guardar_relaciones(db, pid, datos["categorias"], datos["usos"])
+
+                # Subir imagen si viene
+                archivo_img = request.files.get("imagen")
+                if archivo_img and archivo_img.filename:
+                    ruta, error = guardar_imagen(
+                        archivo_img, "productos", max_px=1200, max_bytes=5 * 1024 * 1024,
+                    )
+                    if ruta:
+                        db.execute("UPDATE productos SET imagen = ? WHERE id = ?", (ruta, pid))
+                    elif error:
+                        flash(f"Aviso: no se pudo subir la imagen ({error}).", "error")
+
                 db.commit()
                 registrar("producto_creado", "productos", pid,
                           f"código={datos['codigo']} nombre={datos['nombre']}")
@@ -276,6 +287,24 @@ def editar(prod_id):
                      datos["maneja_vencimiento"], datos["observaciones"], ahora(), prod_id),
                 )
                 _guardar_relaciones(db, prod_id, datos["categorias"], datos["usos"])
+
+                # Manejar imagen
+                accion_img = request.form.get("_imagen_accion", "")
+                if accion_img == "eliminar":
+                    eliminar_imagen(producto["imagen"])
+                    db.execute("UPDATE productos SET imagen = NULL WHERE id = ?", (prod_id,))
+                else:
+                    archivo_img = request.files.get("imagen")
+                    if archivo_img and archivo_img.filename:
+                        ruta, error = guardar_imagen(
+                            archivo_img, "productos", max_px=1200, max_bytes=5 * 1024 * 1024,
+                        )
+                        if ruta:
+                            eliminar_imagen(producto["imagen"])
+                            db.execute("UPDATE productos SET imagen = ? WHERE id = ?", (ruta, prod_id))
+                        elif error:
+                            flash(f"Aviso: no se pudo subir la imagen ({error}).", "error")
+
                 db.commit()
                 registrar("producto_editado", "productos", prod_id, f"código={datos['codigo']}")
                 flash("Producto actualizado.", "ok")

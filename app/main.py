@@ -30,6 +30,8 @@ def _fecha_larga_es():
 
 def _estado_temperatura(db):
     """Consulta si hoy ya se registró la temperatura de las zonas activas."""
+    from .temperaturas import _turno_de_hora, _ya_registro_turno_hoy  # import local
+
     hoy = date.today().isoformat()
     ahora_dt = datetime.now()
     dia_semana = ahora_dt.isoweekday()
@@ -41,10 +43,8 @@ def _estado_temperatura(db):
 
     pendientes = []
     for z in zonas:
-        # Verificar si hoy aplica
         if str(dia_semana) not in (z["dias_semana"] or "").split(","):
             continue
-
         horarios = [h.strip() for h in (z["horarios"] or "").split(",") if h.strip()]
         for h in horarios:
             try:
@@ -53,21 +53,12 @@ def _estado_temperatura(db):
                 continue
             programada = ahora_dt.replace(hour=hh, minute=mm, second=0, microsecond=0)
             tolerancia = z["minutos_tolerancia"] or 30
-
-            # Solo cuenta como pendiente si ya pasó la hora + tolerancia
             if ahora_dt < programada + timedelta(minutes=tolerancia):
                 continue
-
-            # ¿Hay alguna lectura hoy DESPUÉS de la hora programada?
-            existe = db.execute(
-                "SELECT 1 FROM temperatura_registros "
-                "WHERE zona_id = ? AND fecha >= ? AND fecha LIKE ? LIMIT 1",
-                (z["id"],
-                 programada.isoformat(sep=" ", timespec="seconds"),
-                 f"{hoy}%"),
-            ).fetchone()
-            if not existe:
-                pendientes.append({"zona": z["nombre"], "hora": h})
+            turno = _turno_de_hora(h)
+            if _ya_registro_turno_hoy(z["id"], turno):
+                continue
+            pendientes.append({"zona": z["nombre"], "hora": h, "turno": turno})
 
     ultima = db.execute(
         "SELECT r.*, z.nombre AS zona_nombre "

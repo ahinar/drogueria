@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block titulo %}Cerrar caja{% endblock %}
+{% block contenido %}
+<h1>🔒 Cerrar caja #{{ caja['numero'] }}</h1>
+
+<div class="rece-info">
+  <div class="rece-info-campo">
+    <span class="rece-label">Abierta</span>
+    <strong>{{ caja['abierta_en'] }}</strong>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Efectivo inicial</span>
+    <strong>${{ '{:,.0f}'.format(caja['efectivo_inicial']).replace(',', '.') }}</strong>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Ventas del turno</span>
+    <strong>{{ resumen['n_ventas'] }}</strong>
+  </div>
+  <div class="rece-info-campo">
+    <span class="rece-label">Total vendido</span>
+    <strong>${{ '{:,.0f}'.format(resumen['total']).replace(',', '.') }}</strong>
+  </div>
+</div>
+
+<h2 class="titulo-seccion">Desglose por forma de pago</h2>
+<table class="tabla">
+  <thead>
+    <tr>
+      <th>Forma de pago</th>
+      <th>Cantidad</th>
+      <th>Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in por_pago %}
+    <tr>
+      <td>{{ p['forma_pago']|capitalize }}</td>
+      <td>{{ p['n'] }}</td>
+      <td>${{ '{:,.0f}'.format(p['total']).replace(',', '.') }}</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="3">No hay ventas en este turno.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<form method="post" class="formulario" style="max-width:520px;margin-top:1.5rem" id="form-cerrar">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="denominaciones" id="denominaciones-json" value="{}">
+
+  <fieldset>
+    <legend>Arqueo de caja</legend>
+
+    <label>Efectivo esperado
+      <input type="number" value="{{ '%.0f'|format(efectivo_esperado) }}" readonly>
+    </label>
+
+    <label>Efectivo contado *
+      <div style="display:flex;gap:.5rem;align-items:stretch">
+        <input type="number" step="1" name="efectivo_contado" id="efectivo_contado" value="0" required autofocus
+          style="flex:1">
+        <button type="button" class="boton secundario" id="btn-contar-cierre" style="white-space:nowrap">
+          🧮 Contar
+        </button>
+      </div>
+    </label>
+
+    <label>Observaciones (opcional)
+      <textarea name="observaciones_cierre" rows="2"></textarea>
+    </label>
+  </fieldset>
+
+  <div class="acciones">
+    <button type="submit" class="boton peligro" id="btn-confirmar-cierre">
+      Cerrar caja
+    </button>
+    <a class="boton secundario" href="{{ url_for('pos.index') }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block modales %}
+{% include "pos/_modal_conteo.html" %}
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  (function () {
+    const modal = document.getElementById('modal-conteo');
+    const totalSpan = document.getElementById('conteo-total-valor');
+    const jsonInput = document.getElementById('denominaciones-json');
+    const inputEfectivo = document.getElementById('efectivo_contado');
+    const btnAbrir = document.getElementById('btn-contar-cierre');
+    const btnConfirmar = document.getElementById('conteo-confirmar');
+    const btnCancelar = document.getElementById('conteo-cancelar');
+
+    function calcularTotal() {
+      let total = 0;
+      const detalle = {};
+      document.querySelectorAll('#modal-conteo .conteo-fila').forEach(function (fila) {
+        const valor = parseInt(fila.dataset.valor, 10);
+        const cant = parseInt(fila.querySelector('.conteo-input').value, 10) || 0;
+        if (cant > 0) {
+          total += valor * cant;
+          detalle[valor] = cant;
+        }
+      });
+      totalSpan.textContent = '$ ' + total.toLocaleString('es-CO');
+      return { total, detalle };
+    }
+
+    modal.addEventListener('click', function (e) {
+      if (!e.target.classList.contains('conteo-btn')) return;
+      const fila = e.target.closest('.conteo-fila');
+      const input = fila.querySelector('.conteo-input');
+      let v = parseInt(input.value, 10) || 0;
+      if (e.target.textContent === '+') v += 1;
+      else v = Math.max(0, v - 1);
+      input.value = v;
+      calcularTotal();
+    });
+
+    modal.addEventListener('input', function (e) {
+      if (!e.target.classList.contains('conteo-input')) return;
+      calcularTotal();
+    });
+
+    btnAbrir.addEventListener('click', function () {
+      document.querySelectorAll('#modal-conteo .conteo-input').forEach(i => i.value = 0);
+      calcularTotal();
+      modal.classList.remove('modal-oculto');
+    });
+
+    btnConfirmar.addEventListener('click', function () {
+      const { total, detalle } = calcularTotal();
+      inputEfectivo.value = total;
+      jsonInput.value = JSON.stringify(detalle);
+      modal.classList.add('modal-oculto');
+    });
+
+    btnCancelar.addEventListener('click', function () {
+      modal.classList.add('modal-oculto');
+    });
+
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) modal.classList.add('modal-oculto');
+    });
+  })();
+</script>
+{% endblock %}

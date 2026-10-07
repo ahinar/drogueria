@@ -3,10 +3,10 @@
 {% block contenido %}
 <h1>{{ 'Editar producto' if producto else 'Nuevo producto' }}</h1>
 
-<form method="post" class="formulario form-tabs" autocomplete="off">
+
+<form method="post" class="formulario form-tabs" enctype="multipart/form-data" autocomplete="off">
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
 
-  <!-- Campos trampa anti-autocompletado -->
   <input type="text" name="fake_user" style="display:none" tabindex="-1" autocomplete="off">
   <input type="password" name="fake_pass" style="display:none" tabindex="-1" autocomplete="off">
 
@@ -19,33 +19,57 @@
 
   <!-- ============ GENERAL ============ -->
   <section class="tab-panel activo" data-panel="general">
-    <div class="grid-3-compact">
-      <label>Código interno *
-        <input type="text" name="codigo" required autocomplete="off"
-               value="{{ producto['codigo'] if producto else codigo_sugerido }}"
-               placeholder="P00001">
-      </label>
-      <label>Código de barras
-        <input type="text" name="codigo_barras" autocomplete="off"
-               value="{{ producto['codigo_barras'] if producto and producto['codigo_barras'] else '' }}">
-      </label>
-      <label>Grupo (agrupa el mismo medicamento)
-        <input type="text" name="grupo" autocomplete="off" placeholder="Ej: Acetaminofén 500 mg"
-               value="{{ producto['grupo'] if producto and producto['grupo'] else '' }}">
-      </label>
-    </div>
 
-    <label>Nombre *
-      <input type="text" name="nombre" required autocomplete="off" spellcheck="false"
-             value="{{ producto['nombre'] if producto else '' }}">
-    </label>
+    <!-- Encabezado con imagen arriba a la derecha -->
+    <div class="form-producto-header">
+      <div class="form-producto-datos">
+        <div class="grid-3-compact">
+          <label>Código interno *
+            <input type="text" name="codigo" required autocomplete="off"
+              value="{{ producto['codigo'] if producto else codigo_sugerido }}" placeholder="P00001">
+          </label>
+          <label>Código de barras
+            <input type="text" name="codigo_barras" autocomplete="off"
+              value="{{ producto['codigo_barras'] if producto and producto['codigo_barras'] else '' }}">
+          </label>
+          <label>Grupo (agrupa el mismo medicamento)
+            <input type="text" name="grupo" autocomplete="off" placeholder="Ej: Acetaminofén 500 mg"
+              value="{{ producto['grupo'] if producto and producto['grupo'] else '' }}">
+          </label>
+        </div>
+
+        <label>Nombre *
+          <input type="text" name="nombre" required autocomplete="off" spellcheck="false"
+            value="{{ producto['nombre'] if producto else '' }}">
+        </label>
+      </div>
+
+      <div class="form-producto-imagen">
+        <div class="imagen-drop" id="imagen-drop">
+          {% if producto and producto['imagen'] %}
+          <img src="{{ url_for('static', filename=producto['imagen']) }}" alt="Imagen del producto" id="imagen-preview">
+          {% else %}
+          <div class="imagen-placeholder" id="imagen-preview">📷</div>
+          {% endif %}
+          <label class="imagen-overlay">
+            <input type="file" name="imagen" accept="image/*" id="imagen-input">
+            <span>Cambiar imagen</span>
+          </label>
+        </div>
+        {% if producto and producto['imagen'] %}
+        <button type="button" id="btn-eliminar-imagen" class="boton-chico peligro" style="margin-top:.4rem;width:100%">
+          🗑️ Eliminar
+        </button>
+        {% endif %}
+      </div>
+    </div>
 
     <div class="grid-3-compact">
       <label>Categoría
         <select name="categoria_principal" id="sel-categoria-principal">
           <option value="">— Seleccionar —</option>
           {% for c in categorias %}
-            <option value="{{ c['id'] }}" {% if c['id'] in categorias_sel %}selected{% endif %}>{{ c['nombre'] }}</option>
+          <option value="{{ c['id'] }}" {% if c['id'] in categorias_sel %}selected{% endif %}>{{ c['nombre'] }}</option>
           {% endfor %}
         </select>
       </label>
@@ -54,10 +78,12 @@
           <select name="principio_id" id="sel-principio">
             <option value="">— Seleccionar —</option>
             {% for p in principios %}
-              <option value="{{ p['id'] }}" {% if producto and producto['principio_id'] == p['id'] %}selected{% endif %}>{{ p['nombre'] }}</option>
+            <option value="{{ p['id'] }}" {% if producto and producto['principio_id']==p['id'] %}selected{% endif %}>{{
+              p['nombre'] }}</option>
             {% endfor %}
           </select>
-          <button type="button" class="btn-mas" data-tipo="principio" data-select="sel-principio" title="Crear nuevo principio activo">+</button>
+          <button type="button" class="btn-mas" data-tipo="principio" data-select="sel-principio"
+            title="Crear nuevo principio activo">+</button>
         </div>
       </label>
       <label>Laboratorio
@@ -65,10 +91,12 @@
           <select name="laboratorio_id" id="sel-laboratorio">
             <option value="">— Seleccionar —</option>
             {% for l in laboratorios %}
-              <option value="{{ l['id'] }}" {% if producto and producto['laboratorio_id'] == l['id'] %}selected{% endif %}>{{ l['nombre'] }}</option>
+            <option value="{{ l['id'] }}" {% if producto and producto['laboratorio_id']==l['id'] %}selected{% endif %}>
+              {{ l['nombre'] }}</option>
             {% endfor %}
           </select>
-          <button type="button" class="btn-mas" data-tipo="laboratorio" data-select="sel-laboratorio" title="Crear nuevo laboratorio">+</button>
+          <button type="button" class="btn-mas" data-tipo="laboratorio" data-select="sel-laboratorio"
+            title="Crear nuevo laboratorio">+</button>
         </div>
       </label>
     </div>
@@ -79,33 +107,35 @@
           <select name="forma_farmaceutica_id" id="sel-forma">
             <option value="">— Seleccionar —</option>
             {% for f in formas %}
-              <option value="{{ f['id'] }}" {% if producto and producto['forma_farmaceutica_id'] == f['id'] %}selected{% endif %}>{{ f['nombre'] }}</option>
+            <option value="{{ f['id'] }}" {% if producto and producto['forma_farmaceutica_id']==f['id'] %}selected{%
+              endif %}>{{ f['nombre'] }}</option>
             {% endfor %}
           </select>
-          <button type="button" class="btn-mas" data-tipo="forma_farmaceutica" data-select="sel-forma" title="Crear nueva forma farmacéutica">+</button>
+          <button type="button" class="btn-mas" data-tipo="forma_farmaceutica" data-select="sel-forma"
+            title="Crear nueva forma farmacéutica">+</button>
         </div>
       </label>
       <label>Concentración
         <input type="text" name="concentracion" list="lista-concentraciones" placeholder="Ej: 500 mg"
-               value="{{ producto['concentracion'] if producto and producto['concentracion'] else '' }}">
+          value="{{ producto['concentracion'] if producto and producto['concentracion'] else '' }}">
         <datalist id="lista-concentraciones">
           {% for c in concentraciones %}<option value="{{ c }}">{% endfor %}
         </datalist>
       </label>
       <label>Registro INVIMA
         <input type="text" name="registro_sanitario"
-               value="{{ producto['registro_sanitario'] if producto and producto['registro_sanitario'] else '' }}">
+          value="{{ producto['registro_sanitario'] if producto and producto['registro_sanitario'] else '' }}">
       </label>
     </div>
 
     <div class="grid-2">
       <label>Descripción
         <input type="text" name="descripcion" placeholder="Detalle breve"
-               value="{{ producto['descripcion'] if producto and producto['descripcion'] else '' }}">
+          value="{{ producto['descripcion'] if producto and producto['descripcion'] else '' }}">
       </label>
       <label>Vence registro sanitario
         <input type="date" name="registro_vence"
-               value="{{ producto['registro_vence'] if producto and producto['registro_vence'] else '' }}">
+          value="{{ producto['registro_vence'] if producto and producto['registro_vence'] else '' }}">
       </label>
     </div>
 
@@ -115,13 +145,14 @@
       <div class="grid-3-compact">
         <label>Costo (opcional)
           <input type="number" step="0.01" name="precio_compra" id="precio_compra"
-                 value="{{ producto['precio_compra'] if producto else 0 }}">
+            value="{{ producto['precio_compra'] if producto else 0 }}">
         </label>
         <label>Margen deseado (%)
           <input type="number" step="0.1" id="margen" value="30">
         </label>
         <label>&nbsp;
-          <button type="button" id="btn-calcular" class="boton secundario" style="width:100%">💡 Calcular sugerido</button>
+          <button type="button" id="btn-calcular" class="boton secundario" style="width:100%">💡 Calcular
+            sugerido</button>
         </label>
       </div>
 
@@ -131,20 +162,21 @@
         </label>
         <label>Precio de venta final *
           <input type="number" step="0.01" name="precio_venta" id="precio_venta" required
-                 value="{{ producto['precio_venta'] if producto else 0 }}">
+            value="{{ producto['precio_venta'] if producto else 0 }}">
         </label>
         <label>Se vende por
           <div class="campo-con-boton">
             <select name="unidad_venta_id" id="unidad_venta_id" required>
               <option value="">— Seleccionar —</option>
               {% for u in unidades %}
-                <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}"
-                        {% if producto and producto['unidad_venta_id'] == u['id'] %}selected{% endif %}>
-                  {{ u['nombre'] }}{% if u['cantidad'] != 1 %} (×{{ u['cantidad'] }}){% endif %}
-                </option>
+              <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}" {% if producto and
+                producto['unidad_venta_id']==u['id'] %}selected{% endif %}>
+                {{ u['nombre'] }}{% if u['cantidad'] != 1 %} (×{{ u['cantidad'] }}){% endif %}
+              </option>
               {% endfor %}
             </select>
-            <button type="button" class="btn-mas" data-tipo="unidad" data-select="unidad_venta_id" title="Crear nueva unidad de medida">+</button>
+            <button type="button" class="btn-mas" data-tipo="unidad" data-select="unidad_venta_id"
+              title="Crear nueva unidad de medida">+</button>
           </div>
         </label>
       </div>
@@ -158,70 +190,69 @@
         <label>Tipo de IVA
           <select name="iva_tipo" id="iva_tipo">
             {% for clave, texto in iva_tipos.items() %}
-              <option value="{{ clave }}" {% if producto and producto['iva_tipo']==clave %}selected{% endif %}>{{ texto }}</option>
+            <option value="{{ clave }}" {% if producto and producto['iva_tipo']==clave %}selected{% endif %}>{{ texto }}
+            </option>
             {% endfor %}
           </select>
         </label>
         <label>Tarifa IVA (%)
           <input type="number" step="0.01" name="iva_tarifa" id="iva_tarifa"
-                 value="{{ producto['iva_tarifa'] if producto else 19 }}">
+            value="{{ producto['iva_tarifa'] if producto else 19 }}">
         </label>
       </div>
 
       <div class="grid-3-compact">
         <label>Precio máximo regulado
           <input type="number" step="0.01" name="precio_maximo"
-                 value="{{ producto['precio_maximo'] if producto and producto['precio_maximo'] else '' }}">
+            value="{{ producto['precio_maximo'] if producto and producto['precio_maximo'] else '' }}">
         </label>
       </div>
     </fieldset>
   </section>
 
-  <!-- ============ INVENTARIO ============ -->
+  <!-- INVENTARIO -->
   <section class="tab-panel" data-panel="inventario">
     <div class="grid-2">
       <label>Stock mínimo (en unidades base)
-        <input type="number" name="stock_minimo"
-               value="{{ producto['stock_minimo'] if producto else 0 }}">
+        <input type="number" name="stock_minimo" value="{{ producto['stock_minimo'] if producto else 0 }}">
       </label>
     </div>
 
     <fieldset>
       <legend>Manejo y alertas</legend>
       <label class="switch-linea">
-        <input type="checkbox" name="maneja_vencimiento"
-               {% if not producto or producto['maneja_vencimiento'] %}checked{% endif %}>
+        <input type="checkbox" name="maneja_vencimiento" {% if not producto or producto['maneja_vencimiento']
+          %}checked{% endif %}>
         Este producto maneja fecha de vencimiento
       </label>
       <label class="switch-linea">
-        <input type="checkbox" name="requiere_formula"
-               {% if producto and producto['requiere_formula'] %}checked{% endif %}>
+        <input type="checkbox" name="requiere_formula" {% if producto and producto['requiere_formula'] %}checked{% endif
+          %}>
         Requiere fórmula médica
       </label>
       <label class="switch-linea">
-        <input type="checkbox" name="cadena_frio"
-               {% if producto and producto['cadena_frio'] %}checked{% endif %}>
+        <input type="checkbox" name="cadena_frio" {% if producto and producto['cadena_frio'] %}checked{% endif %}>
         Cadena de frío (2–8 °C)
       </label>
       <label class="switch-linea">
-        <input type="checkbox" name="control_especial"
-               {% if producto and producto['control_especial'] %}checked{% endif %}>
+        <input type="checkbox" name="control_especial" {% if producto and producto['control_especial'] %}checked{% endif
+          %}>
         Control especial (FNE) — requiere registro INVIMA
       </label>
     </fieldset>
   </section>
 
-  <!-- ============ CATEGORÍAS Y USOS ============ -->
+  <!-- CATEGORÍAS Y USOS -->
   <section class="tab-panel" data-panel="clasificacion">
     <fieldset>
       <legend>Categorías (puedes elegir varias)</legend>
       <div class="chips">
         {% for c in categorias %}
-          <label class="chip">
-            <input type="checkbox" name="categorias" value="{{ c['id'] }}"
-              {% if c['id'] in categorias_sel %}checked{% endif %}>
-            <span>{{ c['nombre'] }}</span>
-          </label>
+        <label class="chip">
+          <input type="checkbox" name="categorias" value="{{ c['id'] }}" {% if c['id'] in categorias_sel %}checked{%
+            endif %}>
+          <span>{{ c['nombre'] }}</span>
+        </label>
         {% endfor %}
       </div>
     </fieldset>
@@ -230,20 +261,20 @@
       <legend>Usos / Indicaciones (puedes elegir varios)</legend>
       <div class="chips">
         {% for u in usos %}
-          <label class="chip">
-            <input type="checkbox" name="usos" value="{{ u['id'] }}"
-              {% if u['id'] in usos_sel %}checked{% endif %}>
-            <span>{{ u['nombre'] }}</span>
-          </label>
+        <label class="chip">
+          <input type="checkbox" name="usos" value="{{ u['id'] }}" {% if u['id'] in usos_sel %}checked{% endif %}>
+          <span>{{ u['nombre'] }}</span>
+        </label>
         {% endfor %}
       </div>
     </fieldset>
   </section>
 
-  <!-- ============ NOTAS ============ -->
+  <!-- NOTAS -->
   <section class="tab-panel" data-panel="notas">
     <label>Observaciones
-      <textarea name="observaciones" rows="8">{{ producto['observaciones'] if producto and producto['observaciones'] else '' }}</textarea>
+      <textarea name="observaciones"
+        rows="8">{{ producto['observaciones'] if producto and producto['observaciones'] else '' }}</textarea>
     </label>
   </section>
 
@@ -275,7 +306,7 @@
         <select id="modal-unidad-referencia">
           <option value="">— Ninguna (unidad base) —</option>
           {% for u in unidades %}
-            <option value="{{ u['id'] }}">{{ u['nombre'] }} (×{{ u['cantidad'] }})</option>
+          <option value="{{ u['id'] }}">{{ u['nombre'] }} (×{{ u['cantidad'] }})</option>
           {% endfor %}
         </select>
       </label>
@@ -291,215 +322,238 @@
 </div>
 
 <script>
-(function () {
-  // === Tabs ===
-  document.querySelectorAll('.form-tabs .tab').forEach(function (tab) {
-    tab.addEventListener('click', function () {
-      const objetivo = tab.dataset.tab;
-      document.querySelectorAll('.form-tabs .tab').forEach(t => t.classList.remove('activo'));
-      document.querySelectorAll('.form-tabs .tab-panel').forEach(p => p.classList.remove('activo'));
-      tab.classList.add('activo');
-      document.querySelector('.form-tabs .tab-panel[data-panel="' + objetivo + '"]').classList.add('activo');
+  (function () {
+    // === Tabs ===
+    document.querySelectorAll('.form-tabs .tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        const objetivo = tab.dataset.tab;
+        document.querySelectorAll('.form-tabs .tab').forEach(t => t.classList.remove('activo'));
+        document.querySelectorAll('.form-tabs .tab-panel').forEach(p => p.classList.remove('activo'));
+        tab.classList.add('activo');
+        document.querySelector('.form-tabs .tab-panel[data-panel="' + objetivo + '"]').classList.add('activo');
+      });
     });
-  });
 
-  // === Sincronizar categoría principal con chips ===
-  const catPrincipal = document.getElementById('sel-categoria-principal');
-  const chipsCat = document.querySelectorAll('input[name="categorias"]');
-  if (catPrincipal) {
-    catPrincipal.addEventListener('change', function () {
-      const id = catPrincipal.value;
-      if (!id) return;
-      const chk = document.querySelector('input[name="categorias"][value="' + id + '"]');
-      if (chk) chk.checked = true;
-    });
-    if (chipsCat.length === 1 && chipsCat[0].checked) {
-      catPrincipal.value = chipsCat[0].value;
+    // === Sincronizar categoría principal con chips ===
+    const catPrincipal = document.getElementById('sel-categoria-principal');
+    const chipsCat = document.querySelectorAll('input[name="categorias"]');
+    if (catPrincipal) {
+      catPrincipal.addEventListener('change', function () {
+        const id = catPrincipal.value;
+        if (!id) return;
+        const chk = document.querySelector('input[name="categorias"][value="' + id + '"]');
+        if (chk) chk.checked = true;
+      });
+      if (chipsCat.length === 1 && chipsCat[0].checked) {
+        catPrincipal.value = chipsCat[0].value;
+      }
     }
-  }
 
-  // === IVA ===
-  const selTipo = document.getElementById('iva_tipo');
-  const inpTarifa = document.getElementById('iva_tarifa');
-  function ajustarIva() {
-    const sinIva = selTipo.value === 'excluido' || selTipo.value === 'exento';
-    if (sinIva) {
-      inpTarifa.value = '0';
-      inpTarifa.readOnly = true;
-      inpTarifa.style.background = '#eef2f5';
-    } else {
-      inpTarifa.readOnly = false;
-      inpTarifa.style.background = '';
-      if (parseFloat(inpTarifa.value) === 0) inpTarifa.value = '19';
+    // === IVA ===
+    const selTipo = document.getElementById('iva_tipo');
+    const inpTarifa = document.getElementById('iva_tarifa');
+    function ajustarIva() {
+      const sinIva = selTipo.value === 'excluido' || selTipo.value === 'exento';
+      if (sinIva) {
+        inpTarifa.value = '0';
+        inpTarifa.readOnly = true;
+        inpTarifa.style.background = '#eef2f5';
+      } else {
+        inpTarifa.readOnly = false;
+        inpTarifa.style.background = '';
+        if (parseFloat(inpTarifa.value) === 0) inpTarifa.value = '19';
+      }
     }
-  }
-  selTipo.addEventListener('change', ajustarIva);
-  ajustarIva();
+    selTipo.addEventListener('change', ajustarIva);
+    ajustarIva();
 
-  // === Precios: ganancia + equivalencia ===
-  const pc = document.getElementById('precio_compra');
-  const pv = document.getElementById('precio_venta');
-  const psug = document.getElementById('precio_sugerido');
-  const gan = document.getElementById('ganancia');
-  const unidadSel = document.getElementById('unidad_venta_id');
-  const equivalencia = document.getElementById('equivalencia');
+    // === Precios: ganancia + equivalencia ===
+    const pc = document.getElementById('precio_compra');
+    const pv = document.getElementById('precio_venta');
+    const psug = document.getElementById('precio_sugerido');
+    const gan = document.getElementById('ganancia');
+    const unidadSel = document.getElementById('unidad_venta_id');
+    const equivalencia = document.getElementById('equivalencia');
 
-  function calcGanancia() {
-    const c = parseFloat(pc.value) || 0;
-    const v = parseFloat(pv.value) || 0;
-    const dif = v - c;
-    const pct = v > 0 ? (dif / v * 100).toFixed(1) : '—';
-    gan.value = '$' + dif.toFixed(2) + (pct !== '—' ? '  (margen ' + pct + '%)' : '');
-  }
-  function calcEquivalencia() {
-    const opt = unidadSel.options[unidadSel.selectedIndex];
-    if (!opt || !opt.value) { equivalencia.textContent = ''; return; }
-    const cant = parseFloat(opt.dataset.cantidad) || 1;
-    const v = parseFloat(pv.value) || 0;
-    if (cant > 1 && v > 0) {
-      equivalencia.textContent = '≈ $' + (v / cant).toFixed(2) + ' por Unidad';
-    } else {
-      equivalencia.textContent = '';
+    function calcGanancia() {
+      const c = parseFloat(pc.value) || 0;
+      const v = parseFloat(pv.value) || 0;
+      const dif = v - c;
+      const pct = v > 0 ? (dif / v * 100).toFixed(1) : '—';
+      gan.value = '$' + dif.toFixed(2) + (pct !== '—' ? '  (margen ' + pct + '%)' : '');
     }
-  }
-  pc.addEventListener('input', calcGanancia);
-  pv.addEventListener('input', function () { calcGanancia(); calcEquivalencia(); });
-  unidadSel.addEventListener('change', calcEquivalencia);
-  calcGanancia();
-  calcEquivalencia();
-
-  // === Calcular sugerido (÷ 1 − margen) ===
-  document.getElementById('btn-calcular').addEventListener('click', function () {
-    const compra = parseFloat(pc.value) || 0;
-    const m = parseFloat(document.getElementById('margen').value) || 0;
-    if (compra <= 0) { alert('Primero ingresa el costo.'); return; }
-    if (m >= 100) { alert('El margen debe ser menor a 100%.'); return; }
-    const sugerido = compra / (1 - m / 100);
-    psug.value = sugerido.toFixed(2);
-    pv.value = sugerido.toFixed(2);
+    function calcEquivalencia() {
+      const opt = unidadSel.options[unidadSel.selectedIndex];
+      if (!opt || !opt.value) { equivalencia.textContent = ''; return; }
+      const cant = parseFloat(opt.dataset.cantidad) || 1;
+      const v = parseFloat(pv.value) || 0;
+      if (cant > 1 && v > 0) {
+        equivalencia.textContent = '≈ $' + (v / cant).toFixed(2) + ' por Unidad';
+      } else {
+        equivalencia.textContent = '';
+      }
+    }
+    pc.addEventListener('input', calcGanancia);
+    pv.addEventListener('input', function () { calcGanancia(); calcEquivalencia(); });
+    unidadSel.addEventListener('change', calcEquivalencia);
     calcGanancia();
     calcEquivalencia();
-  });
 
-  // === MODAL: crear catálogos y unidades ===
-  const modal = document.getElementById('modal-crear');
-  const modalTitulo = document.getElementById('modal-titulo');
-  const modalCamposCatalogo = document.getElementById('modal-campos-catalogo');
-  const modalCamposUnidad = document.getElementById('modal-campos-unidad');
-  const modalNombre = document.getElementById('modal-nombre');
-  const modalUnidadNombre = document.getElementById('modal-unidad-nombre');
-  const modalUnidadCantidad = document.getElementById('modal-unidad-cantidad');
-  const modalUnidadReferencia = document.getElementById('modal-unidad-referencia');
-  const modalError = document.getElementById('modal-error');
-  const modalGuardar = document.getElementById('modal-guardar');
-  const modalCancelar = document.getElementById('modal-cancelar');
-
-  let contextoModal = { tipo: '', select: '' };
-  const csrfToken = document.querySelector('input[name="_csrf"]').value;
-
-  function abrirModal(tipo, selectId, titulo) {
-    contextoModal = { tipo, select: selectId };
-    modalTitulo.textContent = titulo;
-    modalError.style.display = 'none';
-    modalError.textContent = '';
-    modalNombre.value = '';
-    modalUnidadNombre.value = '';
-    modalUnidadCantidad.value = '1';
-    modalUnidadReferencia.value = '';
-
-    if (tipo === 'unidad') {
-      modalCamposCatalogo.style.display = 'none';
-      modalCamposUnidad.style.display = 'block';
-      setTimeout(() => modalUnidadNombre.focus(), 50);
-    } else {
-      modalCamposCatalogo.style.display = 'block';
-      modalCamposUnidad.style.display = 'none';
-      setTimeout(() => modalNombre.focus(), 50);
-    }
-    modal.classList.remove('modal-oculto');
-  }
-
-  function cerrarModal() {
-    modal.classList.add('modal-oculto');
-  }
-
-  function mostrarErrorModal(msg) {
-    modalError.textContent = msg;
-    modalError.style.display = 'block';
-  }
-
-  modalCancelar.addEventListener('click', cerrarModal);
-  modal.addEventListener('click', function (e) {
-    if (e.target === modal) cerrarModal();
-  });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !modal.classList.contains('modal-oculto')) cerrarModal();
-  });
-
-  document.querySelectorAll('.btn-mas').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const tipo = btn.dataset.tipo;
-      const selectId = btn.dataset.select;
-      const etiqueta = btn.title.replace('Crear nueva ', '').replace('Crear nuevo ', '');
-      abrirModal(tipo, selectId, etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1));
+    // === Calcular sugerido (÷ 1 − margen) ===
+    document.getElementById('btn-calcular').addEventListener('click', function () {
+      const compra = parseFloat(pc.value) || 0;
+      const m = parseFloat(document.getElementById('margen').value) || 0;
+      if (compra <= 0) { alert('Primero ingresa el costo.'); return; }
+      if (m >= 100) { alert('El margen debe ser menor a 100%.'); return; }
+      const sugerido = compra / (1 - m / 100);
+      psug.value = sugerido.toFixed(2);
+      pv.value = sugerido.toFixed(2);
+      calcGanancia();
+      calcEquivalencia();
     });
-  });
 
-  modalGuardar.addEventListener('click', async function () {
-    const { tipo, select } = contextoModal;
-    const datos = new FormData();
-    datos.append('_csrf', csrfToken);
+    // === MODAL: crear catálogos y unidades ===
+    const modal = document.getElementById('modal-crear');
+    const modalTitulo = document.getElementById('modal-titulo');
+    const modalCamposCatalogo = document.getElementById('modal-campos-catalogo');
+    const modalCamposUnidad = document.getElementById('modal-campos-unidad');
+    const modalNombre = document.getElementById('modal-nombre');
+    const modalUnidadNombre = document.getElementById('modal-unidad-nombre');
+    const modalUnidadCantidad = document.getElementById('modal-unidad-cantidad');
+    const modalUnidadReferencia = document.getElementById('modal-unidad-referencia');
+    const modalError = document.getElementById('modal-error');
+    const modalGuardar = document.getElementById('modal-guardar');
+    const modalCancelar = document.getElementById('modal-cancelar');
 
-    let url;
-    if (tipo === 'unidad') {
-      const nombre = modalUnidadNombre.value.trim();
-      if (!nombre) { mostrarErrorModal('El nombre es obligatorio.'); return; }
-      datos.append('nombre', nombre);
-      datos.append('cantidad', modalUnidadCantidad.value || '1');
-      datos.append('referencia_id', modalUnidadReferencia.value || '');
-      url = '/admin/unidades/api/crear';
-    } else {
-      const nombre = modalNombre.value.trim();
-      if (!nombre) { mostrarErrorModal('El nombre es obligatorio.'); return; }
-      datos.append('nombre', nombre);
-      url = '/admin/catalogos/' + tipo + '/api/crear';
+    let contextoModal = { tipo: '', select: '' };
+    const csrfToken = document.querySelector('input[name="_csrf"]').value;
+
+    function abrirModal(tipo, selectId, titulo) {
+      contextoModal = { tipo, select: selectId };
+      modalTitulo.textContent = titulo;
+      modalError.style.display = 'none';
+      modalError.textContent = '';
+      modalNombre.value = '';
+      modalUnidadNombre.value = '';
+      modalUnidadCantidad.value = '1';
+      modalUnidadReferencia.value = '';
+
+      if (tipo === 'unidad') {
+        modalCamposCatalogo.style.display = 'none';
+        modalCamposUnidad.style.display = 'block';
+        setTimeout(() => modalUnidadNombre.focus(), 50);
+      } else {
+        modalCamposCatalogo.style.display = 'block';
+        modalCamposUnidad.style.display = 'none';
+        setTimeout(() => modalNombre.focus(), 50);
+      }
+      modal.classList.remove('modal-oculto');
     }
 
-    modalGuardar.disabled = true;
-    modalGuardar.textContent = 'Guardando…';
+    function cerrarModal() {
+      modal.classList.add('modal-oculto');
+    }
 
-    try {
-      const resp = await fetch(url, { method: 'POST', body: datos, credentials: 'same-origin' });
-      const json = await resp.json();
-      if (!json.ok) {
-        mostrarErrorModal(json.error || 'No se pudo guardar.');
-        return;
+    function mostrarErrorModal(msg) {
+      modalError.textContent = msg;
+      modalError.style.display = 'block';
+    }
+
+    modalCancelar.addEventListener('click', cerrarModal);
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) cerrarModal();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !modal.classList.contains('modal-oculto')) cerrarModal();
+    });
+
+    document.querySelectorAll('.btn-mas').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const tipo = btn.dataset.tipo;
+        const selectId = btn.dataset.select;
+        const etiqueta = btn.title.replace('Crear nueva ', '').replace('Crear nuevo ', '');
+        abrirModal(tipo, selectId, etiqueta.charAt(0).toUpperCase() + etiqueta.slice(1));
+      });
+    });
+
+    modalGuardar.addEventListener('click', async function () {
+      const { tipo, select } = contextoModal;
+      const datos = new FormData();
+      datos.append('_csrf', csrfToken);
+
+      let url;
+      if (tipo === 'unidad') {
+        const nombre = modalUnidadNombre.value.trim();
+        if (!nombre) { mostrarErrorModal('El nombre es obligatorio.'); return; }
+        datos.append('nombre', nombre);
+        datos.append('cantidad', modalUnidadCantidad.value || '1');
+        datos.append('referencia_id', modalUnidadReferencia.value || '');
+        url = '/admin/unidades/api/crear';
+      } else {
+        const nombre = modalNombre.value.trim();
+        if (!nombre) { mostrarErrorModal('El nombre es obligatorio.'); return; }
+        datos.append('nombre', nombre);
+        url = '/admin/catalogos/' + tipo + '/api/crear';
       }
-      const sel = document.getElementById(select);
-      let opcion = sel.querySelector('option[value="' + json.id + '"]');
-      if (!opcion) {
-        opcion = document.createElement('option');
-        opcion.value = json.id;
-        let texto = json.nombre;
-        if (json.cantidad && parseFloat(json.cantidad) !== 1) {
-          texto += ' (×' + json.cantidad + ')';
+
+      modalGuardar.disabled = true;
+      modalGuardar.textContent = 'Guardando…';
+
+      try {
+        const resp = await fetch(url, { method: 'POST', body: datos, credentials: 'same-origin' });
+        const json = await resp.json();
+        if (!json.ok) {
+          mostrarErrorModal(json.error || 'No se pudo guardar.');
+          return;
         }
-        opcion.textContent = texto;
-        if (json.cantidad) opcion.dataset.cantidad = json.cantidad;
-        sel.appendChild(opcion);
+        const sel = document.getElementById(select);
+        let opcion = sel.querySelector('option[value="' + json.id + '"]');
+        if (!opcion) {
+          opcion = document.createElement('option');
+          opcion.value = json.id;
+          let texto = json.nombre;
+          if (json.cantidad && parseFloat(json.cantidad) !== 1) {
+            texto += ' (×' + json.cantidad + ')';
+          }
+          opcion.textContent = texto;
+          if (json.cantidad) opcion.dataset.cantidad = json.cantidad;
+          sel.appendChild(opcion);
+        }
+        sel.value = json.id;
+        if (select === 'unidad_venta_id') {
+          sel.dispatchEvent(new Event('change'));
+        }
+        cerrarModal();
+      } catch (e) {
+        mostrarErrorModal('Error de conexión: ' + e.message);
+      } finally {
+        modalGuardar.disabled = false;
+        modalGuardar.textContent = 'Guardar';
       }
-      sel.value = json.id;
-      if (select === 'unidad_venta_id') {
-        sel.dispatchEvent(new Event('change'));
-      }
-      cerrarModal();
-    } catch (e) {
-      mostrarErrorModal('Error de conexión: ' + e.message);
-    } finally {
-      modalGuardar.disabled = false;
-      modalGuardar.textContent = 'Guardar';
+    });
+
+    // ===== Preview de imagen del producto =====
+    const inputImagen = document.getElementById('imagen-input');
+    const preview = document.getElementById('imagen-preview');
+    if (inputImagen) {
+      inputImagen.addEventListener('change', function () {
+        const file = this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          // Reemplazar por un <img>
+          const nueva = document.createElement('img');
+          nueva.src = e.target.result;
+          nueva.id = 'imagen-preview';
+          nueva.alt = 'Vista previa';
+          preview.parentElement.replaceChild(nueva, preview);
+        };
+        reader.readAsDataURL(file);
+      });
     }
-  });
-})();
+
+  })();
+
+
 </script>
 {% endblock %}

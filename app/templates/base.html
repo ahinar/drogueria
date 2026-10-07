@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Inicio{% endblock %} · Fervifarma</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  {% if config_negocio and config_negocio.logo_ruta %}
+    <link rel="icon" href="{{ url_for('static', filename=config_negocio.logo_ruta) }}">
+  {% else %}
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
+  {% endif %}
 </head>
 <body class="layout">
 
@@ -12,7 +17,12 @@
   <!-- ===================== SIDEBAR ===================== -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <span class="sidebar-logo">💊</span>
+      {% if config_negocio and config_negocio.logo_ruta %}
+        <img src="{{ url_for('static', filename=config_negocio.logo_ruta) }}"
+             alt="Logo" class="sidebar-logo-img">
+      {% else %}
+        <span class="sidebar-logo">💊</span>
+      {% endif %}
       <span class="sidebar-brand-text">Fervifarma</span>
     </div>
 
@@ -22,16 +32,17 @@
         <span class="ico">🏠</span><span class="txt">Inicio</span>
       </a>
 
-      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('temperaturas.') %}activo{% endif %}"
-         href="{{ url_for('temperaturas.inicio') }}" title="Temperaturas">
-        <span class="ico">🌡️</span><span class="txt">Temperaturas</span>
+      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('pos.') %}activo{% endif %}"
+         href="{{ url_for('pos.index') }}" title="Punto de venta">
+        <span class="ico">🛒</span><span class="txt">Vender (POS)</span>
       </a>
 
       <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('productos.') %}activo{% endif %}"
          href="{{ url_for('productos.lista') }}" title="Productos">
         <span class="ico">💊</span><span class="txt">Productos</span>
       </a>
-            <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('recepciones.') %}activo{% endif %}"
+
+      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('recepciones.') %}activo{% endif %}"
          href="{{ url_for('recepciones.lista') }}" title="Recepciones">
         <span class="ico">📦</span><span class="txt">Recepciones</span>
       </a>
@@ -39,6 +50,11 @@
       <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('inventario.') %}activo{% endif %}"
          href="{{ url_for('inventario.inicio') }}" title="Inventario">
         <span class="ico">🗃️</span><span class="txt">Inventario</span>
+      </a>
+
+      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('temperaturas.') %}activo{% endif %}"
+         href="{{ url_for('temperaturas.inicio') }}" title="Temperaturas">
+        <span class="ico">🌡️</span><span class="txt">Temperaturas</span>
       </a>
 
       <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('reportes.') %}activo{% endif %}"
@@ -57,7 +73,6 @@
         <a class="sidebar-sublink deshabilitado" href="#" title="Próximamente (Fase 1.5)">
           <span class="ico">👥</span><span class="txt">Clientes</span>
         </a>
-                     
         <a class="sidebar-sublink {% if request.endpoint and request.endpoint.startswith('proveedores.') %}activo{% endif %}"
            href="{{ url_for('proveedores.lista') }}">
           <span class="ico">🚚</span><span class="txt">Proveedores</span>
@@ -128,7 +143,7 @@
     </main>
   </div>
 
-    <!-- ============ ALARMA GLOBAL DE TEMPERATURA ============ -->
+  <!-- ============ ALARMA GLOBAL DE TEMPERATURA ============ -->
   <div id="alarma-temp" class="alarma-oculta" role="alert" aria-live="assertive">
     <div class="alarma-caja">
       <h2>⏰ REGISTRO DE TEMPERATURA PENDIENTE</h2>
@@ -147,7 +162,6 @@
     const btn = document.getElementById('toggleSidebar');
     const sidebar = document.getElementById('sidebar');
 
-    // Preferencia de colapso guardada en el navegador.
     const guardado = localStorage.getItem('sidebar-colapsado') === '1';
     if (guardado) body.classList.add('sidebar-colapsado');
 
@@ -159,13 +173,11 @@
       });
     }
 
-    // Submenús desplegables (Administración, etc.)
     document.querySelectorAll('.sidebar-group').forEach(function (grupo) {
       const key = 'submenu-' + grupo.dataset.group;
       const contenido = document.querySelector('[data-group-content="' + grupo.dataset.group + '"]');
       if (!contenido) return;
 
-      // Estado guardado
       if (localStorage.getItem(key) === '1') {
         grupo.classList.add('abierto');
         contenido.classList.add('abierto');
@@ -178,6 +190,64 @@
       });
     });
   })();
+  </script>
+
+  <!-- ============ MODAL DE CONFIRMACIÓN GLOBAL ============ -->
+  <div id="modal-confirmar" class="modal-oculto">
+    <div class="modal-caja modal-caja-confirmar">
+      <div class="confirmar-icono" id="confirmar-icono">⚠️</div>
+      <h2 id="confirmar-titulo">¿Estás seguro?</h2>
+      <p id="confirmar-mensaje" class="confirmar-mensaje"></p>
+      <div class="confirmar-acciones">
+        <button type="button" id="confirmar-cancelar" class="boton secundario">Cancelar</button>
+        <button type="button" id="confirmar-aceptar" class="boton peligro">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+    <!-- ============ MODALES (overlay por plantilla) ============ -->
+  {% block modales %}{% endblock %}
+
+  <!-- ============ SCRIPTS EXTRA (por plantilla) ============ -->
+  {% block scripts_extra %}{% endblock %}
+
+  <script>
+  window.confirmar = function (mensaje, opciones) {
+    opciones = opciones || {};
+    return new Promise(function (resolve) {
+      const modal = document.getElementById('modal-confirmar');
+      const titulo = document.getElementById('confirmar-titulo');
+      const mensajeEl = document.getElementById('confirmar-mensaje');
+      const icono = document.getElementById('confirmar-icono');
+      const btnAceptar = document.getElementById('confirmar-aceptar');
+      const btnCancelar = document.getElementById('confirmar-cancelar');
+
+      titulo.textContent = opciones.titulo || '¿Estás seguro?';
+      mensajeEl.textContent = mensaje;
+      icono.textContent = opciones.icono || '⚠️';
+      btnAceptar.textContent = opciones.textoAceptar || 'Aceptar';
+      btnCancelar.textContent = opciones.textoCancelar || 'Cancelar';
+      btnAceptar.className = 'boton ' + (opciones.tipo === 'info' ? '' : 'peligro');
+
+      function cerrar(resultado) {
+        modal.classList.add('modal-oculto');
+        document.removeEventListener('keydown', manejarTeclas);
+        resolve(resultado);
+      }
+      function manejarTeclas(e) {
+        if (e.key === 'Escape') cerrar(false);
+        if (e.key === 'Enter') cerrar(true);
+      }
+
+      btnAceptar.onclick = () => cerrar(true);
+      btnCancelar.onclick = () => cerrar(false);
+      modal.onclick = (e) => { if (e.target === modal) cerrar(false); };
+
+      document.addEventListener('keydown', manejarTeclas);
+      modal.classList.remove('modal-oculto');
+      setTimeout(() => btnAceptar.focus(), 50);
+    });
+  };
   </script>
 </body>
 </html>

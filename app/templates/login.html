@@ -5,10 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ingresar · Fervifarma</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  {% if config_negocio and config_negocio.logo_ruta %}
+    <link rel="icon" href="{{ url_for('static', filename=config_negocio.logo_ruta) }}">
+  {% endif %}
 </head>
 <body class="login-body">
   <div class="login-card">
-    <div class="login-logo">💊</div>
+    {% if config_negocio and config_negocio.logo_ruta %}
+      <div class="login-logo-img-wrap">
+        <img src="{{ url_for('static', filename=config_negocio.logo_ruta) }}"
+             alt="Logo" class="login-logo-img">
+      </div>
+    {% else %}
+      <div class="login-logo">💊</div>
+    {% endif %}
     <h1>Fervifarma</h1>
     <p class="suave">Sistema de gestión · Calidad y POS</p>
 

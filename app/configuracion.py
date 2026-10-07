@@ -1,13 +1,14 @@
 """Configuración del negocio: datos que van en informes, PDFs y reportes."""
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import (Blueprint, flash, g, redirect, render_template, request,
+                   url_for)
 
 from .audit import registrar
 from .auth import roles_required
 from .db import ahora, get_db
+from .utils_imagenes import guardar_imagen, eliminar_imagen
 
 bp = Blueprint("configuracion", __name__, url_prefix="/configuracion")
 
-# Orden en el que aparecen los campos en el formulario.
 CAMPOS = [
     ("nit",                    "NIT",                             "text"),
     ("razon_social",           "Razón social",                    "text"),
@@ -25,7 +26,6 @@ CAMPOS = [
     ("horario",                "Horario de atención",             "text"),
 ]
 
-# Valores por defecto si aún no se ha guardado nada.
 DEFAULTS = {
     "nit": "",
     "razon_social": "",
@@ -42,6 +42,7 @@ DEFAULTS = {
     "regente_tarjeta": "",
     "horario": "",
     "pie_pagina": "Comprobante interno, no válido como factura.",
+    "logo_ruta": "",
 }
 
 
@@ -69,11 +70,39 @@ def guardar_config(valores: dict) -> None:
 @roles_required("administrador")
 def ver():
     if request.method == "POST":
+        accion = request.form.get("_accion", "guardar")
+
+        # ===== Eliminar logo =====
+        if accion == "eliminar_logo":
+            actual = obtener_config()
+            if actual.get("logo_ruta"):
+                eliminar_imagen(actual["logo_ruta"])
+            guardar_config({"logo_ruta": ""})
+            registrar("configuracion_logo_eliminado", "config")
+            flash("Logo eliminado.", "ok")
+            return redirect(url_for("configuracion.ver"))
+
+        # ===== Guardar todo =====
         nuevos = {}
         for clave, _titulo, _tipo in CAMPOS:
             nuevos[clave] = request.form.get(clave, "").strip()
-        # Campo libre adicional: pie de página.
         nuevos["pie_pagina"] = request.form.get("pie_pagina", "").strip()
+
+        # Manejar subida de logo
+        archivo_logo = request.files.get("logo")
+        if archivo_logo and archivo_logo.filename:
+            ruta, error = guardar_imagen(
+                archivo_logo, "logos", max_px=800, max_bytes=2 * 1024 * 1024,
+                nombre_fijo="logo",
+            )
+            if error:
+                flash(f"Error con el logo: {error}", "error")
+                return redirect(url_for("configuracion.ver"))
+            # Eliminar el logo anterior si existía y era distinto
+            anterior = obtener_config().get("logo_ruta")
+            if anterior and anterior != ruta:
+                eliminar_imagen(anterior)
+            nuevos["logo_ruta"] = ruta
 
         if not nuevos["razon_social"]:
             flash("La razón social es obligatoria.", "error")

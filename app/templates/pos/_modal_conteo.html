@@ -1,0 +1,46 @@
+<!-- ============ MODAL DE CONTEO DE EFECTIVO ============ -->
+<div id="modal-conteo" class="modal-oculto">
+  <div class="modal-caja modal-caja-conteo">
+    <div class="modal-header">
+      <h2 id="conteo-titulo">Conteo de efectivo</h2>
+      <p class="suave">Registra cuántos billetes y monedas hay de cada denominación.</p>
+    </div>
+
+    <div class="modal-body">
+      <div class="conteo-cols">
+        <div class="conteo-col">
+          <div class="conteo-grupo-titulo">Billetes</div>
+          {% for v in [100000, 50000, 20000, 10000, 5000, 2000] %}
+          <div class="conteo-fila" data-valor="{{ v }}">
+            <button type="button" class="conteo-btn">−</button>
+            <input type="number" class="conteo-input" min="0" value="0" inputmode="numeric">
+            <button type="button" class="conteo-btn">+</button>
+            <span class="conteo-valor">$ {{ '{:,}'.format(v).replace(',', '.') }}</span>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="conteo-col">
+          <div class="conteo-grupo-titulo">Monedas</div>
+          {% for v in [1000, 500, 200, 100, 50] %}
+          <div class="conteo-fila" data-valor="{{ v }}">
+            <button type="button" class="conteo-btn">−</button>
+            <input type="number" class="conteo-input" min="0" value="0" inputmode="numeric">
+            <button type="button" class="conteo-btn">+</button>
+            <span class="conteo-valor">$ {{ '{:,}'.format(v).replace(',', '.') }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer modal-footer-conteo">
+      <div class="conteo-total">
+        <span>Total contado:</span>
+        <strong id="conteo-total-valor">$ 0</strong>
+      </div>
+      <button type="button" id="conteo-cancelar" class="boton secundario">Cancelar</button>
+      <button type="button" id="conteo-confirmar" class="boton">Confirmar</button>
+    </div>
+  </div>
+</div>

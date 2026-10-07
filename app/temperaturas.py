@@ -54,10 +54,9 @@ def _pendientes():
     hoy = ahora_dt.date().isoformat()
     dia_semana = ahora_dt.isoweekday()
     pendientes = []
-    zonas = db.execute("SELECT * FROM zonas_temperatura WHERE activa = 1").fetchall()
 
+    zonas = db.execute("SELECT * FROM zonas_temperatura WHERE activa = 1").fetchall()
     for zona in zonas:
-        # Verificar si hoy aplica según el día de la semana
         if str(dia_semana) not in (zona["dias_semana"] or "").split(","):
             continue
 
@@ -74,24 +73,19 @@ def _pendientes():
             if ahora_dt < programada + timedelta(minutes=tolerancia):
                 continue
 
-            # ¿Hay alguna lectura para esta zona hoy DESPUÉS de la hora programada?
-            existe = db.execute(
-                "SELECT 1 FROM temperatura_registros "
-                "WHERE zona_id = ? AND fecha >= ? AND fecha LIKE ? LIMIT 1",
-                (zona["id"],
-                 programada.isoformat(sep=" ", timespec="seconds"),
-                 f"{hoy}%"),
-            ).fetchone()
-            if existe:
+            # ¿Ya hay lectura en ese turno hoy?
+            turno_esperado = _turno_de_hora(hora)
+            if _ya_registro_turno_hoy(zona["id"], turno_esperado):
                 continue
+
             pendientes.append({
                 "zona_id": zona["id"],
                 "zona": zona["nombre"],
                 "hora": hora,
+                "turno": turno_esperado,
                 "programada_para": programada.strftime("%Y-%m-%d %H:%M"),
             })
     return pendientes
-
 
 # ---------- Rutas ----------
 
@@ -263,6 +257,74 @@ def zonas_eliminar(zona_id):
     flash(f"Zona '{zona['nombre']}' eliminada.", "ok")
     return redirect(url_for("temperaturas.zonas_lista"))
 
+def _turno_de_hora(hora_str):
+    """Devuelve 'am', 'pm' o 'noche' según la hora programada."""
+    try:
+        hh, _mm = map(int, hora_str.split(":"))
+    except (ValueError, AttributeError):
+        return "am"
+    if hh < 12:
+        return "am"
+    if hh < 19:
+        return "pm"
+    return "noche"
+
+
+def _turno_actual(zona):
+    """Devuelve el turno actual ('am', 'pm', 'noche') según los horarios de la zona
+    y la hora del sistema. Si no encuentra coincidencia, usa la hora actual."""
+    horarios = [h.strip() for h in (zona["horarios"] or "").split(",") if h.strip()]
+    ahora_dt = datetime.now()
+
+    # Si hay horarios programados, el turno se define por el más cercano
+    if horarios:
+        # Turnos ordenados
+        turnos = []
+        for h in horarios:
+            try:
+                hh, mm = map(int, h.split(":"))
+            except ValueError:
+                continue
+            programada = ahora_dt.replace(hour=hh, minute=mm, second=0, microsecond=0)
+            diff = abs((ahora_dt - programada).total_seconds())
+            turnos.append((diff, h))
+        if turnos:
+            turnos.sort()
+            return _turno_de_hora(turnos[0][1])
+
+    # Sin horarios: por hora del reloj
+    h = ahora_dt.hour
+    if h < 12:
+        return "am"
+    if h < 19:
+        return "pm"
+    return "noche"
+
+
+def _ya_registro_turno_hoy(zona_id, turno):
+    """Verifica si ya existe una lectura hoy en el turno dado."""
+    hoy = datetime.now().date().isoformat()
+    registros = get_db().execute(
+        "SELECT fecha FROM temperatura_registros "
+        "WHERE zona_id = ? AND fecha LIKE ?",
+        (zona_id, f"{hoy}%"),
+    ).fetchall()
+
+    for r in registros:
+        # Extraer la hora del campo fecha (formato YYYY-MM-DD HH:MM:SS)
+        try:
+            hora = int(r["fecha"][11:13])
+        except (ValueError, TypeError):
+            continue
+        if turno == "am" and hora < 12:
+            return True
+        if turno == "pm" and 12 <= hora < 19:
+            return True
+        if turno == "noche" and hora >= 19:
+            return True
+    return False
+
+
 @bp.route("/registrar/<int:zona_id>", methods=["GET", "POST"])
 @login_required
 def registrar_lectura(zona_id):
@@ -270,12 +332,25 @@ def registrar_lectura(zona_id):
     if not zona["activa"]:
         flash("Esa zona está desactivada.", "error")
         return redirect(url_for("temperaturas.inicio"))
+
+    turno = _turno_actual(zona)
+    turno_txt = {"am": "mañana", "pm": "tarde", "noche": "noche"}.get(turno, turno)
+
+    # ¿Ya registró este turno hoy?
+    if _ya_registro_turno_hoy(zona_id, turno):
+        flash(
+            f"Ya registraste la temperatura de la {turno_txt} hoy para esta zona. "
+            f"Solo se permite una lectura por turno.",
+            "error"
+        )
+        return redirect(url_for("temperaturas.inicio"))
+
     if request.method == "POST":
         try:
             temp = float(request.form.get("temperatura", "").replace(",", "."))
         except ValueError:
             flash("Temperatura inválida.", "error")
-            return render_template("temperaturas/registrar.html", zona=zona)
+            return render_template("temperaturas/registrar.html", zona=zona, turno=turno_txt)
 
         humedad = None
         if zona["controla_humedad"]:
@@ -284,13 +359,13 @@ def registrar_lectura(zona_id):
                 humedad = float(h) if h else None
             except ValueError:
                 flash("Humedad inválida.", "error")
-                return render_template("temperaturas/registrar.html", zona=zona)
+                return render_template("temperaturas/registrar.html", zona=zona, turno=turno_txt)
 
         en_rango = _en_rango(zona, temp, humedad)
         accion = request.form.get("accion_correctiva", "").strip() or None
         if not en_rango and not accion:
             flash("La lectura está fuera de rango. Debes describir la acción correctiva antes de guardar.", "error")
-            return render_template("temperaturas/registrar.html", zona=zona)
+            return render_template("temperaturas/registrar.html", zona=zona, turno=turno_txt)
 
         programada = request.form.get("programada_para", "").strip() or None
         observaciones = request.form.get("observaciones", "").strip() or None
@@ -301,17 +376,18 @@ def registrar_lectura(zona_id):
             "dentro_de_rango, accion_correctiva, observaciones, usuario_id, usuario_nombre, creado_en) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (zona_id, ahora(), programada, temp, humedad, 1 if en_rango else 0, accion,
-             observaciones, g.user["id"], g.user["usuario"], ahora()),
+             observaciones, g.user["id"], g.user["nombre"], ahora()),
         )
         db.commit()
         registrar("temperatura_registrada", "temperatura_registros", cur.lastrowid,
-                  f"zona={zona['nombre']} temp={temp} humedad={humedad} en_rango={en_rango}")
+                  f"zona={zona['nombre']} turno={turno} temp={temp} humedad={humedad} en_rango={en_rango}")
         if en_rango:
-            flash("Lectura registrada correctamente.", "ok")
+            flash(f"Lectura de la {turno_txt} registrada correctamente.", "ok")
         else:
-            flash("Lectura registrada FUERA DE RANGO. Acción correctiva guardada.", "error")
+            flash(f"Lectura de la {turno_txt} registrada FUERA DE RANGO. Acción correctiva guardada.", "error")
         return redirect(url_for("temperaturas.inicio"))
-    return render_template("temperaturas/registrar.html", zona=zona)
+
+    return render_template("temperaturas/registrar.html", zona=zona, turno=turno_txt)
 
 
 @bp.route("/historial")

@@ -364,6 +364,123 @@ MIGRATIONS = [
         ALTER TABLE productos ADD COLUMN creado_en_importacion INTEGER NOT NULL DEFAULT 0;
         """,
     ),
+        (
+        11,
+        """
+        ALTER TABLE productos ADD COLUMN imagen TEXT;
+        """,
+    ),
+        (
+        12,
+        """
+        CREATE TABLE cajas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero TEXT NOT NULL UNIQUE,
+            abierta_en TEXT NOT NULL,
+            abierta_por INTEGER,
+            abierta_por_nombre TEXT,
+            efectivo_inicial REAL NOT NULL DEFAULT 0,
+            cerrada_en TEXT,
+            cerrada_por INTEGER,
+            cerrada_por_nombre TEXT,
+            efectivo_contado REAL,
+            diferencia REAL,
+            observaciones_apertura TEXT,
+            observaciones_cierre TEXT,
+            estado TEXT NOT NULL DEFAULT 'abierta'
+                CHECK (estado IN ('abierta', 'cerrada'))
+        );
+        CREATE INDEX idx_cajas_estado ON cajas (estado);
+        CREATE INDEX idx_cajas_fecha ON cajas (abierta_en);
+
+        CREATE TABLE ventas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            consecutivo TEXT NOT NULL UNIQUE,
+            fecha TEXT NOT NULL,
+            caja_id INTEGER NOT NULL,
+            cliente_nombre TEXT NOT NULL DEFAULT 'Consumidor final',
+            cliente_documento TEXT,
+            subtotal REAL NOT NULL DEFAULT 0,
+            descuento REAL NOT NULL DEFAULT 0,
+            iva REAL NOT NULL DEFAULT 0,
+            total REAL NOT NULL DEFAULT 0,
+            forma_pago TEXT NOT NULL DEFAULT 'efectivo',
+            monto_recibido REAL,
+            cambio REAL,
+            observaciones TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            estado TEXT NOT NULL DEFAULT 'completada'
+                CHECK (estado IN ('completada', 'anulada')),
+            motivo_anulacion TEXT,
+            anulada_en TEXT,
+            anulada_por INTEGER,
+            anulada_por_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            -- Campos reservados para facturación electrónica futura
+            factura_numero TEXT,
+            cufe TEXT,
+            estado_dian TEXT,
+            pdf_ruta TEXT,
+            xml_ruta TEXT,
+            FOREIGN KEY (caja_id) REFERENCES cajas (id)
+        );
+        CREATE INDEX idx_ventas_fecha ON ventas (fecha);
+        CREATE INDEX idx_ventas_estado ON ventas (estado);
+        CREATE INDEX idx_ventas_caja ON ventas (caja_id);
+
+        CREATE TABLE venta_lineas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venta_id INTEGER NOT NULL,
+            producto_id INTEGER NOT NULL,
+            producto_codigo TEXT NOT NULL,
+            producto_nombre TEXT NOT NULL,
+            presentacion TEXT,
+            factor REAL NOT NULL DEFAULT 1,
+            cantidad REAL NOT NULL DEFAULT 1,
+            precio_unitario REAL NOT NULL DEFAULT 0,
+            descuento_linea REAL NOT NULL DEFAULT 0,
+            iva_tipo TEXT NOT NULL DEFAULT 'gravado',
+            iva_tarifa REAL NOT NULL DEFAULT 0,
+            subtotal REAL NOT NULL DEFAULT 0,
+            iva_valor REAL NOT NULL DEFAULT 0,
+            total REAL NOT NULL DEFAULT 0,
+            lotes_json TEXT,
+            FOREIGN KEY (venta_id) REFERENCES ventas (id) ON DELETE CASCADE,
+            FOREIGN KEY (producto_id) REFERENCES productos (id)
+        );
+        CREATE INDEX idx_venta_lineas_venta ON venta_lineas (venta_id);
+        CREATE INDEX idx_venta_lineas_producto ON venta_lineas (producto_id);
+        """,
+    ),
+        (
+        13,
+        """
+        ALTER TABLE cajas ADD COLUMN detalle_apertura TEXT;
+        ALTER TABLE cajas ADD COLUMN detalle_cierre TEXT;
+        """,
+    ),
+        (
+        14,
+        """
+        CREATE TABLE caja_movimientos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            caja_id INTEGER NOT NULL,
+            fecha TEXT NOT NULL,
+            tipo TEXT NOT NULL CHECK (tipo IN ('ingreso', 'salida')),
+            forma_pago TEXT NOT NULL DEFAULT 'efectivo'
+                CHECK (forma_pago IN ('efectivo', 'nequi', 'davivienda', 'tarjeta')),
+            monto REAL NOT NULL DEFAULT 0,
+            motivo TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            FOREIGN KEY (caja_id) REFERENCES cajas (id)
+        );
+        CREATE INDEX idx_caja_mov_caja ON caja_movimientos (caja_id);
+        CREATE INDEX idx_caja_mov_fecha ON caja_movimientos (fecha);
+        """,
+    ),
 ]
 
 
