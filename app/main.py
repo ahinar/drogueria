@@ -120,12 +120,12 @@ def _productos_alertas(db):
 
 
 def _ventas_hoy(db):
-    """Ventas del día (pendiente Fase 2). Devuelve 0 si la tabla no existe aún."""
+    """Ventas del día: cantidad y total de las ventas COMPLETADAS (las anuladas no cuentan)."""
     hoy = date.today().isoformat()
     try:
         fila = db.execute(
             "SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS total "
-            "FROM ventas WHERE fecha LIKE ? AND estado = 'interna'",
+            "FROM ventas WHERE fecha LIKE ? AND estado = 'completada'",
             (f"{hoy}%",),
         ).fetchone()
         return {"cantidad": fila["n"], "total": fila["total"], "disponible": True}
@@ -165,8 +165,3 @@ def inicio():
         "ultimas_temperaturas": ultimas_temperaturas,
     }
     return render_template("inicio.html", **contexto)
-
-@bp.route("/pos")
-@login_required
-def pos():
-    return render_template("pos_en_construccion.html")

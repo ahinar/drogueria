@@ -219,6 +219,32 @@ def _leer_lineas_formulario():
         except ValueError:
             t_ing = None
 
+        # ---- VALIDACIONES (reglas del proyecto) ----
+        # Buscamos el producto para saber su nombre y si maneja vencimiento.
+        prod = get_db().execute(
+            "SELECT nombre, maneja_vencimiento FROM productos WHERE id = ?", (int(pid),)
+        ).fetchone()
+        nombre = prod["nombre"] if prod else f"producto {pid}"
+        resultado_linea = v(resultados, i) or "aceptado"
+        lote_txt = v(lotes, i).strip()
+        venc_txt = v(vencimientos, i).strip()
+
+        if prod is None:
+            errores.append(f"El producto {pid} no existe.")
+        if cr <= 0:
+            errores.append(f"{nombre}: la cantidad recibida debe ser mayor a cero.")
+        if co <= 0:
+            errores.append(f"{nombre}: el costo unitario debe ser mayor a cero.")
+        # Si el producto maneja vencimiento, lote y fecha son obligatorios.
+        if prod and prod["maneja_vencimiento"] and (not lote_txt or not venc_txt):
+            errores.append(f"{nombre}: debes indicar el lote y la fecha de vencimiento.")
+        # La fecha debe tener formato AAAA-MM-DD (así la entrega el calendario del formulario).
+        if venc_txt:
+            try:
+                datetime.strptime(venc_txt, "%Y-%m-%d")
+            except ValueError:
+                errores.append(f"{nombre}: la fecha de vencimiento no es válida.")
+
         lineas.append({
             "producto_id": int(pid),
             "lote": v(lotes, i).strip() or None,
@@ -379,9 +405,16 @@ def aprobar(rec_id):
     db = get_db()
     lineas = _lineas_de(rec_id)
     for l in lineas:
+        # Según el resultado de la línea, el lote nace en un estado distinto:
+        #   rechazado  -> no entra stock
+        #   cuarentena -> el lote existe pero NO se puede vender hasta que se libere
+        #   aceptado   -> disponible para vender
         if l["resultado"] == "rechazado":
             estado = "rechazado"
             cantidad = 0
+        elif l["resultado"] == "cuarentena":
+            estado = "cuarentena"
+            cantidad = l["cantidad_recibida"]
         else:
             estado = "disponible"
             cantidad = l["cantidad_recibida"]
@@ -395,7 +428,8 @@ def aprobar(rec_id):
         )
         lote_id = cur.lastrowid
 
-        if cantidad > 0:
+        # El kardex solo registra entradas de stock vendible (lotes disponibles).
+        if estado == "disponible" and cantidad > 0:
             db.execute(
                 "INSERT INTO movimientos_inventario (fecha, lote_id, producto_id, tipo, cantidad, "
                 "referencia, referencia_id, usuario_id, usuario_nombre, creado_en) "

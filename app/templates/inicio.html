@@ -10,7 +10,7 @@
     <span class="dashboard-hero-fecha">{{ hoy }}</span>
   </div>
   <div class="dashboard-hero-acciones">
-    <a class="boton-pos" href="{{ url_for('main.pos') }}">
+    <a class="boton-pos" href="{{ url_for('pos.index') }}">
       🛒 Comenzar a vender
     </a>
     <div class="dashboard-hero-badges">
@@ -80,12 +80,12 @@
     </div>
   </a>
 
-  <div class="kpi-card kpi-pendiente">
+  <div class="kpi-card {% if ventas.cantidad %}kpi-ok{% else %}kpi-pendiente{% endif %}">
     <div class="kpi-icono">💰</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Ventas del día</span>
-      <strong class="kpi-valor">$0</strong>
-      <span class="kpi-detalle">Disponible en Fase 2</span>
+      <strong class="kpi-valor">${{ '{:,.0f}'.format(ventas.total) }}</strong>
+      <span class="kpi-detalle">{{ ventas.cantidad }} venta{{ '' if ventas.cantidad == 1 else 's' }} hoy</span>
     </div>
   </div>
 

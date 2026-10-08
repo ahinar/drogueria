@@ -2276,3 +2276,36 @@ body.sidebar-colapsado .sidebar-logo-img {
   overflow-y: auto;
   margin: auto;
 }
+
+/* =========================================================
+   POS · CARRITO (Fase 2.1): avisos, tarjetas agotadas y modal de pago
+   ========================================================= */
+.pos-toast {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  background: #1a2733; color: #fff; padding: .6rem 1.1rem; border-radius: .4rem;
+  box-shadow: 0 6px 20px rgba(0,0,0,.3); z-index: 20000; font-size: .9rem;
+}
+.pos-card.agotado { opacity: .5; cursor: not-allowed; }
+.pos-card-stock { font-size: .7rem; color: #5b6b79; }
+.pos-card.agotado .pos-card-stock { color: #b3261e; font-weight: 700; }
+.pos-numpad-accion.activo { background: #0a6ebd; color: #fff; }
+
+#modal-pago {
+  position: fixed; inset: 0; background: rgba(15,23,32,.55); z-index: 10000;
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+}
+#modal-pago .modal-caja {
+  background: #fff; border-radius: .6rem; padding: 1.4rem 1.6rem; max-width: 460px;
+  width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.35); max-height: 90vh; overflow-y: auto;
+}
+.pos-pago-total { font-size: 2.2rem; font-weight: 800; text-align: center; color: #0a4f8a; margin: .2rem 0 1rem; }
+.pos-pago-metodos { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: 1rem; }
+.pos-pago-metodo {
+  padding: .8rem .5rem; border: 2px solid #d5dde3; background: #fff; border-radius: .4rem;
+  font-size: .95rem; cursor: pointer;
+}
+.pos-pago-metodo.activo { border-color: #0a6ebd; background: #eaf3fb; font-weight: 700; }
+.pos-pago-rapidos { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0; }
+.pos-pago-rapidos button { padding: .4rem .7rem; border: 1px solid #d5dde3; background: #f4f7f9; border-radius: .3rem; cursor: pointer; }
+.pos-pago-cambio { font-size: 1.15rem; text-align: center; margin: .6rem 0; }
+.pos-pago-cambio strong { font-size: 1.5rem; color: #0d6b3d; }

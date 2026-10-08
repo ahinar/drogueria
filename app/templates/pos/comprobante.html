@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Comprobante {{ venta['consecutivo'] }}</title>
+  <style>
+    /* Tiquete angosto (como el de una registradora de 80 mm). */
+    body { font-family: "Courier New", monospace; font-size: 12px; max-width: 300px; margin: 0 auto; padding: 10px; color: #000; }
+    h1 { font-size: 15px; text-align: center; margin: 0; }
+    .centro { text-align: center; }
+    .suave { color: #444; font-size: 11px; }
+    hr { border: 0; border-top: 1px dashed #000; margin: 8px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 2px 0; vertical-align: top; }
+    .der { text-align: right; white-space: nowrap; }
+    .total td { font-size: 14px; font-weight: bold; }
+    .anulada { text-align: center; font-size: 16px; font-weight: bold; border: 2px solid #000; padding: 4px; margin: 6px 0; }
+    /* La barra de botones NO se imprime. */
+    .barra { text-align: center; margin-bottom: 10px; }
+    .barra button, .barra a { font: inherit; padding: 6px 12px; margin: 0 3px; cursor: pointer; }
+    @media print { .barra { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="barra">
+    <button type="button" onclick="window.print()">🖨️ Imprimir</button>
+    <a href="{{ url_for('pos.index') }}">← Volver al POS</a>
+  </div>
+
+  <h1>{{ config['nombre_comercial'] or config['razon_social'] or 'Droguería' }}</h1>
+  <div class="centro suave">
+    {% if config['nit'] %}NIT {{ config['nit'] }}<br>{% endif %}
+    {% if config['direccion'] %}{{ config['direccion'] }}{% if config['ciudad'] %} · {{ config['ciudad'] }}{% endif %}<br>{% endif %}
+    {% if config['telefono'] or config['celular'] %}Tel. {{ config['telefono'] or config['celular'] }}{% endif %}
+  </div>
+  <hr>
+  {% if venta['estado'] == 'anulada' %}<div class="anulada">*** ANULADA ***</div>{% endif %}
+  <div>Venta: <strong>{{ venta['consecutivo'] }}</strong></div>
+  <div>Fecha: {{ venta['fecha'] }}</div>
+  <div>Cliente: {{ venta['cliente_nombre'] }}{% if venta['cliente_documento'] %} ({{ venta['cliente_documento'] }}){% endif %}</div>
+  <div>Atendió: {{ venta['usuario_nombre'] }}</div>
+  <hr>
+  <table>
+    {% for l in lineas %}
+    <tr><td colspan="2">{{ l['producto_nombre'] }}</td></tr>
+    <tr>
+      <td class="suave">{{ '%g' % l['cantidad'] }} x ${{ '{:,.0f}'.format(l['precio_unitario']) }}{% if l['descuento_linea'] %} (desc. -${{ '{:,.0f}'.format(l['descuento_linea']) }}){% endif %}</td>
+      <td class="der">${{ '{:,.0f}'.format(l['total']) }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <hr>
+  <table>
+    <tr><td>Subtotal (sin IVA)</td><td class="der">${{ '{:,.0f}'.format(venta['subtotal']) }}</td></tr>
+    <tr><td>Descuentos aplicados</td><td class="der">${{ '{:,.0f}'.format(venta['descuento']) }}</td></tr>
+    <tr><td>IVA incluido</td><td class="der">${{ '{:,.0f}'.format(venta['iva']) }}</td></tr>
+    <tr class="total"><td>TOTAL</td><td class="der">${{ '{:,.0f}'.format(venta['total']) }}</td></tr>
+    <tr><td>Pago ({{ venta['forma_pago'] }})</td><td class="der">${{ '{:,.0f}'.format(venta['monto_recibido'] or venta['total']) }}</td></tr>
+    {% if venta['cambio'] %}<tr><td>Cambio</td><td class="der">${{ '{:,.0f}'.format(venta['cambio']) }}</td></tr>{% endif %}
+  </table>
+  <hr>
+  <div class="centro suave">{{ config['pie_pagina'] }}</div>
+</body>
+</html>

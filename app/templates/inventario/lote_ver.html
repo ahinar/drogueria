@@ -58,6 +58,11 @@
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
         <button type="submit" class="boton">🔓 Desbloquear</button>
       </form>
+    {% elif lote['estado'] == 'cuarentena' %}
+      <form method="post" action="{{ url_for('inventario.lote_liberar', lote_id=lote['id']) }}" style="display:inline">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <button type="submit" class="boton">✅ Liberar de cuarentena</button>
+      </form>
     {% elif lote['estado'] == 'disponible' %}
       <form method="post" action="{{ url_for('inventario.lote_bloquear', lote_id=lote['id']) }}"
             class="form-inline" style="display:inline-block">

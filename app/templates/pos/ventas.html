@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block titulo %}Ventas de la caja{% endblock %}
+{% block contenido %}
+<h1>🧾 Ventas {% if caja %}· Caja #{{ caja['numero'] }}{% endif %}</h1>
+<p><a class="boton sec" href="{{ url_for('pos.index') }}">← Volver al POS</a></p>
+
+{% if not ventas %}
+  <p class="suave">Esta caja todavía no tiene ventas.</p>
+{% else %}
+<table class="tabla">
+  <thead>
+    <tr><th>Venta</th><th>Hora</th><th>Cliente</th><th>Pago</th><th>Total</th><th>Estado</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for v in ventas %}
+    <tr>
+      <td><a href="{{ url_for('pos.comprobante', venta_id=v['id']) }}" target="_blank">{{ v['consecutivo'] }}</a></td>
+      <td>{{ v['fecha'][11:16] }}</td>
+      <td>{{ v['cliente_nombre'] }}</td>
+      <td>{{ v['forma_pago'] }}</td>
+      <td>${{ '{:,.0f}'.format(v['total']) }}</td>
+      <td>{% if v['estado'] == 'anulada' %}<span title="{{ v['motivo_anulacion'] }}">❌ Anulada</span>{% else %}✅{% endif %}</td>
+      <td>
+        {% if v['estado'] == 'completada' and caja and caja['estado'] == 'abierta' and g.user['rol'] in ('administrador', 'director_tecnico') %}
+        <form method="post" action="{{ url_for('pos.anular_venta', venta_id=v['id']) }}" style="display:flex;gap:.3rem">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <input type="text" name="motivo" placeholder="Motivo de anulación" required>
+          <button type="submit" class="boton peligro" onclick="return confirm('¿Anular la venta {{ v['consecutivo'] }}? El inventario será devuelto.')">Anular</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

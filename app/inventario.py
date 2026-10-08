@@ -260,6 +260,38 @@ def lote_desbloquear(lote_id):
     return redirect(url_for("inventario.lote_ver", lote_id=lote_id))
 
 
+@bp.route("/lotes/<int:lote_id>/liberar", methods=["POST"])
+@login_required
+@roles_required("administrador", "director_tecnico")
+def lote_liberar(lote_id):
+    """Libera un lote que estaba en CUARENTENA: pasa a 'disponible' (ya se puede vender)
+    y se anota la entrada de stock en el kardex (movimientos_inventario)."""
+    lote = _obtener_lote(lote_id)
+    if lote["estado"] != "cuarentena":
+        flash("Solo se pueden liberar lotes en cuarentena.", "error")
+        return redirect(url_for("inventario.lote_ver", lote_id=lote_id))
+
+    db = get_db()
+    # 1) Cambiamos el estado del lote.
+    db.execute(
+        "UPDATE lotes SET estado = 'disponible', actualizado_en = ? WHERE id = ?",
+        (ahora(), lote_id),
+    )
+    # 2) Anotamos la entrada en el kardex (hasta ahora no se había registrado).
+    db.execute(
+        "INSERT INTO movimientos_inventario (fecha, lote_id, producto_id, tipo, cantidad, "
+        "referencia, referencia_id, usuario_id, usuario_nombre, creado_en) "
+        "VALUES (?,?,?, 'recepcion', ?, ?, ?, ?, ?, ?)",
+        (ahora(), lote_id, lote["producto_id"], lote["cantidad_disponible"],
+         "Liberado de cuarentena", lote["recepcion_id"], g.user["id"], g.user["nombre"], ahora()),
+    )
+    db.commit()
+    registrar("lote_liberado", "lotes", lote_id,
+              f"producto={lote['producto_nombre']} lote={lote['lote']}")
+    flash("Lote liberado de cuarentena y disponible para la venta.", "ok")
+    return redirect(url_for("inventario.lote_ver", lote_id=lote_id))
+
+
 @bp.route("/lotes/<int:lote_id>/ajustar", methods=["POST"])
 @login_required
 @roles_required("administrador", "director_tecnico")

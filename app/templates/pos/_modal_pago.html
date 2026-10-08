@@ -1,0 +1,53 @@
+<!-- ============ MODAL DE PAGO ============ -->
+<div id="modal-pago" class="modal-oculto">
+  <div class="modal-caja">
+
+    <!-- Vista 1: elegir cómo paga el cliente -->
+    <div id="pago-form">
+      <h2>Cobrar venta</h2>
+      <div class="pos-pago-total" id="pago-total">$0</div>
+
+      <div class="pos-pago-metodos" id="pago-metodos">
+        <button type="button" class="pos-pago-metodo activo" data-forma="efectivo">💵 Efectivo</button>
+        <button type="button" class="pos-pago-metodo" data-forma="nequi">📱 Nequi</button>
+        <button type="button" class="pos-pago-metodo" data-forma="davivienda">🏦 Davivienda</button>
+        <button type="button" class="pos-pago-metodo" data-forma="tarjeta">💳 Tarjeta</button>
+      </div>
+
+      <!-- Solo se ve cuando paga en efectivo -->
+      <div id="pago-efectivo">
+        <label>Efectivo recibido
+          <input type="number" id="pago-recibido" min="0" step="1" inputmode="numeric" autocomplete="off">
+        </label>
+        <div class="pos-pago-rapidos" id="pago-rapidos">
+          <button type="button" data-monto="exacto">Exacto</button>
+          <button type="button" data-monto="5000">$5.000</button>
+          <button type="button" data-monto="10000">$10.000</button>
+          <button type="button" data-monto="20000">$20.000</button>
+          <button type="button" data-monto="50000">$50.000</button>
+          <button type="button" data-monto="100000">$100.000</button>
+        </div>
+        <div class="pos-pago-cambio">Cambio: <strong id="pago-cambio">$0</strong></div>
+      </div>
+
+      <p id="pago-error" class="aviso error" style="display:none"></p>
+
+      <div class="modal-acciones">
+        <button type="button" class="boton secundario" id="pago-cancelar">Cancelar</button>
+        <button type="button" class="boton" id="pago-confirmar">✅ Confirmar venta</button>
+      </div>
+    </div>
+
+    <!-- Vista 2: la venta quedó registrada -->
+    <div id="pago-exito" style="display:none">
+      <h2>✅ Venta registrada</h2>
+      <p class="pos-pago-total" id="exito-consecutivo"></p>
+      <p class="pos-pago-cambio" id="exito-cambio-linea">Entregar de cambio: <strong id="exito-cambio">$0</strong></p>
+      <div class="modal-acciones">
+        <a class="boton secundario" id="exito-comprobante" href="#" target="_blank" rel="noopener">🖨️ Ver comprobante</a>
+        <button type="button" class="boton" id="exito-nueva">Nueva venta</button>
+      </div>
+    </div>
+
+  </div>
+</div>

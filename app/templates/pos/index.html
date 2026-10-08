@@ -140,6 +140,12 @@
 <input type="hidden" id="url-api-movimiento" value="{{ url_for('pos.api_movimiento') }}">
 <input type="hidden" id="url-api-resumen" value="{{ url_for('pos.api_resumen_caja') }}">
 <input type="hidden" id="url-api-cerrar" value="{{ url_for('pos.api_cerrar_caja') }}">
+<input type="hidden" id="url-api-productos" value="{{ url_for('pos.api_productos') }}">
+<input type="hidden" id="url-api-cobrar" value="{{ url_for('pos.api_cobrar') }}">
+<input type="hidden" id="url-ventas" value="{{ url_for('pos.ventas_lista') }}">
+<input type="hidden" id="url-ultima-venta" value="{{ url_for('pos.ultima_venta') }}">
+<input type="hidden" id="url-inventario" value="{{ url_for('inventario.inicio') }}">
+<input type="hidden" id="url-static-base" value="{{ url_for('static', filename='') }}">
 <input type="hidden" id="url-cierre-confirmacion" value="{{ url_for('pos.cierre_confirmacion', caja_id=0) }}">
 
 {% endblock %}
@@ -148,8 +154,10 @@
 {% include "pos/_modal_cierre.html" %}
 {% include "pos/_modal_movimiento.html" %}
 {% include "pos/_modal_conteo.html" %}
+{% include "pos/_modal_pago.html" %}
 {% endblock %}
 
 {% block scripts_extra %}
 <script src="{{ url_for('static', filename='js/pos.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pos_carrito.js') }}"></script>
 {% endblock %}

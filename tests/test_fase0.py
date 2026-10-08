@@ -63,7 +63,7 @@ class TestArranque(Base):
         c = self.cliente()
         r = c.get("/", follow_redirects=True)
         self.assertEqual(r.status_code, 200)
-        self.assertIn("Configuración inicial", r.get_data(as_text=True))
+        self.assertIn("Crea el primer usuario administrador", r.get_data(as_text=True))
         self.assertEqual(c.get("/login").status_code, 302)
         self.assertEqual(c.get("/configurar").status_code, 200)
 
@@ -85,8 +85,10 @@ class TestArranque(Base):
 
     def test_migraciones_son_idempotentes(self):
         from app.db import init_db
-        self.assertEqual(init_db(self.db_path), 1)
-        self.assertEqual(init_db(self.db_path), 1)
+        # init_db devuelve la versión de esquema más reciente (hoy 14).
+        # Lo importante: correrlo dos veces NO cambia la versión ni falla.
+        primera = init_db(self.db_path)
+        self.assertEqual(init_db(self.db_path), primera)
 
 
 class TestSesion(Base):
