@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block titulo %}Toma de inventario{% endblock %}
+{% block contenido %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/conteo.css') }}">
+
+<h1>📋 Toma de inventario</h1>
+<p class="suave">Cuenta la mercancía de la estantería, revisa las diferencias y corrige el inventario de una sola vez.
+  Sirve también para cargar el inventario inicial después de importar los productos.</p>
+
+{% if abierto %}
+  <!-- Si hay un conteo en curso, lo mostramos primero para continuarlo -->
+  <div class="conteo-abierto">
+    <div>
+      <strong>{{ abierto['numero'] }} está abierto</strong>
+      <span class="suave">· desde {{ abierto['creado_en'][:16] }}</span>
+    </div>
+    <div class="conteo-botones">
+      <a class="boton" href="{{ url_for('conteos.contar', conteo_id=abierto['id']) }}">Seguir contando</a>
+      <a class="boton secundario" href="{{ url_for('conteos.revisar', conteo_id=abierto['id']) }}">Revisar diferencias</a>
+    </div>
+  </div>
+{% elif g.user.rol in ('administrador', 'director_tecnico') %}
+  <!-- Formulario para crear un conteo nuevo (solo administrador y director técnico) -->
+  <form method="post" action="{{ url_for('conteos.nuevo') }}" class="conteo-nuevo">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <h2>Nuevo conteo</h2>
+    <label>Descripción
+      <input type="text" name="descripcion" maxlength="200" placeholder="Ej.: Inventario inicial octubre 2026">
+    </label>
+    <label>¿Qué vas a contar?
+      <select name="categoria_id">
+        <option value="">Toda la droguería</option>
+        {% for c in categorias %}
+          <option value="{{ c['id'] }}">Solo la categoría: {{ c['nombre'] }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button type="submit" class="boton">Empezar conteo</button>
+  </form>
+{% else %}
+  <p class="suave">No hay ningún conteo abierto. El administrador o el director técnico debe crearlo.</p>
+{% endif %}
+
+<h2 class="titulo-seccion">Historial</h2>
+{% if conteos %}
+<table class="tabla">
+  <thead>
+    <tr><th>Número</th><th>Fecha</th><th>Descripción</th><th>Alcance</th><th>Lotes contados</th><th>Estado</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for c in conteos %}
+    <tr>
+      <td><strong>{{ c['numero'] }}</strong></td>
+      <td>{{ c['creado_en'][:10] }}</td>
+      <td>{{ c['descripcion'] or '—' }}</td>
+      <td>{{ c['categoria'] or 'Toda la droguería' }}</td>
+      <td>{{ c['n_lineas'] }}</td>
+      <td><span class="conteo-estado conteo-estado-{{ c['estado'] }}">{{ c['estado']|capitalize }}</span></td>
+      <td>
+        <a href="{{ url_for('conteos.revisar', conteo_id=c['id']) }}">Ver</a> ·
+        <a href="{{ url_for('conteos.acta', conteo_id=c['id']) }}">Acta PDF</a>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p class="suave">Todavía no se ha hecho ningún conteo.</p>
+{% endif %}
+{% endblock %}

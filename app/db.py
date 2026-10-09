@@ -541,6 +541,54 @@ MIGRATIONS = [
         ALTER TABLE venta_lineas ADD COLUMN motivo_precio TEXT;
         """,
     ),
+    (
+        18,
+        """
+        -- ===== Toma de inventario (conteo físico) =====
+        -- Un "conteo" es una jornada de contar la mercancía.
+        -- Mientras está 'abierto' se van anotando cantidades; al 'aplicarlo'
+        -- se corrigen los lotes. 'anulado' = se descartó sin tocar nada.
+        CREATE TABLE conteos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero TEXT NOT NULL UNIQUE,              -- CNT-0001, CNT-0002...
+            descripcion TEXT,
+            categoria_id INTEGER,                     -- NULL = toda la droguería
+            estado TEXT NOT NULL DEFAULT 'abierto'
+                CHECK (estado IN ('abierto', 'aplicado', 'anulado')),
+            creado_en TEXT NOT NULL,
+            creado_por INTEGER,
+            creado_por_nombre TEXT,
+            aplicado_en TEXT,
+            aplicado_por INTEGER,
+            aplicado_por_nombre TEXT,
+            observaciones TEXT,
+            FOREIGN KEY (categoria_id) REFERENCES catalogos (id)
+        );
+
+        -- Una línea por cada lote contado.
+        -- lote_id NULL = lote que apareció en la estantería y no estaba en el sistema;
+        -- se crea al aplicar el conteo.
+        CREATE TABLE conteo_lineas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conteo_id INTEGER NOT NULL,
+            producto_id INTEGER NOT NULL,
+            lote_id INTEGER,
+            lote TEXT,
+            vencimiento TEXT,
+            costo_unitario REAL NOT NULL DEFAULT 0,
+            cantidad_sistema REAL NOT NULL DEFAULT 0,   -- lo que decía el sistema AL MOMENTO de contar
+            cantidad_contada REAL NOT NULL,
+            diferencia_aplicada REAL,                   -- se llena al aplicar
+            contado_en TEXT NOT NULL,
+            contado_por INTEGER,
+            contado_por_nombre TEXT,
+            FOREIGN KEY (conteo_id) REFERENCES conteos (id),
+            FOREIGN KEY (producto_id) REFERENCES productos (id),
+            FOREIGN KEY (lote_id) REFERENCES lotes (id)
+        );
+        CREATE INDEX idx_conteo_lineas_conteo ON conteo_lineas (conteo_id);
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

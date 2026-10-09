@@ -212,6 +212,15 @@
 - Retención configurable (30 por defecto).
 - Carpeta adicional opcional (USB / nube).
 
+### 5.15 Toma de inventario (conteo físico)
+- Inventario → "📋 Toma de inventario". Ruta `/inventario/conteos/`.
+- Crear conteo (admin/DT): toda la droguería o una categoría. Solo uno abierto a la vez. Consecutivo CNT-####.
+- Contar (cualquier usuario), **sin conteo ciego**: buscador por nombre/código y lector de código de barras; cada lote muestra lo que dice el sistema y una casilla "Contado" (Enter guarda y pasa a la siguiente). Filtros: todos / pendientes / contados / con diferencia.
+- **Lote encontrado**: si un lote no está en el sistema se agrega ahí mismo (lote, vence, costo, cantidad). Así se carga el **inventario inicial** después de importar productos. Si el lote ya existía, se cuenta sobre el existente.
+- **Se puede vender mientras se cuenta**: al guardar se anota lo que decía el sistema en ese momento; al aplicar se SUMA la diferencia a lo que haya (no se reemplaza), así no se pierden las ventas.
+- Revisar: faltantes, sobrantes y encontrados (en unidades y a costo) + lista de lotes con existencias sin contar (esos NO se tocan al aplicar).
+- Aplicar (admin/DT): corrige todo de una vez (movimientos `ajuste` en kardex con referencia "Conteo CNT-####"), bitácora, y **Acta PDF** con firmas. Anular: sin cambios en lotes.
+
 ## 6. Sistema de imágenes
 
 ### Formatos aceptados
@@ -236,7 +245,7 @@
 - **1.3** Recepción técnica con Acta PDF.
 - **1.4** Inventario por lote, kardex, semáforo.
 - **1.5a** Importador de productos (parcial).
-- **1.5b** Inventario inicial (pendiente).
+- **1.5b** Inventario inicial ✅ (con la Toma de inventario; falta hacerlo con datos reales).
 
 ### Fase 2: ventas y contabilidad 🔄
 - **2.1** POS interno (en progreso, falta carrito).
@@ -337,6 +346,7 @@
 | 15 | gastos |
 | 16 | caja_menor_movimientos (fondo permanente) |
 | 17 | precio_original y motivo_precio en venta_lineas (cambio de precio al vender) |
+| 18 | conteos y conteo_lineas (toma de inventario) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -346,7 +356,7 @@
 - [x] 1.3 Recepción técnica con Acta PDF
 - [x] 1.4 Inventario por lote
 - [~] 1.5a Importador (código listo, sin probar con Excel real)
-- [ ] 1.5b Inventario inicial
+- [x] 1.5b Inventario inicial (Toma de inventario lista; falta cargar los datos reales)
 - [x] 2.1 POS (caja, carrito, cobro, anulación, cambio de precio con motivo, botón "i")
 - [ ] 2.2 Gastos discriminados
 - [ ] 2.3 Utilidades
@@ -368,6 +378,8 @@
 - Botón "i" con información del producto (nueva ruta `/pos/api/producto/<id>`).
 - Tests ajustados a la regla de caja menor + 9 tests nuevos: **95 tests pasan**.
 - Rediseño de la ventana "i" + ventana "Editar" encima: **104 tests pasan**.
+- Módulo **Toma de inventario** (conteo físico, inventario inicial, vender durante el conteo, acta PDF): **126 tests pasan**.
+- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → venta por presentación → panel de alertas → utilidades/estado de resultados → reportes → equipos/calibraciones → devoluciones.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 
 **Sesión anterior:** 2026-10-07. Se completó:

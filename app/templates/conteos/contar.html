@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}Contando {{ conteo['numero'] }}{% endblock %}
+{% block contenido %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/conteo.css') }}">
+
+<!-- ===== Encabezado del conteo ===== -->
+<div class="conteo-cabecera">
+  <div>
+    <h1>📋 Conteo {{ conteo['numero'] }}</h1>
+    <p class="suave">{{ conteo['categoria'] or 'Toda la droguería' }}{% if conteo['descripcion'] %} · {{ conteo['descripcion'] }}{% endif %}</p>
+  </div>
+  <a class="boton" href="{{ url_for('conteos.revisar', conteo_id=conteo['id']) }}">Revisar diferencias →</a>
+</div>
+
+<!-- ===== Barra de progreso (JS la actualiza cada vez que guardas) ===== -->
+<div class="conteo-progreso">
+  <div><span class="suave">Lotes contados</span><strong id="r-contados">{{ resumen.contados }}</strong></div>
+  <div><span class="suave">Lotes sin contar</span><strong id="r-pendientes">{{ resumen.pendientes }}</strong></div>
+  <div><span class="suave">Con diferencia</span><strong id="r-diferencias">{{ resumen.con_diferencia }}</strong></div>
+  <div><span class="suave">Lotes nuevos</span><strong id="r-nuevos">{{ resumen.lotes_nuevos }}</strong></div>
+  <div><span class="suave">Valor diferencia</span><strong id="r-valor">${{ '{:,.0f}'.format(resumen.valor_diferencia).replace(',', '.') }}</strong></div>
+</div>
+
+<p class="conteo-ayuda">💡 Escribe la cantidad <strong>apenas termines de contar cada lote</strong> y presiona Enter.
+  Si se vende mientras cuentas, el programa respeta esas ventas.</p>
+
+<!-- ===== Buscador: nombre, código o lector de código de barras ===== -->
+<div class="conteo-buscador">
+  <input type="search" id="conteo-buscar" placeholder="🔍 Buscar producto o escanear código de barras…" autofocus autocomplete="off">
+  <div class="conteo-filtros" id="conteo-filtros">
+    <button type="button" data-filtro="todos" class="activo">Todos</button>
+    <button type="button" data-filtro="pendientes">Pendientes</button>
+    <button type="button" data-filtro="contados">Contados</button>
+    <button type="button" data-filtro="diferencias">Con diferencia</button>
+  </div>
+</div>
+
+<!-- ===== Aquí JS dibuja los productos con sus lotes ===== -->
+<div id="conteo-lista" class="conteo-lista"><p class="suave">Cargando…</p></div>
+<div class="conteo-mas"><button type="button" class="boton secundario" id="conteo-mas" hidden>Cargar más productos</button></div>
+
+<!-- Datos que necesita conteo.js -->
+<input type="hidden" id="url-buscar" value="{{ url_for('conteos.api_buscar', conteo_id=conteo['id']) }}">
+<input type="hidden" id="url-contar" value="{{ url_for('conteos.api_contar', conteo_id=conteo['id']) }}">
+<input type="hidden" id="url-quitar" value="{{ url_for('conteos.api_quitar', conteo_id=conteo['id']) }}">
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='js/conteo.js') }}"></script>
+{% endblock %}

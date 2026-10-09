@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block titulo %}Revisar {{ conteo['numero'] }}{% endblock %}
+{% block contenido %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/conteo.css') }}">
+{# Pequeña ayuda para mostrar pesos: 12345 -> $12.345 #}
+{% macro pesos(v) %}{{ ('-' if v < 0 else '') }}${{ '{:,.0f}'.format(v|abs).replace(',', '.') }}{% endmacro %}
+{% macro num(v) %}{{ ('%g' % v) }}{% endmacro %}
+{# "2027-03-15" -> "15/03/2027" #}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+
+<div class="conteo-cabecera">
+  <div>
+    <h1>📋 Conteo {{ conteo['numero'] }}
+      <span class="conteo-estado conteo-estado-{{ conteo['estado'] }}">{{ conteo['estado']|capitalize }}</span></h1>
+    <p class="suave">{{ conteo['categoria'] or 'Toda la droguería' }}{% if conteo['descripcion'] %} · {{ conteo['descripcion'] }}{% endif %}
+      · creado {{ conteo['creado_en'][:16] }} por {{ conteo['creado_por_nombre'] or '—' }}
+      {% if conteo['aplicado_en'] %} · aplicado {{ conteo['aplicado_en'][:16] }} por {{ conteo['aplicado_por_nombre'] }}{% endif %}</p>
+    {% if conteo['estado'] == 'anulado' and conteo['observaciones'] %}
+      <p class="conteo-error">Anulado: {{ conteo['observaciones'] }}</p>
+    {% endif %}
+  </div>
+  <div class="conteo-botones">
+    {% if conteo['estado'] == 'abierto' %}
+      <a class="boton secundario" href="{{ url_for('conteos.contar', conteo_id=conteo['id']) }}">← Seguir contando</a>
+    {% endif %}
+    <a class="boton secundario" href="{{ url_for('conteos.acta', conteo_id=conteo['id']) }}">📄 Acta PDF</a>
+  </div>
+</div>
+
+<!-- ===== Resumen ===== -->
+<div class="conteo-progreso">
+  <div><span class="suave">Lotes contados</span><strong>{{ resumen.contados }}</strong></div>
+  <div><span class="suave">Faltantes</span><strong class="conteo-rojo">{{ faltantes|length }} · {{ pesos(valor_faltantes) }}</strong></div>
+  <div><span class="suave">Sobrantes</span><strong class="conteo-verde">{{ sobrantes|length }} · {{ pesos(valor_sobrantes) }}</strong></div>
+  <div><span class="suave">Encontrados (inv. inicial)</span><strong>{{ encontrados|length }} · {{ pesos(valor_encontrados) }}</strong></div>
+  {% if conteo['estado'] == 'abierto' %}
+    <div><span class="suave">Sin contar</span><strong>{{ resumen.pendientes }}</strong></div>
+  {% endif %}
+</div>
+
+<!-- ===== Diferencias ===== -->
+<h2 class="titulo-seccion">Diferencias</h2>
+{% set con_dif = faltantes + sobrantes + encontrados %}
+{% if con_dif %}
+<table class="tabla">
+  <thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th class="num">Sistema</th><th class="num">Contado</th>
+    <th class="num">Diferencia</th><th class="num">Valor (costo)</th><th>Contó</th></tr></thead>
+  <tbody>
+  {% for l in con_dif|sort(attribute='diferencia') %}
+    <tr>
+      <td>{{ l['nombre'] }} {{ l['concentracion'] or '' }}</td>
+      <td>{{ l['lote'] or 'Sin lote' }}{% if l['cantidad_sistema'] <= 0 %} <span class="conteo-tag conteo-tag-nuevo">encontrado</span>{% endif %}</td>
+      <td>{{ fecha(l['vencimiento']) }}</td>
+      <td class="num">{{ num(l['cantidad_sistema']) }}</td>
+      <td class="num">{{ num(l['cantidad_contada']) }}</td>
+      <td class="num"><span class="conteo-dif {{ 'conteo-dif-falta' if l['diferencia'] < 0 else 'conteo-dif-sobra' }}">
+        {{ '+' if l['diferencia'] > 0 }}{{ num(l['diferencia']) }}</span></td>
+      <td class="num">{{ pesos(l['diferencia'] * l['costo_unitario']) }}</td>
+      <td class="suave">{{ l['contado_por_nombre'] or '' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p class="suave">{% if resumen.contados %}✅ Todo lo contado coincide con el sistema.{% else %}Todavía no se ha contado nada.{% endif %}</p>
+{% endif %}
+
+<!-- ===== Lotes con existencias que nadie contó ===== -->
+{% if sin_contar %}
+<h2 class="titulo-seccion">Lotes sin contar ({{ resumen.pendientes }})</h2>
+<p class="suave">Al aplicar, estos lotes <strong>no se modifican</strong>. Si de verdad no hay nada, cuéntalos con 0.</p>
+<table class="tabla">
+  <thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th class="num">En sistema</th></tr></thead>
+  <tbody>
+  {% for l in sin_contar %}
+    <tr><td>{{ l['nombre'] }} {{ l['concentracion'] or '' }}</td><td>{{ l['lote'] or 'Sin lote' }}</td>
+      <td>{{ fecha(l['vencimiento']) }}</td><td class="num">{{ num(l['cantidad_disponible']) }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% if resumen.pendientes > sin_contar|length %}<p class="suave">… y {{ resumen.pendientes - sin_contar|length }} más.</p>{% endif %}
+{% endif %}
+
+<!-- ===== Aplicar o anular (solo administrador / director técnico, conteo abierto) ===== -->
+{% if conteo['estado'] == 'abierto' and g.user.rol in ('administrador', 'director_tecnico') %}
+<div class="conteo-acciones">
+  <form method="post" action="{{ url_for('conteos.aplicar', conteo_id=conteo['id']) }}"
+        onsubmit="return confirm('¿Aplicar el conteo? Se corregirán {{ resumen.contados }} lotes y no se puede deshacer.');">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button type="submit" class="boton" {% if not resumen.contados %}disabled{% endif %}>✔ Aplicar conteo</button>
+    <span class="suave">Corrige el inventario, deja todo en el kardex y cierra el conteo.</span>
+  </form>
+  <form method="post" action="{{ url_for('conteos.anular', conteo_id=conteo['id']) }}" class="conteo-anular"
+        onsubmit="return confirm('¿Anular el conteo? No se cambiará ningún lote.');">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="text" name="motivo" placeholder="Motivo para anular" required minlength="3">
+    <button type="submit" class="boton peligro">Anular</button>
+  </form>
+</div>
+{% endif %}
+
+<p><a href="{{ url_for('conteos.lista') }}">← Volver a la toma de inventario</a></p>
+{% endblock %}
