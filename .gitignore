@@ -9,3 +9,5 @@ backups/*.db
 pdfs/*.pdf
 .vscode/
 *.log
+# Datos de la demo (Codespaces): nunca se suben
+backups/demo/

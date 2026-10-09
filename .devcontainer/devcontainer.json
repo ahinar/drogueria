@@ -1,0 +1,27 @@
+// =====================================================================
+// Configuración para GitHub Codespaces (probar el programa en la nube).
+// Al crear un Codespace, GitHub:
+//   1. Prepara un computador con Python 3.12.
+//   2. Instala lo que pide requirements.txt (postCreateCommand).
+//   3. Cada vez que el Codespace arranca, ejecuta arrancar.sh, que crea
+//      la base de DEMOSTRACIÓN (si no existe) y prende el servidor.
+//   4. Publica el puerto 5000 SOLO para tu cuenta de GitHub (privado).
+// La base real de la droguería nunca se sube a GitHub (ver .gitignore).
+// =====================================================================
+{
+  "name": "Fervifarma (demo)",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "hostRequirements": { "cpus": 2 },
+  // Hora de Colombia: sin esto el Codespace usa hora UTC (5 horas adelante)
+  // y la alarma de temperaturas y los turnos AM/PM saldrían corridos.
+  "containerEnv": { "TZ": "America/Bogota" },
+  "postCreateCommand": "python -m pip install --quiet -r requirements.txt",
+  "postStartCommand": "bash .devcontainer/arrancar.sh",
+  "forwardPorts": [5000],
+  "portsAttributes": {
+    "5000": { "label": "Fervifarma (demo)", "onAutoForward": "openBrowser" }
+  },
+  "customizations": {
+    "codespaces": { "openFiles": ["PRUEBAS_EN_LA_NUBE.md"] }
+  }
+}

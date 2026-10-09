@@ -2324,3 +2324,12 @@ body.sidebar-colapsado .sidebar-seccion { display: block; height: 0; padding: 0;
   border-top: 1px solid #1e2f3d; font-size: 0; }
 body.sidebar-colapsado .sidebar-group { display: none; }
 body.sidebar-colapsado .sidebar-submenu { display: block; max-height: none; background: transparent; }
+
+/* Pantallas angostas (celular/tablet): el menú queda solo con íconos.
+   Igual que el menú encogido: sin títulos de sección y con Administración visible. */
+@media (max-width: 900px) {
+  .sidebar-seccion { display: block; height: 0; padding: 0; margin: .35rem .8rem;
+    border-top: 1px solid #1e2f3d; font-size: 0; }
+  .sidebar-group { display: none; }
+  .sidebar-submenu { display: block; max-height: none; background: transparent; }
+}
