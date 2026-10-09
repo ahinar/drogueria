@@ -200,7 +200,7 @@
 - Índice con tarjetas.
 - Reporte de temperaturas con gráfico y PDF.
 - Plantilla mensual de temperaturas.
-- **Pendientes:** recepciones, vencimientos, ventas, utilidades, top productos.
+- **Pendientes:** ver el plan del módulo Reportes en la sección 7 (Fase R).
 
 ### 5.13 Bitácora
 - Registro inmutable de todas las acciones.
@@ -248,12 +248,47 @@
 - **1.5b** Inventario inicial ✅ (con la Toma de inventario; falta hacerlo con datos reales).
 
 ### Fase 2: ventas y contabilidad 🔄
-- **2.1** POS interno (en progreso, falta carrito).
-- **2.2** Gastos discriminados (pendiente).
+- **2.1** POS interno ✅ (caja, carrito, cobro, anulación, cambio de precio, ventana "i").
+- **2.2** Gastos discriminados ✅ (módulo Contabilidad + caja menor).
 - **2.3** Utilidades por período (pendiente).
 - **2.4** Estado de resultados (pendiente).
 - **2.5** IVA con prorrateo (pendiente).
 - **2.6** Flujo de caja (pendiente).
+
+### Fase R: módulo Reportes (tomado de DATA FARMAC, adaptado) ⏳
+Idea: una pantalla con la lista de reportes a la izquierda y el reporte elegido a la
+derecha, con filtro de fechas, gráfico (Chart.js local), tabla y descarga en PDF/Excel.
+**Regla de todos:** las ventas anuladas no cuentan; los montos van con y sin IVA.
+
+| # | Reporte | Qué muestra | De dónde salen los datos | ¿Se puede ya? |
+|---|---|---|---|---|
+| R1 | **Resumen** | Panorama del negocio: ventas de hoy/semana/mes, utilidad, gastos, ticket promedio, n.º de ventas, alertas (vencimientos, stock mínimo) | ventas, venta_lineas, gastos, lotes | ✅ |
+| R2 | **Ganancia de la semana** | Ventas − costo de lo vendido − gastos, día por día | venta_lineas.lotes_json + costo de cada lote, gastos | ✅ |
+| R3 | **Ventas de la semana** | Ventas diarias de los últimos 7 días (barras) | ventas | ✅ |
+| R4 | **Ventas vs Compras** | Comparativo mensual: lo vendido vs lo comprado | ventas vs recepciones aprobadas (cantidad × costo) | ✅ |
+| R5 | **Ventas anuales** | Evolución mes a mes del año, comparado con el año anterior | ventas | ✅ |
+| R6 | **Top 5 medicamentos** | Los más vendidos por unidades y por dinero (elegir período) | venta_lineas | ✅ |
+| R7 | **Top 5 servicios** | Servicios e ítems libres más vendidos (inyectología, toma de presión, glucometría…) | ⚠️ Necesita **venta libre / servicios** en el POS | ❌ falta |
+| R8 | **Ingresos por día** | Ventas e ingresos diarios del mes (calendario o barras), por forma de pago | ventas, caja_movimientos | ✅ |
+| R9 | **Medicamentos vs Servicios** | Participación de cada uno en las ventas (dona) | ⚠️ Depende de R7 | ❌ falta |
+| R10 | **Ingresos por usuario** | Ventas registradas por cada vendedor | ventas.usuario_id | ✅ |
+| R11 | **Gastos administrativos** | Gastos del período por categoría | gastos | ✅ |
+| R12 | **Otros ingresos** | Ingresos que no son venta de farmacia (recargas, arriendos, etc.) | ⚠️ Necesita registrar **otros ingresos** (hoy solo hay ingresos de caja) | 🟡 parcial |
+| R13 | **Ventas libres por concepto** | Ventas sin inventario agrupadas por concepto | ⚠️ Depende de R7 | ❌ falta |
+
+Reportes propios que ya estaban pendientes y se suman a la misma pantalla:
+
+| # | Reporte | Qué muestra | De dónde salen los datos | ¿Se puede ya? |
+|---|---|---|---|---|
+| R14 | Recepciones | Recepciones por proveedor y período, rechazos | recepciones | ✅ |
+| R15 | Vencimientos | Semáforo en PDF para inspección | lotes | ✅ |
+| R16 | Utilidades / Estado de resultados | Ver Fase 2.3 y 2.4 | — | ✅ |
+
+**Lo que hay que construir antes para R7, R9, R12 y R13:**
+- **Venta libre / servicios en el POS**: vender un concepto sin inventario (servicio con precio, o ítem libre escribiendo el valor), con catálogo de conceptos.
+- **Otros ingresos**: registro de ingresos que no son ventas (con categoría), separado de las ventas.
+
+Visto en DATA FARMAC y anotado para después (no son reportes): **Cotización** y **Deudas** (ventas fiadas / cuentas por cobrar).
 
 ### Fase 3: alertas y precios ⏳
 - **3.1** Devoluciones.
@@ -296,7 +331,9 @@
 - [ ] Estado de Resultados simplificado.
 - [ ] Reporte de IVA con prorrateo (Art. 490 ET).
 - [ ] Flujo de caja.
-- [ ] Reportes adicionales: recepciones, vencimientos, ventas, top productos.
+- [ ] Módulo Reportes completo (Fase R, sección 7): R1–R6, R8, R10, R11, R14–R16 primero; R7, R9, R12, R13 cuando existan venta libre/servicios y otros ingresos.
+- [ ] Venta libre / servicios en el POS y registro de otros ingresos.
+- [ ] (Idea) Cotizaciones y deudas/fiados.
 - [ ] Reemplazar todos los `confirm()` nativos por el modal de confirmación.
 
 ### Mediano plazo
