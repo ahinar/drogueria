@@ -63,7 +63,7 @@
     // Termina en /0: JS cambia ese 0 por el id del producto (ver abrirInfoProducto)
     productoInfo: ($('url-api-producto-info') && $('url-api-producto-info').value) || '/pos/api/producto/0',
     // Vacío = este usuario no puede editar productos (solo administrador / director técnico)
-    productoEditar: ($('url-producto-editar') && $('url-producto-editar').value) || '',
+    productoEditarApi: ($('url-api-producto-editar') && $('url-api-producto-editar').value) || '',
   };
   if (!URL.productos || !URL.cobrar) return;
 
@@ -352,6 +352,8 @@
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
+    // Si hay alguna ventana abierta (info, editar, pago, gasto...), el teclado es de ella
+    if (document.querySelector('[id^="modal-"]:not(.modal-oculto)')) return;
 
     const key = e.key;
 
@@ -671,95 +673,248 @@
   });
 
   // ---------------------------------------------------------------
-  // 8b. INFORMACIÓN DEL PRODUCTO (botón "i" de cada tarjeta)
+  // 8b. VENTANA "i": INFORMACIÓN DEL PRODUCTO
   // ---------------------------------------------------------------
+  // Flujo: tocar la "i" -> abrirInfoProducto(id) -> pide los datos al
+  // servidor -> pintarInfo(p) los pone en la ventana.
   const modalInfo = $('modal-info-producto');
+  const NEGOCIO = ($('negocio-nombre') && $('negocio-nombre').value) || 'Droguería';
+  let productoInfo = null;   // datos del producto que se está mostrando (para "Editar")
 
-  function cerrarInfoProducto() {
-    if (modalInfo) modalInfo.classList.add('modal-oculto');
-    inputBusqueda.focus();
-  }
-
-  // "2028-05-01" -> "01/05/2028"  (formato que usamos en Colombia)
+  // "2028-05-01" o "2028-05-01 10:00:00" -> "01/05/2028" (formato colombiano)
   function fechaCorta(iso) {
     if (!iso) return '—';
     const p = String(iso).slice(0, 10).split('-');
     return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
   }
 
+  // Muestra 9 como "9" y 2.5 como "2,5"
+  const cant = (n) => (+(+n).toFixed(2)).toLocaleString('es-CO');
+
+  // Pinta una tabla sencilla. columnas = ['Lote', 'Vence', ...], filas = [[...], [...]]
+  function tabla(columnas, filas) {
+    return '<table class="info-tabla"><tr>' + columnas.map((c) => '<th>' + esc(c) + '</th>').join('') + '</tr>' +
+      filas.map((f) => '<tr>' + f.map((celda) => '<td>' + celda + '</td>').join('') + '</tr>').join('') +
+      '</table>';
+  }
+
+  function cerrarInfoProducto() {
+    if (modalInfo) modalInfo.classList.add('modal-oculto');
+    productoInfo = null;
+    inputBusqueda.focus();
+  }
+
   async function abrirInfoProducto(id) {
     if (!modalInfo) return;
     $('info-nombre').textContent = 'Cargando…';
-    $('info-subtitulo').textContent = '';
-    $('info-cuerpo').innerHTML = '';
+    ['info-precio', 'info-a-la-mano', 'info-iva', 'info-inventario-resumen', 'info-otros-lotes', 'info-stock-minimo']
+      .forEach((x) => { $(x).textContent = ''; });
+    ['info-insignias', 'info-lotes', 'info-compras', 'info-finanzas'].forEach((x) => { $(x).innerHTML = ''; });
     modalInfo.classList.remove('modal-oculto');
     try {
       // La dirección termina en /0; cambiamos ese 0 por el id del producto
       const resp = await fetch(URL.productoInfo.replace(/0$/, String(id)), { credentials: 'same-origin' });
       const json = await resp.json();
       if (!json.ok) { $('info-nombre').textContent = json.error || 'No se pudo cargar.'; return; }
-      const p = json.producto;
-
-      $('info-nombre').textContent = p.nombre;
-      $('info-subtitulo').textContent =
-        [p.concentracion, p.forma, p.laboratorio].filter(Boolean).join(' · ');
-
-      // Insignias de advertencia (fórmula, frío, control especial)
-      const insignias = [
-        p.requiere_formula ? '<span class="info-insignia">📋 Requiere fórmula</span>' : '',
-        p.cadena_frio ? '<span class="info-insignia">❄️ Cadena de frío</span>' : '',
-        p.control_especial ? '<span class="info-insignia info-insignia-roja">🔒 Control especial</span>' : '',
-      ].join('');
-
-      // Cada fila de la tabla: [etiqueta, valor]. Se omiten las que no tienen valor.
-      const filas = [
-        ['Código', p.codigo],
-        ['Código de barras', p.codigo_barras],
-        ['Principio activo', p.principio_activo],
-        ['Registro sanitario', p.registro_sanitario
-          ? p.registro_sanitario + (p.registro_vence ? ' (vence ' + fechaCorta(p.registro_vence) + ')' : '') : ''],
-        ['Precio de venta', peso(p.precio)],
-        ['Precio máximo', p.precio_maximo > 0 ? peso(p.precio_maximo) : ''],
-        ['IVA', p.iva_tipo === 'gravado' ? p.iva_tarifa + ' %' : (p.iva_tipo || '')],
-        ['Disponible para vender', +p.stock.toFixed(2) + ' unidades'],
-        ['Observaciones', p.observaciones],
-      ].filter((f) => f[1]);
-
-      const tabla = '<table class="info-tabla">' + filas.map((f) =>
-        '<tr><th>' + esc(f[0]) + '</th><td>' + esc(f[1]) + '</td></tr>').join('') + '</table>';
-
-      // Lotes que hoy se pueden vender; el que vence primero sale primero (FEFO)
-      const lotes = p.lotes.length
-        ? '<h3 class="info-subtitulo-lotes">Lotes disponibles</h3>' +
-          '<table class="info-tabla">' +
-          '<tr><th>Lote</th><th>Vence</th><th>Cantidad</th></tr>' +
-          p.lotes.map((l) => '<tr><td>' + esc(l.lote) + '</td><td>' + fechaCorta(l.vencimiento) +
-            '</td><td>' + (+l.cantidad.toFixed(2)) + '</td></tr>').join('') +
-          '</table>'
-        : '<p class="suave">No hay lotes disponibles para vender.</p>';
-
-      $('info-cuerpo').innerHTML = (insignias ? '<div class="info-insignias">' + insignias + '</div>' : '') + tabla + lotes;
-
-      // Enlace "Editar producto": solo si este usuario tiene permiso (la plantilla lo indica)
-      const enlace = $('info-editar');
-      if (enlace) {
-        enlace.style.display = URL.productoEditar ? '' : 'none';
-        if (URL.productoEditar) enlace.href = URL.productoEditar.replace('/0/', '/' + id + '/');
-      }
+      productoInfo = json.producto;
+      pintarInfo(productoInfo);
     } catch (e) {
       $('info-nombre').textContent = 'Error de conexión: ' + e.message;
     }
   }
 
+  function pintarInfo(p) {
+    // ---- Franja amarilla ----
+    $('info-nombre').textContent = p.nombre + (p.concentracion ? ' ' + p.concentracion : '');
+    $('info-precio').textContent = peso(p.precio);
+    $('info-a-la-mano').textContent = 'A la mano: ' + cant(p.stock) + ' unidades';
+    $('info-iva').textContent = p.iva_tipo === 'gravado'
+      ? 'IVA: ' + cant(p.iva_tarifa) + ' % (= ' + peso(p.iva_valor) + ')'
+      : 'IVA: ' + (p.iva_tipo === 'exento' ? 'Exento' : 'Excluido') + ' (= $0)';
+    $('info-insignias').innerHTML = [
+      p.requiere_formula ? '<span class="info-insignia">📋 Requiere fórmula</span>' : '',
+      p.cadena_frio ? '<span class="info-insignia">❄️ Cadena de frío</span>' : '',
+      p.control_especial ? '<span class="info-insignia info-insignia-roja">🔒 Control especial</span>' : '',
+    ].join('');
+
+    // ---- 1. Inventario ----
+    $('info-inventario-resumen').innerHTML =
+      esc(NEGOCIO) + ': <strong>' + cant(p.stock) + '</strong> unidades disponibles para vender';
+    $('info-lotes').innerHTML = p.lotes.length
+      ? tabla(['Lote', 'Vence', 'Cant.', ''], p.lotes.map((l, i) => [
+          esc(l.lote || '—'), fechaCorta(l.vencimiento), cant(l.cantidad),
+          i === 0 ? '<span class="info-primero">🟢 sale primero</span>' : '',
+        ]))
+      : '<p class="suave">No hay lotes disponibles para vender.</p>';
+    // Avisa si hay mercancía que NO se puede vender todavía
+    const o = p.otros_lotes, avisos = [];
+    if (o.cuarentena) avisos.push(o.cuarentena + ' en cuarentena');
+    if (o.bloqueados) avisos.push(o.bloqueados + ' bloqueado(s)');
+    if (o.vencidos) avisos.push(o.vencidos + ' vencido(s)');
+    $('info-otros-lotes').textContent = avisos.length ? '⚠️ Otros lotes: ' + avisos.join(' · ') : '';
+
+    // ---- 2. Reabastecimiento: últimas 4 compras ----
+    $('info-compras').innerHTML = p.compras.length
+      ? tabla(['Fecha', 'Proveedor', 'Recepción', 'Cant.', 'Costo'], p.compras.map((c) => [
+          fechaCorta(c.fecha), esc(c.proveedor), esc(c.numero), cant(c.cantidad), peso(c.costo),
+        ]))
+      : '<p class="suave">Aún no hay compras registradas por recepción técnica.</p>';
+    if (p.stock_minimo > 0) {
+      $('info-stock-minimo').textContent = 'Stock mínimo: ' + cant(p.stock_minimo) + '  →  ' +
+        (p.stock > p.stock_minimo ? '✅ por encima' : '⚠️ hay que pedir');
+    }
+
+    // ---- 3. Finanzas (1 unidad) ----
+    const filas = [
+      ['Precio sin IVA', peso(p.precio_sin_iva)],
+      ['Costo', peso(p.costo) + ' <span class="suave">(' + esc(p.costo_origen) + ')</span>'],
+      ['Margen', '<span class="' + (p.margen < 0 ? 'info-negativo' : '') + '">' +
+        peso(p.margen) + ' (' + cant(p.margen_pct) + ' %)</span>'],
+    ];
+    if (p.precio_maximo > 0) filas.push(['Precio máximo', peso(p.precio_maximo)]);
+    $('info-finanzas').innerHTML = filas.map((f) => '<dt>' + f[0] + '</dt><dd>' + f[1] + '</dd>').join('');
+  }
+
   if (modalInfo) {
     $('info-cerrar').addEventListener('click', cerrarInfoProducto);
+    $('info-ok').addEventListener('click', cerrarInfoProducto);
     // Clic en el fondo oscuro (fuera de la caja) también cierra
     modalInfo.addEventListener('click', (e) => { if (e.target === modalInfo) cerrarInfoProducto(); });
-    // La tecla Escape también cierra la ventana
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !modalInfo.classList.contains('modal-oculto')) cerrarInfoProducto();
+    if ($('info-editar')) $('info-editar').addEventListener('click', () => { if (productoInfo) abrirEditar(productoInfo); });
+  }
+
+  // ---------------------------------------------------------------
+  // 8c. VENTANA "EDITAR PRODUCTO" (encima de la "i")
+  // ---------------------------------------------------------------
+  // Solo existe en la página si el usuario es administrador o director técnico.
+  const modalEditar = $('modal-editar-producto');
+  const formEditar = $('form-editar-producto');
+  let editandoId = null;
+
+  // 9800 -> "9800"; null -> "" (para poner números en las cajas de texto)
+  const textoNumero = (n) => (n === null || n === undefined || n === '' ? '' : String(+n));
+
+  // Muestra la foto actual, o el ícono 💊 si no hay
+  function mostrarFoto(src) {
+    const img = $('editar-foto-img');
+    img.hidden = !src;
+    $('editar-foto-vacia').hidden = !!src;
+    if (src) img.src = src;
+  }
+
+  // La casilla de tarifa solo aparece si el IVA es "gravado"
+  function actualizarTarifa() {
+    const gravado = $('editar-iva-tipo').value === 'gravado';
+    $('editar-iva-tarifa').hidden = !gravado;
+    $('editar-iva-porcentaje').hidden = !gravado;
+  }
+
+  function abrirEditar(p) {
+    if (!modalEditar) return;
+    editandoId = p.id;
+    formEditar.reset();
+    $('editar-error').hidden = true;
+    $('editar-nombre').value = p.nombre;
+    $('editar-codigo-barras').value = p.codigo_barras || '';
+    $('editar-maneja-lotes').checked = p.maneja_vencimiento;
+    $('editar-precio').value = textoNumero(p.precio);
+    $('editar-precio-maximo').value = textoNumero(p.precio_maximo);
+    $('editar-iva-tipo').value = p.iva_tipo || 'excluido';
+    $('editar-iva-tarifa').value = p.iva_tipo === 'gravado' ? textoNumero(p.iva_tarifa) : '';
+    $('editar-formula').checked = p.requiere_formula;
+    $('editar-control').checked = p.control_especial;
+    // Marcar las categorías que ya tiene el producto
+    formEditar.querySelectorAll('input[name="categorias"]').forEach((c) => {
+      c.checked = p.categorias.includes(+c.value);
+    });
+    $('editar-foto-accion').value = '';
+    mostrarFoto(p.imagen ? URL.estaticos + p.imagen : '');
+    actualizarTarifa();
+    modalEditar.classList.remove('modal-oculto');
+    $('editar-nombre').focus();
+  }
+
+  function cerrarEditar() {
+    if (modalEditar) modalEditar.classList.add('modal-oculto');
+    editandoId = null;
+  }
+
+  // Si se cambió un producto que está en el carrito, actualizamos su línea.
+  // Si el cajero NO le había cambiado el precio a mano, toma el precio nuevo.
+  function refrescarEnCarrito(p) {
+    let tocado = false;
+    carrito.forEach((it) => {
+      if (it.producto_id !== p.id) return;
+      const sinCambioManual = Math.abs(it.precio - it.precio_original) <= 0.01;
+      it.nombre = p.nombre;
+      it.iva_tipo = p.iva_tipo;
+      it.iva_tarifa = p.iva_tarifa;
+      it.requiere_formula = p.requiere_formula;
+      it.precio_original = p.precio;
+      if (sinCambioManual) it.precio = p.precio;
+      if (p.control_especial) aviso('"' + p.nombre + '" ahora es de control especial: no se podrá cobrar desde el POS.');
+      tocado = true;
+    });
+    if (tocado) pintarCarrito();
+  }
+
+  async function guardarEdicion() {
+    const errorBox = $('editar-error');
+    errorBox.hidden = true;
+    const datos = new FormData(formEditar);   // toma todos los campos del formulario, incluida la foto
+    datos.append('_csrf', csrf());
+    $('editar-guardar').disabled = true;
+    try {
+      const url = URL.productoEditarApi.replace('/0/', '/' + editandoId + '/');
+      const resp = await fetch(url, { method: 'POST', body: datos, credentials: 'same-origin' });
+      const json = await resp.json().catch(() => ({ ok: false, error: 'No tienes permiso para editar.' }));
+      if (!json.ok) {
+        errorBox.textContent = json.error || 'No se pudo guardar.';
+        errorBox.hidden = false;
+        return;
+      }
+      const id = editandoId;
+      cerrarEditar();
+      aviso('Producto actualizado.');
+      await abrirInfoProducto(id);                 // la "i" se vuelve a pintar con los datos nuevos
+      if (productoInfo) refrescarEnCarrito(productoInfo);
+      buscar(false);                               // y las tarjetas también
+    } catch (e) {
+      errorBox.textContent = 'Error de conexión: ' + e.message;
+      errorBox.hidden = false;
+    } finally {
+      $('editar-guardar').disabled = false;
+    }
+  }
+
+  if (modalEditar) {
+    $('editar-cerrar').addEventListener('click', cerrarEditar);
+    $('editar-descartar').addEventListener('click', cerrarEditar);
+    $('editar-guardar').addEventListener('click', guardarEdicion);
+    $('editar-iva-tipo').addEventListener('change', actualizarTarifa);
+    modalEditar.addEventListener('click', (e) => { if (e.target === modalEditar) cerrarEditar(); });
+    // Enter dentro del formulario = Guardar (en vez de recargar la página)
+    formEditar.addEventListener('submit', (e) => { e.preventDefault(); guardarEdicion(); });
+    // Foto nueva: se muestra de una vez, antes de guardar
+    $('editar-foto-archivo').addEventListener('change', (e) => {
+      const archivo = e.target.files[0];
+      if (!archivo) return;
+      $('editar-foto-accion').value = '';
+      mostrarFoto(window.URL.createObjectURL(archivo));
+    });
+    $('editar-foto-borrar').addEventListener('click', () => {
+      $('editar-foto-archivo').value = '';
+      $('editar-foto-accion').value = 'eliminar';
+      mostrarFoto('');
     });
   }
+
+  // Escape cierra la ventana de ARRIBA primero (Editar), y luego la "i"
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (modalEditar && !modalEditar.classList.contains('modal-oculto')) { cerrarEditar(); e.stopImmediatePropagation(); }
+    else if (modalInfo && !modalInfo.classList.contains('modal-oculto')) { cerrarInfoProducto(); e.stopImmediatePropagation(); }
+  }, true);
 
   // ---------------------------------------------------------------
   // 9. ARRANQUE

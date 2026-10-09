@@ -156,9 +156,11 @@
 <input type="hidden" id="pos-caja-id" value="{{ caja['id'] }}">
 <!-- Información del producto (botón "i"). Termina en /0: JS cambia el 0 por el id -->
 <input type="hidden" id="url-api-producto-info" value="{{ url_for('pos.api_producto_info', producto_id=0) }}">
+<!-- Nombre del negocio, para la línea "Fervifarma: 9 unidades disponibles" -->
+<input type="hidden" id="negocio-nombre" value="{{ (config_negocio.nombre_comercial or config_negocio.razon_social or 'Droguería') if config_negocio else 'Droguería' }}">
 {% if g.user.rol in ('administrador', 'director_tecnico') %}
-<!-- Solo estos roles pueden editar productos; los demás no ven el enlace -->
-<input type="hidden" id="url-producto-editar" value="{{ url_for('productos.editar', prod_id=0) }}">
+<!-- Edición rápida (solo estos roles). Termina en /0/editar: JS cambia el 0 por el id -->
+<input type="hidden" id="url-api-producto-editar" value="{{ url_for('pos.api_producto_editar', producto_id=0) }}">
 {% endif %}
 
 {% endblock %}
@@ -170,6 +172,7 @@
 {% include "pos/_modal_pago.html" %}
 {% include "pos/_modal_gasto.html" %}
 {% include "pos/_modal_info_producto.html" %}
+{% include "pos/_modal_editar_producto.html" %}
 {% endblock %}
 
 {% block scripts_extra %}

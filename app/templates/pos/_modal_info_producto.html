@@ -1,21 +1,63 @@
-<!-- ============ MODAL INFO DE PRODUCTO (i) ============ -->
-<!-- JS (pos_carrito.js, sección 8b) rellena los textos al abrirlo -->
+<!-- =====================================================================
+     VENTANA "i": INFORMACIÓN DEL PRODUCTO
+     ---------------------------------------------------------------------
+     Esta plantilla solo trae el "esqueleto" vacío. Cuando el cajero toca
+     la "i" de una tarjeta, pos_carrito.js (sección 8b) pide los datos al
+     servidor (/pos/api/producto/<id>) y rellena cada parte por su id.
+     ===================================================================== -->
 <div id="modal-info-producto" class="modal-oculto">
-  <div class="modal-caja modal-info-producto">
-    <div class="info-head">
-      <div>
-        <h2 id="info-nombre">Cargando…</h2>
-        <p id="info-subtitulo" class="suave" style="margin:.15rem 0 0"></p>
-      </div>
-      <button type="button" class="info-cerrar" id="info-cerrar" title="Cerrar" aria-label="Cerrar">✕</button>
+  <div class="modal-caja modal-info-producto" role="dialog" aria-labelledby="info-titulo">
+
+    <!-- Barra de título -->
+    <div class="info-barra">
+      <h2 id="info-titulo">Información del producto</h2>
+      <button type="button" class="info-cerrar" id="info-cerrar" title="Cerrar (Esc)" aria-label="Cerrar">✕</button>
     </div>
 
-    <!-- Aquí JS dibuja las insignias, la tabla de datos y la tabla de lotes -->
-    <div id="info-cuerpo"></div>
+    <!-- Franja amarilla: nombre, precio, existencias e IVA -->
+    <div class="info-franja">
+      <div class="info-franja-fila">
+        <strong id="info-nombre">Cargando…</strong>
+        <strong id="info-precio"></strong>
+      </div>
+      <div class="info-franja-fila">
+        <span id="info-a-la-mano"></span>
+        <span id="info-iva"></span>
+      </div>
+      <!-- Insignias: requiere fórmula, cadena de frío, control especial -->
+      <div id="info-insignias" class="info-insignias"></div>
+    </div>
 
+    <div class="info-cuerpo">
+      <!-- 1. Inventario: lotes que se pueden vender -->
+      <section>
+        <h3>Inventario</h3>
+        <p id="info-inventario-resumen" class="info-texto"></p>
+        <div id="info-lotes"></div>
+        <p id="info-otros-lotes" class="info-aviso"></p>
+      </section>
+
+      <!-- 2. Reabastecimiento: últimas 4 compras -->
+      <section>
+        <h3>Reabastecimiento</h3>
+        <div id="info-compras"></div>
+        <p id="info-stock-minimo" class="info-texto"></p>
+      </section>
+
+      <!-- 3. Finanzas: precio sin IVA, costo y margen de UNA unidad -->
+      <section>
+        <h3>Finanzas <span class="suave">(1 unidad)</span></h3>
+        <dl id="info-finanzas" class="info-finanzas"></dl>
+      </section>
+    </div>
+
+    <!-- Botones de abajo -->
     <div class="info-pie">
-      <!-- Solo se muestra si el usuario puede editar productos (JS lo decide) -->
-      <a id="info-editar" class="boton secundario" href="#" style="display:none" target="_blank">✏️ Editar producto</a>
+      <button type="button" class="boton" id="info-ok">De acuerdo</button>
+      {% if g.user.rol in ('administrador', 'director_tecnico') %}
+        <!-- Solo administrador y director técnico pueden editar -->
+        <button type="button" class="boton secundario" id="info-editar">Editar</button>
+      {% endif %}
     </div>
   </div>
 </div>

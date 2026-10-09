@@ -244,6 +244,92 @@ class TestInfoProducto(BaseVentas):
     def test_info_de_producto_inexistente(self):
         self.assertEqual(self.c.get("/pos/api/producto/9999").status_code, 404)
 
+    def test_costo_promedio_y_margen(self):
+        """5 unid. a $400 + 5 a $600 = costo promedio $500; precio $1.000 -> margen $500 (50 %)."""
+        con = self.db()
+        for lote, costo in (("A", 400), ("B", 600)):
+            con.execute("INSERT INTO lotes (producto_id, lote, vencimiento, cantidad_inicial, "
+                        "cantidad_disponible, costo_unitario, estado, creado_en) "
+                        "VALUES (1, ?, ?, 5, 5, ?, 'disponible', ?)", (lote, FUTURO, costo, FECHA))
+        con.commit()
+        con.close()
+        p = self.c.get("/pos/api/producto/1").get_json()["producto"]
+        self.assertEqual((p["costo"], p["margen"], p["margen_pct"]), (500, 500, 50))
+
+    def test_margen_se_calcula_sin_iva(self):
+        """Jeringa $11.900 con IVA 19 % -> $10.000 sin IVA; costo $100 -> margen $9.900."""
+        self.lote(2, "J1", FUTURO, 3)
+        p = self.c.get("/pos/api/producto/2").get_json()["producto"]
+        self.assertEqual((p["precio_sin_iva"], p["iva_valor"], p["margen"]), (10000, 1900, 9900))
+
+    def test_ultimas_4_compras_aprobadas(self):
+        for n in range(5):   # 5 compras aprobadas: solo deben salir las 4 más recientes
+            self.crear_recepcion([{"producto_id": 1, "lote": f"C{n}", "vencimiento": FUTURO,
+                                   "cantidad_recibida": 10, "costo": 300 + n}], factura=f"F-{n}")
+            self.post(self.c, f"/recepciones/{n + 1}/aprobar")
+        self.crear_recepcion([{"producto_id": 1, "lote": "SIN", "vencimiento": FUTURO,
+                               "cantidad_recibida": 10, "costo": 999}], factura="F-X")  # sin aprobar
+        compras = self.c.get("/pos/api/producto/1").get_json()["producto"]["compras"]
+        self.assertEqual(len(compras), 4)
+        self.assertNotIn(999, [c["costo"] for c in compras])
+        self.assertEqual(compras[0]["proveedor"], "Proveedor Prueba SAS")
+
+    def test_cuenta_lotes_que_no_se_pueden_vender(self):
+        self.lote(1, "V", PASADO, 3)
+        self.lote(1, "Q", FUTURO, 3, estado="cuarentena")
+        self.lote(1, "B", FUTURO, 3, estado="bloqueado")
+        otros = self.c.get("/pos/api/producto/1").get_json()["producto"]["otros_lotes"]
+        self.assertEqual(otros, {"cuarentena": 1, "bloqueados": 1, "vencidos": 1})
+
+
+class TestEditarDesdePOS(BaseVentas):
+    """Ventana "Editar" que se abre encima de la "i"."""
+
+    def editar(self, cliente=None, **campos):
+        datos = {"nombre": "Acetaminofén 500 mg", "precio_venta": "1000", "iva_tipo": "excluido"}
+        datos.update(campos)
+        return self.post(cliente or self.c, "/pos/api/producto/1/editar", datos)
+
+    def test_guarda_cambios_y_deja_bitacora(self):
+        r = self.editar(nombre="Acetaminofén 500 mg x 10", precio_venta="9.800",
+                        precio_maximo="11200", codigo_barras="7707019379464",
+                        requiere_formula="1")
+        self.assertTrue(r.get_json()["ok"], r.get_json())
+        p = self.uno("SELECT * FROM productos WHERE id = 1")
+        self.assertEqual((p["nombre"], p["precio_venta"], p["precio_maximo"], p["requiere_formula"]),
+                         ("Acetaminofén 500 mg x 10", 9800, 11200, 1))
+        bit = self.uno("SELECT detalle FROM bitacora WHERE accion = 'producto_editado'")
+        self.assertIn("precio_venta: 1000", bit["detalle"])
+
+    def test_iva_gravado_exige_tarifa_y_excluido_la_pone_en_cero(self):
+        self.assertFalse(self.editar(iva_tipo="gravado").get_json()["ok"])
+        self.assertTrue(self.editar(iva_tipo="gravado", iva_tarifa="19").get_json()["ok"])
+        self.assertEqual(self.uno("SELECT iva_tarifa t FROM productos WHERE id=1")["t"], 19)
+        self.editar(iva_tipo="excluido", iva_tarifa="19")
+        self.assertEqual(self.uno("SELECT iva_tarifa t FROM productos WHERE id=1")["t"], 0)
+
+    def test_validaciones(self):
+        self.assertFalse(self.editar(nombre="").get_json()["ok"])
+        self.assertFalse(self.editar(precio_venta="0").get_json()["ok"])
+        self.assertFalse(self.editar(precio_venta="abc").get_json()["ok"])
+        self.assertFalse(self.editar(precio_venta="1500", precio_maximo="1200").get_json()["ok"])
+        self.assertFalse(self.editar(control_especial="1").get_json()["ok"])  # sin INVIMA
+        self.assertEqual(self.uno("SELECT precio_venta p FROM productos WHERE id=1")["p"], 1000)
+
+    def test_codigo_de_barras_repetido(self):
+        con = self.db()
+        con.execute("UPDATE productos SET codigo_barras = '123' WHERE id = 2")
+        con.commit()
+        con.close()
+        self.assertFalse(self.editar(codigo_barras="123").get_json()["ok"])
+
+    def test_auxiliar_no_puede_editar(self):
+        self.crear_usuario(self.c, "aux", "auxiliar")
+        c2 = self.cliente()
+        self.entrar(c2, "aux")
+        self.assertEqual(self.editar(cliente=c2, precio_venta="5").status_code, 403)
+        self.assertEqual(self.uno("SELECT precio_venta p FROM productos WHERE id=1")["p"], 1000)
+
 
 class TestAnular(BaseVentas):
     def vender(self):

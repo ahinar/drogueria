@@ -11,6 +11,8 @@ from .caja_menor import registrar_movimiento as _cm_mov
 from .caja_menor import saldo_actual as _cm_saldo
 from .configuracion import obtener_config
 from .db import ahora, get_db
+from .productos import IVA_TIPOS
+from .utils_imagenes import eliminar_imagen, guardar_imagen
 
 bp = Blueprint("pos", __name__, url_prefix="/pos")
 
@@ -517,48 +519,224 @@ def api_productos():
 @bp.route("/api/producto/<int:producto_id>")
 @login_required
 def api_producto_info(producto_id):
-    """Datos completos de un producto para el botón "i" del POS.
+    """Datos de un producto para la ventana "i" del POS. Solo LEE, no modifica nada.
 
-    Solo LEE información (no modifica nada). Devuelve el producto y sus lotes
-    que se pueden vender hoy, en el orden en que los vende el POS (vence primero = sale primero).
+    Devuelve en un solo paquete (JSON):
+      - datos básicos y precios del producto
+      - lotes que se pueden vender hoy (el que vence primero va primero)
+      - cuántos lotes hay en otros estados (cuarentena, bloqueados, vencidos)
+      - costo promedio y margen
+      - las últimas 4 compras (recepciones aprobadas)
     """
     db = get_db()
     hoy = date.today().isoformat()
 
-    # En la tabla productos solo se guarda el NÚMERO del laboratorio y de la forma;
-    # con estas dos sub-consultas traemos sus nombres.
-    p = db.execute(
-        "SELECT p.*, "
-        "       (SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS laboratorio, "
-        "       (SELECT nombre FROM catalogos WHERE id = p.forma_farmaceutica_id) AS forma "
-        "FROM productos p WHERE p.id = ?", (producto_id,)
-    ).fetchone()
+    p = db.execute("SELECT * FROM productos WHERE id = ?", (producto_id,)).fetchone()
     if p is None:
         return _json_error("El producto no existe.", 404)
 
+    # ---- Lotes que se pueden vender hoy ----
     lotes = db.execute(
-        "SELECT l.lote, l.vencimiento, l.cantidad_disponible FROM lotes l "
+        "SELECT l.lote, l.vencimiento, l.cantidad_disponible, l.costo_unitario FROM lotes l "
         f"WHERE l.producto_id = ? AND {SQL_LOTE_VENDIBLE} "
         "ORDER BY (l.vencimiento IS NULL OR l.vencimiento = ''), l.vencimiento, l.id",
         (producto_id, hoy),
     ).fetchall()
+    stock = sum(l["cantidad_disponible"] for l in lotes)
+
+    # ---- Lotes con mercancía que NO se pueden vender (para avisar) ----
+    otros = db.execute(
+        "SELECT "
+        " SUM(CASE WHEN estado = 'cuarentena' THEN 1 ELSE 0 END) AS cuarentena, "
+        " SUM(CASE WHEN estado = 'bloqueado' THEN 1 ELSE 0 END) AS bloqueados, "
+        " SUM(CASE WHEN estado = 'disponible' AND vencimiento IS NOT NULL AND vencimiento <> '' "
+        "          AND vencimiento < ? THEN 1 ELSE 0 END) AS vencidos "
+        "FROM lotes WHERE producto_id = ? AND cantidad_disponible > 0",
+        (hoy, producto_id),
+    ).fetchone()
+
+    # ---- Últimas 4 compras (solo recepciones aprobadas y líneas aceptadas) ----
+    compras = db.execute(
+        "SELECT r.numero, r.fecha, COALESCE(pr.razon_social, 'Sin proveedor') AS proveedor, "
+        "       rl.cantidad_recibida, rl.costo_unitario "
+        "FROM recepcion_lineas rl "
+        "JOIN recepciones r ON r.id = rl.recepcion_id "
+        "LEFT JOIN proveedores pr ON pr.id = r.proveedor_id "
+        "WHERE rl.producto_id = ? AND r.estado = 'aprobada' AND rl.resultado = 'aceptado' "
+        "ORDER BY r.fecha DESC, r.id DESC, rl.id DESC LIMIT 4",
+        (producto_id,),
+    ).fetchall()
+
+    # ---- Costo: promedio de los lotes vendibles, pesado por cantidad ----
+    # Ej.: 5 unidades a $1.000 y 5 a $1.200 -> costo promedio $1.100.
+    # Si no hay lotes con costo, se usa la última compra; si tampoco, el precio
+    # de compra escrito en la ficha del producto.
+    lotes_con_costo = [l for l in lotes if (l["costo_unitario"] or 0) > 0]
+    if lotes_con_costo:
+        unidades = sum(l["cantidad_disponible"] for l in lotes_con_costo)
+        costo = sum(l["cantidad_disponible"] * l["costo_unitario"] for l in lotes_con_costo) / unidades
+        costo_origen = "promedio de lotes"
+    elif compras:
+        costo, costo_origen = float(compras[0]["costo_unitario"] or 0), "última compra"
+    else:
+        costo, costo_origen = float(p["precio_compra"] or 0), "ficha del producto"
+
+    # ---- Margen: se calcula sobre el precio SIN IVA (el IVA no es ganancia) ----
+    precio = float(p["precio_venta"] or 0)
+    tarifa = float(p["iva_tarifa"] or 0)
+    precio_sin_iva = precio / (1 + tarifa / 100) if p["iva_tipo"] == "gravado" and tarifa > 0 else precio
+    margen = precio_sin_iva - costo
+    margen_pct = (margen / precio_sin_iva * 100) if precio_sin_iva > 0 else 0
+
+    categorias = [f["catalogo_id"] for f in db.execute(
+        "SELECT catalogo_id FROM productos_categorias WHERE producto_id = ?", (producto_id,))]
 
     return jsonify({"ok": True, "producto": {
         "id": p["id"], "codigo": p["codigo"], "codigo_barras": p["codigo_barras"],
-        "nombre": p["nombre"], "concentracion": p["concentracion"],
-        "principio_activo": p["principio_activo"], "forma": p["forma"] or p["forma_farmaceutica"],
-        "laboratorio": p["laboratorio"] or p["fabricante"],
-        "registro_sanitario": p["registro_sanitario"], "registro_vence": p["registro_vence"],
-        "precio": p["precio_venta"], "precio_maximo": p["precio_maximo"],
-        "iva_tipo": p["iva_tipo"], "iva_tarifa": p["iva_tarifa"],
+        "nombre": p["nombre"], "concentracion": p["concentracion"], "imagen": p["imagen"],
+        "precio": precio, "precio_maximo": p["precio_maximo"],
+        "precio_sin_iva": round(precio_sin_iva, 2),
+        "iva_tipo": p["iva_tipo"], "iva_tarifa": tarifa,
+        "iva_valor": round(precio - precio_sin_iva, 2),
         "requiere_formula": bool(p["requiere_formula"]),
         "cadena_frio": bool(p["cadena_frio"]),
         "control_especial": bool(p["control_especial"]),
-        "observaciones": p["observaciones"],
-        "stock": sum(l["cantidad_disponible"] for l in lotes),
+        "maneja_vencimiento": bool(p["maneja_vencimiento"]),
+        "stock_minimo": p["stock_minimo"] or 0,
+        "categorias": categorias,
+        "stock": stock,
         "lotes": [{"lote": l["lote"], "vencimiento": l["vencimiento"],
                    "cantidad": l["cantidad_disponible"]} for l in lotes],
+        "otros_lotes": {"cuarentena": otros["cuarentena"] or 0,
+                        "bloqueados": otros["bloqueados"] or 0,
+                        "vencidos": otros["vencidos"] or 0},
+        "costo": round(costo, 2), "costo_origen": costo_origen,
+        "margen": round(margen, 2), "margen_pct": round(margen_pct, 1),
+        "compras": [{"numero": c["numero"], "fecha": c["fecha"], "proveedor": c["proveedor"],
+                     "cantidad": c["cantidad_recibida"], "costo": c["costo_unitario"]}
+                    for c in compras],
     }})
+
+
+@bp.route("/api/producto/<int:producto_id>/editar", methods=["POST"])
+@login_required
+@roles_required("administrador", "director_tecnico")
+def api_producto_editar(producto_id):
+    """Edición rápida de un producto desde el POS (ventana "Editar" encima de la "i").
+
+    Solo cambia los campos de esta ventana; el resto de la ficha (registro
+    sanitario, laboratorio, usos, etc.) queda igual y se edita en Productos.
+    """
+    db = get_db()
+    p = db.execute("SELECT * FROM productos WHERE id = ?", (producto_id,)).fetchone()
+    if p is None:
+        return _json_error("El producto no existe.", 404)
+
+    f = request.form
+
+    def numero(campo):
+        """Convierte '9.800' o '9800,50' en número. Devuelve None si está vacío o no es número."""
+        texto = (f.get(campo) or "").strip().replace(" ", "")
+        if not texto:
+            return None
+        # En Colombia el punto separa miles y la coma los decimales: 9.800,50 -> 9800.50
+        if "," in texto:
+            texto = texto.replace(".", "").replace(",", ".")
+        elif texto.count(".") == 1 and len(texto.split(".")[1]) == 3:
+            texto = texto.replace(".", "")
+        try:
+            return float(texto)
+        except ValueError:
+            return "error"
+
+    nombre = (f.get("nombre") or "").strip()
+    codigo_barras = (f.get("codigo_barras") or "").strip() or None
+    precio_venta = numero("precio_venta")
+    precio_maximo = numero("precio_maximo")
+    iva_tipo = (f.get("iva_tipo") or "").strip()
+    iva_tarifa = numero("iva_tarifa")
+    requiere_formula = 1 if f.get("requiere_formula") else 0
+    control_especial = 1 if f.get("control_especial") else 0
+    maneja_vencimiento = 1 if f.get("maneja_vencimiento") else 0
+    categorias = sorted({int(x) for x in f.getlist("categorias") if x.isdigit()})
+
+    # ---- Validaciones (si algo falla, no se guarda NADA) ----
+    if not nombre:
+        return _json_error("El nombre es obligatorio.")
+    if precio_venta in (None, "error") or precio_venta <= 0:
+        return _json_error("El precio de venta debe ser un número mayor a cero.")
+    if precio_maximo == "error" or (precio_maximo is not None and precio_maximo < 0):
+        return _json_error("El precio máximo no es válido.")
+    if precio_maximo and precio_venta > precio_maximo + 0.01:
+        return _json_error(f"El precio de venta (${precio_venta:,.0f}) no puede superar "
+                           f"el precio máximo (${precio_maximo:,.0f}).")
+    if iva_tipo not in IVA_TIPOS:
+        return _json_error("Tipo de IVA no válido.")
+    if iva_tipo == "gravado":
+        if iva_tarifa in (None, "error") or not 0 < iva_tarifa <= 100:
+            return _json_error("Escribe la tarifa de IVA (por ejemplo 19).")
+    else:
+        iva_tarifa = 0.0    # excluido y exento no llevan IVA
+    if control_especial and not p["registro_sanitario"]:
+        return _json_error("Un producto de control especial debe tener registro sanitario INVIMA "
+                           "(complétalo en Productos).")
+    if control_especial or p["cadena_frio"]:
+        maneja_vencimiento = 1   # misma regla que el formulario completo de productos
+    if codigo_barras and db.execute(
+            "SELECT 1 FROM productos WHERE codigo_barras = ? AND id <> ?",
+            (codigo_barras, producto_id)).fetchone():
+        return _json_error("Ese código de barras ya lo tiene otro producto.")
+
+    # ---- Foto: subir nueva, borrar o dejar igual ----
+    ruta_imagen = p["imagen"]
+    if f.get("imagen_accion") == "eliminar":
+        ruta_imagen = None
+    archivo = request.files.get("imagen")
+    if archivo and archivo.filename:
+        ruta_nueva, error = guardar_imagen(archivo, "productos", max_px=1200,
+                                           max_bytes=5 * 1024 * 1024)
+        if error:
+            return _json_error(f"No se pudo subir la foto: {error}")
+        ruta_imagen = ruta_nueva
+
+    # ---- Anotar qué cambió (para la bitácora) ----
+    antes = {"nombre": p["nombre"], "codigo_barras": p["codigo_barras"],
+             "precio_venta": p["precio_venta"], "precio_maximo": p["precio_maximo"],
+             "iva": f"{p['iva_tipo']} {p['iva_tarifa'] or 0:g}%",
+             "requiere_formula": p["requiere_formula"], "control_especial": p["control_especial"],
+             "maneja_vencimiento": p["maneja_vencimiento"], "imagen": p["imagen"]}
+    despues = {"nombre": nombre, "codigo_barras": codigo_barras,
+               "precio_venta": precio_venta, "precio_maximo": precio_maximo,
+               "iva": f"{iva_tipo} {iva_tarifa:g}%",
+               "requiere_formula": requiere_formula, "control_especial": control_especial,
+               "maneja_vencimiento": maneja_vencimiento, "imagen": ruta_imagen}
+    cambios = [f"{k}: {antes[k]} -> {despues[k]}" for k in antes if antes[k] != despues[k]]
+    categorias_antes = sorted(r["catalogo_id"] for r in db.execute(
+        "SELECT catalogo_id FROM productos_categorias WHERE producto_id = ?", (producto_id,)))
+    if categorias_antes != categorias:
+        cambios.append(f"categorias: {categorias_antes} -> {categorias}")
+
+    db.execute(
+        "UPDATE productos SET nombre=?, codigo_barras=?, precio_venta=?, precio_maximo=?, "
+        "iva_tipo=?, iva_tarifa=?, requiere_formula=?, control_especial=?, "
+        "maneja_vencimiento=?, imagen=?, actualizado_en=? WHERE id=?",
+        (nombre, codigo_barras, precio_venta, precio_maximo, iva_tipo, iva_tarifa,
+         requiere_formula, control_especial, maneja_vencimiento, ruta_imagen, ahora(), producto_id),
+    )
+    db.execute("DELETE FROM productos_categorias WHERE producto_id = ?", (producto_id,))
+    for cid in categorias:
+        db.execute("INSERT OR IGNORE INTO productos_categorias (producto_id, catalogo_id) "
+                   "VALUES (?, ?)", (producto_id, cid))
+    db.commit()
+
+    # La foto vieja se borra del disco solo DESPUÉS de guardar bien
+    if p["imagen"] and p["imagen"] != ruta_imagen:
+        eliminar_imagen(p["imagen"])
+
+    registrar("producto_editado", "productos", producto_id,
+              "desde POS · " + ("; ".join(cambios) if cambios else "sin cambios"))
+    return jsonify({"ok": True, "cambios": len(cambios)})
+
 
 @bp.route("/api/cobrar", methods=["POST"])
 @login_required

@@ -101,7 +101,7 @@
 }
 
 /* =========================================================
-   POS · Cambio de precio e información de producto
+   POS · Cambio de precio, ventana "i" y ventana "Editar"
    ========================================================= */
 
 /* La tarjeta es la referencia para colocar la "i" en su esquina */
@@ -126,32 +126,180 @@
   font-size: .72rem; font-weight: 600;
 }
 
-/* Ventana (modal) de información del producto */
-#modal-info-producto {
-  position: fixed; inset: 0; z-index: 10000;
+/* ---------- Fondo oscuro de las dos ventanas ---------- */
+#modal-info-producto,
+#modal-editar-producto {
+  position: fixed; inset: 0;
   display: flex; align-items: center; justify-content: center;
   padding: 1rem; background: rgba(15, 23, 32, .55);
 }
-#modal-info-producto .modal-caja {
-  width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto;
-  padding: 1.2rem 1.4rem; border-radius: .6rem; background: #fff;
+#modal-info-producto   { z-index: 10000; }
+#modal-editar-producto { z-index: 10010; }   /* más alto = queda ENCIMA de la "i" */
+
+/* ---------- La caja blanca ---------- */
+#modal-info-producto .modal-caja,
+#modal-editar-producto .modal-caja {
+  width: 100%; max-height: 92vh;
+  display: flex; flex-direction: column;
+  padding: 0; overflow: hidden;
+  border-radius: .5rem; background: #fff;
   box-shadow: 0 20px 50px rgba(0, 0, 0, .35);
 }
-.info-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
-.info-head h2 { margin: 0; }
-.info-cerrar {
-  flex: none; width: 2rem; height: 2rem; border: 0; border-radius: 50%;
-  background: #eef2f6; color: #44525f; font-size: 1rem; cursor: pointer;
+#modal-info-producto .modal-caja   { max-width: 760px; }
+#modal-editar-producto .modal-caja { max-width: 640px; }
+
+/* Barra de título con la X */
+.info-barra {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .9rem 1.2rem; border-bottom: 1px solid #e6ebf0;
 }
-.info-cerrar:hover { background: #dbe3ea; }
-.info-insignias { display: flex; flex-wrap: wrap; gap: .4rem; margin: .8rem 0 0; }
+.info-barra h2 { margin: 0; font-size: 1.1rem; color: #1f2a33; }
+.info-cerrar {
+  width: 2rem; height: 2rem; border: 0; border-radius: 50%;
+  background: transparent; color: #5c6b78; font-size: 1.1rem; cursor: pointer;
+}
+.info-cerrar:hover { background: #eef2f6; }
+
+/* Franja amarilla con nombre, precio, existencias e IVA */
+.info-franja { padding: .9rem 1.2rem; background: #fdecc8; }
+.info-franja-fila {
+  display: flex; justify-content: space-between; gap: 1rem;
+  font-size: 1rem; line-height: 1.6;
+}
+.info-franja-fila strong { font-size: 1.05rem; }
+.info-insignias { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .3rem; }
+.info-insignias:empty { display: none; }
 .info-insignia {
   padding: .1rem .6rem; border-radius: 999px;
-  background: #e8f1fb; color: #0a4f8a; font-size: .78rem; font-weight: 600;
+  background: #fff; color: #0a4f8a; font-size: .78rem; font-weight: 600;
 }
-.info-insignia-roja { background: #fde8e8; color: #a11d1d; }
-.info-tabla { width: 100%; margin: .8rem 0; border-collapse: collapse; font-size: .9rem; }
-.info-tabla th, .info-tabla td { padding: .35rem .4rem; border-bottom: 1px solid #e6ebf0; text-align: left; }
-.info-tabla th { width: 40%; color: #5c6b78; font-weight: 600; }
-.info-subtitulo-lotes { margin: 1rem 0 0; font-size: .95rem; color: #0a4f8a; }
-.info-pie { display: flex; justify-content: flex-end; margin-top: .6rem; }
+.info-insignia-roja { color: #a11d1d; }
+
+/* Cuerpo con las secciones separadas por una línea */
+.info-cuerpo { padding: 0 1.2rem; overflow-y: auto; }
+.info-cuerpo section { padding: .9rem 0; border-bottom: 1px solid #e6ebf0; }
+.info-cuerpo section:last-child { border-bottom: 0; }
+.info-cuerpo h3 { margin: 0 0 .4rem; font-size: 1.05rem; color: #1f2a33; font-weight: 600; }
+.info-texto { margin: .2rem 0; font-size: .9rem; color: #44525f; }
+.info-texto:empty, .info-aviso:empty { display: none; }
+.info-aviso { margin: .4rem 0 0; font-size: .85rem; color: #8a5a00; }
+.info-primero { font-size: .78rem; color: #1d7a3a; font-weight: 600; }
+.info-negativo { color: #a11d1d; font-weight: 600; }
+
+.info-tabla { width: 100%; margin: .3rem 0; border-collapse: collapse; font-size: .88rem; }
+.info-tabla th, .info-tabla td { padding: .3rem .4rem; border-bottom: 1px solid #eef2f6; text-align: left; }
+.info-tabla th { color: #5c6b78; font-weight: 600; }
+
+/* Finanzas: etiqueta a la izquierda, valor a la derecha */
+.info-finanzas {
+  display: grid; grid-template-columns: 10rem auto; gap: .25rem 1rem;
+  margin: 0; font-size: .9rem;
+}
+.info-finanzas dt { color: #5c6b78; }
+.info-finanzas dd { margin: 0; }
+
+/* Pie con los botones (alineados a la izquierda, como en la captura) */
+.info-pie {
+  display: flex; gap: .5rem; padding: .8rem 1.2rem;
+  border-top: 1px solid #e6ebf0; background: #fafbfc;
+}
+
+/* ---------- Formulario de "Editar producto" ---------- */
+.editar-cuerpo {
+  display: grid; grid-template-columns: 1fr 9rem; gap: 1rem;
+  padding: 1rem 1.2rem; overflow-y: auto;
+}
+.editar-campos { display: flex; flex-direction: column; gap: .55rem; }
+.editar-fila {
+  display: grid; grid-template-columns: 10rem 1fr; align-items: center; gap: .6rem;
+  margin: 0; font-size: .92rem;
+}
+.editar-fila > span:first-child { font-weight: 600; color: #1f2a33; }
+.editar-fila input[type="text"], .editar-fila select {
+  width: 100%; padding: .35rem .5rem; border: 0; border-bottom: 1px solid #c8d2da;
+  border-radius: 0; background: transparent; font-size: .92rem;
+}
+.editar-fila input[type="text"]:focus, .editar-fila select:focus { outline: none; border-bottom-color: #0a4f8a; }
+.editar-fila-check label { margin-right: 1rem; font-weight: normal; }
+.editar-fila-alta { align-items: start; }
+.editar-iva { display: flex; align-items: center; gap: .4rem; }
+.editar-iva select { flex: 1; }
+.editar-iva input { width: 4rem !important; flex: none; }
+.editar-categorias {
+  max-height: 8.5rem; overflow-y: auto; padding: .3rem .5rem;
+  border: 1px solid #e6ebf0; border-radius: .3rem;
+  display: grid; grid-template-columns: 1fr 1fr; gap: .15rem .6rem; font-size: .85rem;
+}
+.editar-categorias label { font-weight: normal; margin: 0; }
+
+/* Foto con lápiz y papelera, a la derecha */
+.editar-foto-marco {
+  width: 9rem; height: 9rem; display: flex; align-items: center; justify-content: center;
+  border: 1px solid #e6ebf0; border-radius: .3rem; overflow: hidden; font-size: 2.5rem; color: #c8d2da;
+}
+.editar-foto-marco img { width: 100%; height: 100%; object-fit: contain; }
+.editar-foto-botones { display: flex; justify-content: space-between; margin-top: .3rem; }
+.editar-foto-btn {
+  border: 0; background: transparent; cursor: pointer; font-size: 1rem; padding: .2rem .4rem; margin: 0;
+}
+.editar-foto-btn:hover { background: #eef2f6; border-radius: .3rem; }
+
+.editar-error {
+  grid-column: 1 / -1; margin: 0; padding: .5rem .7rem;
+  border-radius: .3rem; background: #fde8e8; color: #a11d1d; font-size: .88rem;
+}
+
+/* Pantallas angostas: la foto pasa arriba y las etiquetas encima de los campos */
+@media (max-width: 640px) {
+  .editar-cuerpo { grid-template-columns: 1fr; }
+  .editar-foto { order: -1; }
+  .editar-fila, .info-finanzas { grid-template-columns: 1fr; gap: .15rem; }
+}
+
+/* ---------- Ajustes: ganarle a los estilos generales de app.css ----------
+   app.css pone a TODAS las ventanas: label en bloque, inputs al 100 % y
+   botones azules. Con "#modal-editar-producto" delante estas reglas son más
+   específicas y solo afectan a esta ventana. */
+#modal-editar-producto .editar-fila {
+  display: grid; grid-template-columns: 10rem 1fr; align-items: center;
+  gap: .6rem; margin: 0; font-size: .92rem; font-weight: normal;
+}
+#modal-editar-producto .editar-fila-alta { align-items: start; }
+#modal-editar-producto label { margin: 0; font-size: .9rem; font-weight: normal; }
+#modal-editar-producto input[type="checkbox"] {
+  width: auto; margin: 0 .35rem 0 0; padding: 0; vertical-align: middle;
+}
+#modal-editar-producto .editar-fila-check label,
+#modal-editar-producto .editar-categorias label { display: inline-flex; align-items: center; }
+#modal-editar-producto .editar-fila input[type="text"],
+#modal-editar-producto .editar-fila select {
+  margin: 0; border: 0; border-bottom: 1px solid #c8d2da; border-radius: 0;
+  box-shadow: none; background: transparent;
+}
+#modal-editar-producto .editar-fila input[type="text"]:focus,
+#modal-editar-producto .editar-fila select:focus { border-bottom-color: #0a6ebd; box-shadow: none; }
+#modal-editar-producto .editar-iva input { width: 4rem; }
+#modal-editar-producto .editar-foto-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: .3rem;
+  background: transparent; color: inherit; font-size: 1rem; cursor: pointer;
+}
+#modal-editar-producto .editar-foto-btn:hover { background: #eef2f6; }
+#modal-info-producto .info-cerrar,
+#modal-editar-producto .info-cerrar { background: transparent; color: #5c6b78; padding: 0; }
+#modal-info-producto .info-cerrar:hover,
+#modal-editar-producto .info-cerrar:hover { background: #eef2f6; }
+@media (max-width: 640px) {
+  #modal-editar-producto .editar-fila { grid-template-columns: 1fr; gap: .15rem; }
+}
+/* Etiquetas un poco más anchas para que "Nombre del producto *" quepa en una línea,
+   y categorías que se parten en vez de salirse del cuadro */
+#modal-editar-producto .editar-fila { grid-template-columns: 11.5rem 1fr; }
+#modal-editar-producto .editar-categorias { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#modal-editar-producto .editar-categorias label { overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  #modal-editar-producto .editar-fila { grid-template-columns: 1fr; }
+}
+/* Ventana un poco más ancha para que las categorías quepan sin cortar palabras */
+#modal-editar-producto .modal-caja { max-width: 740px; }
+#modal-editar-producto .editar-categorias label { overflow-wrap: normal; }

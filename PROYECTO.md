@@ -173,7 +173,9 @@
 ### 5.9 POS
 - Apertura de caja con conteo por denominación (billetes + monedas). Sale de la **caja menor**; si no alcanza, exige marcar "Permitir sobregiro".
 - **Cambio de precio al vender (Opción B):** cualquier usuario puede cambiarlo con la tecla "Precio", pero al cobrar se pide un **motivo obligatorio**, nunca puede superar el **precio máximo** del producto, y queda en `venta_lineas` (precio_original, motivo_precio) y en la bitácora (`venta_precio_modificado`).
-- **Botón "i"** en cada tarjeta: muestra registro sanitario, precios, IVA, insignias (fórmula, frío, control) y lotes vendibles (FEFO). Admin y DT ven "Editar producto".
+- **Botón "i"** en cada tarjeta (ventana estilo Odoo): franja amarilla (nombre, precio, a la mano, IVA, insignias), **Inventario** (lotes vendibles FEFO + aviso de lotes en cuarentena/bloqueados/vencidos), **Reabastecimiento** (últimas 4 compras aprobadas + stock mínimo) y **Finanzas** de 1 unidad (precio sin IVA, costo = promedio ponderado de lotes, margen sobre precio sin IVA, precio máximo). Ruta `/pos/api/producto/<id>`.
+- **Editar** (solo admin y DT): ventana encima de la "i" con nombre, código de barras, maneja lotes, precio de venta, precio máximo, IVA, categorías, fórmula/control y foto. Ruta `/pos/api/producto/<id>/editar`; valida precio ≤ máximo, código de barras único, control especial con INVIMA; deja bitácora con los cambios; actualiza el carrito si el producto estaba en él.
+- Mientras haya una ventana abierta, el teclado del POS (Enter = cobrar, números) no actúa.
 - Carrito guardado en el navegador por caja (no se pierde al recargar; se borra al cobrar).
 - Pantalla principal con layout de 2 columnas.
 - Menú lateral derecho (drawer) con 8 opciones.
@@ -365,6 +367,7 @@
 - Cambio de precio al vender con motivo + tope de precio máximo + bitácora.
 - Botón "i" con información del producto (nueva ruta `/pos/api/producto/<id>`).
 - Tests ajustados a la regla de caja menor + 9 tests nuevos: **95 tests pasan**.
+- Rediseño de la ventana "i" + ventana "Editar" encima: **104 tests pasan**.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 
 **Sesión anterior:** 2026-10-07. Se completó:

@@ -1,0 +1,107 @@
+<!-- =====================================================================
+     VENTANA "EDITAR PRODUCTO" (se abre ENCIMA de la ventana "i")
+     ---------------------------------------------------------------------
+     Solo existe para administrador y director técnico. Es una edición
+     rápida: el resto de la ficha (INVIMA, laboratorio, usos...) se edita
+     en el módulo Productos. pos_carrito.js (sección 8c) la llena y la
+     envía a /pos/api/producto/<id>/editar.
+     ===================================================================== -->
+{% if g.user.rol in ('administrador', 'director_tecnico') %}
+<div id="modal-editar-producto" class="modal-oculto">
+  <div class="modal-caja modal-editar-producto" role="dialog" aria-labelledby="editar-titulo">
+
+    <div class="info-barra">
+      <h2 id="editar-titulo">Editar producto</h2>
+      <button type="button" class="info-cerrar" id="editar-cerrar" title="Cerrar (Esc)" aria-label="Cerrar">✕</button>
+    </div>
+
+    <form id="form-editar-producto" class="editar-cuerpo" autocomplete="off">
+      <!-- Columna izquierda: los campos -->
+      <div class="editar-campos">
+        <label class="editar-fila">
+          <span>Nombre del producto *</span>
+          <input type="text" name="nombre" id="editar-nombre" required maxlength="200">
+        </label>
+
+        <label class="editar-fila">
+          <span>Código de barras</span>
+          <input type="text" name="codigo_barras" id="editar-codigo-barras" maxlength="50">
+        </label>
+
+        <label class="editar-fila editar-fila-check">
+          <span>Maneja lotes</span>
+          <span><input type="checkbox" name="maneja_vencimiento" id="editar-maneja-lotes" value="1"> Por lote y vencimiento</span>
+        </label>
+
+        <label class="editar-fila">
+          <span>Precio de venta *</span>
+          <input type="text" name="precio_venta" id="editar-precio" inputmode="decimal" required>
+        </label>
+
+        <label class="editar-fila">
+          <span>Precio máximo</span>
+          <input type="text" name="precio_maximo" id="editar-precio-maximo" inputmode="decimal" placeholder="Sin tope">
+        </label>
+
+        <div class="editar-fila">
+          <span>IVA</span>
+          <span class="editar-iva">
+            <select name="iva_tipo" id="editar-iva-tipo">
+              <option value="excluido">Excluido (0 %)</option>
+              <option value="exento">Exento (0 %)</option>
+              <option value="gravado">Gravado</option>
+            </select>
+            <!-- La tarifa solo se ve si el producto es "gravado" -->
+            <input type="text" name="iva_tarifa" id="editar-iva-tarifa" inputmode="decimal" placeholder="19" size="4">
+            <span id="editar-iva-porcentaje">%</span>
+          </span>
+        </div>
+
+        <div class="editar-fila editar-fila-alta">
+          <span>Categorías</span>
+          <!-- Lista con casillas: se pueden marcar varias -->
+          <div class="editar-categorias" id="editar-categorias">
+            {% for c in categorias %}
+              <label><input type="checkbox" name="categorias" value="{{ c['id'] }}"> {{ c['nombre'] }}</label>
+            {% else %}
+              <span class="suave">No hay categorías creadas.</span>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="editar-fila editar-fila-check">
+          <span>Control</span>
+          <span>
+            <label><input type="checkbox" name="requiere_formula" id="editar-formula" value="1"> Requiere fórmula</label>
+            <label><input type="checkbox" name="control_especial" id="editar-control" value="1"> Control especial</label>
+          </span>
+        </div>
+      </div>
+
+      <!-- Columna derecha: la foto -->
+      <div class="editar-foto">
+        <div class="editar-foto-marco" id="editar-foto-marco">
+          <img id="editar-foto-img" alt="" hidden>
+          <span id="editar-foto-vacia">💊</span>
+        </div>
+        <div class="editar-foto-botones">
+          <!-- El lápiz abre el selector de archivos (input oculto) -->
+          <label class="editar-foto-btn" title="Cambiar foto">✏️
+            <input type="file" name="imagen" id="editar-foto-archivo" accept="image/*" hidden>
+          </label>
+          <button type="button" class="editar-foto-btn" id="editar-foto-borrar" title="Quitar foto">🗑</button>
+        </div>
+        <input type="hidden" name="imagen_accion" id="editar-foto-accion" value="">
+      </div>
+
+      <!-- Aquí aparecen los errores que devuelva el servidor -->
+      <p id="editar-error" class="editar-error" hidden></p>
+    </form>
+
+    <div class="info-pie">
+      <button type="button" class="boton" id="editar-guardar">Guardar</button>
+      <button type="button" class="boton secundario" id="editar-descartar">Descartar</button>
+    </div>
+  </div>
+</div>
+{% endif %}
