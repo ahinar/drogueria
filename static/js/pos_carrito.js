@@ -60,8 +60,10 @@
     ultima: $('url-ultima-venta') && $('url-ultima-venta').value,
     inventario: $('url-inventario') && $('url-inventario').value,
     estaticos: ($('url-static-base') && $('url-static-base').value) || '/static/',
-    productoInfo: ($('url-api-producto-info') && $('url-api-producto-info').value) || '/pos/api/producto/',
-    productoEditar: ($('url-producto-editar') && $('url-producto-editar').value) || '/productos/',
+    // Termina en /0: JS cambia ese 0 por el id del producto (ver abrirInfoProducto)
+    productoInfo: ($('url-api-producto-info') && $('url-api-producto-info').value) || '/pos/api/producto/0',
+    // Vacío = este usuario no puede editar productos (solo administrador / director técnico)
+    productoEditar: ($('url-producto-editar') && $('url-producto-editar').value) || '',
   };
   if (!URL.productos || !URL.cobrar) return;
 
@@ -86,8 +88,13 @@
     if (guardado) carrito = JSON.parse(guardado) || [];
   } catch (e) { carrito = []; }
 
+  // Guarda una copia del carrito en el navegador para no perderlo si se recarga la página.
+  // Si el carrito está vacío no guardamos nada (así no quedan restos de ventas ya cobradas).
   function guardarCarrito() {
-    try { localStorage.setItem(CLAVE_CARRITO, JSON.stringify(carrito)); } catch (e) {}
+    try {
+      if (carrito.length) localStorage.setItem(CLAVE_CARRITO, JSON.stringify(carrito));
+      else localStorage.removeItem(CLAVE_CARRITO);
+    } catch (e) { /* si el navegador no deja guardar, seguimos sin guardar */ }
   }
   function limpiarCarrito() {
     carrito = [];
@@ -338,6 +345,9 @@
   // ---------------------------------------------------------------
   // 6b. TECLADO FÍSICO GLOBAL
   // ---------------------------------------------------------------
+  // Si el foco NO está en un input, capturamos las teclas y las
+  // dirigimos al carrito/numpad. Esto permite usar el teclado numérico
+  // físico sin que el texto vaya a la barra de búsqueda.
   document.addEventListener('keydown', (e) => {
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
@@ -345,21 +355,444 @@
 
     const key = e.key;
 
+    // F2 = cobrar · F3 = enfocar buscador
     if (key === 'F2') { e.preventDefault(); if (carrito.length) abrirPago(); return; }
     if (key === 'F3') { e.preventDefault(); inputBusqueda.focus(); return; }
 
+    // Enter = cobrar
     if (key === 'Enter') { e.preventDefault(); if (carrito.length) abrirPago(); return; }
 
+    // Escape = deseleccionar
     if (key === 'Escape') {
       seleccionado = -1; pintarCarrito();
+      document.querySelectorAll('.modal-oculto').forEach(m => {});
       return;
     }
 
+    // Backspace = borrar dígito o reducir cantidad
     if (key === 'Backspace') {
       e.preventDefault();
       const it = carrito[seleccionado];
       if (escribiendo && buffer) {
+        // Borrar último dígito del número que se está escribiendo
         buffer = buffer.slice(0, -1);
         if (it) {
           let valor = parseFloat(buffer) || 0;
-          if (modo === 'cantidad') it.c
+          if (modo === 'cantidad') it.cantidad = Math.max(1, valor);
+          else if (modo === 'precio') it.precio = Math.max(0, valor);
+          else it.descuento_pct = Math.min(100, Math.max(0, valor));
+        }
+        pintarCarrito();
+      } else if (it) {
+        // Reducir cantidad. Si queda en 0, preguntar para eliminar.
+        if (it.cantidad > 1) {
+          it.cantidad -= 1;
+          pintarCarrito();
+        } else if (confirm('¿Quitar "' + it.nombre + '" del carrito?')) {
+          carrito.splice(seleccionado, 1);
+          seleccionado = -1;
+          pintarCarrito();
+        }
+      }
+      return;
+    }
+
+    // Delete / Supr = eliminar producto seleccionado
+    if (key === 'Delete') {
+      e.preventDefault();
+      const it = carrito[seleccionado];
+      if (it && confirm('¿Quitar "' + it.nombre + '" del carrito?')) {
+        carrito.splice(seleccionado, 1);
+        seleccionado = -1;
+        pintarCarrito();
+      }
+      return;
+    }
+
+    // + = aumentar cantidad
+    if (key === '+' || key === '=') {
+      e.preventDefault();
+      const it = carrito[seleccionado];
+      if (it) {
+        if (it.cantidad + 1 > it.stock) aviso('Solo hay ' + (+it.stock.toFixed(2)) + ' disponible(s).');
+        else { it.cantidad += 1; pintarCarrito(); }
+      }
+      return;
+    }
+
+    // - = disminuir cantidad
+    if (key === '-' || key === '_') {
+      e.preventDefault();
+      const it = carrito[seleccionado];
+      if (it && it.cantidad > 1) { it.cantidad -= 1; pintarCarrito(); }
+      return;
+    }
+
+    // Números y punto = ir al numpad
+    if (/^[0-9]$/.test(key) || key === '.' || key === ',') {
+      e.preventDefault();
+      teclear(key === ',' ? '.' : key);
+      return;
+    }
+  });
+
+  // ---------------------------------------------------------------
+  // 7. COBRAR
+  // ---------------------------------------------------------------
+  const modalPago = $('modal-pago');
+
+  // ¿El cajero cambió el precio de esta línea respecto al precio normal?
+  function cambioDePrecio(it) {
+    return it.precio_original != null && Math.abs(it.precio - it.precio_original) > 0.01;
+  }
+
+  // Opción B: cualquiera puede cambiar un precio, pero SIEMPRE con un motivo.
+  // Recorre el carrito y, por cada precio cambiado que aún no tenga motivo,
+  // lo pregunta. Devuelve false si el cajero cancela (entonces no se cobra).
+  function pedirMotivosDePrecio() {
+    for (const it of carrito) {
+      if (!cambioDePrecio(it)) { it.motivo_precio = null; continue; }
+      if (!(it.precio > 0)) {
+        aviso('"' + it.nombre + '" quedó con precio 0. Corrígelo antes de cobrar.');
+        return false;
+      }
+      // Si ya dio un motivo para ESTE mismo precio, no se lo volvemos a pedir.
+      if (it.motivo_precio && it.motivo_precio_valor === it.precio) continue;
+      const motivo = prompt(
+        'Cambiaste el precio de "' + it.nombre + '"\n' +
+        'de ' + peso(it.precio_original) + ' a ' + peso(it.precio) + '.\n\n' +
+        'Motivo del cambio (obligatorio):', '');
+      if (motivo === null || motivo.trim().length < 3) {
+        aviso('Sin motivo no se puede cambiar un precio.');
+        return false;
+      }
+      it.motivo_precio = motivo.trim();
+      it.motivo_precio_valor = it.precio;   // recordamos para qué precio fue el motivo
+    }
+    guardarCarrito();
+    return true;
+  }
+
+  function abrirPago() {
+    if (carrito.some((i) => !(i.cantidad > 0))) {
+      aviso('Hay un producto con cantidad 0. Corrígelo o quítalo.');
+      return;
+    }
+    if (!carrito.length) return;
+    if (!pedirMotivosDePrecio()) return;
+    $('pago-total').textContent = peso(totalVenta());
+    $('pago-form').style.display = '';
+    $('pago-exito').style.display = 'none';
+    $('pago-error').style.display = 'none';
+    $('pago-recibido').value = '';
+    elegirForma('efectivo');
+    actualizarCambio();
+    modalPago.classList.remove('modal-oculto');
+    $('pago-recibido').focus();
+  }
+
+  function cerrarPago() { modalPago.classList.add('modal-oculto'); inputBusqueda.focus(); }
+
+  function elegirForma(forma) {
+    formaPago = forma;
+    document.querySelectorAll('.pos-pago-metodo').forEach((b) => {
+      b.classList.toggle('activo', b.dataset.forma === forma);
+    });
+    $('pago-efectivo').style.display = forma === 'efectivo' ? '' : 'none';
+  }
+
+  function actualizarCambio() {
+    const recibido = parseFloat($('pago-recibido').value);
+    const cambio = isNaN(recibido) ? 0 : recibido - totalVenta();
+    $('pago-cambio').textContent = cambio >= 0 ? peso(cambio) : 'Falta ' + peso(-cambio);
+  }
+
+  async function confirmarVenta() {
+    if (cobrando) return;
+    const errorBox = $('pago-error');
+    errorBox.style.display = 'none';
+
+    const datos = new FormData();
+    datos.append('_csrf', csrf());
+    // Por cada producto mandamos solo lo necesario. El precio normal NO se manda:
+    // lo pone el servidor. Solo si el cajero lo cambió viajan precio_nuevo y motivo_precio.
+    datos.append('carrito', JSON.stringify(carrito.map((i) => {
+      const linea = { producto_id: i.producto_id, cantidad: i.cantidad, descuento_pct: i.descuento_pct };
+      if (cambioDePrecio(i)) {
+        linea.precio_nuevo = i.precio;
+        linea.motivo_precio = i.motivo_precio;
+      }
+      return linea;
+    })));
+    datos.append('forma_pago', formaPago);
+    if (formaPago === 'efectivo') datos.append('monto_recibido', $('pago-recibido').value);
+    datos.append('cliente_nombre', cliente.nombre);
+    datos.append('cliente_documento', cliente.documento);
+    datos.append('observaciones', nota);
+
+    cobrando = true;
+    $('pago-confirmar').disabled = true;
+    try {
+      const resp = await fetch(URL.cobrar, { method: 'POST', body: datos, credentials: 'same-origin' });
+      const json = await resp.json();
+      if (!json.ok) {
+        errorBox.textContent = json.error || 'No se pudo registrar la venta.';
+        errorBox.style.display = 'block';
+        buscar(false);
+        return;
+      }
+      $('exito-consecutivo').textContent = json.consecutivo + ' · ' + peso(json.total);
+      $('exito-cambio').textContent = peso(json.cambio);
+      $('exito-cambio-linea').style.display = json.cambio > 0 ? '' : 'none';
+      $('exito-comprobante').href = json.url_comprobante;
+      $('pago-form').style.display = 'none';
+      $('pago-exito').style.display = '';
+      limpiarCarrito();   // vacía el carrito Y borra la copia guardada en el navegador
+      cliente = { nombre: '', documento: '' }; nota = '';
+      pintarCarrito();
+      buscar(false);
+    } catch (e) {
+      errorBox.textContent = 'Error de conexión: ' + e.message;
+      errorBox.style.display = 'block';
+    } finally {
+      cobrando = false;
+      $('pago-confirmar').disabled = false;
+    }
+  }
+
+  btnPago.addEventListener('click', abrirPago);
+  $('pago-cancelar').addEventListener('click', cerrarPago);
+  $('pago-confirmar').addEventListener('click', confirmarVenta);
+  $('exito-nueva').addEventListener('click', cerrarPago);
+  $('pago-recibido').addEventListener('input', actualizarCambio);
+  document.querySelectorAll('.pos-pago-metodo').forEach((b) => {
+    b.addEventListener('click', () => elegirForma(b.dataset.forma));
+  });
+  $('pago-rapidos').addEventListener('click', (e) => {
+    const monto = e.target.dataset.monto;
+    if (!monto) return;
+    $('pago-recibido').value = monto === 'exacto' ? totalVenta() : monto;
+    actualizarCambio();
+  });
+
+  // ---------------------------------------------------------------
+  // 8. CLIENTE, NOTA, MENÚ LATERAL Y GASTO
+  // ---------------------------------------------------------------
+  function pedirCliente() {
+    const nombre = prompt('Nombre del cliente (vacío = Consumidor final):', cliente.nombre);
+    if (nombre === null) return;
+    const doc = prompt('Documento del cliente (opcional):', cliente.documento);
+    cliente = { nombre: nombre.trim(), documento: (doc || '').trim() };
+    aviso(cliente.nombre ? 'Cliente: ' + cliente.nombre : 'Consumidor final');
+  }
+  function pedirNota() {
+    const texto = prompt('Nota de la venta:', nota);
+    if (texto !== null) nota = texto.trim();
+  }
+  $('btn-cliente').addEventListener('click', pedirCliente);
+  $('btn-nota').addEventListener('click', pedirNota);
+
+  // ----- Modal de gasto -----
+  const modalGasto = $('modal-gasto');
+  const formGasto = $('form-gasto');
+  const gastoError = $('gasto-error');
+  const gastoFormaPago = $('gasto-forma-pago');
+  const gastoOrigenWrap = $('gasto-origen-wrap');
+
+  function abrirModalGasto() {
+    if (!modalGasto) return;
+    formGasto.reset();
+    gastoError.style.display = 'none';
+    gastoOrigenWrap.style.display = '';
+    modalGasto.classList.remove('modal-oculto');
+    setTimeout(() => {
+      const primero = formGasto.querySelector('select');
+      if (primero) primero.focus();
+    }, 50);
+  }
+
+  function cerrarModalGasto() {
+    if (modalGasto) modalGasto.classList.add('modal-oculto');
+  }
+
+  if (gastoFormaPago) {
+    gastoFormaPago.addEventListener('change', function () {
+      const esEfectivo = gastoFormaPago.value === 'efectivo';
+      gastoOrigenWrap.style.display = esEfectivo ? '' : 'none';
+    });
+  }
+
+  if ($('gasto-cancelar')) {
+    $('gasto-cancelar').addEventListener('click', cerrarModalGasto);
+  }
+  if (modalGasto) {
+    modalGasto.addEventListener('click', (e) => {
+      if (e.target === modalGasto) cerrarModalGasto();
+    });
+  }
+
+  if ($('gasto-guardar')) {
+    $('gasto-guardar').addEventListener('click', async function () {
+      const datos = new FormData(formGasto);
+      datos.append('_csrf', csrf());
+      // Si la forma no es efectivo, forzamos origen="ninguna"
+      if (gastoFormaPago.value !== 'efectivo') {
+        datos.set('origen', 'ninguna');
+      }
+      gastoError.style.display = 'none';
+      try {
+        const resp = await fetch(URL.gasto, { method: 'POST', body: datos, credentials: 'same-origin' });
+        const json = await resp.json();
+        if (!json.ok) {
+          gastoError.textContent = json.error || 'No se pudo guardar.';
+          gastoError.style.display = 'block';
+          return;
+        }
+        cerrarModalGasto();
+        aviso('Gasto registrado.');
+      } catch (e) {
+        gastoError.textContent = 'Error: ' + e.message;
+        gastoError.style.display = 'block';
+      }
+    });
+  }
+
+  document.querySelectorAll('.pos-drawer-item').forEach((b) => {
+    b.addEventListener('click', () => {
+      const accion = b.dataset.accion;
+      const cerrar = () => { const d = $('pos-drawer'); if (d) d.setAttribute('hidden', ''); };
+      if (accion === 'ultimas-ventas') window.location.href = URL.ventas;
+      else if (accion === 'reimprimir') window.open(URL.ultima, '_blank');
+      else if (accion === 'consulta-inventario') window.location.href = URL.inventario;
+      else if (accion === 'cliente') { cerrar(); pedirCliente(); }
+      else if (accion === 'nota') { cerrar(); pedirNota(); }
+      else if (accion === 'registrar-gasto') { cerrar(); abrirModalGasto(); }
+    });
+  });
+
+  // ---------------------------------------------------------------
+  // 8b. INFORMACIÓN DEL PRODUCTO (botón "i" de cada tarjeta)
+  // ---------------------------------------------------------------
+  const modalInfo = $('modal-info-producto');
+
+  function cerrarInfoProducto() {
+    if (modalInfo) modalInfo.classList.add('modal-oculto');
+    inputBusqueda.focus();
+  }
+
+  // "2028-05-01" -> "01/05/2028"  (formato que usamos en Colombia)
+  function fechaCorta(iso) {
+    if (!iso) return '—';
+    const p = String(iso).slice(0, 10).split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+  }
+
+  async function abrirInfoProducto(id) {
+    if (!modalInfo) return;
+    $('info-nombre').textContent = 'Cargando…';
+    $('info-subtitulo').textContent = '';
+    $('info-cuerpo').innerHTML = '';
+    modalInfo.classList.remove('modal-oculto');
+    try {
+      // La dirección termina en /0; cambiamos ese 0 por el id del producto
+      const resp = await fetch(URL.productoInfo.replace(/0$/, String(id)), { credentials: 'same-origin' });
+      const json = await resp.json();
+      if (!json.ok) { $('info-nombre').textContent = json.error || 'No se pudo cargar.'; return; }
+      const p = json.producto;
+
+      $('info-nombre').textContent = p.nombre;
+      $('info-subtitulo').textContent =
+        [p.concentracion, p.forma, p.laboratorio].filter(Boolean).join(' · ');
+
+      // Insignias de advertencia (fórmula, frío, control especial)
+      const insignias = [
+        p.requiere_formula ? '<span class="info-insignia">📋 Requiere fórmula</span>' : '',
+        p.cadena_frio ? '<span class="info-insignia">❄️ Cadena de frío</span>' : '',
+        p.control_especial ? '<span class="info-insignia info-insignia-roja">🔒 Control especial</span>' : '',
+      ].join('');
+
+      // Cada fila de la tabla: [etiqueta, valor]. Se omiten las que no tienen valor.
+      const filas = [
+        ['Código', p.codigo],
+        ['Código de barras', p.codigo_barras],
+        ['Principio activo', p.principio_activo],
+        ['Registro sanitario', p.registro_sanitario
+          ? p.registro_sanitario + (p.registro_vence ? ' (vence ' + fechaCorta(p.registro_vence) + ')' : '') : ''],
+        ['Precio de venta', peso(p.precio)],
+        ['Precio máximo', p.precio_maximo > 0 ? peso(p.precio_maximo) : ''],
+        ['IVA', p.iva_tipo === 'gravado' ? p.iva_tarifa + ' %' : (p.iva_tipo || '')],
+        ['Disponible para vender', +p.stock.toFixed(2) + ' unidades'],
+        ['Observaciones', p.observaciones],
+      ].filter((f) => f[1]);
+
+      const tabla = '<table class="info-tabla">' + filas.map((f) =>
+        '<tr><th>' + esc(f[0]) + '</th><td>' + esc(f[1]) + '</td></tr>').join('') + '</table>';
+
+      // Lotes que hoy se pueden vender; el que vence primero sale primero (FEFO)
+      const lotes = p.lotes.length
+        ? '<h3 class="info-subtitulo-lotes">Lotes disponibles</h3>' +
+          '<table class="info-tabla">' +
+          '<tr><th>Lote</th><th>Vence</th><th>Cantidad</th></tr>' +
+          p.lotes.map((l) => '<tr><td>' + esc(l.lote) + '</td><td>' + fechaCorta(l.vencimiento) +
+            '</td><td>' + (+l.cantidad.toFixed(2)) + '</td></tr>').join('') +
+          '</table>'
+        : '<p class="suave">No hay lotes disponibles para vender.</p>';
+
+      $('info-cuerpo').innerHTML = (insignias ? '<div class="info-insignias">' + insignias + '</div>' : '') + tabla + lotes;
+
+      // Enlace "Editar producto": solo si este usuario tiene permiso (la plantilla lo indica)
+      const enlace = $('info-editar');
+      if (enlace) {
+        enlace.style.display = URL.productoEditar ? '' : 'none';
+        if (URL.productoEditar) enlace.href = URL.productoEditar.replace('/0/', '/' + id + '/');
+      }
+    } catch (e) {
+      $('info-nombre').textContent = 'Error de conexión: ' + e.message;
+    }
+  }
+
+  if (modalInfo) {
+    $('info-cerrar').addEventListener('click', cerrarInfoProducto);
+    // Clic en el fondo oscuro (fuera de la caja) también cierra
+    modalInfo.addEventListener('click', (e) => { if (e.target === modalInfo) cerrarInfoProducto(); });
+    // La tecla Escape también cierra la ventana
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modalInfo.classList.contains('modal-oculto')) cerrarInfoProducto();
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // 9. ARRANQUE
+  // ---------------------------------------------------------------
+  let temporizador = null;
+  inputBusqueda.addEventListener('input', () => {
+    clearTimeout(temporizador);
+    temporizador = setTimeout(() => buscar(false), 250);
+  });
+  inputBusqueda.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); clearTimeout(temporizador); buscar(true); }
+  });
+
+  grid.addEventListener('click', (e) => {
+    // Si tocaron la "i", mostramos la información y NO agregamos al carrito
+    const botonInfo = e.target.closest('.pos-card-info-btn');
+    if (botonInfo) { e.stopPropagation(); abrirInfoProducto(+botonInfo.dataset.infoId); return; }
+    const tarjeta = e.target.closest('.pos-card');
+    if (!tarjeta) return;
+    const prod = productosMostrados.find((p) => p.id === +tarjeta.dataset.id);
+    if (prod) agregar(prod);
+    inputBusqueda.focus();
+  });
+
+  $('pos-categorias').addEventListener('click', (e) => {
+    const boton = e.target.closest('.pos-cat');
+    if (!boton) return;
+    document.querySelectorAll('.pos-cat').forEach((b) => b.classList.remove('activo'));
+    boton.classList.add('activo');
+    categoria = boton.dataset.cat;
+    buscar(false);
+  });
+
+  pintarCarrito();
+  buscar(false);
+})();

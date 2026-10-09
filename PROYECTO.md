@@ -171,7 +171,10 @@
 - Reporte de semáforo de vencimientos.
 
 ### 5.9 POS
-- Apertura de caja con conteo por denominación (billetes + monedas).
+- Apertura de caja con conteo por denominación (billetes + monedas). Sale de la **caja menor**; si no alcanza, exige marcar "Permitir sobregiro".
+- **Cambio de precio al vender (Opción B):** cualquier usuario puede cambiarlo con la tecla "Precio", pero al cobrar se pide un **motivo obligatorio**, nunca puede superar el **precio máximo** del producto, y queda en `venta_lineas` (precio_original, motivo_precio) y en la bitácora (`venta_precio_modificado`).
+- **Botón "i"** en cada tarjeta: muestra registro sanitario, precios, IVA, insignias (fórmula, frío, control) y lotes vendibles (FEFO). Admin y DT ven "Editar producto".
+- Carrito guardado en el navegador por caja (no se pierde al recargar; se borra al cobrar).
 - Pantalla principal con layout de 2 columnas.
 - Menú lateral derecho (drawer) con 8 opciones.
 - Movimientos de caja (ingreso / salida) para efectivo, Nequi, Davivienda.
@@ -272,7 +275,7 @@
 ## 8. Pendientes por hacer
 
 ### Inmediatos
-- [ ] Terminar el carrito funcional del POS (agregar producto, cobrar, comprobante).
+- [x] Carrito funcional del POS (agregar producto, cobrar, comprobante).
 - [ ] Probar el importador con el Excel real (1500+ productos).
 - [ ] Inventario inicial (cargar stock real de la droguería).
 - [ ] Módulo de gastos discriminados.
@@ -329,6 +332,9 @@
 | 12 | cajas, ventas, venta_lineas |
 | 13 | detalle_apertura y detalle_cierre en cajas |
 | 14 | caja_movimientos |
+| 15 | gastos |
+| 16 | caja_menor_movimientos (fondo permanente) |
+| 17 | precio_original y motivo_precio en venta_lineas (cambio de precio al vender) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -339,7 +345,7 @@
 - [x] 1.4 Inventario por lote
 - [~] 1.5a Importador (código listo, sin probar con Excel real)
 - [ ] 1.5b Inventario inicial
-- [~] 2.1 POS (apertura, cierre, movimientos listos; falta carrito)
+- [x] 2.1 POS (caja, carrito, cobro, anulación, cambio de precio con motivo, botón "i")
 - [ ] 2.2 Gastos discriminados
 - [ ] 2.3 Utilidades
 - [ ] 2.4 Estado de resultados
@@ -354,7 +360,14 @@
 - [ ] Fase 6: IA
 - [ ] Fase 7: Empaquetado
 
-**Última sesión:** 2026-10-07. Se completó:
+**Última sesión:** 2026-10-09 (tarde). Se completó:
+- **Reparación:** el commit "ultimo" dejó cortados `app/pos.py` (de 776 a 108 líneas), `static/js/pos_carrito.js` y `static/css/pos_nuevo.css` (se guardaron a medias). Se restauraron desde el commit `9b1f54a` y se le sumaron los cambios nuevos.
+- Cambio de precio al vender con motivo + tope de precio máximo + bitácora.
+- Botón "i" con información del producto (nueva ruta `/pos/api/producto/<id>`).
+- Tests ajustados a la regla de caja menor + 9 tests nuevos: **95 tests pasan**.
+- Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
+
+**Sesión anterior:** 2026-10-07. Se completó:
 - Sistema de imágenes (cualquier formato) con logo en login, sidebar y PDFs.
 - Rediseño del dashboard con KPIs y alertas reales.
 - Módulo de inventario por lote con kardex y semáforo.

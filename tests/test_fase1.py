@@ -154,11 +154,29 @@ class TestRecepcion(BaseFase1):
 
 
 class TestCaja(BaseFase1):
-    def abrir(self, monto="50000"):
-        return self.post(self.c, "/pos/abrir-caja", {"efectivo_inicial": monto})
+    def abrir(self, monto="50000", confirmar=True):
+        # La caja menor empieza en $0, así que abrir con efectivo exige confirmar
+        # el "sobregiro". Los tests lo confirman, igual que haría un cajero real.
+        datos = {"efectivo_inicial": monto}
+        if confirmar:
+            datos["confirmar_sobregiro"] = "1"
+        return self.post(self.c, "/pos/abrir-caja", datos)
 
     def mov(self, tipo, monto, forma="efectivo"):
         return self.post(self.c, "/pos/api/movimiento", {"tipo": tipo, "monto": monto, "forma_pago": forma, "motivo": "prueba"})
+
+    def test_abrir_sin_fondo_en_caja_menor_pide_confirmar_sobregiro(self):
+        """Sin saldo en caja menor y sin confirmar, la caja NO se abre."""
+        self.abrir(confirmar=False)
+        self.assertEqual(self.uno("SELECT COUNT(*) n FROM cajas")["n"], 0)
+
+    def test_abrir_con_fondo_en_caja_menor_no_pide_confirmacion(self):
+        """Con saldo suficiente (aporte previo) abre sin confirmar y lo descuenta."""
+        self.post(self.c, "/caja-menor/aporte", {"monto": "100000", "motivo": "fondo de prueba"})
+        self.abrir(monto="50000", confirmar=False)
+        self.assertEqual(self.uno("SELECT COUNT(*) n FROM cajas")["n"], 1)
+        mov = self.uno("SELECT tipo, monto FROM caja_menor_movimientos WHERE tipo = 'apertura_pos'")
+        self.assertEqual((mov["tipo"], mov["monto"]), ("apertura_pos", 50000))
 
     def test_abrir_caja_y_solo_una_a_la_vez(self):
         self.abrir()

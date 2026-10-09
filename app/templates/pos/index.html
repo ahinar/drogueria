@@ -152,6 +152,14 @@
 <input type="hidden" id="url-static-base" value="{{ url_for('static', filename='') }}">
 <input type="hidden" id="url-cierre-confirmacion" value="{{ url_for('pos.cierre_confirmacion', caja_id=0) }}">
 <input type="hidden" id="url-api-gasto" value="{{ url_for('pos.api_gasto') }}">
+<!-- Número de la caja: el carrito guardado en el navegador se separa por caja -->
+<input type="hidden" id="pos-caja-id" value="{{ caja['id'] }}">
+<!-- Información del producto (botón "i"). Termina en /0: JS cambia el 0 por el id -->
+<input type="hidden" id="url-api-producto-info" value="{{ url_for('pos.api_producto_info', producto_id=0) }}">
+{% if g.user.rol in ('administrador', 'director_tecnico') %}
+<!-- Solo estos roles pueden editar productos; los demás no ven el enlace -->
+<input type="hidden" id="url-producto-editar" value="{{ url_for('productos.editar', prod_id=0) }}">
+{% endif %}
 
 {% endblock %}
 
@@ -161,6 +169,7 @@
 {% include "pos/_modal_conteo.html" %}
 {% include "pos/_modal_pago.html" %}
 {% include "pos/_modal_gasto.html" %}
+{% include "pos/_modal_info_producto.html" %}
 {% endblock %}
 
 {% block scripts_extra %}

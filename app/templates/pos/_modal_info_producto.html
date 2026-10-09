@@ -1,4 +1,5 @@
 <!-- ============ MODAL INFO DE PRODUCTO (i) ============ -->
+<!-- JS (pos_carrito.js, sección 8b) rellena los textos al abrirlo -->
 <div id="modal-info-producto" class="modal-oculto">
   <div class="modal-caja modal-info-producto">
     <div class="info-head">
@@ -6,4 +7,15 @@
         <h2 id="info-nombre">Cargando…</h2>
         <p id="info-subtitulo" class="suave" style="margin:.15rem 0 0"></p>
       </div>
-      <button type="button" class="info
+      <button type="button" class="info-cerrar" id="info-cerrar" title="Cerrar" aria-label="Cerrar">✕</button>
+    </div>
+
+    <!-- Aquí JS dibuja las insignias, la tabla de datos y la tabla de lotes -->
+    <div id="info-cuerpo"></div>
+
+    <div class="info-pie">
+      <!-- Solo se muestra si el usuario puede editar productos (JS lo decide) -->
+      <a id="info-editar" class="boton secundario" href="#" style="display:none" target="_blank">✏️ Editar producto</a>
+    </div>
+  </div>
+</div>

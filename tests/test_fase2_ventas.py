@@ -40,7 +40,9 @@ class BaseVentas(BaseFase1):
         con.close()
 
     def abrir_caja(self, monto="10000"):
-        return self.post(self.c, "/pos/abrir-caja", {"efectivo_inicial": monto})
+        # confirmar_sobregiro: la caja menor de pruebas está en $0 (ver BaseFase1.abrir)
+        return self.post(self.c, "/pos/abrir-caja",
+                         {"efectivo_inicial": monto, "confirmar_sobregiro": "1"})
 
     def cobrar(self, carrito, forma="efectivo", recibido="", cliente=None, cliente_obj=None):
         datos = {"carrito": json.dumps(carrito), "forma_pago": forma, "monto_recibido": recibido}
@@ -170,6 +172,77 @@ class TestCobrar(BaseVentas):
         self.abrir_caja()
         self.cobrar([{"producto_id": 1, "cantidad": 1}])
         self.assertIsNotNone(self.uno("SELECT 1 FROM bitacora WHERE accion = 'venta_creada'"))
+
+
+class TestCambioDePrecio(BaseVentas):
+    """Opción B: cualquier cajero puede cambiar el precio, con motivo, y queda en bitácora."""
+
+    def test_cambio_con_motivo_se_cobra_y_se_registra(self):
+        self.lote(1, "L1", FUTURO, 10)
+        self.abrir_caja()
+        j = self.cobrar([{"producto_id": 1, "cantidad": 2, "precio_nuevo": 800,
+                          "motivo_precio": "Cliente frecuente"}]).get_json()
+        self.assertTrue(j["ok"], j)
+        self.assertEqual(j["total"], 1600)   # 2 x $800, no 2 x $1.000
+        linea = self.uno("SELECT precio_unitario, precio_original, motivo_precio FROM venta_lineas")
+        self.assertEqual((linea["precio_unitario"], linea["precio_original"]), (800, 1000))
+        self.assertEqual(linea["motivo_precio"], "Cliente frecuente")
+        self.assertIsNotNone(self.uno("SELECT 1 FROM bitacora WHERE accion = 'venta_precio_modificado'"))
+
+    def test_sin_motivo_se_rechaza_y_no_guarda_nada(self):
+        self.lote(1, "L1", FUTURO, 10)
+        self.abrir_caja()
+        j = self.cobrar([{"producto_id": 1, "cantidad": 1, "precio_nuevo": 800}]).get_json()
+        self.assertFalse(j["ok"])
+        self.assertEqual(self.uno("SELECT COUNT(*) n FROM ventas")["n"], 0)
+        self.assertEqual(self.stock(1), 10)
+
+    def test_no_se_puede_superar_el_precio_maximo(self):
+        con = self.db()
+        con.execute("UPDATE productos SET precio_maximo = 1200 WHERE id = 1")
+        con.commit()
+        con.close()
+        self.lote(1, "L1", FUTURO, 10)
+        self.abrir_caja()
+        j = self.cobrar([{"producto_id": 1, "cantidad": 1, "precio_nuevo": 1500,
+                          "motivo_precio": "prueba"}]).get_json()
+        self.assertFalse(j["ok"])
+        ok = self.cobrar([{"producto_id": 1, "cantidad": 1, "precio_nuevo": 1200,
+                           "motivo_precio": "prueba"}]).get_json()
+        self.assertTrue(ok["ok"], ok)   # justo en el tope sí se permite
+
+    def test_precio_nuevo_igual_al_original_no_cuenta_como_cambio(self):
+        self.lote(1, "L1", FUTURO, 10)
+        self.abrir_caja()
+        j = self.cobrar([{"producto_id": 1, "cantidad": 1, "precio_nuevo": 1000}]).get_json()
+        self.assertTrue(j["ok"], j)   # no pide motivo porque el precio no cambió
+        self.assertIsNone(self.uno("SELECT 1 FROM bitacora WHERE accion = 'venta_precio_modificado'"))
+        self.assertIsNone(self.uno("SELECT motivo_precio FROM venta_lineas")["motivo_precio"])
+
+    def test_precio_nuevo_invalido(self):
+        self.lote(1, "L1", FUTURO, 10)
+        self.abrir_caja()
+        for malo in ("abc", 0, -5):
+            j = self.cobrar([{"producto_id": 1, "cantidad": 1, "precio_nuevo": malo,
+                              "motivo_precio": "prueba"}]).get_json()
+            self.assertFalse(j["ok"], malo)
+
+
+class TestInfoProducto(BaseVentas):
+    """Botón "i" del POS: datos del producto y sus lotes vendibles."""
+
+    def test_info_trae_datos_y_solo_lotes_vendibles(self):
+        self.lote(1, "BUENO", FUTURO, 7)
+        self.lote(1, "VENCIDO", PASADO, 50)
+        self.lote(1, "BLOQ", FUTURO, 50, estado="bloqueado")
+        r = self.c.get("/pos/api/producto/1")
+        self.assertEqual(r.status_code, 200)
+        p = r.get_json()["producto"]
+        self.assertEqual((p["id"], p["precio"], p["stock"]), (1, 1000, 7))
+        self.assertEqual([l["lote"] for l in p["lotes"]], ["BUENO"])
+
+    def test_info_de_producto_inexistente(self):
+        self.assertEqual(self.c.get("/pos/api/producto/9999").status_code, 404)
 
 
 class TestAnular(BaseVentas):
