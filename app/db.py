@@ -9,11 +9,9 @@ from pathlib import Path
 
 from flask import current_app, g
 
-
 def ahora() -> str:
     """Fecha y hora local del servidor (siempre la misma fuente para ambos PCs)."""
     return datetime.now().isoformat(sep=" ", timespec="seconds")
-
 
 MIGRATIONS = [
     (
@@ -358,19 +356,19 @@ MIGRATIONS = [
         ALTER TABLE recepcion_lineas ADD COLUMN clasificacion_defecto TEXT;
         """,
     ),
-        (
+    (
         10,
         """
         ALTER TABLE productos ADD COLUMN creado_en_importacion INTEGER NOT NULL DEFAULT 0;
         """,
     ),
-        (
+    (
         11,
         """
         ALTER TABLE productos ADD COLUMN imagen TEXT;
         """,
     ),
-        (
+    (
         12,
         """
         CREATE TABLE cajas (
@@ -417,7 +415,6 @@ MIGRATIONS = [
             anulada_por INTEGER,
             anulada_por_nombre TEXT,
             creado_en TEXT NOT NULL,
-            -- Campos reservados para facturación electrónica futura
             factura_numero TEXT,
             cufe TEXT,
             estado_dian TEXT,
@@ -453,14 +450,14 @@ MIGRATIONS = [
         CREATE INDEX idx_venta_lineas_producto ON venta_lineas (producto_id);
         """,
     ),
-        (
+    (
         13,
         """
         ALTER TABLE cajas ADD COLUMN detalle_apertura TEXT;
         ALTER TABLE cajas ADD COLUMN detalle_cierre TEXT;
         """,
     ),
-        (
+    (
         14,
         """
         CREATE TABLE caja_movimientos (
@@ -481,8 +478,62 @@ MIGRATIONS = [
         CREATE INDEX idx_caja_mov_fecha ON caja_movimientos (fecha);
         """,
     ),
-]
+    (
+        15,
+        """
+        CREATE TABLE gastos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha TEXT NOT NULL,
+            categoria_id INTEGER NOT NULL,
+            descripcion TEXT NOT NULL,
+            monto REAL NOT NULL DEFAULT 0,
+            forma_pago TEXT NOT NULL DEFAULT 'efectivo'
+                CHECK (forma_pago IN ('efectivo', 'nequi', 'davivienda', 'tarjeta', 'transferencia')),
+            proveedor_id INTEGER,
+            comprobante TEXT,
+            observaciones TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            activo INTEGER NOT NULL DEFAULT 1,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT,
+            FOREIGN KEY (categoria_id) REFERENCES catalogos (id),
+            FOREIGN KEY (proveedor_id) REFERENCES proveedores (id)
+        );
+        CREATE INDEX idx_gastos_fecha ON gastos (fecha);
+        CREATE INDEX idx_gastos_categoria ON gastos (categoria_id);
+        CREATE INDEX idx_gastos_activo ON gastos (activo);
+        """,
+    ),
+    (
+        16,
+        """
+        -- ===== Caja menor (fondo permanente de dinero) =====
+        CREATE TABLE caja_menor_movimientos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha TEXT NOT NULL,
+            tipo TEXT NOT NULL CHECK (tipo IN ('aporte', 'retiro', 'apertura_pos', 'cierre_pos', 'gasto')),
+            monto REAL NOT NULL DEFAULT 0,
+            motivo TEXT,
+            caja_id INTEGER,
+            gasto_id INTEGER,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL
+        );
+        CREATE INDEX idx_caja_menor_fecha ON caja_menor_movimientos (fecha);
+        CREATE INDEX idx_caja_menor_tipo ON caja_menor_movimientos (tipo);
 
+        -- Vínculos para trazabilidad (apertura y cierre del POS)
+        ALTER TABLE cajas ADD COLUMN caja_menor_apertura_id INTEGER;
+        ALTER TABLE cajas ADD COLUMN caja_menor_cierre_id INTEGER;
+
+        -- Los gastos ahora saben de qué caja salieron
+        ALTER TABLE gastos ADD COLUMN origen TEXT NOT NULL DEFAULT 'general';
+        ALTER TABLE gastos ADD COLUMN caja_id INTEGER;
+        """,
+    ),
+]
 
 def conectar(ruta) -> sqlite3.Connection:
     conn = sqlite3.connect(str(ruta), timeout=15)
@@ -491,7 +542,6 @@ def conectar(ruta) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA synchronous = FULL")
     return conn
-
 
 def _asegurar_columnas_productos(conn):
     """Agrega columnas faltantes en productos (por si una migración se aplicó antes)."""
@@ -514,7 +564,6 @@ def _asegurar_columnas_productos(conn):
     if cambios:
         conn.commit()
 
-
 def _asegurar_columnas_recepcion_lineas(conn):
     """Agrega columnas faltantes en recepcion_lineas."""
     try:
@@ -532,7 +581,6 @@ def _asegurar_columnas_recepcion_lineas(conn):
             cambios = True
     if cambios:
         conn.commit()
-
 
 def init_db(ruta) -> int:
     """Crea la base si no existe y aplica las migraciones pendientes. Devuelve la versión final."""
@@ -639,6 +687,37 @@ def init_db(ruta) -> int:
         except sqlite3.OperationalError:
             pass
 
+        # Sembrar categorías de gasto (si no existen)
+        try:
+            hay_cat_gasto = conn.execute(
+                "SELECT 1 FROM catalogos WHERE tipo = 'categoria_gasto' LIMIT 1"
+            ).fetchone()
+            if not hay_cat_gasto:
+                from datetime import datetime as _dt
+                _ahora = _dt.now().isoformat(sep=" ", timespec="seconds")
+                cats_gasto = [
+                    "Arriendo",
+                    "Servicios públicos",
+                    "Nómina",
+                    "Papelería y suministros",
+                    "Mantenimiento y reparaciones",
+                    "Publicidad",
+                    "Domicilios",
+                    "Impuestos (ICA, predial)",
+                    "Gastos bancarios",
+                    "Aseo y cafetería",
+                    "Otros",
+                ]
+                for nombre in cats_gasto:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO catalogos (tipo, nombre, activo, creado_en) "
+                        "VALUES ('categoria_gasto', ?, 1, ?)",
+                        (nombre, _ahora),
+                    )
+                conn.commit()
+        except sqlite3.OperationalError:
+            pass
+
         # Asegurar columnas
         _asegurar_columnas_productos(conn)
         _asegurar_columnas_recepcion_lineas(conn)
@@ -647,18 +726,15 @@ def init_db(ruta) -> int:
     finally:
         conn.close()
 
-
 def get_db() -> sqlite3.Connection:
     if "db" not in g:
         g.db = conectar(current_app.config["DB_PATH"])
     return g.db
 
-
 def cerrar_db(_error=None):
     conn = g.pop("db", None)
     if conn is not None:
         conn.close()
-
 
 def init_app(app):
     app.teardown_appcontext(cerrar_db)

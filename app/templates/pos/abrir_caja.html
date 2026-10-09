@@ -2,11 +2,25 @@
 {% block titulo %}Abrir caja{% endblock %}
 {% block contenido %}
 <h1>🔓 Abrir caja</h1>
-<p class="suave">Registra el efectivo inicial del turno. Puedes contarlo por denominación o escribir el total directamente.</p>
+<p class="suave">Registra el efectivo inicial del turno. Este dinero sale de la <strong>caja menor</strong>.</p>
+
+<div class="tarjetas-kpi" style="margin-bottom:1.4rem;max-width:520px">
+  <div class="kpi-card {% if saldo_caja_menor >= 0 %}kpi-ok{% else %}kpi-alerta{% endif %}">
+    <div class="kpi-icono">💵</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Saldo caja menor</span>
+      <strong class="kpi-valor {% if saldo_caja_menor < 0 %}kpi-valor-alerta{% else %}kpi-valor-ok{% endif %}">
+        ${{ '{:,.0f}'.format(saldo_caja_menor).replace(',', '.') }}
+      </strong>
+      <span class="kpi-detalle">Se descuenta al abrir esta caja</span>
+    </div>
+  </div>
+</div>
 
 <form method="post" class="formulario" style="max-width:520px" id="form-abrir">
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
   <input type="hidden" name="denominaciones" id="denominaciones-json" value="{}">
+  <input type="hidden" name="confirmar_sobregiro" id="confirmar-sobregiro" value="0">
 
   <fieldset>
     <legend>Apertura de caja</legend>
@@ -25,13 +39,22 @@
       </div>
     </label>
 
+    <div id="aviso-sobregiro" style="display:none;background:#fff4e5;border-left:4px solid #e68b1c;padding:.7rem .9rem;border-radius:.3rem;margin-top:.6rem">
+      <strong>⚠ Saldo insuficiente en caja menor</strong>
+      <p class="suave" style="margin:.3rem 0 .5rem">El efectivo inicial supera el saldo disponible. Si continúas, la caja menor quedará en negativo.</p>
+      <label class="switch-linea">
+        <input type="checkbox" id="chk-sobregiro">
+        <span>Permitir sobregiro de la caja menor</span>
+      </label>
+    </div>
+
     <label>Observaciones (opcional)
       <textarea name="observaciones_apertura" rows="2"></textarea>
     </label>
   </fieldset>
 
   <div class="acciones">
-    <button type="submit">Abrir caja</button>
+    <button type="submit" id="btn-abrir" disabled>Abrir caja</button>
     <a class="boton secundario" href="{{ url_for('main.inicio') }}">Cancelar</a>
   </div>
 </form>
@@ -44,13 +67,16 @@
 {% block scripts_extra %}
 <script>
 (function () {
+  const SALDO_CM = Number({{ saldo_caja_menor|tojson }});
   const modal = document.getElementById('modal-conteo');
   const totalSpan = document.getElementById('conteo-total-valor');
   const jsonInput = document.getElementById('denominaciones-json');
   const inputEfectivo = document.getElementById('efectivo_inicial');
   const btnAbrir = document.getElementById('btn-contar-apertura');
-  const btnConfirmar = document.getElementById('conteo-confirmar');
-  const btnCancelar = document.getElementById('conteo-cancelar');
+  const btnSubmit = document.getElementById('btn-abrir');
+  const chkSobregiro = document.getElementById('chk-sobregiro');
+  const confirmarInput = document.getElementById('confirmar-sobregiro');
+  const avisoSobregiro = document.getElementById('aviso-sobregiro');
 
   function calcularTotal() {
     let total = 0;
@@ -67,6 +93,24 @@
     return { total, detalle };
   }
 
+  function actualizarAviso() {
+    const total = parseFloat(inputEfectivo.value) || 0;
+    const excede = total > SALDO_CM + 0.01;
+    if (excede) {
+      avisoSobregiro.style.display = 'block';
+    } else {
+      avisoSobregiro.style.display = 'none';
+      chkSobregiro.checked = false;
+      confirmarInput.value = '0';
+    }
+    btnSubmit.disabled = excede && !chkSobregiro.checked;
+    if (excede) {
+      btnSubmit.textContent = chkSobregiro.checked ? 'Abrir caja (con sobregiro)' : 'Saldo insuficiente';
+    } else {
+      btnSubmit.textContent = 'Abrir caja';
+    }
+  }
+
   modal.addEventListener('click', function (e) {
     if (!e.target.classList.contains('conteo-btn')) return;
     const fila = e.target.closest('.conteo-fila');
@@ -79,8 +123,7 @@
   });
 
   modal.addEventListener('input', function (e) {
-    if (!e.target.classList.contains('conteo-input')) return;
-    calcularTotal();
+    if (e.target.classList.contains('conteo-input')) calcularTotal();
   });
 
   btnAbrir.addEventListener('click', function () {
@@ -89,20 +132,28 @@
     modal.classList.remove('modal-oculto');
   });
 
-  btnConfirmar.addEventListener('click', function () {
+  document.getElementById('conteo-confirmar').addEventListener('click', function () {
     const { total, detalle } = calcularTotal();
     inputEfectivo.value = total;
     jsonInput.value = JSON.stringify(detalle);
     modal.classList.add('modal-oculto');
+    actualizarAviso();
   });
 
-  btnCancelar.addEventListener('click', function () {
+  document.getElementById('conteo-cancelar').addEventListener('click', function () {
     modal.classList.add('modal-oculto');
   });
-
   modal.addEventListener('click', function (e) {
     if (e.target === modal) modal.classList.add('modal-oculto');
   });
+
+  inputEfectivo.addEventListener('input', actualizarAviso);
+  chkSobregiro.addEventListener('change', function () {
+    confirmarInput.value = chkSobregiro.checked ? '1' : '0';
+    actualizarAviso();
+  });
+
+  actualizarAviso();
 })();
 </script>
 {% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titulo %}Gastos{% endblock %}
+{% block contenido %}
+<h1>💸 Gastos</h1>
+
+<form method="get" class="filtros">
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por descripción, comprobante o categoría…">
+  <select name="categoria">
+    <option value="">Todas las categorías</option>
+    {% for c in categorias %}
+      <option value="{{ c['id'] }}" {% if cat_id == c['id'] %}selected{% endif %}>{{ c['nombre'] }}</option>
+    {% endfor %}
+  </select>
+  <select name="filtro">
+    <option value="activos" {% if filtro=='activos' %}selected{% endif %}>Solo activos</option>
+    <option value="inactivos" {% if filtro=='inactivos' %}selected{% endif %}>Solo anulados</option>
+    <option value="todos" {% if filtro=='todos' %}selected{% endif %}>Todos</option>
+  </select>
+  <label>Desde <input type="date" name="desde" value="{{ desde }}"></label>
+  <label>Hasta <input type="date" name="hasta" value="{{ hasta }}"></label>
+  <button type="submit">Filtrar</button>
+  <a class="boton" href="{{ url_for('contabilidad.gastos_nuevo') }}">+ Nuevo gasto</a>
+</form>
+
+<div class="tarjetas-kpi" style="margin-bottom:1rem">
+  <div class="kpi-card kpi-alerta">
+    <div class="kpi-icono">💸</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Total filtrado</span>
+      <strong class="kpi-valor kpi-valor-alerta">${{ '{:,.0f}'.format(total_filtro).replace(',', '.') }}</strong>
+      <span class="kpi-detalle">{{ filas|length }} registro{{ 's' if filas|length != 1 else '' }}</span>
+    </div>
+  </div>
+</div>
+
+<table class="tabla">
+  <thead>
+    <tr>
+      <th>Fecha</th>
+      <th>Categoría</th>
+      <th>Descripción</th>
+      <th>Forma de pago</th>
+      <th>Comprobante</th>
+      <th>Proveedor</th>
+      <th>Usuario</th>
+      <th style="text-align:right">Monto</th>
+      <th>Estado</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in filas %}
+    <tr class="{% if not f['activo'] %}inactivo{% endif %}">
+      <td><small>{{ f['fecha'] }}</small></td>
+      <td>{{ f['categoria_nombre'] or '—' }}</td>
+      <td>{{ f['descripcion'] }}</td>
+      <td>{{ f['forma_pago']|capitalize }}</td>
+      <td>{{ f['comprobante'] or '—' }}</td>
+      <td>{{ f['proveedor_nombre'] or '—' }}</td>
+      <td>{{ f['usuario_nombre'] or '—' }}</td>
+      <td style="text-align:right"><strong>${{ '{:,.0f}'.format(f['monto']).replace(',', '.') }}</strong></td>
+      <td>{% if f['activo'] %}<span class="tag-ok">Activo</span>{% else %}<span class="tag-error">Anulado</span>{% endif %}</td>
+      <td>
+        <a href="{{ url_for('contabilidad.gastos_editar', gasto_id=f['id']) }}">Editar</a>
+        <form method="post" action="{{ url_for('contabilidad.gastos_anular', gasto_id=f['id']) }}" style="display:inline">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit">{{ 'Reactivar' if not f['activo'] else 'Anular' }}</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="10">No hay gastos con esos filtros.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

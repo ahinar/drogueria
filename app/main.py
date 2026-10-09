@@ -30,35 +30,14 @@ def _fecha_larga_es():
 
 def _estado_temperatura(db):
     """Consulta si hoy ya se registró la temperatura de las zonas activas."""
-    from .temperaturas import _turno_de_hora, _ya_registro_turno_hoy  # import local
+    from .temperaturas import _pendientes  # import local
 
-    hoy = date.today().isoformat()
-    ahora_dt = datetime.now()
-    dia_semana = ahora_dt.isoweekday()
+    zonas = db.execute("SELECT id FROM zonas_temperatura WHERE activa = 1").fetchall()
 
-    zonas = db.execute(
-        "SELECT id, nombre, horarios, dias_semana, minutos_tolerancia "
-        "FROM zonas_temperatura WHERE activa = 1"
-    ).fetchall()
-
-    pendientes = []
-    for z in zonas:
-        if str(dia_semana) not in (z["dias_semana"] or "").split(","):
-            continue
-        horarios = [h.strip() for h in (z["horarios"] or "").split(",") if h.strip()]
-        for h in horarios:
-            try:
-                hh, mm = map(int, h.split(":"))
-            except ValueError:
-                continue
-            programada = ahora_dt.replace(hour=hh, minute=mm, second=0, microsecond=0)
-            tolerancia = z["minutos_tolerancia"] or 30
-            if ahora_dt < programada + timedelta(minutes=tolerancia):
-                continue
-            turno = _turno_de_hora(h)
-            if _ya_registro_turno_hoy(z["id"], turno):
-                continue
-            pendientes.append({"zona": z["nombre"], "hora": h, "turno": turno})
+    # La lista de pendientes sale de la MISMA función que usa la alarma, así el inicio
+    # y la alarma nunca se contradicen.
+    pendientes = [{"zona": p["zona"], "hora": p["hora"], "turno": p["turno"]}
+                  for p in _pendientes()]
 
     ultima = db.execute(
         "SELECT r.*, z.nombre AS zona_nombre "

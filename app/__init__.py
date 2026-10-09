@@ -13,7 +13,6 @@ from .backup_utils import hacer_respaldo_si_toca
 
 log = logging.getLogger("drogueria")
 
-
 def _clave_secreta(ruta: Path) -> str:
     """Genera una clave secreta al primer arranque y la reutiliza (mantiene las sesiones)."""
     ruta.parent.mkdir(parents=True, exist_ok=True)
@@ -22,7 +21,6 @@ def _clave_secreta(ruta: Path) -> str:
     clave = secrets.token_hex(32)
     ruta.write_text(clave)
     return clave
-
 
 def create_app(test_config=None):
     app = Flask(__name__, static_folder=str(config.STATIC_DIR), static_url_path="/static")
@@ -45,9 +43,9 @@ def create_app(test_config=None):
     base_datos.init_db(app.config["DB_PATH"])
     base_datos.init_app(app)
 
-    from . import (admin, auth, catalogos, configuracion, importador,
-               inventario, main, pos, productos, proveedores, recepciones,
-               reportes, temperaturas, unidades)
+    from . import (admin, auth, caja_menor, catalogos, configuracion,
+                   contabilidad, importador, inventario, main, pos, productos,
+                   proveedores, recepciones, reportes, temperaturas, unidades)
 
     app.register_blueprint(auth.bp)
     app.register_blueprint(admin.bp)
@@ -63,6 +61,8 @@ def create_app(test_config=None):
     app.register_blueprint(inventario.bp)
     app.register_blueprint(importador.bp)
     app.register_blueprint(pos.bp)
+    app.register_blueprint(contabilidad.bp)
+    app.register_blueprint(caja_menor.bp)
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
 
@@ -85,13 +85,14 @@ def create_app(test_config=None):
     if not app.config.get("TESTING"):
         try:
             nuevo = hacer_respaldo_si_toca(
-                app.config["DB_PATH"], app.config["BACKUP_DIR"], app.config["BACKUP_EXTRA_DIR"], app.config["BACKUP_KEEP"]
+                app.config["DB_PATH"], app.config["BACKUP_DIR"],
+                app.config["BACKUP_EXTRA_DIR"], app.config["BACKUP_KEEP"]
             )
             if nuevo:
                 log.info("Respaldo automático creado: %s", nuevo)
-        except Exception:  # un fallo de respaldo nunca debe impedir que arranque el sistema
+        except Exception:
             log.exception("No se pudo hacer el respaldo automático al iniciar")
-            
+
     from .configuracion import obtener_config as _obtener_config
 
     @app.context_processor
@@ -99,6 +100,6 @@ def create_app(test_config=None):
         try:
             return {"config_negocio": _obtener_config()}
         except Exception:
-            return {"config_negocio": {}}       
+            return {"config_negocio": {}}
 
     return app

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block titulo %}Contabilidad{% endblock %}
+{% block contenido %}
+<h1>💰 Contabilidad</h1>
+<p class="suave">Resumen de gastos y accesos a los módulos contables. Los informes avanzados llegarán en las siguientes fases.</p>
+
+<!-- ===== KPI ===== -->
+<div class="tarjetas-kpi" style="margin-bottom:1.4rem">
+  <div class="kpi-card kpi-alerta">
+    <div class="kpi-icono">💸</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Gastos de {{ mes_actual }}</span>
+      <strong class="kpi-valor kpi-valor-alerta">${{ '{:,.0f}'.format(total_mes).replace(',', '.') }}</strong>
+      <span class="kpi-detalle">{{ n_gastos }} registro{{ 's' if n_gastos != 1 else '' }}</span>
+    </div>
+  </div>
+  <div class="kpi-card kpi-pendiente">
+    <div class="kpi-icono">📊</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Mes anterior</span>
+      <strong class="kpi-valor">${{ '{:,.0f}'.format(total_mes_anterior).replace(',', '.') }}</strong>
+      <span class="kpi-detalle">
+        {% if total_mes_anterior > 0 %}
+          {% set dif = ((total_mes - total_mes_anterior) / total_mes_anterior * 100) %}
+          {% if dif > 0 %}<span style="color:#b3261e">▲ +{{ '%.1f'|format(dif) }}%</span>{% else %}<span style="color:#0d6b3d">▼ {{ '%.1f'|format(dif) }}%</span>{% endif %}
+        {% else %}Sin datos{% endif %}
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Acciones ===== -->
+<div class="rejilla" style="margin-bottom:1.5rem">
+  <a class="modulo" href="{{ url_for('contabilidad.gastos_lista') }}">
+    <h2>💸 Gastos</h2>
+    <p>Registro, filtros y anulación de gastos operativos.</p>
+  </a>
+  <a class="modulo" href="{{ url_for('contabilidad.gastos_nuevo') }}">
+    <h2>➕ Nuevo gasto</h2>
+    <p>Registrar un gasto con categoría, monto y comprobante.</p>
+  </a>
+  <div class="modulo apagado">
+    <h2>📈 Utilidades</h2>
+    <p>Bruta y neta por período con desglose por categoría.</p>
+    <span class="etiqueta">C.2</span>
+  </div>
+  <div class="modulo apagado">
+    <h2>📋 Estado de Resultados</h2>
+    <p>Informe detallado con subtotales por categoría.</p>
+    <span class="etiqueta">C.3</span>
+  </div>
+  <div class="modulo apagado">
+    <h2>🧾 IVA</h2>
+    <p>IVA generado vs descontable del período.</p>
+    <span class="etiqueta">C.4</span>
+  </div>
+  <div class="modulo apagado">
+    <h2>💵 Flujo de caja</h2>
+    <p>Ingresos y egresos por día, semana o mes.</p>
+    <span class="etiqueta">C.5</span>
+  </div>
+</div>
+
+<!-- ===== Desglose por categoría ===== -->
+<h2 class="titulo-seccion">Gastos de {{ mes_actual }} por categoría</h2>
+{% if por_categoria %}
+<table class="tabla">
+  <thead>
+    <tr><th>Categoría</th><th style="text-align:right">Registros</th><th style="text-align:right">Total</th></tr>
+  </thead>
+  <tbody>
+    {% for c in por_categoria %}
+    <tr>
+      <td>{{ c['categoria'] }}</td>
+      <td style="text-align:right">{{ c['n'] }}</td>
+      <td style="text-align:right">${{ '{:,.0f}'.format(c['total']).replace(',', '.') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="suave">Sin gastos registrados este mes.</p>
+{% endif %}
+
+<!-- ===== Últimos gastos ===== -->
+<h2 class="titulo-seccion">Últimos gastos</h2>
+{% if ultimos %}
+<table class="tabla">
+  <thead>
+    <tr>
+      <th>Fecha</th>
+      <th>Categoría</th>
+      <th>Descripción</th>
+      <th>Usuario</th>
+      <th style="text-align:right">Monto</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for g in ultimos %}
+    <tr>
+      <td><small>{{ g['fecha'] }}</small></td>
+      <td>{{ g['categoria_nombre'] or '—' }}</td>
+      <td>{{ g['descripcion'] }}</td>
+      <td>{{ g['usuario_nombre'] or '—' }}</td>
+      <td style="text-align:right">${{ '{:,.0f}'.format(g['monto']).replace(',', '.') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div style="margin-top:.8rem">
+  <a class="boton secundario" href="{{ url_for('contabilidad.gastos_lista') }}">Ver todos los gastos</a>
+</div>
+{% else %}
+<p class="suave">Sin gastos registrados.</p>
+{% endif %}
+{% endblock %}

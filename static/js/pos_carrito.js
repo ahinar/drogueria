@@ -1,56 +1,46 @@
 // =====================================================================
 // POS · CARRITO DE VENTAS
 // =====================================================================
-// Este archivo controla la pantalla de venta:
+// Controla la pantalla de venta:
 //   1. Buscar productos (por nombre o escaneando el código de barras)
 //   2. Armar el carrito (agregar, cambiar cantidad, descuento, quitar)
 //   3. Cobrar (efectivo, Nequi, Davivienda, tarjeta)
-//
-// IMPORTANTE: aquí en el navegador SOLO se muestran los totales para que
-// el cajero los vea. El servidor (app/pos.py) vuelve a calcular todo con
-// los precios reales de la base de datos. Por eso es seguro.
+//   4. Atajos de teclado físico (números, backspace, delete, +, -, Enter)
+//   5. Registrar gastos sin salir del POS
 // =====================================================================
 (function () {
   'use strict';
 
   // ---------------------------------------------------------------
-  // 1. DATOS QUE RECUERDA LA PANTALLA (el "estado")
+  // 1. ESTADO
   // ---------------------------------------------------------------
-  let carrito = [];              // lista de productos que se van a vender
-  let seleccionado = -1;         // posición de la línea seleccionada (-1 = ninguna)
-  let modo = 'cantidad';         // qué edita el teclado numérico: 'cantidad' o 'descuento'
-  let buffer = '';               // números que se están tecleando en el teclado numérico
-  let escribiendo = false;       // ¿ya empezó a teclear un número nuevo?
-  let categoria = '';            // categoría activa en los botones de arriba ('' = todas)
-  let productosMostrados = [];   // resultado de la última búsqueda
-  let numeroBusqueda = 0;        // para ignorar respuestas viejas si el cajero escribe rápido
+  let carrito = [];
+  let seleccionado = -1;
+  let modo = 'cantidad';         // 'cantidad' o 'descuento'
+  let buffer = '';
+  let escribiendo = false;
+  let categoria = '';
+  let productosMostrados = [];
+  let numeroBusqueda = 0;
   let formaPago = 'efectivo';
   let cliente = { nombre: '', documento: '' };
   let nota = '';
-  let cobrando = false;          // evita doble clic en "Confirmar venta"
+  let cobrando = false;
 
   // ---------------------------------------------------------------
-  // 2. AYUDAS PEQUEÑAS
+  // 2. AYUDAS
   // ---------------------------------------------------------------
-  const $ = (id) => document.getElementById(id);   // atajo: $('algo') busca el elemento con id="algo"
-
-  // Convierte un número a pesos: 12500 -> "$12.500"
+  const $ = (id) => document.getElementById(id);
   const peso = (n) => '$' + Math.round(n).toLocaleString('es-CO');
+  const aPesos = (v) => Math.floor(v + 0.5);
+  const csrf = () => (document.querySelector('input[name="_csrf"]') || {}).value || '';
 
-  // Evita que un texto raro (como <script>) se interprete como código HTML.
   function esc(texto) {
     return String(texto == null ? '' : texto)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  // Redondeo al peso (igual que el servidor: 0.5 sube).
-  const aPesos = (v) => Math.floor(v + 0.5);
-
-  // Token de seguridad que el servidor exige en cada envío.
-  const csrf = () => (document.querySelector('input[name="_csrf"]') || {}).value || '';
-
-  // Mensaje flotante que desaparece solo a los 3 segundos.
   function aviso(texto) {
     const div = document.createElement('div');
     div.className = 'pos-toast';
@@ -59,16 +49,15 @@
     setTimeout(() => div.remove(), 3000);
   }
 
-  // Direcciones (URLs) que la página nos entrega en campos ocultos.
   const URL = {
     productos: $('url-api-productos') && $('url-api-productos').value,
     cobrar: $('url-api-cobrar') && $('url-api-cobrar').value,
+    gasto: $('url-api-gasto') && $('url-api-gasto').value,
     ventas: $('url-ventas') && $('url-ventas').value,
     ultima: $('url-ultima-venta') && $('url-ultima-venta').value,
     inventario: $('url-inventario') && $('url-inventario').value,
     estaticos: ($('url-static-base') && $('url-static-base').value) || '/static/',
   };
-  // Si faltan los campos ocultos, esta no es la pantalla del POS: no hacemos nada.
   if (!URL.productos || !URL.cobrar) return;
 
   const inputBusqueda = $('pos-input-busqueda');
@@ -77,10 +66,8 @@
   const btnPago = $('btn-pago');
 
   // ---------------------------------------------------------------
-  // 3. CÁLCULO DE UNA LÍNEA (igual que en el servidor)
+  // 3. CÁLCULO DE UNA LÍNEA
   // ---------------------------------------------------------------
-  // El precio de venta YA INCLUYE el IVA. Si el producto es "gravado",
-  // separamos cuánto de ese precio es IVA.
   function calcularLinea(it) {
     const bruto = it.cantidad * it.precio;
     const descuento = aPesos(bruto * it.descuento_pct / 100);
@@ -96,8 +83,6 @@
   // ---------------------------------------------------------------
   // 4. BUSCAR PRODUCTOS
   // ---------------------------------------------------------------
-  // Si desdeEnter es true (el cajero presionó Enter, típico de un lector
-  // de código de barras) y sale un solo producto, se agrega directo al carrito.
   async function buscar(desdeEnter) {
     const miNumero = ++numeroBusqueda;
     const q = inputBusqueda.value.trim();
@@ -105,14 +90,14 @@
     try {
       const resp = await fetch(url, { credentials: 'same-origin' });
       const json = await resp.json();
-      if (miNumero !== numeroBusqueda || !json.ok) return;   // llegó una respuesta vieja: se ignora
+      if (miNumero !== numeroBusqueda || !json.ok) return;
       productosMostrados = json.productos;
       pintarProductos();
       if (desdeEnter) {
         if (json.productos.length === 1) {
           agregar(json.productos[0]);
           inputBusqueda.value = '';
-          buscar(false);                                      // vuelve a mostrar la lista completa
+          buscar(false);
         } else if (json.productos.length === 0) {
           aviso('No se encontró ningún producto.');
         }
@@ -157,7 +142,6 @@
 
     let pos = carrito.findIndex((i) => i.producto_id === prod.id);
     if (pos >= 0) {
-      // Ya estaba en el carrito: sumamos 1, sin pasar el stock disponible.
       if (carrito[pos].cantidad + 1 > prod.stock) {
         aviso('Solo hay ' + (+prod.stock.toFixed(2)) + ' disponible(s).');
       } else {
@@ -180,7 +164,7 @@
 
   function seleccionar(pos) {
     seleccionado = pos;
-    escribiendo = false;     // el próximo número que teclee reemplaza al anterior
+    escribiendo = false;
     buffer = '';
   }
 
@@ -210,7 +194,6 @@
       }).join('');
     }
 
-    // Totales de toda la venta
     let subtotal = 0, descuento = 0, iva = 0, total = 0;
     carrito.forEach((it) => {
       const l = calcularLinea(it);
@@ -228,7 +211,6 @@
     return carrito.reduce((suma, it) => suma + calcularLinea(it).total, 0);
   }
 
-  // Clics dentro del carrito: botones − + 🗑, o seleccionar una línea.
   contenedorCarrito.addEventListener('click', (e) => {
     const fila = e.target.closest('.pos-item');
     if (!fila) return;
@@ -248,10 +230,14 @@
     }
     seleccionar(pos);
     pintarCarrito();
+    inputBusqueda.blur();   // <-- CLAVE: quitar el foco del buscador
   });
 
+  // Al hacer clic en cualquier parte del carrito, quitamos el foco del buscador
+  contenedorCarrito.addEventListener('mousedown', () => inputBusqueda.blur());
+
   // ---------------------------------------------------------------
-  // 6. TECLADO NUMÉRICO (para cantidad y descuento)
+  // 6. TECLADO NUMÉRICO
   // ---------------------------------------------------------------
   function marcarModo() {
     document.querySelectorAll('.pos-numpad-accion').forEach((b) => {
@@ -298,9 +284,104 @@
   }
 
   document.querySelectorAll('.pos-numpad button').forEach((b) => {
+    // Al hacer clic en un botón del numpad, quitar foco del buscador
+    b.addEventListener('mousedown', () => inputBusqueda.blur());
     b.addEventListener('click', () => teclear(b.dataset.key));
   });
   marcarModo();
+
+  // ---------------------------------------------------------------
+  // 6b. TECLADO FÍSICO GLOBAL
+  // ---------------------------------------------------------------
+  // Si el foco NO está en un input, capturamos las teclas y las
+  // dirigimos al carrito/numpad. Esto permite usar el teclado numérico
+  // físico sin que el texto vaya a la barra de búsqueda.
+  document.addEventListener('keydown', (e) => {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+    const key = e.key;
+
+    // F2 = cobrar · F3 = enfocar buscador
+    if (key === 'F2') { e.preventDefault(); if (carrito.length) abrirPago(); return; }
+    if (key === 'F3') { e.preventDefault(); inputBusqueda.focus(); return; }
+
+    // Enter = cobrar
+    if (key === 'Enter') { e.preventDefault(); if (carrito.length) abrirPago(); return; }
+
+    // Escape = deseleccionar
+    if (key === 'Escape') {
+      seleccionado = -1; pintarCarrito();
+      document.querySelectorAll('.modal-oculto').forEach(m => {});
+      return;
+    }
+
+    // Backspace = borrar dígito o reducir cantidad
+    if (key === 'Backspace') {
+      e.preventDefault();
+      const it = carrito[seleccionado];
+      if (escribiendo && buffer) {
+        // Borrar último dígito del número que se está escribiendo
+        buffer = buffer.slice(0, -1);
+        if (it) {
+          let valor = parseFloat(buffer) || 0;
+          if (modo === 'cantidad') it.cantidad = Math.max(1, valor);
+          else it.descuento_pct = Math.min(100, Math.max(0, valor));
+        }
+        pintarCarrito();
+      } else if (it) {
+        // Reducir cantidad. Si queda en 0, preguntar para eliminar.
+        if (it.cantidad > 1) {
+          it.cantidad -= 1;
+          pintarCarrito();
+        } else if (confirm('¿Quitar "' + it.nombre + '" del carrito?')) {
+          carrito.splice(seleccionado, 1);
+          seleccionado = -1;
+          pintarCarrito();
+        }
+      }
+      return;
+    }
+
+    // Delete / Supr = eliminar producto seleccionado
+    if (key === 'Delete') {
+      e.preventDefault();
+      const it = carrito[seleccionado];
+      if (it && confirm('¿Quitar "' + it.nombre + '" del carrito?')) {
+        carrito.splice(seleccionado, 1);
+        seleccionado = -1;
+        pintarCarrito();
+      }
+      return;
+    }
+
+    // + = aumentar cantidad
+    if (key === '+' || key === '=') {
+      e.preventDefault();
+      const it = carrito[seleccionado];
+      if (it) {
+        if (it.cantidad + 1 > it.stock) aviso('Solo hay ' + (+it.stock.toFixed(2)) + ' disponible(s).');
+        else { it.cantidad += 1; pintarCarrito(); }
+      }
+      return;
+    }
+
+    // - = disminuir cantidad
+    if (key === '-' || key === '_') {
+      e.preventDefault();
+      const it = carrito[seleccionado];
+      if (it && it.cantidad > 1) { it.cantidad -= 1; pintarCarrito(); }
+      return;
+    }
+
+    // Números y punto = ir al numpad
+    if (/^[0-9]$/.test(key) || key === '.' || key === ',') {
+      e.preventDefault();
+      teclear(key === ',' ? '.' : key);
+      return;
+    }
+  });
 
   // ---------------------------------------------------------------
   // 7. COBRAR
@@ -308,11 +389,11 @@
   const modalPago = $('modal-pago');
 
   function abrirPago() {
-    // Revisamos que ninguna línea tenga cantidad 0.
     if (carrito.some((i) => !(i.cantidad > 0))) {
       aviso('Hay un producto con cantidad 0. Corrígelo o quítalo.');
       return;
     }
+    if (!carrito.length) return;
     $('pago-total').textContent = peso(totalVenta());
     $('pago-form').style.display = '';
     $('pago-exito').style.display = 'none';
@@ -341,13 +422,12 @@
   }
 
   async function confirmarVenta() {
-    if (cobrando) return;               // ya se está enviando: evita cobrar dos veces
+    if (cobrando) return;
     const errorBox = $('pago-error');
     errorBox.style.display = 'none';
 
     const datos = new FormData();
     datos.append('_csrf', csrf());
-    // Al servidor solo le mandamos qué producto, cuánta cantidad y el % de descuento.
     datos.append('carrito', JSON.stringify(carrito.map((i) => ({
       producto_id: i.producto_id, cantidad: i.cantidad, descuento_pct: i.descuento_pct,
     }))));
@@ -365,10 +445,9 @@
       if (!json.ok) {
         errorBox.textContent = json.error || 'No se pudo registrar la venta.';
         errorBox.style.display = 'block';
-        buscar(false);                 // por si el stock cambió, refresca los números
+        buscar(false);
         return;
       }
-      // ¡Venta guardada! Mostramos el resultado y dejamos todo listo para la siguiente.
       $('exito-consecutivo').textContent = json.consecutivo + ' · ' + peso(json.total);
       $('exito-cambio').textContent = peso(json.cambio);
       $('exito-cambio-linea').style.display = json.cambio > 0 ? '' : 'none';
@@ -403,7 +482,7 @@
   });
 
   // ---------------------------------------------------------------
-  // 8. CLIENTE, NOTA Y MENÚ LATERAL
+  // 8. CLIENTE, NOTA, MENÚ LATERAL Y GASTO
   // ---------------------------------------------------------------
   function pedirCliente() {
     const nombre = prompt('Nombre del cliente (vacío = Consumidor final):', cliente.nombre);
@@ -419,6 +498,71 @@
   $('btn-cliente').addEventListener('click', pedirCliente);
   $('btn-nota').addEventListener('click', pedirNota);
 
+  // ----- Modal de gasto -----
+  const modalGasto = $('modal-gasto');
+  const formGasto = $('form-gasto');
+  const gastoError = $('gasto-error');
+  const gastoFormaPago = $('gasto-forma-pago');
+  const gastoOrigenWrap = $('gasto-origen-wrap');
+
+  function abrirModalGasto() {
+    if (!modalGasto) return;
+    formGasto.reset();
+    gastoError.style.display = 'none';
+    gastoOrigenWrap.style.display = '';
+    modalGasto.classList.remove('modal-oculto');
+    setTimeout(() => {
+      const primero = formGasto.querySelector('select');
+      if (primero) primero.focus();
+    }, 50);
+  }
+
+  function cerrarModalGasto() {
+    if (modalGasto) modalGasto.classList.add('modal-oculto');
+  }
+
+  if (gastoFormaPago) {
+    gastoFormaPago.addEventListener('change', function () {
+      const esEfectivo = gastoFormaPago.value === 'efectivo';
+      gastoOrigenWrap.style.display = esEfectivo ? '' : 'none';
+    });
+  }
+
+  if ($('gasto-cancelar')) {
+    $('gasto-cancelar').addEventListener('click', cerrarModalGasto);
+  }
+  if (modalGasto) {
+    modalGasto.addEventListener('click', (e) => {
+      if (e.target === modalGasto) cerrarModalGasto();
+    });
+  }
+
+  if ($('gasto-guardar')) {
+    $('gasto-guardar').addEventListener('click', async function () {
+      const datos = new FormData(formGasto);
+      datos.append('_csrf', csrf());
+      // Si la forma no es efectivo, forzamos origen="ninguna"
+      if (gastoFormaPago.value !== 'efectivo') {
+        datos.set('origen', 'ninguna');
+      }
+      gastoError.style.display = 'none';
+      try {
+        const resp = await fetch(URL.gasto, { method: 'POST', body: datos, credentials: 'same-origin' });
+        const json = await resp.json();
+        if (!json.ok) {
+          gastoError.textContent = json.error || 'No se pudo guardar.';
+          gastoError.style.display = 'block';
+          return;
+        }
+        cerrarModalGasto();
+        aviso('Gasto registrado.');
+      } catch (e) {
+        gastoError.textContent = 'Error: ' + e.message;
+        gastoError.style.display = 'block';
+      }
+    });
+  }
+
   document.querySelectorAll('.pos-drawer-item').forEach((b) => {
     b.addEventListener('click', () => {
       const accion = b.dataset.accion;
@@ -428,16 +572,17 @@
       else if (accion === 'consulta-inventario') window.location.href = URL.inventario;
       else if (accion === 'cliente') { cerrar(); pedirCliente(); }
       else if (accion === 'nota') { cerrar(); pedirNota(); }
+      else if (accion === 'registrar-gasto') { cerrar(); abrirModalGasto(); }
     });
   });
 
   // ---------------------------------------------------------------
-  // 9. ARRANQUE: conectar la búsqueda y mostrar productos
+  // 9. ARRANQUE
   // ---------------------------------------------------------------
   let temporizador = null;
   inputBusqueda.addEventListener('input', () => {
     clearTimeout(temporizador);
-    temporizador = setTimeout(() => buscar(false), 250);   // espera 0,25 s tras dejar de escribir
+    temporizador = setTimeout(() => buscar(false), 250);
   });
   inputBusqueda.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); clearTimeout(temporizador); buscar(true); }

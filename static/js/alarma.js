@@ -10,11 +10,27 @@
   const DURACION_APLAZO = 10 * 60 * 1000;   // 10 minutos
   const DURACION_SILENCIO = 10 * 60 * 1000; // 10 minutos
 
+  // En la pantalla de registrar la lectura NO mostramos la alarma: taparía el formulario
+  // justo cuando la persona está haciendo lo que la alarma le pide.
+  const enPantallaDeRegistro = window.location.pathname.indexOf('/temperaturas/registrar/') === 0;
+
+  // El "aplazar" y el "silenciar" se guardan en el navegador (localStorage) para que
+  // sigan valiendo al cambiar de pantalla. Antes se perdían en cada página nueva y la
+  // alarma volvía a aparecer de inmediato.
+  const CLAVE_APLAZO = 'alarmaTemp.aplazadoHasta';
+  const CLAVE_SILENCIO = 'alarmaTemp.silenciadoHasta';
+  function leerTiempo(clave) {
+    try { return parseInt(window.localStorage.getItem(clave), 10) || 0; } catch (e) { return 0; }
+  }
+  function guardarTiempo(clave, valor) {
+    try { window.localStorage.setItem(clave, String(valor)); } catch (e) { /* sin almacenamiento */ }
+  }
+
   let audioCtx = null;
   let sonando = false;
   let intervaloBeep = null;
-  let aplazadoHasta = 0;
-  let silenciadoHasta = 0;
+  let aplazadoHasta = leerTiempo(CLAVE_APLAZO);
+  let silenciadoHasta = leerTiempo(CLAVE_SILENCIO);
   let suspendido = false; // true cuando el usuario está saliendo a registrar
 
   // ===== Sonido suave =====
@@ -93,8 +109,12 @@
 
   // ===== Consultar pendientes =====
   function consultar() {
+    // En la pantalla de registro no se muestra la alarma.
+    if (enPantallaDeRegistro) { ocultar(); return; }
     // Si el usuario aplazó o está saliendo a registrar, no consultar nada
     if (suspendido) return;
+    aplazadoHasta = leerTiempo(CLAVE_APLAZO);       // por si se aplazó desde otra pestaña
+    silenciadoHasta = leerTiempo(CLAVE_SILENCIO);
     if (Date.now() < aplazadoHasta) { ocultar(); return; }
 
     fetch('/temperaturas/api/pendientes', { credentials: 'same-origin' })
@@ -116,6 +136,7 @@
     btnSilenciar.addEventListener('click', function () {
       detenerSonido();
       silenciadoHasta = Date.now() + DURACION_SILENCIO;
+      guardarTiempo(CLAVE_SILENCIO, silenciadoHasta);
       btnSilenciar.textContent = '🔇 Sonido silenciado 10 min';
       setTimeout(function () {
         btnSilenciar.textContent = '🔇 Silenciar sonido';
@@ -126,6 +147,7 @@
   if (btnCerrar) {
     btnCerrar.addEventListener('click', function () {
       aplazadoHasta = Date.now() + DURACION_APLAZO;
+      guardarTiempo(CLAVE_APLAZO, aplazadoHasta);
       ocultar();
     });
   }

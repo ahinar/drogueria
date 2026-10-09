@@ -15,6 +15,7 @@ from .auth import login_required
 from .configuracion import obtener_config
 from .db import get_db
 from .pdf_utils import encabezado_pdf
+from .temperaturas import _turno_de_hora, turno_de_hh
 
 bp = Blueprint("reportes", __name__, url_prefix="/reportes")
 
@@ -214,18 +215,6 @@ def _dias_del_mes(mes, anio):
     return calendar.monthrange(anio, mes)[1]
 
 
-def _turno_de_hora(hora_str):
-    try:
-        hh, _ = map(int, hora_str.split(":"))
-    except (ValueError, AttributeError):
-        return "am"
-    if hh < 12:
-        return "am"
-    if hh < 19:
-        return "pm"
-    return "noche"
-
-
 @bp.route("/temperaturas/mensual", methods=["GET"])
 @login_required
 def temperaturas_mensual_form():
@@ -268,12 +257,7 @@ def temperaturas_mensual_pdf():
             hora = int(r["fecha"][11:13])
         except (ValueError, TypeError):
             continue
-        if hora < 12:
-            turno = "am"
-        elif hora < 19:
-            turno = "pm"
-        else:
-            turno = "noche"
+        turno = turno_de_hh(hora)   # mismos dos turnos que usa la alarma (AM / PM)
         key = (dia, turno)
         if key not in por_dia:
             por_dia[key] = r

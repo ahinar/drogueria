@@ -1,0 +1,54 @@
+<!-- ============ MODAL: REGISTRAR GASTO DESDE POS ============ -->
+<div id="modal-gasto" class="modal-oculto">
+  <div class="modal-caja" style="max-width:520px">
+    <h2>💸 Registrar gasto</h2>
+
+    <form id="form-gasto">
+      <label>Categoría *
+        <select name="categoria_id" required autofocus>
+          <option value="">— Seleccionar —</option>
+          {% for c in categorias_gasto %}
+            <option value="{{ c['id'] }}">{{ c['nombre'] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Descripción *
+        <input type="text" name="descripcion" required placeholder="Ej: Pago de domicilio">
+      </label>
+
+      <label>Monto *
+        <input type="number" step="0.01" name="monto" required min="0.01">
+      </label>
+
+      <label>Forma de pago *
+        <select name="forma_pago" id="gasto-forma-pago">
+          <option value="efectivo">Efectivo</option>
+          <option value="nequi">Nequi</option>
+          <option value="davivienda">Davivienda</option>
+          <option value="tarjeta">Tarjeta</option>
+          <option value="transferencia">Transferencia</option>
+        </select>
+      </label>
+
+      <label id="gasto-origen-wrap">¿De dónde sale el dinero? *
+        <select name="origen" id="gasto-origen">
+          <option value="pos">Caja del POS actual (afecta el cierre)</option>
+          <option value="caja_menor">Caja menor</option>
+          <option value="ninguna">No afecta caja física</option>
+        </select>
+      </label>
+
+      <label>N° comprobante (opcional)
+        <input type="text" name="comprobante">
+      </label>
+
+      <p id="gasto-error" class="aviso error" style="display:none"></p>
+    </form>
+
+    <div class="modal-acciones">
+      <button type="button" class="boton secundario" id="gasto-cancelar">Cancelar</button>
+      <button type="button" class="boton" id="gasto-guardar">💾 Guardar gasto</button>
+    </div>
+  </div>
+</div>

@@ -1,8 +1,8 @@
-"""Catálogos genéricos: categorías, medidas, presentaciones, principios, etc."""
+"""Catálogos genéricos: categorías, formas farmacéuticas, principios, categorías de gasto, etc."""
 import sqlite3
 
-from flask import (Blueprint, abort, flash, redirect, render_template, request,
-                   url_for)
+from flask import (Blueprint, abort, flash, jsonify, redirect, render_template,
+                   request, url_for)
 
 from .audit import registrar
 from .auth import roles_required
@@ -12,12 +12,13 @@ bp = Blueprint("catalogos", __name__, url_prefix="/admin/catalogos")
 
 # Tipos de catálogo disponibles. El orden importa (aparece así en el índice).
 TIPOS = {
-    "categoria":          ("Categorías",           "🏷️"),
-    "forma_farmaceutica": ("Formas farmacéuticas", "💊"),
-    "principio":          ("Principios activos",   "🧪"),
-    "laboratorio":        ("Laboratorios",         "🏭"),
-    "uso":                ("Usos e indicaciones",  "📋"),
-    "tipo_pago":          ("Tipos de pago",        "💳"),
+    "categoria":          ("Categorías de producto", "🏷️"),
+    "categoria_gasto":    ("Categorías de gasto",    "💸"),
+    "forma_farmaceutica": ("Formas farmacéuticas",   "💊"),
+    "principio":          ("Principios activos",     "🧪"),
+    "laboratorio":        ("Laboratorios",           "🏭"),
+    "uso":                ("Usos e indicaciones",    "📋"),
+    "tipo_pago":          ("Tipos de pago",          "💳"),
 }
 
 
@@ -168,9 +169,19 @@ def activar(tipo, cat_id):
 def eliminar(tipo, cat_id):
     _validar_tipo(tipo)
     item = _obtener(tipo, cat_id)
-    # Cuando los productos usen estos catálogos, aquí se validará que no esté en uso.
-    # Por ahora se elimina libremente.
+
+    # Verificar si está en uso (categorías de gasto, por ejemplo)
     db = get_db()
+    en_uso = False
+    if tipo == "categoria_gasto":
+        fila = db.execute("SELECT 1 FROM gastos WHERE categoria_id = ? LIMIT 1", (cat_id,)).fetchone()
+        if fila:
+            en_uso = True
+
+    if en_uso:
+        flash("No se puede eliminar: el registro está en uso. Desactívalo en su lugar.", "error")
+        return redirect(url_for("catalogos.lista", tipo=tipo))
+
     db.execute("DELETE FROM catalogos WHERE id=? AND tipo=?", (cat_id, tipo))
     db.commit()
     registrar(f"catalogo_{tipo}_eliminado", "catalogos", cat_id,
@@ -178,14 +189,13 @@ def eliminar(tipo, cat_id):
     flash("Registro eliminado.", "ok")
     return redirect(url_for("catalogos.lista", tipo=tipo))
 
+
 def opciones(tipo: str):
     """Devuelve los registros activos de un catálogo, ordenados por nombre."""
     return get_db().execute(
         "SELECT id, nombre FROM catalogos WHERE tipo = ? AND activo = 1 ORDER BY nombre COLLATE NOCASE",
         (tipo,),
     ).fetchall()
-
-from flask import jsonify
 
 
 @bp.route("/<tipo>/api/crear", methods=["POST"])

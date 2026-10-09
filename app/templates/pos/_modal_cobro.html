@@ -1,0 +1,61 @@
+<!-- ============ MODAL DE COBRO ============ -->
+<div id="modal-cobro" class="modal-oculto">
+  <div class="modal-caja modal-caja-cobro">
+    <div class="modal-header">
+      <h2>💵 Cobrar venta</h2>
+      <span class="cierre-info" id="cobro-total-header">$ 0</span>
+    </div>
+
+    <div class="modal-body">
+      <div class="cobro-total-grande">
+        <span>TOTAL A PAGAR</span>
+        <strong id="cobro-total">$ 0</strong>
+      </div>
+
+      <div class="cobro-forma-pago">
+        <button type="button" class="cobro-fp activo" data-fp="efectivo">
+          <span class="cobro-fp-ico">💵</span>
+          <span>Efectivo</span>
+        </button>
+        <button type="button" class="cobro-fp" data-fp="nequi">
+          <span class="cobro-fp-ico">💜</span>
+          <span>Nequi</span>
+        </button>
+        <button type="button" class="cobro-fp" data-fp="davivienda">
+          <span class="cobro-fp-ico">🔴</span>
+          <span>Davivienda</span>
+        </button>
+        <button type="button" class="cobro-fp" data-fp="tarjeta">
+          <span class="cobro-fp-ico">💳</span>
+          <span>Tarjeta</span>
+        </button>
+      </div>
+
+      <div id="cobro-efectivo-wrap">
+        <label>Efectivo recibido
+          <input type="number" step="1" id="cobro-recibido" inputmode="numeric">
+        </label>
+
+        <div class="cobro-botones-rapidos">
+          <button type="button" class="cobro-rapido" data-valor="0">Exacto</button>
+          <button type="button" class="cobro-rapido" data-valor="10000">$10.000</button>
+          <button type="button" class="cobro-rapido" data-valor="20000">$20.000</button>
+          <button type="button" class="cobro-rapido" data-valor="50000">$50.000</button>
+          <button type="button" class="cobro-rapido" data-valor="100000">$100.000</button>
+        </div>
+
+        <div class="cobro-cambio">
+          <span>Cambio:</span>
+          <strong id="cobro-cambio">$ 0</strong>
+        </div>
+      </div>
+
+      <p id="cobro-error" class="aviso error" style="display:none;margin-top:1rem"></p>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="boton secundario" id="cobro-descartar">Cancelar</button>
+      <button type="button" class="boton-pos" id="cobro-confirmar">✅ Confirmar venta</button>
+    </div>
+  </div>
+</div>

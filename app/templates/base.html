@@ -104,6 +104,10 @@
          href="{{ url_for('configuracion.ver') }}" title="Configuración">
         <span class="ico">⚙️</span><span class="txt">Configuración</span>
       </a>
+      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad.') %}activo{% endif %}"
+         href="{{ url_for('contabilidad.index') }}" title="Contabilidad">
+        <span class="ico">💰</span><span class="txt">Contabilidad</span>
+      </a>
       <a class="sidebar-link {% if request.endpoint == 'admin.respaldos' %}activo{% endif %}"
          href="{{ url_for('admin.respaldos') }}" title="Respaldos">
         <span class="ico">💾</span><span class="txt">Respaldos</span>
