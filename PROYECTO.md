@@ -267,14 +267,12 @@ derecha, con filtro de fechas, gráfico (Chart.js local), tabla y descarga en PD
 | R3 | **Ventas de la semana** | Ventas diarias de los últimos 7 días (barras) | ventas | ✅ |
 | R4 | **Ventas vs Compras** | Comparativo mensual: lo vendido vs lo comprado | ventas vs recepciones aprobadas (cantidad × costo) | ✅ |
 | R5 | **Ventas anuales** | Evolución mes a mes del año, comparado con el año anterior | ventas | ✅ |
-| R6 | **Top 5 medicamentos** | Los más vendidos por unidades y por dinero (elegir período) | venta_lineas | ✅ |
-| R7 | **Top 5 servicios** | Servicios e ítems libres más vendidos (inyectología, toma de presión, glucometría…) | ⚠️ Necesita **venta libre / servicios** en el POS | ❌ falta |
+| R6 | **Top 5 productos** | Los productos más vendidos por unidades y por dinero (elegir período) | venta_lineas | ✅ |
 | R8 | **Ingresos por día** | Ventas e ingresos diarios del mes (calendario o barras), por forma de pago | ventas, caja_movimientos | ✅ |
-| R9 | **Medicamentos vs Servicios** | Participación de cada uno en las ventas (dona) | ⚠️ Depende de R7 | ❌ falta |
 | R10 | **Ingresos por usuario** | Ventas registradas por cada vendedor | ventas.usuario_id | ✅ |
 | R11 | **Gastos administrativos** | Gastos del período por categoría | gastos | ✅ |
 | R12 | **Otros ingresos** | Ingresos que no son venta de farmacia (recargas, arriendos, etc.) | ⚠️ Necesita registrar **otros ingresos** (hoy solo hay ingresos de caja) | 🟡 parcial |
-| R13 | **Ventas libres por concepto** | Ventas sin inventario agrupadas por concepto | ⚠️ Depende de R7 | ❌ falta |
+| R13 | **Ventas libres por concepto** | Ventas sin inventario agrupadas por concepto | ⚠️ Necesita **venta libre** en el POS | ❌ falta |
 
 Reportes propios que ya estaban pendientes y se suman a la misma pantalla:
 
@@ -284,8 +282,10 @@ Reportes propios que ya estaban pendientes y se suman a la misma pantalla:
 | R15 | Vencimientos | Semáforo en PDF para inspección | lotes | ✅ |
 | R16 | Utilidades / Estado de resultados | Ver Fase 2.3 y 2.4 | — | ✅ |
 
-**Lo que hay que construir antes para R7, R9, R12 y R13:**
-- **Venta libre / servicios en el POS**: vender un concepto sin inventario (servicio con precio, o ítem libre escribiendo el valor), con catálogo de conceptos.
+_Descartados por decisión de Fernando: Top 5 servicios y Medicamentos vs Servicios._
+
+**Lo que hay que construir antes para R12 y R13:**
+- **Venta libre en el POS**: vender un concepto sin inventario escribiendo el valor, con catálogo de conceptos.
 - **Otros ingresos**: registro de ingresos que no son ventas (con categoría), separado de las ventas.
 
 Visto en DATA FARMAC y anotado para después (no son reportes): **Cotización** y **Deudas** (ventas fiadas / cuentas por cobrar).
@@ -331,8 +331,8 @@ Visto en DATA FARMAC y anotado para después (no son reportes): **Cotización** 
 - [ ] Estado de Resultados simplificado.
 - [ ] Reporte de IVA con prorrateo (Art. 490 ET).
 - [ ] Flujo de caja.
-- [ ] Módulo Reportes completo (Fase R, sección 7): R1–R6, R8, R10, R11, R14–R16 primero; R7, R9, R12, R13 cuando existan venta libre/servicios y otros ingresos.
-- [ ] Venta libre / servicios en el POS y registro de otros ingresos.
+- [ ] Módulo Reportes completo (Fase R, sección 7): R1–R6, R8, R10, R11, R14–R16 primero; R12 y R13 cuando existan venta libre y otros ingresos.
+- [ ] Venta libre en el POS y registro de otros ingresos.
 - [ ] (Idea) Cotizaciones y deudas/fiados.
 - [ ] Reemplazar todos los `confirm()` nativos por el modal de confirmación.
 
