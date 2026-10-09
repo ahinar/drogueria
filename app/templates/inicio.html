@@ -157,10 +157,12 @@
     <h2>💊 Productos</h2>
     <p>Catálogo con INVIMA, precios e IVA.</p>
   </a>
+  {% if g.user.rol in ('administrador', 'director_tecnico') %}
   <a class="modulo" href="{{ url_for('proveedores.lista') }}">
     <h2>🚚 Proveedores</h2>
     <p>NIT, contacto y documentación sanitaria.</p>
   </a>
+  {% endif %}
   <a class="modulo" href="{{ url_for('reportes.index') }}">
     <h2>📊 Reportes</h2>
     <p>Informes con gráficos y PDF para inspección.</p>

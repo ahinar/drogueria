@@ -174,6 +174,43 @@ class TestCobrar(BaseVentas):
         self.assertIsNotNone(self.uno("SELECT 1 FROM bitacora WHERE accion = 'venta_creada'"))
 
 
+class TestBuscarPorSintoma(BaseVentas):
+    """Los "usos" del producto funcionan como buscador por síntoma en el POS."""
+
+    def poner_uso(self, producto_id, nombre_uso):
+        con = self.db()
+        uso = con.execute("SELECT id FROM catalogos WHERE tipo = 'uso' AND nombre = ?",
+                          (nombre_uso,)).fetchone()["id"]
+        con.execute("INSERT INTO productos_usos (producto_id, catalogo_id) VALUES (?, ?)",
+                    (producto_id, uso))
+        con.commit()
+        con.close()
+
+    def buscar(self, q):
+        return self.c.get("/pos/api/productos?q=" + q).get_json()["productos"]
+
+    def test_encuentra_por_nombre_del_uso(self):
+        self.poner_uso(1, "Fiebre")
+        r = self.buscar("fiebre")
+        self.assertEqual([p["id"] for p in r], [1])
+        self.assertEqual(r[0]["usos"], ["Fiebre"])
+
+    def test_encuentra_por_sinonimo_de_la_descripcion(self):
+        """El uso "Gripe" trae en su descripción "gripa, resfriado..." (migración 19)."""
+        self.poner_uso(1, "Gripe")
+        self.assertEqual([p["id"] for p in self.buscar("resfriado")], [1])
+        self.assertEqual([p["id"] for p in self.buscar("gripa")], [1])
+
+    def test_sin_uso_no_aparece(self):
+        self.poner_uso(1, "Fiebre")
+        self.assertEqual(self.buscar("agrieras"), [])
+
+    def test_la_ventana_i_trae_los_usos(self):
+        self.poner_uso(1, "Dolor")
+        p = self.c.get("/pos/api/producto/1").get_json()["producto"]
+        self.assertEqual(p["usos"], ["Dolor"])
+
+
 class TestCambioDePrecio(BaseVentas):
     """Opción B: cualquier cajero puede cambiar el precio, con motivo, y queda en bitácora."""
 

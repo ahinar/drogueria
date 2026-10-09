@@ -28,96 +28,112 @@
       <span class="sidebar-brand-text">Fervifarma</span>
     </div>
 
+    <!-- =================================================================
+         MENÚ LATERAL, agrupado por secciones.
+         Cada rol ve solo lo que puede usar:
+           - todos: Día a día, Productos y Reportes
+           - administrador y director técnico: además Proveedores, Dinero,
+             Catálogos, Unidades y Bitácora
+           - solo administrador: Usuarios, Configuración y Respaldos
+         "ep" es el nombre de la página abierta; sirve para resaltar el enlace.
+         ================================================================= -->
+    {% set ep = request.endpoint or '' %}
+    {% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
     <nav class="sidebar-nav">
-      <a class="sidebar-link {% if request.endpoint == 'main.inicio' %}activo{% endif %}"
+      <a class="sidebar-link {% if ep == 'main.inicio' %}activo{% endif %}"
          href="{{ url_for('main.inicio') }}" title="Inicio">
         <span class="ico">🏠</span><span class="txt">Inicio</span>
       </a>
 
-      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('pos.') %}activo{% endif %}"
-         href="{{ url_for('pos.index') }}" title="Punto de venta">
+      <!-- ===== Día a día ===== -->
+      <div class="sidebar-seccion">Día a día</div>
+      <a class="sidebar-link {% if ep.startswith('pos.') %}activo{% endif %}"
+         href="{{ url_for('pos.index') }}" title="Vender (POS)">
         <span class="ico">🛒</span><span class="txt">Vender (POS)</span>
       </a>
-
-      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('productos.') %}activo{% endif %}"
-         href="{{ url_for('productos.lista') }}" title="Productos">
-        <span class="ico">💊</span><span class="txt">Productos</span>
-      </a>
-
-      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('recepciones.') %}activo{% endif %}"
+      <a class="sidebar-link {% if ep.startswith('recepciones.') %}activo{% endif %}"
          href="{{ url_for('recepciones.lista') }}" title="Recepciones">
         <span class="ico">📦</span><span class="txt">Recepciones</span>
       </a>
-
-      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('inventario.') %}activo{% endif %}"
+      <a class="sidebar-link {% if ep.startswith('temperaturas.') %}activo{% endif %}"
+         href="{{ url_for('temperaturas.inicio') }}" title="Temperaturas">
+        <span class="ico">🌡️</span><span class="txt">Temperaturas</span>
+      </a>
+      <a class="sidebar-link {% if ep.startswith('inventario.') or ep.startswith('conteos.') %}activo{% endif %}"
          href="{{ url_for('inventario.inicio') }}" title="Inventario">
         <span class="ico">🗃️</span><span class="txt">Inventario</span>
       </a>
 
-      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('temperaturas.') %}activo{% endif %}"
-         href="{{ url_for('temperaturas.inicio') }}" title="Temperaturas">
-        <span class="ico">🌡️</span><span class="txt">Temperaturas</span>
+      <!-- ===== Productos ===== -->
+      <div class="sidebar-seccion">Productos</div>
+      <a class="sidebar-link {% if ep.startswith('productos.') or ep.startswith('importador.') %}activo{% endif %}"
+         href="{{ url_for('productos.lista') }}" title="Productos">
+        <span class="ico">💊</span><span class="txt">Productos</span>
       </a>
+      {% if jefe %}
+      <a class="sidebar-link {% if ep.startswith('proveedores.') %}activo{% endif %}"
+         href="{{ url_for('proveedores.lista') }}" title="Proveedores">
+        <span class="ico">🚚</span><span class="txt">Proveedores</span>
+      </a>
+      {% endif %}
 
-      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('reportes.') %}activo{% endif %}"
+      <!-- ===== Dinero (administrador y director técnico) ===== -->
+      {% if jefe %}
+      <div class="sidebar-seccion">Dinero</div>
+      <a class="sidebar-link {% if ep.startswith('contabilidad.') %}activo{% endif %}"
+         href="{{ url_for('contabilidad.index') }}" title="Contabilidad">
+        <span class="ico">💰</span><span class="txt">Contabilidad</span>
+      </a>
+      <a class="sidebar-link {% if ep.startswith('caja_menor.') %}activo{% endif %}"
+         href="{{ url_for('caja_menor.index') }}" title="Caja menor">
+        <span class="ico">💵</span><span class="txt">Caja menor</span>
+      </a>
+      {% endif %}
+
+      <!-- ===== Consultas ===== -->
+      <div class="sidebar-seccion">Consultas</div>
+      <a class="sidebar-link {% if ep.startswith('reportes.') %}activo{% endif %}"
          href="{{ url_for('reportes.index') }}" title="Reportes">
         <span class="ico">📊</span><span class="txt">Reportes</span>
       </a>
 
-      <!-- ===== Sección Administración (desplegable) ===== -->
-      <button type="button" class="sidebar-link sidebar-group" data-group="admin"
-              title="Administración">
+      <!-- ===== Administración (desplegable; se abre sola si estás en una de sus páginas) ===== -->
+      {% if jefe %}
+      {% set en_admin = ep.startswith('catalogos.') or ep.startswith('unidades.') or ep.startswith('admin.') or ep.startswith('configuracion.') %}
+      <button type="button" class="sidebar-link sidebar-group {% if en_admin %}abierto{% endif %}"
+              data-group="admin" title="Administración">
         <span class="ico">🗂️</span>
         <span class="txt">Administración</span>
         <span class="chevron">▾</span>
       </button>
-      <div class="sidebar-submenu" data-group-content="admin">
-        <a class="sidebar-sublink deshabilitado" href="#" title="Próximamente (Fase 1.5)">
-          <span class="ico">👥</span><span class="txt">Clientes</span>
+      <div class="sidebar-submenu {% if en_admin %}abierto{% endif %}" data-group-content="admin">
+        <a class="sidebar-sublink {% if ep.startswith('catalogos.') %}activo{% endif %}"
+           href="{{ url_for('catalogos.index') }}" title="Catálogos">
+          <span class="ico">🏷️</span><span class="txt">Catálogos</span>
         </a>
-        <a class="sidebar-sublink {% if request.endpoint and request.endpoint.startswith('proveedores.') %}activo{% endif %}"
-           href="{{ url_for('proveedores.lista') }}">
-          <span class="ico">🚚</span><span class="txt">Proveedores</span>
-        </a>
-        <a class="sidebar-sublink {% if request.endpoint == 'catalogos.index' %}activo{% endif %}"
-           href="{{ url_for('catalogos.index') }}">
-          <span class="ico">🗂️</span><span class="txt">Catálogos</span>
-        </a>
-        <a class="sidebar-sublink {% if request.endpoint and request.endpoint.startswith('unidades.') %}activo{% endif %}"
-           href="{{ url_for('unidades.lista') }}">
+        <a class="sidebar-sublink {% if ep.startswith('unidades.') %}activo{% endif %}"
+           href="{{ url_for('unidades.lista') }}" title="Unidades de medida">
           <span class="ico">📏</span><span class="txt">Unidades de medida</span>
         </a>
+        <a class="sidebar-sublink {% if ep == 'admin.bitacora' %}activo{% endif %}"
+           href="{{ url_for('admin.bitacora') }}" title="Bitácora">
+          <span class="ico">📋</span><span class="txt">Bitácora</span>
+        </a>
+        {% if g.user.rol == 'administrador' %}
+        <a class="sidebar-sublink {% if ep.startswith('admin.usuario') %}activo{% endif %}"
+           href="{{ url_for('admin.usuarios') }}" title="Usuarios">
+          <span class="ico">👤</span><span class="txt">Usuarios</span>
+        </a>
+        <a class="sidebar-sublink {% if ep.startswith('configuracion.') %}activo{% endif %}"
+           href="{{ url_for('configuracion.ver') }}" title="Configuración">
+          <span class="ico">⚙️</span><span class="txt">Configuración</span>
+        </a>
+        <a class="sidebar-sublink {% if ep == 'admin.respaldos' %}activo{% endif %}"
+           href="{{ url_for('admin.respaldos') }}" title="Respaldos">
+          <span class="ico">💾</span><span class="txt">Respaldos</span>
+        </a>
+        {% endif %}
       </div>
-
-      <!-- ===== Módulos de administración exclusivos ===== -->
-      {% if g.user.rol in ('administrador', 'director_tecnico') %}
-      <a class="sidebar-link {% if request.endpoint == 'admin.bitacora' %}activo{% endif %}"
-         href="{{ url_for('admin.bitacora') }}" title="Bitácora">
-        <span class="ico">📋</span><span class="txt">Bitácora</span>
-      </a>
-      {% endif %}
-
-      {% if g.user.rol == 'administrador' %}
-      <a class="sidebar-link {% if request.endpoint == 'admin.usuarios' %}activo{% endif %}"
-         href="{{ url_for('admin.usuarios') }}" title="Usuarios">
-        <span class="ico">👤</span><span class="txt">Usuarios</span>
-      </a>
-      <a class="sidebar-link {% if request.endpoint == 'configuracion.ver' %}activo{% endif %}"
-         href="{{ url_for('configuracion.ver') }}" title="Configuración">
-        <span class="ico">⚙️</span><span class="txt">Configuración</span>
-      </a>
-      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad.') %}activo{% endif %}"
-         href="{{ url_for('contabilidad.index') }}" title="Contabilidad">
-        <span class="ico">💰</span><span class="txt">Contabilidad</span>
-      </a>
-      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('caja_menor.') %}activo{% endif %}"
-         href="{{ url_for('caja_menor.index') }}" title="Caja menor">
-        <span class="ico">💵</span><span class="txt">Caja menor</span>
-      </a>
-      <a class="sidebar-link {% if request.endpoint == 'admin.respaldos' %}activo{% endif %}"
-         href="{{ url_for('admin.respaldos') }}" title="Respaldos">
-        <span class="ico">💾</span><span class="txt">Respaldos</span>
-      </a>
       {% endif %}
     </nav>
 
@@ -188,7 +204,7 @@
       const contenido = document.querySelector('[data-group-content="' + grupo.dataset.group + '"]');
       if (!contenido) return;
 
-      if (localStorage.getItem(key) === '1') {
+      if (localStorage.getItem(key) === '1' || grupo.classList.contains('abierto')) {
         grupo.classList.add('abierto');
         contenido.classList.add('abierto');
       }

@@ -17,8 +17,11 @@ TIPOS = {
     "forma_farmaceutica": ("Formas farmacéuticas",   "💊"),
     "principio":          ("Principios activos",     "🧪"),
     "laboratorio":        ("Laboratorios",           "🏭"),
-    "uso":                ("Usos e indicaciones",    "📋"),
-    "tipo_pago":          ("Tipos de pago",          "💳"),
+    # "uso" funciona como buscador por síntoma en el POS (ver pos.api_productos).
+    # En la descripción se pueden poner palabras parecidas: "resfriado, congestión".
+    "uso":                ("Usos y síntomas",        "🩺"),
+    # "tipo_pago" se quitó: el POS usa formas de pago fijas (efectivo, Nequi,
+    # Davivienda, tarjeta) y este catálogo no lo usaba nadie.
 }
 
 

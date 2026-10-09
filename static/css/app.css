@@ -2309,3 +2309,18 @@ body.sidebar-colapsado .sidebar-logo-img {
 .pos-pago-rapidos button { padding: .4rem .7rem; border: 1px solid #d5dde3; background: #f4f7f9; border-radius: .3rem; cursor: pointer; }
 .pos-pago-cambio { font-size: 1.15rem; text-align: center; margin: .6rem 0; }
 .pos-pago-cambio strong { font-size: 1.5rem; color: #0d6b3d; }
+
+/* =========================================================
+   MENÚ LATERAL · títulos de sección (Día a día, Dinero...)
+   ========================================================= */
+.sidebar-seccion {
+  padding: .9rem 1rem .25rem;
+  font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: #6f8597; white-space: nowrap;
+}
+/* Menú encogido: se ocultan los títulos y el botón del grupo, y los enlaces de
+   Administración se muestran como íconos (antes desaparecían por completo). */
+body.sidebar-colapsado .sidebar-seccion { display: block; height: 0; padding: 0; margin: .35rem .8rem;
+  border-top: 1px solid #1e2f3d; font-size: 0; }
+body.sidebar-colapsado .sidebar-group { display: none; }
+body.sidebar-colapsado .sidebar-submenu { display: block; max-height: none; background: transparent; }

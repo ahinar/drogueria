@@ -6,6 +6,13 @@
     <form id="form-movimiento">
       <input type="hidden" name="tipo" id="mov-tipo" value="ingreso">
 
+      <!-- Solo se ve en "Salida": la salida es para mover plata, no para pagar cosas -->
+      <div id="mov-ayuda" class="mov-ayuda" hidden>
+        <p>La <strong>salida</strong> es para <strong>mover plata</strong>: consignar, pasar a caja menor, cambiar billetes.</p>
+        <p>¿Vas a <strong>pagar algo</strong> (domicilio, insumos, servicios)? Eso es un gasto.
+          <button type="button" class="boton secundario" id="mov-ir-gasto">💸 Registrar gasto</button></p>
+      </div>
+
       <label>Forma de pago
         <select name="forma_pago" id="mov-forma-pago">
           <option value="efectivo">Efectivo</option>
@@ -20,7 +27,7 @@
 
       <label>Motivo / Observación
         <textarea name="motivo" id="mov-motivo" rows="2"
-                  placeholder="Ej: pago de domicilio, retiro para caja fuerte, compra de insumos…"></textarea>
+                  placeholder="Ej: consignación en el banco, paso a caja menor…"></textarea>
       </label>
 
       <p id="mov-error" class="aviso error" style="display:none"></p>

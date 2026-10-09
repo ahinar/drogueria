@@ -13,6 +13,26 @@ def ahora() -> str:
     """Fecha y hora local del servidor (siempre la misma fuente para ambos PCs)."""
     return datetime.now().isoformat(sep=" ", timespec="seconds")
 
+# Palabras parecidas para cada uso/síntoma (como las dice la gente en el mostrador).
+# Se usan al sembrar una base nueva y en la migración 19 para bases existentes.
+SINONIMOS_USOS = {
+    "Dolor": "dolor de cabeza, cefalea, migraña, dolor muscular, dolor de muela, dolor de espalda",
+    "Fiebre": "calentura, temperatura alta",
+    "Inflamación": "hinchazón, golpe, esguince, torcedura",
+    "Alergia": "rinitis, estornudos, picazón, ronchas, urticaria",
+    "Tos": "tos seca, tos con flema, expectorante, carraspera",
+    "Gripe": "gripa, resfriado, resfrío, catarro, malestar general",
+    "Congestión nasal": "nariz tapada, mocos, sinusitis",
+    "Acidez": "agrieras, reflujo, ardor de estómago, gastritis, indigestión",
+    "Diarrea": "soltura, deposiciones, suero oral",
+    "Estreñimiento": "estítico, no puede ir al baño, laxante",
+    "Cólico menstrual": "cólicos, dolor de período, menstruación",
+    "Cansancio": "decaimiento, fatiga, agotamiento",
+    "Cicatrizante": "herida, cortada, raspón, quemadura",
+    "Conjuntivitis": "ojo rojo, ojos irritados, lagañas",
+    "Dermatitis": "irritación de piel, rasquiña, resequedad, pañalitis",
+}
+
 MIGRATIONS = [
     (
         1,
@@ -589,6 +609,33 @@ MIGRATIONS = [
         CREATE INDEX idx_conteo_lineas_conteo ON conteo_lineas (conteo_id);
         """,
     ),
+    (
+        19,
+        """
+        -- ===== Limpieza =====
+        -- Tabla vieja que ningún código usa (la reemplazó unidades_medida).
+        DROP TABLE IF EXISTS presentaciones_producto;
+
+        -- ===== Usos como buscador por síntoma =====
+        -- Palabras como las dice la gente en el mostrador. Solo se llenan si la
+        -- descripción está vacía (no se pisa lo que el usuario ya escribió).
+        UPDATE catalogos SET descripcion = 'dolor de cabeza, cefalea, migraña, dolor muscular, dolor de muela, dolor de espalda' WHERE tipo = 'uso' AND nombre = 'Dolor' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'calentura, temperatura alta' WHERE tipo = 'uso' AND nombre = 'Fiebre' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'hinchazón, golpe, esguince, torcedura' WHERE tipo = 'uso' AND nombre = 'Inflamación' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'rinitis, estornudos, picazón, ronchas, urticaria' WHERE tipo = 'uso' AND nombre = 'Alergia' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'tos seca, tos con flema, expectorante, carraspera' WHERE tipo = 'uso' AND nombre = 'Tos' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'gripa, resfriado, resfrío, catarro, malestar general' WHERE tipo = 'uso' AND nombre = 'Gripe' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'nariz tapada, mocos, sinusitis' WHERE tipo = 'uso' AND nombre = 'Congestión nasal' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'agrieras, reflujo, ardor de estómago, gastritis, indigestión' WHERE tipo = 'uso' AND nombre = 'Acidez' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'soltura, deposiciones, suero oral' WHERE tipo = 'uso' AND nombre = 'Diarrea' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'estítico, no puede ir al baño, laxante' WHERE tipo = 'uso' AND nombre = 'Estreñimiento' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'cólicos, dolor de período, menstruación' WHERE tipo = 'uso' AND nombre = 'Cólico menstrual' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'decaimiento, fatiga, agotamiento' WHERE tipo = 'uso' AND nombre = 'Cansancio' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'herida, cortada, raspón, quemadura' WHERE tipo = 'uso' AND nombre = 'Cicatrizante' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'ojo rojo, ojos irritados, lagañas' WHERE tipo = 'uso' AND nombre = 'Conjuntivitis' AND (descripcion IS NULL OR descripcion = '');
+        UPDATE catalogos SET descripcion = 'irritación de piel, rasquiña, resequedad, pañalitis' WHERE tipo = 'uso' AND nombre = 'Dermatitis' AND (descripcion IS NULL OR descripcion = '');
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:
@@ -714,16 +761,17 @@ def init_db(ruta) -> int:
                         "Deficiencia de vitaminas", "Cicatrizante",
                         "Conjuntivitis", "Dermatitis",
                     ],
-                    "tipo_pago": ["Efectivo", "Tarjeta", "Davivienda", "Nequi"],
                     "laboratorio": [],
                     "principio": [],
                 }
                 for tipo, nombres in semillas.items():
                     for nombre in nombres:
+                        # Los usos se siembran con sus sinónimos para el buscador por síntoma
+                        descripcion = SINONIMOS_USOS.get(nombre) if tipo == "uso" else None
                         conn.execute(
-                            "INSERT INTO catalogos (tipo, nombre, activo, creado_en) "
-                            "VALUES (?, ?, 1, ?)",
-                            (tipo, nombre, _ahora),
+                            "INSERT INTO catalogos (tipo, nombre, descripcion, activo, creado_en) "
+                            "VALUES (?, ?, ?, 1, ?)",
+                            (tipo, nombre, descripcion, _ahora),
                         )
                 conn.commit()
         except sqlite3.OperationalError:

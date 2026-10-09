@@ -41,6 +41,13 @@
     if (!modalMov) return;
     movTipo.value = tipo;
     movTitulo.textContent = tipo === 'ingreso' ? '💵 Ingreso de efectivo' : '💸 Salida de efectivo';
+    // La salida es para MOVER plata, no para pagar cosas (eso es un gasto).
+    // Mostramos la aclaración y ejemplos distintos según el tipo.
+    const ayuda = document.getElementById('mov-ayuda');
+    if (ayuda) ayuda.hidden = tipo !== 'salida';
+    movMotivo.placeholder = tipo === 'ingreso'
+      ? 'Ej: base adicional, cambio de billetes, devolución de un préstamo…'
+      : 'Ej: consignación en el banco, paso a caja menor, cambio de billetes…';
     movFormaPago.value = 'efectivo';
     movMonto.value = '';
     movMotivo.value = '';
@@ -54,6 +61,15 @@
   }
 
   if (movCancelar) movCancelar.addEventListener('click', cerrarModalMovimiento);
+  // Botón "Es un pago → registrar gasto": cierra esta ventana y abre la de gasto
+  const irGasto = document.getElementById('mov-ir-gasto');
+  if (irGasto) {
+    irGasto.addEventListener('click', () => {
+      cerrarModalMovimiento();
+      const item = document.querySelector('.pos-drawer-item[data-accion="registrar-gasto"]');
+      if (item) item.click();
+    });
+  }
   if (modalMov) {
     modalMov.addEventListener('click', (e) => {
       if (e.target === modalMov) cerrarModalMovimiento();
@@ -306,21 +322,9 @@
         case 'salida-efectivo':
           abrirModalMovimiento('salida');
           break;
-        case 'ultimas-ventas':
-          alert('Próximamente: lista de últimas ventas');
-          break;
-        case 'cliente':
-          alert('Próximamente: seleccionar cliente');
-          break;
-        case 'nota':
-          alert('Próximamente: agregar nota');
-          break;
-        case 'consulta-inventario':
-          window.location.href = '/inventario/lotes';
-          break;
-        case 'reimprimir':
-          alert('Próximamente: reimprimir último comprobante');
-          break;
+        // Las demás acciones (últimas ventas, cliente, nota, reimprimir,
+        // inventario y registrar gasto) las maneja pos_carrito.js.
+        // Antes aquí salían avisos de "Próximamente" que estorbaban.
       }
     });
   });

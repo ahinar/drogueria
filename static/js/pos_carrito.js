@@ -161,12 +161,21 @@
         : '<span class="pos-card-img-vacia">💊</span>';
       const etiquetas =
         (p.control_especial ? ' 🔒' : '') + (p.requiere_formula ? ' 📋' : '');
+      // "Sirve para": se muestra cuando se buscó por síntoma, es decir, cuando
+      // lo escrito NO está en el nombre pero sí en los usos del producto.
+      const buscado = inputBusqueda.value.trim().toLowerCase();
+      const porSintoma = buscado && p.usos && p.usos.length &&
+        !p.nombre.toLowerCase().includes(buscado.split(' ')[0]);
+      const sirvePara = porSintoma
+        ? '<div class="pos-card-usos" title="' + esc(p.usos.join(', ')) + '">🩺 ' + esc(p.usos.join(' · ')) + '</div>'
+        : '';
       return '<div class="pos-card' + (agotado ? ' agotado' : '') + '" data-id="' + p.id + '">' +
         '<button type="button" class="pos-card-info-btn" data-info-id="' + p.id + '" title="Ver información del producto">i</button>' +
         '<div class="pos-card-img">' + imagen + '</div>' +
         '<div class="pos-card-info">' +
           '<div class="pos-card-nombre">' + esc(p.nombre) + esc(etiquetas) + '</div>' +
           '<div class="pos-card-codigo">' + esc(p.concentracion || p.codigo) + '</div>' +
+          sirvePara +
           '<div class="pos-card-stock">' + (agotado ? 'Agotado' : 'Stock: ' + (+p.stock.toFixed(2))) + '</div>' +
           '<div class="pos-card-precio">' + peso(p.precio) + '</div>' +
         '</div></div>';
@@ -709,7 +718,7 @@
     $('info-nombre').textContent = 'Cargando…';
     ['info-precio', 'info-a-la-mano', 'info-iva', 'info-inventario-resumen', 'info-otros-lotes', 'info-stock-minimo']
       .forEach((x) => { $(x).textContent = ''; });
-    ['info-insignias', 'info-lotes', 'info-compras', 'info-finanzas'].forEach((x) => { $(x).innerHTML = ''; });
+    ['info-insignias', 'info-detalle', 'info-lotes', 'info-compras', 'info-finanzas'].forEach((x) => { $(x).innerHTML = ''; });
     modalInfo.classList.remove('modal-oculto');
     try {
       // La dirección termina en /0; cambiamos ese 0 por el id del producto
@@ -731,6 +740,11 @@
     $('info-iva').textContent = p.iva_tipo === 'gravado'
       ? 'IVA: ' + cant(p.iva_tarifa) + ' % (= ' + peso(p.iva_valor) + ')'
       : 'IVA: ' + (p.iva_tipo === 'exento' ? 'Exento' : 'Excluido') + ' (= $0)';
+    // Principio activo y "sirve para" (los usos), debajo del nombre
+    const detalle = [];
+    if (p.principio_activo) detalle.push('🧪 ' + esc(p.principio_activo));
+    if (p.usos && p.usos.length) detalle.push('🩺 Sirve para: ' + esc(p.usos.join(', ')));
+    $('info-detalle').innerHTML = detalle.join(' &nbsp;·&nbsp; ');
     $('info-insignias').innerHTML = [
       p.requiere_formula ? '<span class="info-insignia">📋 Requiere fórmula</span>' : '',
       p.cadena_frio ? '<span class="info-insignia">❄️ Cadena de frío</span>' : '',

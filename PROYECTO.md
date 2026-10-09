@@ -129,10 +129,12 @@
 - CRUD con NIT, razón social, contacto, documentación sanitaria.
 
 ### 5.4 Catálogos (Administración)
-- Índice con 7 tarjetas.
-- Categorías, Formas farmacéuticas, Principios activos, Laboratorios, Usos, Tipos de pago.
+- Índice con 6 tarjetas.
+- Categorías, Categorías de gasto, Formas farmacéuticas, Principios activos, Laboratorios, **Usos y síntomas**.
+- **Usos y síntomas = mini vademécum:** en el POS se puede buscar por síntoma ("gripa", "agrieras", "rasquiña"). Busca en el nombre del uso y en su **descripción**, donde van palabras parecidas separadas por coma. Los 15 usos de fábrica ya traen sinónimos (migración 19). La tarjeta muestra "🩺 Sirve para…" y la ventana "i" muestra principio activo y usos.
+- ~~Tipos de pago~~ se quitó: el POS usa formas de pago fijas (efectivo, Nequi, Davivienda, tarjeta).
 - CRUD completo, activar / desactivar.
-- Predefinidos: 15 categorías, 14 formas, 20 usos, 4 tipos de pago.
+- Predefinidos: 15 categorías, 14 formas, 20 usos (con sinónimos).
 
 ### 5.5 Unidades de medida
 - CRUD tipo Odoo: Unidad (factor 1), Sello x 10 (factor 10), Caja x 100 (factor 100), etc.
@@ -180,6 +182,7 @@
 - Pantalla principal con layout de 2 columnas.
 - Menú lateral derecho (drawer) con 8 opciones.
 - Movimientos de caja (ingreso / salida) para efectivo, Nequi, Davivienda.
+- **Regla del dinero:** *salida de efectivo* = solo **mover plata** (consignar, pasar a caja menor, cambiar billetes). Todo **pago** (domicilio, insumos, servicios) es un **gasto** (desde el POS o desde Contabilidad; es la misma tabla). *Retiro* de caja menor = sacar plata del fondo (consignar o lo que retira el dueño). La ventana de salida lo explica y tiene un botón directo a "Registrar gasto".
 - Cierre de caja como modal con desglose completo.
 - Modal de conteo reutilizable.
 
@@ -250,48 +253,41 @@
 ### Fase 2: ventas y contabilidad 🔄
 - **2.1** POS interno ✅ (caja, carrito, cobro, anulación, cambio de precio, ventana "i").
 - **2.2** Gastos discriminados ✅ (módulo Contabilidad + caja menor).
-- **2.3** Utilidades por período (pendiente).
-- **2.4** Estado de resultados (pendiente).
-- **2.5** IVA con prorrateo (pendiente).
-- **2.6** Flujo de caja (pendiente).
+- **2.3 / 2.4** Utilidades y estado de resultados → se hacen como **R2** en Reportes (pendiente).
+- **2.5** IVA con prorrateo ⏸ solo si el contador lo pide.
+- **2.6** Flujo de caja ⏸ lo cubren R1 Ventas (por día y forma de pago) + el cierre de caja.
 
-### Fase R: módulo Reportes (tomado de DATA FARMAC, adaptado) ⏳
-Idea: una pantalla con la lista de reportes a la izquierda y el reporte elegido a la
-derecha, con filtro de fechas, gráfico (Chart.js local), tabla y descarga en PDF/Excel.
-**Regla de todos:** las ventas anuladas no cuentan; los montos van con y sin IVA.
+### Fase R: módulo Reportes ⏳
+Idea (tomada de DATA FARMAC): una pantalla con la lista de reportes a un lado y el
+reporte elegido al otro, con **selector de período** (día, semana, mes, año o
+fechas), gráfico (Chart.js local), tabla y descarga en PDF/Excel.
+**Reglas de todos:** las ventas anuladas no cuentan; los montos van con y sin IVA.
 
-| # | Reporte | Qué muestra | De dónde salen los datos | ¿Se puede ya? |
+Se juntaron los reportes que repetían el mismo cálculo con otro período
+(antes eran 15, quedan 8 + Temperaturas, que ya existe):
+
+| # | Reporte | Qué muestra | Reemplaza a | Quién lo ve |
 |---|---|---|---|---|
-| R1 | **Resumen** | Panorama del negocio: ventas de hoy/semana/mes, utilidad, gastos, ticket promedio, n.º de ventas, alertas (vencimientos, stock mínimo) | ventas, venta_lineas, gastos, lotes | ✅ |
-| R2 | **Ganancia de la semana** | Ventas − costo de lo vendido − gastos, día por día | venta_lineas.lotes_json + costo de cada lote, gastos | ✅ |
-| R3 | **Ventas de la semana** | Ventas diarias de los últimos 7 días (barras) | ventas | ✅ |
-| R4 | **Ventas vs Compras** | Comparativo mensual: lo vendido vs lo comprado | ventas vs recepciones aprobadas (cantidad × costo) | ✅ |
-| R5 | **Ventas anuales** | Evolución mes a mes del año, comparado con el año anterior | ventas | ✅ |
-| R6 | **Top 5 productos** | Los productos más vendidos por unidades y por dinero (elegir período) | venta_lineas | ✅ |
-| R8 | **Ingresos por día** | Ventas e ingresos diarios del mes (calendario o barras), por forma de pago | ventas, caja_movimientos | ✅ |
-| R10 | **Ingresos por usuario** | Ventas registradas por cada vendedor | ventas.usuario_id | ✅ |
-| R11 | **Gastos administrativos** | Gastos del período por categoría | gastos | ✅ |
-| R12 | **Otros ingresos** | Ingresos que no son venta de farmacia (recargas, arriendos, etc.) | ⚠️ Necesita registrar **otros ingresos** (hoy solo hay ingresos de caja) | 🟡 parcial |
-| R13 | **Ventas libres por concepto** | Ventas sin inventario agrupadas por concepto | ⚠️ Necesita **venta libre** en el POS | ❌ falta |
+| R1 | **Ventas** | Ventas por día, semana, mes o año; comparación con el período anterior; desglose por forma de pago y por vendedor | Ventas de la semana, Ventas anuales, Ingresos por día, Ingresos por usuario | Admin y DT |
+| R2 | **Utilidades y estado de resultados** | Ventas − costo de lo vendido (costo real del lote) − gastos, por día o por período; estado de resultados simplificado | Ganancia de la semana, Utilidades (Fase 2.3 y 2.4) | Admin y DT |
+| R3 | **Top productos** | Los más vendidos por unidades y por dinero (top 5, 10 o 20) | Top 5 productos | Admin y DT |
+| R4 | **Ventas vs compras** | Comparativo mensual: lo vendido vs lo comprado (recepciones aprobadas) | — | Admin y DT |
+| R5 | **Gastos** | Gastos del período por categoría | Gastos administrativos | Admin y DT |
+| R6 | **Sugerido de compra** | Qué pedir y cuánto, por proveedor: venta diaria promedio (30 días), días que alcanza el stock, cantidad para cubrir N días. Listas: **bajo stock mínimo**, **se agota en < 7 días**, **sin rotación** (60/90 días). Pedido para imprimir o enviar por WhatsApp | — | Admin y DT |
+| R7 | **Recepciones** | Recepciones por proveedor y período, rechazos y motivos | — | Todos |
+| R8 | **Vencimientos** | Semáforo en PDF para inspección | — | Todos |
+| — | Temperaturas | Ya existe (gráfico, PDF y plantilla mensual) | — | Todos |
 
-Reportes propios que ya estaban pendientes y se suman a la misma pantalla:
-
-| # | Reporte | Qué muestra | De dónde salen los datos | ¿Se puede ya? |
-|---|---|---|---|---|
-| R14 | Recepciones | Recepciones por proveedor y período, rechazos | recepciones | ✅ |
-| R15 | Vencimientos | Semáforo en PDF para inspección | lotes | ✅ |
-| R16 | Utilidades / Estado de resultados | Ver Fase 2.3 y 2.4 | — | ✅ |
-| R17 | **Sugerido de compra (reabastecimiento)** | Qué pedir y cuánto, agrupado por proveedor. Venta diaria promedio (últimos 30 días), días que alcanza el stock, cantidad a pedir para cubrir N días (elegible, ej. 15). Incluye 3 listas: **bajo stock mínimo**, **se agota en menos de 7 días**, **sin rotación** (sin ventas en 60/90 días). Pedido listo para imprimir o enviar por WhatsApp al proveedor | venta_lineas (rotación), lotes vendibles (stock), stock_minimo, proveedor y costo de la última recepción aprobada | ✅ |
-
-Nota R17: solo cuenta stock vendible (no cuarentena ni vencidos). Las primeras semanas tras el inventario inicial no hay historial de ventas: mientras tanto se guía por el stock mínimo.
-
-_Descartados por decisión de Fernando: Top 5 servicios y Medicamentos vs Servicios._
-
-**Lo que hay que construir antes para R12 y R13:**
-- **Venta libre en el POS**: vender un concepto sin inventario escribiendo el valor, con catálogo de conceptos.
-- **Otros ingresos**: registro de ingresos que no son ventas (con categoría), separado de las ventas.
-
-Visto en DATA FARMAC y anotado para después (no son reportes): **Cotización** y **Deudas** (ventas fiadas / cuentas por cobrar).
+Notas:
+- El **Resumen** de DATA FARMAC no es un reporte aparte: sus números (ventas de hoy,
+  semana y mes, utilidad del mes, alertas) van en la pantalla de **Inicio**.
+- **Utilidades** vive en Reportes; la tarjeta de Contabilidad lleva a ese reporte (un solo lugar).
+- R6: solo cuenta stock vendible (no cuarentena ni vencidos). Las primeras semanas tras
+  el inventario inicial no hay historial de ventas; mientras tanto se guía por el stock mínimo.
+- Más adelante, cuando existan: **venta libre** en el POS y **otros ingresos** → se agregan
+  como filtros dentro de R1 Ventas (no como reportes aparte).
+- _Descartados por decisión de Fernando: Top 5 servicios y Medicamentos vs Servicios._
+- Visto en DATA FARMAC y anotado como idea: **Cotización** y **Deudas** (fiados).
 
 ### Fase 3: alertas y precios ⏳
 - **3.1** Devoluciones.
@@ -310,7 +306,7 @@ Visto en DATA FARMAC y anotado para después (no son reportes): **Cotización** 
 
 ### Fase 6: IA y automatización ⏳
 - Sugerencia de categorías y principio activo al escribir nombre.
-- Búsqueda semántica.
+- ~~Búsqueda semántica~~ → la cubre el buscador por síntoma (usos) del POS.
 - Imágenes automáticas por código de barras.
 - Resumen de noticias regulatorias.
 
@@ -332,9 +328,8 @@ Visto en DATA FARMAC y anotado para después (no son reportes): **Cotización** 
 
 ### Corto plazo
 - [ ] Estado de Resultados simplificado.
-- [ ] Reporte de IVA con prorrateo (Art. 490 ET).
-- [ ] Flujo de caja.
-- [ ] Módulo Reportes completo (Fase R, sección 7): R1–R6, R8, R10, R11, R14–R17 primero; R12 y R13 cuando existan venta libre y otros ingresos.
+- [ ] (⏸ solo si el contador lo pide) Reporte de IVA con prorrateo (Art. 490 ET).
+- [ ] Módulo Reportes (Fase R, sección 7): R1 a R8. Venta libre y otros ingresos entran después como filtros de R1.
 - [ ] Venta libre en el POS y registro de otros ingresos.
 - [ ] (Idea) Cotizaciones y deudas/fiados.
 - [ ] Reemplazar todos los `confirm()` nativos por el modal de confirmación.
@@ -347,8 +342,7 @@ Visto en DATA FARMAC y anotado para después (no son reportes): **Cotización** 
 - [ ] Modo Inspección.
 
 ### Largo plazo
-- [ ] IA para clasificación automática de productos.
-- [ ] Búsqueda semántica.
+- [ ] (⏸ lejano) IA para clasificación automática de productos.
 - [ ] Imágenes automáticas por código de barras.
 - [ ] Facturación electrónica DIAN.
 - [ ] App móvil.
@@ -387,6 +381,7 @@ Visto en DATA FARMAC y anotado para después (no son reportes): **Cotización** 
 | 16 | caja_menor_movimientos (fondo permanente) |
 | 17 | precio_original y motivo_precio en venta_lineas (cambio de precio al vender) |
 | 18 | conteos y conteo_lineas (toma de inventario) |
+| 19 | limpieza: borra presentaciones_producto; sinónimos en los usos (buscador por síntoma) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -419,6 +414,7 @@ Visto en DATA FARMAC y anotado para después (no son reportes): **Cotización** 
 - Tests ajustados a la regla de caja menor + 9 tests nuevos: **95 tests pasan**.
 - Rediseño de la ventana "i" + ventana "Editar" encima: **104 tests pasan**.
 - Módulo **Toma de inventario** (conteo físico, inventario inicial, vender durante el conteo, acta PDF): **126 tests pasan**.
+- **Limpieza (2026-10-09):** menú por secciones (Día a día, Productos, Dinero, Consultas, Administración) y por rol (el auxiliar ya no ve enlaces que le niegan; el DT ahora ve Contabilidad y Caja menor); usos convertidos en buscador por síntoma; quitado el catálogo Tipos de pago y la tabla presentaciones_producto; aclarada salida de efectivo vs gasto; quitados avisos de "Próximamente" que estorbaban en el menú del POS; reportes reducidos de 15 a 8. **137 tests pasan**.
 - Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → venta por presentación → panel de alertas → utilidades/estado de resultados → reportes → equipos/calibraciones → devoluciones.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 

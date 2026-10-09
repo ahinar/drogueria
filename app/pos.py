@@ -474,6 +474,20 @@ SQL_LOTE_VENDIBLE = (
     "AND (l.vencimiento IS NULL OR l.vencimiento = '' OR l.vencimiento >= ?)"
 )
 
+def _usos_de(ids):
+    """{producto_id: ['Fiebre', 'Gripa', ...]} para una lista de productos."""
+    if not ids:
+        return {}
+    marcas = ",".join("?" * len(ids))
+    resultado = {}
+    for fila in get_db().execute(
+            "SELECT pu.producto_id, c.nombre FROM productos_usos pu "
+            f"JOIN catalogos c ON c.id = pu.catalogo_id WHERE pu.producto_id IN ({marcas}) "
+            "ORDER BY c.nombre COLLATE NOCASE", ids):
+        resultado.setdefault(fila["producto_id"], []).append(fila["nombre"])
+    return resultado
+
+
 @bp.route("/api/productos")
 @login_required
 def api_productos():
@@ -492,10 +506,22 @@ def api_productos():
     )
     params = [hoy]
 
+    # Cada palabra escrita debe aparecer en ALGUNO de estos lugares:
+    #   nombre, código, código de barras, principio activo (texto o catálogo)
+    #   o en los USOS del producto (nombre del uso o su descripción).
+    # Así funciona el "buscador por síntoma": si el producto tiene el uso
+    # "Gripa" con descripción "resfriado, congestión", escribir "resfriado"
+    # lo encuentra.
     for palabra in q.split():
         sql += (" AND (p.nombre LIKE ? OR p.codigo LIKE ? OR p.codigo_barras LIKE ? "
-                "OR p.principio_activo LIKE ?)")
-        params += [f"%{palabra}%"] * 4
+                "OR p.principio_activo LIKE ? "
+                "OR EXISTS (SELECT 1 FROM catalogos pa WHERE pa.id = p.principio_id "
+                "           AND pa.nombre LIKE ?) "
+                "OR EXISTS (SELECT 1 FROM productos_usos pu "
+                "           JOIN catalogos u ON u.id = pu.catalogo_id "
+                "           WHERE pu.producto_id = p.id "
+                "           AND (u.nombre LIKE ? OR u.descripcion LIKE ?)))")
+        params += [f"%{palabra}%"] * 7
 
     if cat.isdigit():
         sql += " AND p.id IN (SELECT producto_id FROM productos_categorias WHERE catalogo_id = ?)"
@@ -504,6 +530,7 @@ def api_productos():
     sql += " ORDER BY (stock > 0) DESC, p.nombre COLLATE NOCASE LIMIT 40"
     filas = get_db().execute(sql, params).fetchall()
 
+    usos = _usos_de([f["id"] for f in filas])
     productos = [{
         "id": f["id"], "codigo": f["codigo"], "codigo_barras": f["codigo_barras"],
         "nombre": f["nombre"], "concentracion": f["concentracion"],
@@ -511,6 +538,7 @@ def api_productos():
         "requiere_formula": bool(f["requiere_formula"]),
         "control_especial": bool(f["control_especial"]),
         "imagen": f["imagen"], "stock": f["stock"],
+        "usos": usos.get(f["id"], []),     # para mostrar "Sirve para: ..." en la tarjeta
     } for f in filas]
 
     exacto = bool(q) and len(productos) == 1 and productos[0]["codigo_barras"] == q
@@ -590,6 +618,8 @@ def api_producto_info(producto_id):
 
     categorias = [f["catalogo_id"] for f in db.execute(
         "SELECT catalogo_id FROM productos_categorias WHERE producto_id = ?", (producto_id,))]
+    principio = db.execute("SELECT nombre FROM catalogos WHERE id = ?",
+                           (p["principio_id"],)).fetchone() if p["principio_id"] else None
 
     return jsonify({"ok": True, "producto": {
         "id": p["id"], "codigo": p["codigo"], "codigo_barras": p["codigo_barras"],
@@ -604,6 +634,8 @@ def api_producto_info(producto_id):
         "maneja_vencimiento": bool(p["maneja_vencimiento"]),
         "stock_minimo": p["stock_minimo"] or 0,
         "categorias": categorias,
+        "usos": _usos_de([producto_id]).get(producto_id, []),
+        "principio_activo": (principio["nombre"] if principio else None) or p["principio_activo"],
         "stock": stock,
         "lotes": [{"lote": l["lote"], "vencimiento": l["vencimiento"],
                    "cantidad": l["cantidad_disponible"]} for l in lotes],
