@@ -533,6 +533,14 @@ MIGRATIONS = [
         ALTER TABLE gastos ADD COLUMN caja_id INTEGER;
         """,
     ),
+    (
+        17,
+        """
+        -- ===== Cambios de precio al vender (Opción B) =====
+        ALTER TABLE venta_lineas ADD COLUMN precio_original REAL;
+        ALTER TABLE venta_lineas ADD COLUMN motivo_precio TEXT;
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Inicio{% endblock %} · Fervifarma</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/pos_nuevo.css') }}">
   {% if config_negocio and config_negocio.logo_ruta %}
     <link rel="icon" href="{{ url_for('static', filename=config_negocio.logo_ruta) }}">
   {% else %}
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
   {% endif %}
+
 </head>
 <body class="layout">
 
@@ -107,6 +109,10 @@
       <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('contabilidad.') %}activo{% endif %}"
          href="{{ url_for('contabilidad.index') }}" title="Contabilidad">
         <span class="ico">💰</span><span class="txt">Contabilidad</span>
+      </a>
+      <a class="sidebar-link {% if request.endpoint and request.endpoint.startswith('caja_menor.') %}activo{% endif %}"
+         href="{{ url_for('caja_menor.index') }}" title="Caja menor">
+        <span class="ico">💵</span><span class="txt">Caja menor</span>
       </a>
       <a class="sidebar-link {% if request.endpoint == 'admin.respaldos' %}activo{% endif %}"
          href="{{ url_for('admin.respaldos') }}" title="Respaldos">

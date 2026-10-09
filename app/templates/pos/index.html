@@ -110,6 +110,10 @@
           <span class="pos-drawer-ico">💸</span>
           <span>Salida de efectivo</span>
         </button>
+        <button type="button" class="pos-drawer-item" data-accion="registrar-gasto">
+          <span class="pos-drawer-ico">💸</span>
+          <span>Registrar gasto</span>
+        </button>
         <button type="button" class="pos-drawer-item" data-accion="ultimas-ventas">
           <span class="pos-drawer-ico">🧾</span>
           <span>Últimas ventas</span>
@@ -147,6 +151,7 @@
 <input type="hidden" id="url-inventario" value="{{ url_for('inventario.inicio') }}">
 <input type="hidden" id="url-static-base" value="{{ url_for('static', filename='') }}">
 <input type="hidden" id="url-cierre-confirmacion" value="{{ url_for('pos.cierre_confirmacion', caja_id=0) }}">
+<input type="hidden" id="url-api-gasto" value="{{ url_for('pos.api_gasto') }}">
 
 {% endblock %}
 
@@ -155,6 +160,7 @@
 {% include "pos/_modal_movimiento.html" %}
 {% include "pos/_modal_conteo.html" %}
 {% include "pos/_modal_pago.html" %}
+{% include "pos/_modal_gasto.html" %}
 {% endblock %}
 
 {% block scripts_extra %}

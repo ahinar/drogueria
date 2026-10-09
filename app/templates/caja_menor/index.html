@@ -144,19 +144,26 @@
 {% block scripts_extra %}
 <script>
 (function () {
+  // Abrir modales
   document.querySelectorAll('[data-modal]').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      const id = btn.dataset.modal;
-      const modal = document.getElementById('modal-cm-' + id);
+      const modal = document.getElementById('modal-cm-' + btn.dataset.modal);
       if (modal) modal.classList.remove('modal-oculto');
     });
   });
+
+  // Cerrar modales con el botón Cancelar
   document.querySelectorAll('[data-cerrar-modal]').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      btn.closest('.modal-oculto, .modal-caja').parentElement.classList.add('modal-oculto');
+      const modal = btn.closest('[id^="modal-cm-"]');
+      if (modal) modal.classList.add('modal-oculto');
     });
   });
-  document.querySelectorAll('#modal-cm-aporte, #modal-cm-retiro').forEach(function (m) {
+
+  // Cerrar modal al hacer clic fuera de la caja
+  ['modal-cm-aporte', 'modal-cm-retiro'].forEach(function (id) {
+    const m = document.getElementById(id);
+    if (!m) return;
     m.addEventListener('click', function (e) {
       if (e.target === m) m.classList.add('modal-oculto');
     });
