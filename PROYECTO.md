@@ -281,6 +281,9 @@ Reportes propios que ya estaban pendientes y se suman a la misma pantalla:
 | R14 | Recepciones | Recepciones por proveedor y período, rechazos | recepciones | ✅ |
 | R15 | Vencimientos | Semáforo en PDF para inspección | lotes | ✅ |
 | R16 | Utilidades / Estado de resultados | Ver Fase 2.3 y 2.4 | — | ✅ |
+| R17 | **Sugerido de compra (reabastecimiento)** | Qué pedir y cuánto, agrupado por proveedor. Venta diaria promedio (últimos 30 días), días que alcanza el stock, cantidad a pedir para cubrir N días (elegible, ej. 15). Incluye 3 listas: **bajo stock mínimo**, **se agota en menos de 7 días**, **sin rotación** (sin ventas en 60/90 días). Pedido listo para imprimir o enviar por WhatsApp al proveedor | venta_lineas (rotación), lotes vendibles (stock), stock_minimo, proveedor y costo de la última recepción aprobada | ✅ |
+
+Nota R17: solo cuenta stock vendible (no cuarentena ni vencidos). Las primeras semanas tras el inventario inicial no hay historial de ventas: mientras tanto se guía por el stock mínimo.
 
 _Descartados por decisión de Fernando: Top 5 servicios y Medicamentos vs Servicios._
 
@@ -331,7 +334,7 @@ Visto en DATA FARMAC y anotado para después (no son reportes): **Cotización** 
 - [ ] Estado de Resultados simplificado.
 - [ ] Reporte de IVA con prorrateo (Art. 490 ET).
 - [ ] Flujo de caja.
-- [ ] Módulo Reportes completo (Fase R, sección 7): R1–R6, R8, R10, R11, R14–R16 primero; R12 y R13 cuando existan venta libre y otros ingresos.
+- [ ] Módulo Reportes completo (Fase R, sección 7): R1–R6, R8, R10, R11, R14–R17 primero; R12 y R13 cuando existan venta libre y otros ingresos.
 - [ ] Venta libre en el POS y registro de otros ingresos.
 - [ ] (Idea) Cotizaciones y deudas/fiados.
 - [ ] Reemplazar todos los `confirm()` nativos por el modal de confirmación.
