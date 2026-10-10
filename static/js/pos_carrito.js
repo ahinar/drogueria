@@ -431,6 +431,13 @@
     $('pos-total').textContent = peso(total);
     btnPago.disabled = carrito.length === 0;
     btnPago.textContent = carrito.length ? '💵 PAGO ' + peso(total) : '💵 PAGO';
+    // Botón flotante del celular ("Carrito 3 · $6.000 · Ver"): se esconde si está vacío
+    const barra = $('pos-ir-carrito');
+    if (barra) {
+      barra.classList.toggle('vacio', !carrito.length);
+      $('pos-ir-n').textContent = carrito.length;
+      $('pos-ir-total').textContent = peso(total);
+    }
     guardarCarrito();
   }
 
@@ -1330,7 +1337,8 @@
 
   $('pos-categorias').addEventListener('click', (e) => {
     const boton = e.target.closest('.pos-cat');
-    if (!boton) return;
+    // "+ Venta libre" vive en esta fila pero NO es un filtro: tiene su propio clic
+    if (!boton || boton.classList.contains('pos-cat-libre')) return;
     document.querySelectorAll('.pos-cat').forEach((b) => b.classList.remove('activo'));
     boton.classList.add('activo');
     categoria = boton.dataset.cat;

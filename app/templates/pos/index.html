@@ -3,8 +3,8 @@
 {% block contenido %}
 <div class="pos-layout">
 
-  <!-- ============ COLUMNA IZQUIERDA: CARRITO ============ -->
-  <aside class="pos-carrito">
+  <!-- ============ COLUMNA IZQUIERDA: CARRITO (en el celular va abajo) ============ -->
+  <aside class="pos-carrito" id="pos-carrito">
     <!-- Pestañas de ventas abiertas ("Venta 1", "Venta 2"...) y botón + para
          atender a otro cliente. Las dibuja pos_carrito.js (pintarPestanas). -->
     <div class="pos-ventas-tabs" id="pos-ventas-tabs" role="tablist" aria-label="Ventas abiertas"></div>
@@ -41,7 +41,6 @@
     <div class="pos-acciones-cliente">
       <button type="button" class="boton-chico sec" id="btn-cliente"><span class="ico-emoji">👤</span> Cliente</button>
       <button type="button" class="boton-chico sec" id="btn-nota"><span class="ico-emoji">📝</span> Nota</button>
-      <button type="button" class="boton-chico sec" id="btn-venta-libre" title="Cobrar algo que no está en el inventario (inyectología, toma de presión…)"><span class="ico-emoji">➕</span> Venta libre</button>
     </div>
 
     <div class="pos-numpad">
@@ -74,12 +73,16 @@
       <input type="text" id="pos-input-busqueda"
              placeholder="🔍 Buscar por nombre, síntoma (ej. gripa), principio activo o código de barras…"
              autocomplete="off" autofocus>
-      <button type="button" class="pos-btn-menu" id="btn-menu-pos" title="Menú">
+      <!-- Menú de la caja: cerrar caja, gasto, otro ingreso... (a la derecha del buscador) -->
+      <button type="button" class="pos-btn-menu" id="btn-menu-pos" title="Menú de la caja">
         ☰
       </button>
     </div>
 
     <div class="pos-categorias" id="pos-categorias">
+      <!-- Venta libre: cobrar algo que no está en el inventario (no es un filtro) -->
+      <button type="button" class="pos-cat pos-cat-libre" id="btn-venta-libre"
+              title="Cobrar algo que no está en el inventario (inyectología, toma de presión…)">+ Venta libre</button>
       <button type="button" class="pos-cat activo" data-cat="">Todas</button>
       {% for c in categorias %}
         <button type="button" class="pos-cat" data-cat="{{ c['id'] }}">{{ c['nombre'] }}</button>
@@ -92,6 +95,13 @@
       </p>
     </div>
   </main>
+
+  <!-- Solo en el celular: botón flotante con el total; al tocarlo baja al carrito -->
+  <a href="#pos-carrito" class="pos-ir-carrito vacio" id="pos-ir-carrito">
+    <span>Carrito <strong id="pos-ir-n">0</strong></span>
+    <strong id="pos-ir-total">$0</strong>
+    <span>Ver ↓</span>
+  </a>
 
   <!-- ============ MENÚ LATERAL DERECHO ============ -->
   <div id="pos-drawer" hidden>

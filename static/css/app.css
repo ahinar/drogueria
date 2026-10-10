@@ -1692,6 +1692,10 @@ body.sidebar-colapsado .sidebar-logo-img {
 
 @media (max-width: 900px) {
   .pos-layout { grid-template-columns: 1fr; height: auto; }
+  /* En el celular: primero buscar productos y abajo el carrito.
+     "order" cambia el orden en pantalla sin mover el HTML. */
+  .pos-productos { order: 1; }
+  .pos-carrito { order: 2; }
 }
 
 
@@ -2654,3 +2658,25 @@ html body .cal-pie button { padding: .35rem .7rem; color: var(--acento); font-we
 }
 .modal-ui-ayuda { display: block; margin-top: .25rem; font-weight: 400; font-size: .8rem; color: var(--texto-suave, #5b6b79); }
 .modal-ui .fila-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 .8rem; }
+
+/* ---- POS: botón "Venta libre" al inicio de las categorías ---- */
+.pos-cat.pos-cat-libre {
+  border: 1px dashed var(--acento); color: var(--acento); background: var(--acento-suave, #e8f1fa);
+  font-weight: 600;
+}
+.pos-cat.pos-cat-libre:hover { background: var(--acento); color: #fff; }
+
+/* ---- POS en el celular: botón flotante abajo con el total ----
+   El carrito queda debajo de los productos; este botón baja hasta él. */
+.pos-ir-carrito { display: none; }
+@media (max-width: 900px) {
+  .pos-ir-carrito {
+    display: flex; align-items: center; gap: .7rem;
+    position: fixed; right: 12px; bottom: 14px; z-index: 900;
+    padding: .75rem 1.1rem; border-radius: 999px;
+    background: var(--acento-fuerte); color: #fff !important; text-decoration: none;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .28); font-size: .95rem;
+  }
+  .pos-ir-carrito strong { color: #fff; }
+  .pos-ir-carrito.vacio { display: none; }
+}
