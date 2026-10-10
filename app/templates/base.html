@@ -144,6 +144,16 @@
         {% endif %}
       </div>
       {% endif %}
+
+      <!-- ===== Mi cuenta (todos los usuarios) =====
+           Aquí cada quien elige su tema de colores (verde, azul o clásico).
+           Antes solo se llegaba tocando las iniciales del pie del menú,
+           pero en el celular ese pie se oculta, así que no se encontraba. -->
+      <div class="sidebar-seccion">Mi cuenta</div>
+      <a class="sidebar-link {% if ep.startswith('apariencia.') %}activo{% endif %}"
+         href="{{ url_for('apariencia.apariencia') }}" title="Apariencia (temas)">
+        <span class="ico">{{ ico("paleta", "🎨") }}</span><span class="txt">Apariencia (temas)</span>
+      </a>
     </nav>
 
     <!-- Pie del menú: quién está conectado. Clic = elegir el tema (Apariencia) -->

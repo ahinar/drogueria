@@ -57,3 +57,13 @@ class TestPaginasSueltas(BaseFase1):
     def test_app_css_trae_los_colores_por_si_acaso(self):
         css = (Path(__file__).resolve().parent.parent / "static/css/app.css").read_text(encoding="utf-8")
         self.assertIn('@import url("temas.css")', css)
+
+
+class TestMenuApariencia(BaseFase1):
+    """En el celular el pie del menú (iniciales) se oculta: por eso los temas
+    deben tener su propia opción visible en el menú, para cualquier rol."""
+
+    def test_menu_tiene_opcion_apariencia(self):
+        html = self.c.get("/").get_data(as_text=True)
+        self.assertIn("Apariencia (temas)", html)
+        self.assertIn('href="/cuenta/apariencia"', html)
