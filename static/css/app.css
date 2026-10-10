@@ -2354,3 +2354,35 @@ body.sidebar-colapsado .sidebar-submenu { display: block; max-height: none; back
   .pres-fila { grid-template-columns: 1fr 1fr; }
   .pres-fila label:nth-of-type(5), .pres-quitar { grid-column: 1 / -1; }   /* código de barras a lo ancho */
 }
+
+/* ===== Inicio: panel de alertas "Para atender hoy" ===== */
+.alertas-panel { margin: 0 0 1.5rem; }
+.alertas-titulo { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; font-size: 1.15rem; margin: 0 0 .7rem; }
+.alertas-resumen { display: inline-flex; gap: .4rem; }
+.alerta-chip { padding: .15rem .65rem; border-radius: 999px; font-size: .8rem; font-weight: 700; }
+.alerta-chip.rojo { background: #fde3e1; color: #a1251b; }
+.alerta-chip.amarillo { background: #fff1cc; color: #7a5300; }
+.alertas-ok { margin: 0; padding: .9rem 1rem; border-radius: 8px; background: #e7f6ec; color: #1e6b3a; }
+.alertas-rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: .8rem; align-items: start; }
+.alerta-tarjeta { background: #fff; border: 1px solid #e3e8ee; border-left: 5px solid #e0a800; border-radius: 8px; padding: .2rem .9rem; }
+.alerta-tarjeta.rojo { border-left-color: #c62828; }
+.alerta-tarjeta summary {
+  display: flex; align-items: center; gap: .6rem; padding: .6rem 0;
+  cursor: pointer; list-style: none; font-weight: 600; color: #1f2a33;
+}
+.alerta-tarjeta summary::-webkit-details-marker { display: none; }
+.alerta-tarjeta summary::after { content: "▸"; margin-left: .2rem; color: #7a8794; transition: transform .15s; }
+.alerta-tarjeta[open] summary::after { transform: rotate(90deg); }
+.alerta-icono { font-size: 1.2rem; }
+.alerta-nombre { flex: 1; }
+.alerta-total { min-width: 1.8rem; padding: .1rem .5rem; border-radius: 999px; text-align: center; font-size: .85rem; background: #fff1cc; color: #7a5300; }
+.alerta-tarjeta.rojo .alerta-total { background: #fde3e1; color: #a1251b; }
+.alerta-explicacion { margin: 0 0 .5rem; font-size: .88rem; color: #5c6b78; }
+.alerta-items { margin: 0 0 .6rem; padding: 0; list-style: none; }
+.alerta-items li { padding: .4rem 0; border-top: 1px solid #eef1f4; font-size: .92rem; }
+.alerta-items li small { display: block; color: #6b7884; }
+.alerta-items a { color: #0a4f8a; font-weight: 600; text-decoration: none; }
+.alerta-items a:hover { text-decoration: underline; }
+.alerta-mas { margin: 0 0 .5rem; font-size: .85rem; color: #6b7884; }
+.alerta-boton { display: inline-block; margin-bottom: .7rem; }
+@media (max-width: 600px) { .alertas-rejilla { grid-template-columns: 1fr; } }

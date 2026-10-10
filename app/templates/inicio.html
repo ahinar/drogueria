@@ -36,6 +36,52 @@
 </div>
 {% endif %}
 
+<!-- ============ PANEL DE ALERTAS: ¿qué hay que atender hoy? ============
+     La lista "alertas" la arma app/alertas.py. Cada alerta trae: nivel
+     (rojo / amarillo), título, explicación, hasta 5 casos con su enlace y
+     un botón "Ver todos". Aquí solo se pintan. -->
+<section class="alertas-panel">
+  <h2 class="alertas-titulo">
+    🔔 Para atender hoy
+    {% if alertas %}
+      <span class="alertas-resumen">
+        {% if alertas_rojas %}<span class="alerta-chip rojo">{{ alertas_rojas }} urgente{{ '' if alertas_rojas == 1 else 's' }}</span>{% endif %}
+        {% if alertas|length - alertas_rojas %}<span class="alerta-chip amarillo">{{ alertas|length - alertas_rojas }} pendiente{{ '' if alertas|length - alertas_rojas == 1 else 's' }}</span>{% endif %}
+      </span>
+    {% endif %}
+  </h2>
+
+  {% if not alertas %}
+    <p class="alertas-ok">✅ Todo en orden: no hay vencimientos, precios fuera del máximo ni productos agotados.</p>
+  {% else %}
+  <div class="alertas-rejilla">
+    {% for a in alertas %}
+    <!-- <details>: se abre y se cierra tocando el título. Las rojas vienen abiertas. -->
+    <details class="alerta-tarjeta {{ a.nivel }}" data-clave="{{ a.clave }}" {% if a.nivel == 'rojo' %}open{% endif %}>
+      <summary>
+        <span class="alerta-icono">{{ a.icono }}</span>
+        <span class="alerta-nombre">{{ a.titulo }}</span>
+        <span class="alerta-total">{{ a.total }}</span>
+      </summary>
+      <p class="alerta-explicacion">{{ a.explicacion }}</p>
+      <ul class="alerta-items">
+        {% for it in a['items'] %}
+        <li>
+          {% if it.url %}<a href="{{ it.url }}">{{ it.texto }}</a>{% else %}{{ it.texto }}{% endif %}
+          {% if it.detalle %}<small>{{ it.detalle }}</small>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% if a.total > a['items']|length %}
+        <p class="alerta-mas">… y {{ a.total - a['items']|length }} más.</p>
+      {% endif %}
+      {% if a.url %}<a class="boton secundario alerta-boton" href="{{ a.url }}">{{ a.boton }} →</a>{% endif %}
+    </details>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+
 <!-- ============ 4 TARJETAS ============ -->
 <div class="tarjetas-kpi">
 

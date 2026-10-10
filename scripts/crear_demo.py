@@ -123,6 +123,13 @@ def main():
                 con.execute("INSERT INTO productos_usos (producto_id, catalogo_id) VALUES (?, ?)",
                             (pid, catalogo("uso", uso)))
 
+    # Para ver el panel de alertas del Inicio: un registro INVIMA por vencer
+    # y un proveedor con el concepto sanitario vencido
+    con.execute("UPDATE productos SET registro_sanitario = 'INVIMA 2016M-0000000-R1', registro_vence = ? "
+                "WHERE id = ?", (dias(45), ids[8]))
+    con.execute("UPDATE proveedores SET concepto_sanitario = 'Favorable', concepto_vence = ? WHERE id = ?",
+                (dias(-5), proveedores["DROGUERÍAS MAYORISTAS DEMO"]))
+
     # ---- 5b. Presentaciones: sobre x 10 y caja x 100 (el inventario va en tabletas) ----
     # (producto, unidad, cuántas tabletas trae, precio, código de barras de esa presentación)
     for idx, unidad_nombre, factor, precio, barras in (

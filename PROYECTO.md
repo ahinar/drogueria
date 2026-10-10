@@ -109,7 +109,11 @@
 - Tarjeta de temperatura (Al día / X pendientes).
 - Tarjeta de productos activos.
 - Tarjeta de lotes por vencer (clicable a semáforo).
-- Tarjeta de ventas del día (pendiente del POS completo).
+- Tarjeta de ventas del día.
+- **Panel "Para atender hoy"** (`app/alertas.py`): tarjetas que se abren y se cierran; rojas primero y abiertas; máximo 5 casos por tarjeta con enlace, más "… y N más" y un botón "Ver todos". Si no hay nada: "✅ Todo en orden".
+  - 🔴 Lotes vencidos que aún tienen unidades · precio por encima del máximo (también por presentación) · INVIMA vencido · proveedor con concepto sanitario vencido · productos agotados (solo los que tienen stock mínimo).
+  - 🟡 INVIMA vence en ≤ 90 días · concepto del proveedor vence en ≤ 30 días · en o por debajo del stock mínimo · lotes que vencen en ≤ 30 días · recepciones en cuarentena · productos sin precio · caja abierta desde un día anterior.
+  - Por rol: el auxiliar no ve las de proveedores ni "sin precio"; sus enlaces de producto van al kardex (no puede editar). El jefe va directo a editar.
 - Panel de últimas lecturas de temperatura.
 - Panel de últimos productos agregados.
 - Botón verde "Comenzar a vender".
@@ -293,8 +297,8 @@ Notas:
 
 ### Fase 3: alertas y precios ⏳
 - **3.1** Devoluciones.
-- **3.2** Precios máximos de venta.
-- **3.3** Alertas INVIMA con cruce de lotes.
+- **3.2** Precios máximos de venta ✅ (tope al vender + alerta en Inicio).
+- **3.3** Alertas INVIMA ✅ (panel de alertas del Inicio).
 - **3.4** Control especial (FNE) — flujo completo.
 
 ### Fase 4: gestión documental y cumplimiento ⏳
@@ -420,7 +424,8 @@ Notas:
 - **Limpieza (2026-10-09):** menú por secciones (Día a día, Productos, Dinero, Consultas, Administración) y por rol (el auxiliar ya no ve enlaces que le niegan; el DT ahora ve Contabilidad y Caja menor); usos convertidos en buscador por síntoma; quitado el catálogo Tipos de pago y la tabla presentaciones_producto; aclarada salida de efectivo vs gasto; quitados avisos de "Próximamente" que estorbaban en el menú del POS; reportes reducidos de 15 a 8. **137 tests pasan**.
 - **Ajustes tras probar en Codespaces (2026-10-09):** conteo como lista alfabética, botón "Producto encontrado" en vez de "Lote encontrado", buscador fijo arriba; textos de los métodos de pago del cobro visibles (estaban en blanco sobre blanco).
 - **Venta por presentación (2026-10-09):** cada producto puede venderse por unidad, sobre, caja… con su propio precio; el inventario se descuenta en unidades. Ventana "¿Cómo lo vendes?" en el POS, presentaciones en el formulario de productos, código de barras de la caja, margen por presentación en la "i". La demo trae Acetaminofén e Ibuprofeno por tableta, sobre y caja. **158 tests pasan**.
-- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → panel de alertas → utilidades/estado de resultados → reportes → equipos/calibraciones → devoluciones.
+- **Panel de alertas (2026-10-09):** "Para atender hoy" en el Inicio con 12 tipos de alerta (ver 5.1); arreglado el texto "con stock mínimo definido" de la tarjeta de productos, que salía vacío. **176 tests pasan**.
+- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → utilidades/estado de resultados → reportes → equipos/calibraciones → devoluciones.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 
 **Sesión anterior:** 2026-10-07. Se completó:

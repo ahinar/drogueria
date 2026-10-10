@@ -1,8 +1,9 @@
 """Home / Dashboard principal."""
 from datetime import datetime, date
 from datetime import timedelta
-from flask import Blueprint, render_template
+from flask import Blueprint, g, render_template
 
+from .alertas import calcular_alertas
 from .auth import login_required
 from .db import get_db
 
@@ -57,6 +58,9 @@ def _productos_alertas(db):
     """Productos activos + alertas reales de inventario."""
     from datetime import date, timedelta
     total = db.execute("SELECT COUNT(*) FROM productos WHERE activo = 1").fetchone()[0]
+    # Cuántos tienen "stock mínimo" definido (los únicos que avisan cuando se acaban)
+    con_minimo = db.execute(
+        "SELECT COUNT(*) FROM productos WHERE activo = 1 AND stock_minimo > 0").fetchone()[0]
 
     hoy = date.today().isoformat()
     limite_30 = (date.today() + timedelta(days=30)).isoformat()
@@ -91,6 +95,7 @@ def _productos_alertas(db):
 
     return {
         "total": total,
+        "con_minimo": con_minimo,
         "por_vencer_30": por_vencer_30,
         "por_vencer_90": por_vencer_90,
         "vencidos": vencidos,
@@ -120,6 +125,8 @@ def inicio():
     temperatura = _estado_temperatura(db)
     productos = _productos_alertas(db)
     ventas = _ventas_hoy(db)
+    # Panel "¿Qué hay que atender hoy?" (toda la lógica está en app/alertas.py)
+    alertas = calcular_alertas(g.user["rol"])
 
     # Últimos productos creados
     ultimos_productos = db.execute(
@@ -140,6 +147,8 @@ def inicio():
         "temperatura": temperatura,
         "productos": productos,
         "ventas": ventas,
+        "alertas": alertas,
+        "alertas_rojas": sum(1 for a in alertas if a["nivel"] == "rojo"),
         "ultimos_productos": ultimos_productos,
         "ultimas_temperaturas": ultimas_temperaturas,
     }
