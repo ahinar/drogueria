@@ -673,6 +673,7 @@
     $('pago-exito').style.display = 'none';
     $('pago-error').style.display = 'none';
     $('pago-recibido').value = '';
+    clienteCredito = null;              // cada cobro empieza sin cliente de crédito
     elegirForma('efectivo');
     actualizarCambio();
     modalPago.classList.remove('modal-oculto');
@@ -687,7 +688,77 @@
       b.classList.toggle('activo', b.dataset.forma === forma);
     });
     $('pago-efectivo').style.display = forma === 'efectivo' ? '' : 'none';
+    // Crédito: se muestra el buscador de clientes de Cartera
+    $('pago-credito').hidden = forma !== 'credito';
+    if (forma === 'credito') {
+      pintarClienteCredito();
+      if (!clienteCredito) { $('credito-buscar').value = ''; buscarClientesCredito(''); $('credito-buscar').focus(); }
+    }
   }
+
+  // ---------------------------------------------------------------
+  // 7b. VENTA A CRÉDITO: escoger el cliente (ver app/cartera.py)
+  // ---------------------------------------------------------------
+  let clienteCredito = null;          // el cliente escogido para esta venta a crédito
+  let ultimosClientes = [];           // resultados de la última búsqueda
+  let esperaBusqueda = null;
+
+  // Pide al servidor los clientes que coinciden con lo escrito
+  async function buscarClientesCredito(q) {
+    try {
+      const resp = await fetch($('url-api-clientes').value + '?q=' + encodeURIComponent(q),
+                               { credentials: 'same-origin' });
+      const json = await resp.json();
+      ultimosClientes = json.clientes || [];
+    } catch (e) { ultimosClientes = []; }
+    const caja = $('credito-resultados');
+    if (!ultimosClientes.length) {
+      caja.innerHTML = '<p class="suave" style="margin:.3rem 0">No hay clientes con ese nombre. ' +
+        'Regístralos en Cartera → Nuevo cliente.</p>';
+      return;
+    }
+    caja.innerHTML = ultimosClientes.map((c, i) =>
+      '<button type="button" class="credito-opcion" data-i="' + i + '">' +
+        '<strong>' + esc(c.nombre) + '</strong>' +
+        '<span>' + esc(c.documento || c.telefono || '') + '</span>' +
+        '<small>' + (c.saldo > 0.5 ? 'debe ' + peso(c.saldo) : 'al día') +
+        (c.disponible != null ? ' · disponible ' + peso(Math.max(c.disponible, 0)) : ' · sin límite') + '</small>' +
+      '</button>').join('');
+  }
+
+  // Muestra la tarjeta del cliente escogido (o el buscador si no hay)
+  function pintarClienteCredito() {
+    const tarjeta = $('credito-elegido');
+    const buscar = $('credito-buscar').closest('label');
+    if (!clienteCredito) {
+      tarjeta.hidden = true; buscar.hidden = false; $('credito-resultados').hidden = false;
+      return;
+    }
+    const c = clienteCredito;
+    const despues = c.saldo + totalVenta();
+    const pasa = c.disponible != null && totalVenta() > c.disponible + 0.5;
+    tarjeta.innerHTML = '<div><strong>' + esc(c.nombre) + '</strong> ' + esc(c.documento || '') + '<br>' +
+      '<small>Debe ' + peso(c.saldo) + ' · con esta venta quedará debiendo <strong>' + peso(despues) + '</strong>' +
+      (c.cupo != null ? ' · cupo ' + peso(c.cupo) : '') + '</small>' +
+      (pasa ? '<br><small class="credito-sin-cupo">No le alcanza el cupo: le quedan ' +
+        peso(Math.max(c.disponible, 0)) + '.</small>' : '') + '</div>' +
+      '<button type="button" class="boton secundario" id="credito-cambiar">Cambiar</button>';
+    tarjeta.hidden = false; buscar.hidden = true; $('credito-resultados').hidden = true;
+    $('credito-cambiar').addEventListener('click', () => {
+      clienteCredito = null; pintarClienteCredito(); $('credito-buscar').focus();
+    });
+  }
+
+  $('credito-buscar').addEventListener('input', (e) => {
+    clearTimeout(esperaBusqueda);       // espera a que deje de escribir (300 ms)
+    esperaBusqueda = setTimeout(() => buscarClientesCredito(e.target.value.trim()), 300);
+  });
+  $('credito-resultados').addEventListener('click', (e) => {
+    const b = e.target.closest('.credito-opcion');
+    if (!b) return;
+    clienteCredito = ultimosClientes[+b.dataset.i];
+    pintarClienteCredito();
+  });
 
   function actualizarCambio() {
     const recibido = parseFloat($('pago-recibido').value);
@@ -699,6 +770,11 @@
     if (cobrando) return;
     const errorBox = $('pago-error');
     errorBox.style.display = 'none';
+    if (formaPago === 'credito' && !clienteCredito) {
+      errorBox.textContent = 'Escoge el cliente al que se le fía.';
+      errorBox.style.display = 'block';
+      return;
+    }
 
     const datos = new FormData();
     datos.append('_csrf', csrf());
@@ -724,6 +800,7 @@
     datos.append('cliente_nombre', cliente.nombre);
     datos.append('cliente_documento', cliente.documento);
     datos.append('observaciones', nota);
+    if (formaPago === 'credito') datos.append('cliente_id', clienteCredito.id);
 
     cobrando = true;
     $('pago-confirmar').disabled = true;
@@ -883,6 +960,49 @@
       window.avisar('Error de conexión: ' + e.message, 'error');
     }
   }
+  // ABONO DE CARTERA: un cliente paga (todo o parte) de lo que debe.
+  async function pedirAbono() {
+    let deudores = [];
+    try {
+      const resp = await fetch($('url-api-clientes').value + '?con_saldo=1', { credentials: 'same-origin' });
+      deudores = (await resp.json()).clientes || [];
+    } catch (e) { /* sin conexión: la lista queda vacía */ }
+    if (!deudores.length) { aviso('Ningún cliente debe nada en este momento.'); return; }
+    const datos = await window.pedirDatos({
+      titulo: 'Abono de cartera',
+      texto: 'El cliente paga todo o una parte de lo que debe. Los abonos pagan primero las ventas más viejas.',
+      campos: [
+        { nombre: 'cliente_id', etiqueta: 'Cliente', tipo: 'opciones',
+          opciones: deudores.map((c) => ({ valor: String(c.id), texto: c.nombre + ' — debe ' + peso(c.saldo) })) },
+        { nombre: 'monto', etiqueta: 'Monto del abono', tipo: 'numero', obligatorio: true, mayorQue: 0 },
+        { nombre: 'forma_pago', etiqueta: 'Cómo pagó', tipo: 'opciones', opciones: [
+          { valor: 'efectivo', texto: 'Efectivo (entra a esta caja)' },
+          { valor: 'nequi', texto: 'Nequi' },
+          { valor: 'davivienda', texto: 'Davivienda' },
+          { valor: 'transferencia', texto: 'Transferencia' },
+          { valor: 'tarjeta', texto: 'Tarjeta' },
+        ] },
+        { nombre: 'observaciones', etiqueta: 'Observaciones (opcional)', maximo: 200 },
+      ],
+      textoAceptar: 'Registrar abono',
+    });
+    if (datos === null) return;
+    const form = new FormData();
+    form.append('_csrf', csrf());
+    for (const clave in datos) form.append(clave, datos[clave]);
+    try {
+      const resp = await fetch($('url-api-abono').value, { method: 'POST', body: form, credentials: 'same-origin' });
+      const json = await resp.json();
+      if (!json.ok) { window.avisar(json.error || 'No se pudo registrar el abono.', 'error'); return; }
+      const imprimir = await window.confirmar(
+        'Abono ' + json.numero + ' registrado. Saldo pendiente: ' + peso(json.saldo) + '. ¿Imprimir el recibo?',
+        { titulo: 'Abono registrado', icono: '✅', tipo: 'info', textoAceptar: 'Imprimir recibo', textoCancelar: 'No' });
+      if (imprimir) window.open(json.url_recibo, '_blank');
+    } catch (e) {
+      window.avisar('Error de conexión: ' + e.message, 'error');
+    }
+  }
+
   // Para que el botón de la ventana "Ingreso de efectivo" (pos.js) la pueda abrir
   window.pedirOtroIngreso = pedirOtroIngreso;
   $('btn-cliente').addEventListener('click', pedirCliente);
@@ -964,6 +1084,7 @@
       else if (accion === 'nota') { cerrar(); pedirNota(); }
       else if (accion === 'venta-libre') { cerrar(); pedirVentaLibre(); }
       else if (accion === 'otro-ingreso') { cerrar(); pedirOtroIngreso(); }
+      else if (accion === 'abono-cartera') { cerrar(); pedirAbono(); }
       else if (accion === 'registrar-gasto') { cerrar(); abrirModalGasto(); }
     });
   });

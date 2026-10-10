@@ -121,6 +121,7 @@ def _resumen_caja(caja):
         "ventas_nequi": v_nequi["total"] if v_nequi else 0,
         "ventas_davivienda": v_davivienda["total"] if v_davivienda else 0,
         "ventas_tarjeta": v_tarjeta["total"] if v_tarjeta else 0,
+        "ventas_credito": _por_pago("credito")["total"] if _por_pago("credito") else 0,
         "ingresos_efectivo": ingresos_efectivo,
         "salidas_efectivo": salidas_efectivo,
         "ingresos_nequi": ingresos_nequi,
@@ -449,6 +450,10 @@ def api_resumen_caja():
             "tarjeta": {
                 "ventas": resumen["ventas_tarjeta"],
             },
+            # Ventas a crédito: no entró plata (quedaron en Cartera). Solo informativo.
+            "credito": {
+                "ventas": resumen["ventas_credito"],
+            },
         },
     })
 
@@ -520,7 +525,8 @@ def api_caja_abierta():
 # VENTAS (carrito): buscar productos, cobrar, comprobante, anular
 # ============================================================
 
-FORMAS_PAGO = ("efectivo", "nequi", "davivienda", "tarjeta")
+# "credito" = el cliente queda debiendo (ver app/cartera.py). No entra plata a la caja.
+FORMAS_PAGO = ("efectivo", "nequi", "davivienda", "tarjeta", "credito")
 
 class _VentaError(Exception):
     """Error de negocio al cobrar (ej: 'no hay stock'). El mensaje se le muestra al cajero."""
@@ -891,6 +897,18 @@ def api_cobrar():
     observaciones = (request.form.get("observaciones") or "").strip() or None
 
     db = get_db()
+    # ---- VENTA A CRÉDITO: necesita un cliente registrado y activo ----
+    cliente_credito, saldo_previo = None, 0.0
+    if forma_pago == "credito":
+        from . import cartera
+        cliente_credito = db.execute("SELECT * FROM clientes WHERE id = ? AND activo = 1",
+                                     (request.form.get("cliente_id", type=int),)).fetchone()
+        if cliente_credito is None:
+            return _json_error("Para vender a crédito escoge un cliente registrado (Cartera → Nuevo cliente).")
+        saldo_previo = cartera.saldo(cliente_credito["id"])     # lo que ya debía
+        cliente_nombre = cliente_credito["nombre"]
+        cliente_doc = cliente_credito["documento"]
+
     hoy = date.today().isoformat()
     cambios_precio = []   # textos para la bitácora si el cajero cambió algún precio
     ventas_libres = []    # textos para la bitácora de cada línea de venta libre
@@ -1072,6 +1090,15 @@ def api_cobrar():
                 raise _VentaError(f"El efectivo recibido ({pesos(recibido)}) no alcanza para "
                                   f"el total ({pesos(sum_total)}).")
             cambio = recibido - sum_total
+        elif forma_pago == "credito":
+            # No se recibe plata: queda debiendo. Si tiene cupo, no puede pasarse.
+            if cliente_credito["cupo"] is not None and saldo_previo + sum_total > cliente_credito["cupo"] + 0.5:
+                disponible = max(cliente_credito["cupo"] - saldo_previo, 0)
+                raise _VentaError(
+                    f"{cliente_credito['nombre']} no tiene cupo suficiente: debe {pesos(saldo_previo)}, "
+                    f"su cupo es {pesos(cliente_credito['cupo'])} y le quedan {pesos(disponible)} disponibles.")
+            recibido, cambio = 0.0, 0.0
+            db.execute("UPDATE ventas SET cliente_id = ? WHERE id = ?", (cliente_credito["id"], venta_id))
         else:
             recibido, cambio = float(sum_total), 0.0
 
@@ -1176,8 +1203,13 @@ def comprobante(venta_id):
     lineas = get_db().execute(
         "SELECT * FROM venta_lineas WHERE venta_id = ? ORDER BY id", (venta_id,)
     ).fetchall()
+    # Si fue a crédito, mostramos cuánto debe en total el cliente (ver app/cartera.py)
+    saldo_cliente = None
+    if venta["forma_pago"] == "credito" and venta["cliente_id"]:
+        from . import cartera
+        saldo_cliente = cartera.saldo(venta["cliente_id"])
     return render_template("pos/comprobante.html", venta=venta, lineas=lineas,
-                           config=obtener_config())
+                           config=obtener_config(), saldo_cliente=saldo_cliente)
 
 @bp.route("/venta/ultima")
 @login_required

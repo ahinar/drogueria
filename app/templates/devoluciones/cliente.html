@@ -56,7 +56,8 @@
     <div class="grid-3-compact" style="margin-top:.8rem">
       <label>Se le devuelve en
         <select name="forma_reembolso">
-          {% for clave, texto in formas.items() %}<option value="{{ clave }}" {% if clave == venta.forma_pago %}selected{% endif %}>{{ texto }}</option>{% endfor %}
+          {# Venta a crédito: solo "descontar de su deuda". De contado: las formas de devolver plata. #}
+          {% for clave, texto in formas.items() if (clave == 'credito') == (venta.forma_pago == 'credito') %}<option value="{{ clave }}" {% if clave == venta.forma_pago %}selected{% endif %}>{{ texto }}</option>{% endfor %}
         </select>
       </label>
       <label style="grid-column: span 2">Motivo *

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recibo {{ a['numero'] }}</title>
+  {# RECIBO DE ABONO en tirilla de 80 mm (mismo estilo del comprobante de venta) #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tirilla.css') }}">
+</head>
+<body>
+  <div class="barra">
+    <button type="button" onclick="window.print()">Imprimir</button>
+    <a href="javascript:history.back()">Volver</a>
+  </div>
+
+  {% if config['logo_ruta'] %}<img class="logo" src="{{ url_for('static', filename=config['logo_ruta']) }}" alt="">{% endif %}
+  <h1>{{ config['nombre_comercial'] or config['razon_social'] or 'Droguería' }}</h1>
+  <div class="centro suave">
+    {% if config['nit'] %}NIT {{ config['nit'] }}<br>{% endif %}
+    {% if config['telefono'] or config['celular'] %}Tel. {{ config['telefono'] or config['celular'] }}{% endif %}
+  </div>
+  <hr class="corte">
+  <div class="centro"><strong>RECIBO DE ABONO</strong></div>
+  {% if a['anulado'] %}<div class="anulada">*** ANULADO ***</div>{% endif %}
+  <table class="suave">
+    <tr><td>Recibo</td><td class="der"><strong>{{ a['numero'] }}</strong></td></tr>
+    <tr><td>Fecha</td><td class="der">{{ a['fecha']|fecha_hora }}</td></tr>
+    <tr><td>Recibió</td><td class="der">{{ a['usuario_nombre'] }}</td></tr>
+  </table>
+  <div class="suave">Cliente: {{ a['cliente_nombre'] }}{% if a['cliente_documento'] %} · {{ a['cliente_documento'] }}{% endif %}</div>
+  <hr class="corte">
+  <table>
+    <tr class="total"><td>ABONO</td><td class="der">{{ a['monto']|pesos }}</td></tr>
+    <tr><td>Forma de pago</td><td class="der">{{ formas.get(a['forma_pago'], a['forma_pago']) }}</td></tr>
+    <tr><td>Saldo pendiente</td><td class="der"><strong>{{ saldo|pesos if saldo > 0.5 else '$0 (a paz y salvo)' }}</strong></td></tr>
+  </table>
+  {% if a['observaciones'] %}<div class="suave">Nota: {{ a['observaciones'] }}</div>{% endif %}
+  <hr class="corte">
+  <div class="centro gracias">¡Gracias por su pago!</div>
+  <div class="centro suave">Documento interno · no es factura</div>
+</body>
+</html>

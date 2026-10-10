@@ -221,6 +221,13 @@ def main():
                     "usuario_nombre, activo, creado_en) VALUES (?,?,?,?, 'transferencia', 'ninguna', "
                     "'Fernando (demo)', 1, ?)",
                     (fecha, catalogo("categoria_ingreso", categoria), descripcion, monto, ahora))
+    # ---- 8c. Clientes de Cartera (para probar ventas a CRÉDITO en el POS) ----
+    for nombre, documento, telefono, cupo, nota in (
+            ("María Gómez (demo)", "1010101010", "3001112233", 200000, "Paga los días 15 y 30"),
+            ("Carlos Ruiz (demo)", "2020202020", "3104445566", None, "Vecino del local, sin límite"),
+            ("Hogar Geriátrico Las Rosas (demo)", "900123456", "6011234567", 1500000, "Crédito institucional")):
+        con.execute("INSERT INTO clientes (nombre, documento, telefono, cupo, observaciones, activo, creado_en) "
+                    "VALUES (?,?,?,?,?,1,?)", (nombre, documento, telefono, cupo, nota, ahora))
     # Un retiro de ganancia del dueño desde la caja menor
     con.execute("INSERT INTO caja_menor_movimientos (fecha, tipo, monto, motivo, usuario_nombre, retiro_dueno, "
                 "creado_en) VALUES (?, 'retiro', 50000, 'Retiro de ganancia (demo)', 'Fernando (demo)', 1, ?)",

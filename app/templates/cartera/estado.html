@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{# ESTADO DE CUENTA de un cliente: lo que debe, desde cuándo y todos sus movimientos.
+   e = cartera.estado_de_cuenta(). Se puede imprimir (botón Imprimir). #}
+{% block titulo %}{{ c.nombre }}{% endblock %}
+{% block contenido %}
+<div class="no-imprimir" style="float:right;display:flex;gap:.5rem">
+  <a class="boton secundario" href="{{ url_for('cartera.cliente_editar', cliente_id=c.id) }}">Editar cliente</a>
+  <button type="button" class="boton secundario" onclick="window.print()">Imprimir</button>
+</div>
+<h1>{{ c.nombre }}{% if not c.activo %} <span class="tag-error">Inactivo</span>{% endif %}</h1>
+<p class="suave">
+  {% if c.documento %}Documento {{ c.documento }} · {% endif %}{% if c.telefono %}Tel. {{ c.telefono }} · {% endif %}{% if c.direccion %}{{ c.direccion }} · {% endif %}
+  Estado de cuenta al {{ hoy.strftime('%d/%m/%Y') }}{% if c.observaciones %}<br>{{ c.observaciones }}{% endif %}
+</p>
+
+<div class="rep-tarjetas">
+  <div class="eres-tarjeta {{ 'negativa' if e.dias_mayor > 30 else '' }}">
+    <span>{{ 'Saldo a favor del cliente' if e.saldo < -0.5 else 'Debe' }}</span>
+    <strong>{{ (e.saldo|abs)|pesos }}</strong>
+    <small>{% if e.pendientes %}{% if e.dias_mayor %}la venta pendiente más vieja tiene {{ e.dias_mayor }} día{{ '' if e.dias_mayor == 1 else 's' }}{% else %}la venta pendiente es de hoy{% endif %}{% else %}a paz y salvo{% endif %}</small></div>
+  <div class="eres-tarjeta"><span>Cupo</span><strong>{{ c.cupo|pesos if c.cupo is not none else 'Sin límite' }}</strong>
+    <small>{% if disponible is not none %}disponible {{ disponible|pesos }}{% else %}se le puede fiar sin tope{% endif %}</small></div>
+  <div class="eres-tarjeta"><span>Total comprado a crédito</span><strong>{{ e.total_ventas|pesos }}</strong>
+    <small>abonado {{ e.total_abonos|pesos }}</small></div>
+</div>
+
+{% if e.saldo > 0.5 %}
+<!-- ===== Registrar un abono ===== -->
+<form method="post" action="{{ url_for('cartera.abonar', cliente_id=c.id) }}" class="formulario no-imprimir" style="max-width:720px;margin:1rem 0"
+      data-confirmar="¿Registrar el abono? Si es en efectivo, la plata entra a la caja abierta.">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <fieldset>
+    <legend>Registrar abono</legend>
+    <div class="grid-2">
+      <label>Monto *
+        <input type="number" name="monto" min="1" max="{{ '%d' % (e.saldo + 0.5) }}" step="1" required placeholder="Debe {{ e.saldo|pesos }}">
+      </label>
+      <label>Cómo pagó *
+        <select name="forma_pago">{% for k, t in formas.items() %}<option value="{{ k }}">{{ t }}</option>{% endfor %}</select>
+      </label>
+    </div>
+    <label>Observaciones
+      <input type="text" name="observaciones" maxlength="200" placeholder="Opcional">
+    </label>
+    <small class="suave">Efectivo, Nequi y Davivienda entran a la caja del POS abierta (el efectivo necesita la caja abierta).</small>
+  </fieldset>
+  <div class="acciones"><button type="submit">Registrar abono</button></div>
+</form>
+{% endif %}
+
+{% if e.pendientes %}
+<h2 class="titulo-seccion">Ventas pendientes de pago</h2>
+<table class="tabla">
+  <thead><tr><th>Venta</th><th>Fecha</th><th style="text-align:right">Valor</th><th style="text-align:right">Abonado</th>
+    <th style="text-align:right">Falta</th><th>Días</th></tr></thead>
+  <tbody>{% for p in e.pendientes %}
+    <tr><td><a href="{{ url_for('pos.comprobante', venta_id=p.venta_id) }}" target="_blank" rel="noopener">{{ p.consecutivo }}</a></td>
+      <td>{{ p.fecha|fecha_hora }}</td><td style="text-align:right">{{ p.valor|pesos }}</td>
+      <td style="text-align:right">{{ p.pagado|pesos }}</td><td style="text-align:right"><strong>{{ p.pendiente|pesos }}</strong></td>
+      <td><span class="{{ 'tag-error' if p.dias > 30 else 'tag-ok' }}">{{ p.dias }}</span></td></tr>
+  {% endfor %}</tbody>
+</table>
+{% endif %}
+
+<h2 class="titulo-seccion">Movimientos</h2>
+<table class="tabla">
+  <thead><tr><th>Fecha</th><th>Movimiento</th><th style="text-align:right">Cargo</th><th style="text-align:right">Abono</th>
+    <th style="text-align:right">Saldo</th><th class="no-imprimir"></th></tr></thead>
+  <tbody>
+    {% for m in e.movimientos %}
+    <tr>
+      <td>{{ m.fecha|fecha_hora }}</td>
+      <td>{% if m.tipo == 'venta' %}Venta a crédito <a href="{{ url_for('pos.comprobante', venta_id=m.venta_id) }}" target="_blank" rel="noopener">{{ m.documento }}</a>
+          {% elif m.tipo == 'abono' %}Abono {{ m.documento }} · {{ m.forma }}
+          {% else %}Devolución {{ m.documento }}{% endif %}</td>
+      <td style="text-align:right">{{ m.cargo|pesos if m.cargo else '' }}</td>
+      <td style="text-align:right">{{ m.abono|pesos if m.abono else '' }}</td>
+      <td style="text-align:right"><strong>{{ m.saldo|pesos }}</strong></td>
+      <td class="no-imprimir">{% if m.tipo == 'abono' %}
+        <a href="{{ url_for('cartera.recibo', abono_id=m.abono_id) }}" target="_blank" rel="noopener">Recibo</a>
+        <details style="display:inline-block;margin-left:.4rem"><summary class="suave">Anular</summary>
+          <form method="post" action="{{ url_for('cartera.anular_abono', abono_id=m.abono_id) }}" style="margin-top:.3rem"
+                data-confirmar="¿Anular el abono {{ m.documento }}? La deuda vuelve a subir.">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <input type="text" name="motivo" placeholder="Motivo" required minlength="3" style="width:10rem">
+            <button type="submit" class="secundario">Anular</button>
+          </form>
+        </details>{% endif %}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="suave">Todavía no tiene compras a crédito.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if anulados %}
+<p class="suave" style="margin-top:1rem">Abonos anulados: {% for a in anulados %}{{ a.numero }} ({{ a.monto|pesos }}, {{ a.anulado_motivo }}){{ ', ' if not loop.last }}{% endfor %}</p>
+{% endif %}
+<p class="no-imprimir" style="margin-top:1rem"><a href="{{ url_for('cartera.index') }}">← Volver a Cartera</a></p>
+{% endblock %}

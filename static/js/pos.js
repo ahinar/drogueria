@@ -189,6 +189,13 @@
       // Tarjeta
       document.getElementById('cierre-tarjeta-ventas').textContent = formatoCOP(r.tarjeta.ventas);
       document.getElementById('cierre-tarjeta-total').textContent = formatoCOP(r.tarjeta.ventas);
+      // Ventas a crédito: solo se muestran si hubo (no se cuentan en el arqueo)
+      const credito = (r.credito && r.credito.ventas) || 0;
+      const secCredito = document.getElementById('cierre-credito-seccion');
+      if (secCredito) {
+        secCredito.hidden = !credito;
+        document.getElementById('cierre-credito-total').textContent = formatoCOP(credito);
+      }
 
       actualizarDiferencia();
 

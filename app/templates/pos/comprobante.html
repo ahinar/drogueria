@@ -13,42 +13,7 @@
     - En pantalla se ve igual de angosto, centrado, para revisarlo antes.
     - Es un documento INTERNO: no reemplaza la factura electrónica.
   #}
-  <style>
-    @page { size: 80mm auto; margin: 0; }
-    * { box-sizing: border-box; }
-    html { background: #e9edf1; }
-    body {
-      width: 72mm; margin: 12px auto; padding: 4mm 3mm;
-      background: #fff; color: #000;
-      font-family: "Courier New", Courier, monospace; font-size: 12px; line-height: 1.35;
-      box-shadow: 0 4px 18px rgba(0,0,0,.12);
-    }
-    .centro { text-align: center; }
-    .logo { display: block; max-width: 40mm; max-height: 22mm; margin: 0 auto 2mm; filter: grayscale(1); }
-    h1 { font-size: 15px; text-align: center; margin: 0 0 1mm; text-transform: uppercase; }
-    .suave { font-size: 11px; }
-    .corte { border: 0; border-top: 1px dashed #000; margin: 2.5mm 0; }
-    table { width: 100%; border-collapse: collapse; }
-    td { padding: .4mm 0; vertical-align: top; }
-    .der { text-align: right; white-space: nowrap; padding-left: 2mm; }
-    .producto td { padding-top: 1.2mm; font-weight: bold; }
-    .total td { font-size: 15px; font-weight: bold; padding-top: 1mm; }
-    .anulada { text-align: center; font-size: 16px; font-weight: bold; border: 2px solid #000; padding: 1mm; margin: 2mm 0; }
-    .gracias { font-weight: bold; margin-top: 2mm; }
-
-    /* Barra de botones: solo en pantalla, NO se imprime */
-    .barra { margin: 0 0 4mm; display: flex; gap: 6px; font-family: system-ui, sans-serif; }
-    .barra button, .barra a {
-      flex: 1; text-align: center; padding: 8px 4px; border-radius: 8px; font: 600 13px system-ui, sans-serif;
-      cursor: pointer; text-decoration: none; border: 1px solid #c9d2db; background: #fff; color: #1a2733;
-    }
-    .barra button { background: #0f766e; border-color: #0f766e; color: #fff; }
-    @media print {
-      html, body { background: #fff; }
-      body { margin: 0; box-shadow: none; width: 72mm; }
-      .barra { display: none; }
-    }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tirilla.css') }}">
 </head>
 <body>
   <div class="barra">
@@ -98,9 +63,18 @@
     {% if venta['descuento'] %}<tr><td>Descuentos</td><td class="der">-{{ venta['descuento']|pesos }}</td></tr>{% endif %}
     <tr><td>IVA incluido</td><td class="der">{{ venta['iva']|pesos }}</td></tr>
     <tr class="total"><td>TOTAL</td><td class="der">{{ venta['total']|pesos }}</td></tr>
+    {% if venta['forma_pago'] != 'credito' %}
     <tr><td>Pago ({{ venta['forma_pago'] }})</td><td class="der">{{ (venta['monto_recibido'] or venta['total'])|pesos }}</td></tr>
     {% if venta['cambio'] %}<tr><td>Cambio</td><td class="der">{{ venta['cambio']|pesos }}</td></tr>{% endif %}
+    {% endif %}
   </table>
+
+  {# ---------- Venta a CRÉDITO: queda debiendo; firma del cliente ---------- #}
+  {% if venta['forma_pago'] == 'credito' %}
+  <div class="credito">VENTA A CRÉDITO</div>
+  {% if saldo_cliente is not none %}<table><tr><td>Saldo total del cliente</td><td class="der">{{ saldo_cliente|pesos }}</td></tr></table>{% endif %}
+  <div class="firma">Firma del cliente</div>
+  {% endif %}
 
   {% if venta['observaciones'] %}
   <hr class="corte">

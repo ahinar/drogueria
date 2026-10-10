@@ -132,6 +132,10 @@
           <span class="pos-drawer-ico">💰</span>
           <span>Otro ingreso (recargas, arriendo…)</span>
         </button>
+        <button type="button" class="pos-drawer-item" data-accion="abono-cartera">
+          <span class="pos-drawer-ico">📒</span>
+          <span>Abono de cartera (cliente paga su deuda)</span>
+        </button>
         <button type="button" class="pos-drawer-item" data-accion="venta-libre">
           <span class="pos-drawer-ico">➕</span>
           <span>Venta libre</span>
@@ -175,6 +179,9 @@
 <input type="hidden" id="url-cierre-confirmacion" value="{{ url_for('pos.cierre_confirmacion', caja_id=0) }}">
 <input type="hidden" id="url-api-gasto" value="{{ url_for('pos.api_gasto') }}">
 <input type="hidden" id="url-api-otro-ingreso" value="{{ url_for('pos.api_otro_ingreso') }}">
+<!-- Cartera: buscar clientes para vender a crédito y registrar abonos -->
+<input type="hidden" id="url-api-clientes" value="{{ url_for('cartera.api_clientes') }}">
+<input type="hidden" id="url-api-abono" value="{{ url_for('cartera.api_abono') }}">
 <!-- Categorías de "otro ingreso" para la ventana del POS (JSON = lista que JS entiende) -->
 <script type="application/json" id="categorias-ingreso">{{ categorias_ingreso|tojson }}</script>
 <!-- Número de la caja: el carrito guardado en el navegador se separa por caja -->

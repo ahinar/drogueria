@@ -55,6 +55,10 @@
     <h2><span class="ico-emoji">💰</span> Otros ingresos</h2>
     <p>Plata que entra y no es venta: comisión de recargas, arriendo, reciclaje, reintegros.</p>
   </a>
+  <a class="modulo" href="{{ url_for('cartera.index') }}">
+    <h2><span class="ico-emoji">📒</span> Cartera</h2>
+    <p>Ventas a crédito: cuánto debe cada cliente, desde cuándo, abonos y estado de cuenta.</p>
+  </a>
   <!-- Los informes de plata viven en Reportes (un solo lugar para cada cosa) -->
   <a class="modulo" href="{{ url_for('reportes.utilidades_ver') }}">
     <h2><span class="ico-emoji">📈</span> Utilidades</h2>

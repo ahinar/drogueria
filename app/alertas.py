@@ -293,6 +293,20 @@ def calcular_alertas(rol):
                 "url": url_for("pos.index"),
             })
 
+    # ------------------------------------------------------------------
+    # 10. CARTERA VENCIDA: clientes que deben una venta a crédito de más de 30 días
+    # ------------------------------------------------------------------
+    if jefe:
+        from . import cartera
+        filas = cartera.clientes_con_cartera_vencida(hoy)
+        agregar("cartera_vencida", "amarillo", "📒", "Clientes con deuda de más de 30 días",
+                "Ventas a crédito que no se han pagado. Llámalos o escríbeles para cobrar.",
+                filas, lambda f: {
+                    "texto": f["cliente"]["nombre"],
+                    "detalle": f"debe {_pesos(f['saldo'])} · desde hace {f['dias']} días",
+                    "url": url_for("cartera.cliente_ver", cliente_id=f["cliente"]["id"]),
+                }, url=url_for("cartera.index"), boton="Ver cartera")
+
     # Rojas primero; dentro de cada color se respeta el orden de arriba
     alertas.sort(key=lambda a: 0 if a["nivel"] == "rojo" else 1)
     return alertas

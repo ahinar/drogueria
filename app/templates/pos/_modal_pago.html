@@ -12,6 +12,18 @@
         <button type="button" class="pos-pago-metodo" data-forma="nequi"><span class="ico-emoji">📱</span> Nequi</button>
         <button type="button" class="pos-pago-metodo" data-forma="davivienda"><span class="ico-emoji">🏦</span> Davivienda</button>
         <button type="button" class="pos-pago-metodo" data-forma="tarjeta"><span class="ico-emoji">💳</span> Tarjeta</button>
+        <button type="button" class="pos-pago-metodo" data-forma="credito"><span class="ico-emoji">📒</span> Crédito</button>
+      </div>
+
+      <!-- Solo se ve con "Crédito": escoger el cliente registrado (Cartera) -->
+      <div id="pago-credito" hidden>
+        <label>Cliente
+          <input type="text" id="credito-buscar" placeholder="Buscar por nombre, cédula o teléfono…" autocomplete="off">
+        </label>
+        <div id="credito-resultados" class="credito-resultados"></div>
+        <div id="credito-elegido" class="credito-elegido" hidden></div>
+        <p class="suave" style="font-size:.82rem;margin:.4rem 0 0">Solo aparecen los clientes registrados en Cartera.
+          No entra plata a la caja: el cliente queda debiendo.</p>
       </div>
 
       <!-- Solo se ve cuando paga en efectivo -->

@@ -48,7 +48,9 @@ class TestTirilla80mm(BaseVentas):
         self.abrir_caja()
         self.cobrar([{"producto_id": 1, "cantidad": 2}], recibido="5000")
         html = self.c.get("/pos/venta/1").get_data(as_text=True)
-        self.assertIn("size: 80mm auto", html)       # papel de 80 mm
+        self.assertIn("css/tirilla.css", html)       # estilo de tirilla compartido
+        css = (RAIZ / "static/css/tirilla.css").read_text(encoding="utf-8")
+        self.assertIn("size: 80mm auto", css)        # papel de 80 mm
         self.assertIn("$2.000", html)                # punto de miles, como en Colombia
         self.assertIn("$3.000", html)                # el cambio
         self.assertIn("no es factura", html)

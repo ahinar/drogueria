@@ -16,7 +16,7 @@ from .db import get_db
 
 DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 FORMAS_PAGO = {"efectivo": "Efectivo", "nequi": "Nequi", "davivienda": "Davivienda",
-               "tarjeta": "Tarjeta", "transferencia": "Transferencia"}
+               "tarjeta": "Tarjeta", "transferencia": "Transferencia", "credito": "Crédito (cartera)"}
 MESES_CORTOS = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 

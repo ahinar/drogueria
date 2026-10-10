@@ -89,9 +89,14 @@
       <!-- ===== Dinero (administrador y director técnico) ===== -->
       {% if jefe %}
       <div class="sidebar-seccion">Dinero</div>
-      <a class="sidebar-link {% if ep.startswith('contabilidad.') %}activo{% endif %}"
+      <a class="sidebar-link {% if ep.startswith('contabilidad.') or ep.startswith('otros_ingresos.') %}activo{% endif %}"
          href="{{ url_for('contabilidad.index') }}" title="Contabilidad">
         <span class="ico">{{ ico("billetera", "💰") }}</span><span class="txt">Contabilidad</span>
+      </a>
+      <!-- Cartera: ventas a crédito y abonos de clientes (cuentas por cobrar) -->
+      <a class="sidebar-link {% if ep.startswith('cartera.') %}activo{% endif %}"
+         href="{{ url_for('cartera.index') }}" title="Cartera (cuentas por cobrar)">
+        <span class="ico">{{ ico("libreta", "📒") }}</span><span class="txt">Cartera</span>
       </a>
       <a class="sidebar-link {% if ep.startswith('caja_menor.') %}activo{% endif %}"
          href="{{ url_for('caja_menor.index') }}" title="Caja menor">

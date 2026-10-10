@@ -2680,3 +2680,21 @@ html body .cal-pie button { padding: .35rem .7rem; color: var(--acento); font-we
   .pos-ir-carrito strong { color: #fff; }
   .pos-ir-carrito.vacio { display: none; }
 }
+
+/* ---- POS: escoger cliente para vender a CRÉDITO (ventana de pago) ---- */
+.credito-resultados { display: flex; flex-direction: column; gap: .3rem; max-height: 210px; overflow-y: auto; margin-top: .4rem; }
+html body .credito-opcion {
+  display: grid; grid-template-columns: 1fr auto; gap: 0 .6rem; text-align: left;
+  padding: .5rem .7rem; background: var(--superficie, #fff); color: var(--texto, #1a2733);
+  border: 1px solid var(--borde, #d8e0e6); border-radius: .5rem; cursor: pointer;
+}
+html body .credito-opcion:hover { border-color: var(--acento); background: var(--acento-suave, #e8f1fa); }
+.credito-opcion span { color: var(--texto-suave, #5b6b79); font-size: .82rem; }
+.credito-opcion small { grid-column: 1 / -1; color: var(--texto-suave, #5b6b79); }
+.credito-elegido {
+  display: flex; align-items: center; justify-content: space-between; gap: .8rem;
+  padding: .7rem .8rem; border: 1px solid var(--acento); border-radius: .5rem; background: var(--acento-suave, #e8f1fa);
+}
+.credito-sin-cupo { color: #b3261e; font-weight: 600; }
+/* "hidden" debe ganarle a los display:flex/block de arriba (lista, tarjeta y buscador) */
+#pago-credito[hidden], #pago-credito [hidden] { display: none !important; }

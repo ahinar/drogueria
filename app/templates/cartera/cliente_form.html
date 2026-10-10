@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{# Formulario de cliente (nuevo o editar). Ver app/cartera.py #}
+{% block titulo %}{{ 'Editar cliente' if editando else 'Nuevo cliente' }}{% endblock %}
+{% block contenido %}
+<h1>{{ 'Editar cliente' if editando else 'Nuevo cliente' }}</h1>
+<p class="suave">Solo a los clientes registrados se les puede vender a <strong>crédito</strong>.</p>
+
+<form method="post" class="formulario" style="max-width:720px">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <fieldset>
+    <legend>Datos del cliente</legend>
+    <label>Nombre completo *
+      <input type="text" name="nombre" required minlength="3" maxlength="120" value="{{ cliente.nombre if cliente else '' }}">
+    </label>
+    <div class="grid-2">
+      <label>Cédula o NIT
+        <input type="text" name="documento" maxlength="30" value="{{ cliente.documento or '' if cliente else '' }}">
+      </label>
+      <label>Teléfono / WhatsApp
+        <input type="text" name="telefono" maxlength="30" value="{{ cliente.telefono or '' if cliente else '' }}">
+      </label>
+    </div>
+    <label>Dirección
+      <input type="text" name="direccion" maxlength="160" value="{{ cliente.direccion or '' if cliente else '' }}">
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Crédito</legend>
+    <label>Cupo (hasta cuánto puede deber)
+      <input type="number" name="cupo" min="0" step="1" placeholder="Vacío = sin límite"
+             value="{{ '%d' % cliente.cupo if cliente and cliente.cupo is not none and cliente.cupo >= 0 else '' }}">
+      <small class="suave">Si lo dejas vacío, se le puede fiar sin límite. Con cupo, el POS no deja venderle a crédito por encima.</small>
+    </label>
+    <label>Observaciones
+      <textarea name="observaciones" rows="2" placeholder="Ej: paga los días 15 y 30">{{ cliente.observaciones or '' if cliente else '' }}</textarea>
+    </label>
+    {% if editando %}
+    <label>Estado
+      <select name="activo">
+        <option value="1" {% if cliente.activo %}selected{% endif %}>Activo</option>
+        <option value="0" {% if not cliente.activo %}selected{% endif %}>Inactivo (ya no se le vende a crédito)</option>
+      </select>
+    </label>
+    {% endif %}
+  </fieldset>
+
+  <div class="acciones">
+    <button type="submit">Guardar</button>
+    <a class="boton secundario" href="{{ url_for('cartera.cliente_ver', cliente_id=cliente.id) if editando else url_for('cartera.index') }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

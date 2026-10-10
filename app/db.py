@@ -881,6 +881,59 @@ MIGRATIONS = [
         -- creería que ya hay catálogos y no pondría los demás.
         """,
     ),
+    (
+        26,
+        """
+        -- ===== Cartera (cuentas por cobrar) =====
+        -- 1) CLIENTES registrados: solo a ellos se les puede vender a crédito.
+        --    cupo = hasta cuánto pueden deber (vacío = sin límite).
+        CREATE TABLE clientes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            documento TEXT,                          -- cédula o NIT
+            telefono TEXT,
+            direccion TEXT,
+            cupo REAL,                               -- NULL = sin límite
+            observaciones TEXT,
+            activo INTEGER NOT NULL DEFAULT 1,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT
+        );
+        -- No puede haber dos clientes con el mismo documento
+        CREATE UNIQUE INDEX idx_clientes_documento ON clientes (documento)
+            WHERE documento IS NOT NULL AND documento <> '';
+
+        -- 2) A qué cliente registrado se le hizo la venta (las ventas a crédito
+        --    siempre lo tienen; forma_pago = 'credito').
+        ALTER TABLE ventas ADD COLUMN cliente_id INTEGER REFERENCES clientes (id);
+        CREATE INDEX idx_ventas_cliente ON ventas (cliente_id);
+
+        -- 3) ABONOS: lo que el cliente va pagando de su deuda (AB-0001...).
+        --    Si es en efectivo (o Nequi/Davivienda) con la caja abierta, también
+        --    queda como "ingreso" en caja_movimientos para que el cierre cuadre.
+        CREATE TABLE cartera_abonos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero TEXT NOT NULL UNIQUE,
+            cliente_id INTEGER NOT NULL,
+            fecha TEXT NOT NULL,
+            monto REAL NOT NULL,
+            forma_pago TEXT NOT NULL
+                CHECK (forma_pago IN ('efectivo', 'nequi', 'davivienda', 'tarjeta', 'transferencia')),
+            caja_id INTEGER,                         -- caja donde entró la plata (si aplica)
+            observaciones TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            anulado INTEGER NOT NULL DEFAULT 0,
+            anulado_motivo TEXT,
+            anulado_en TEXT,
+            anulado_por_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            FOREIGN KEY (cliente_id) REFERENCES clientes (id),
+            FOREIGN KEY (caja_id) REFERENCES cajas (id)
+        );
+        CREATE INDEX idx_abonos_cliente ON cartera_abonos (cliente_id);
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

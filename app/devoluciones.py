@@ -37,7 +37,9 @@ from .formato import pesos
 
 bp = Blueprint("devoluciones", __name__, url_prefix="/devoluciones")
 
-FORMAS_REEMBOLSO = {"efectivo": "Efectivo", "nequi": "Nequi", "davivienda": "Davivienda", "tarjeta": "Tarjeta"}
+# "credito" = la venta fue a crédito: no se devuelve plata, se descuenta de lo que debe (Cartera)
+FORMAS_REEMBOLSO = {"efectivo": "Efectivo", "nequi": "Nequi", "davivienda": "Davivienda", "tarjeta": "Tarjeta",
+                    "credito": "Descontar de su deuda (venta a crédito)"}
 MOTIVOS_PROVEEDOR = ["Producto vencido", "Próximo a vencer", "Averiado / empaque dañado",
                      "Error en el pedido", "Retiro del mercado (alerta INVIMA)", "Otro"]
 JEFES = ("administrador", "director_tecnico")
@@ -156,8 +158,12 @@ def _registrar_devolucion_cliente(venta):
         raise _Error("Escribe el motivo de la devolución.")
     if forma not in FORMAS_REEMBOLSO:
         raise _Error("Elige cómo se le devuelve la plata al cliente.")
+    # Descontar de la deuda solo tiene sentido si la venta fue a crédito
+    if (forma == "credito") != (venta["forma_pago"] == "credito"):
+        raise _Error("Una venta a crédito se devuelve descontándola de la deuda del cliente, "
+                     "y una de contado devolviendo la plata.")
     caja = db.execute("SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1").fetchone()
-    if caja is None:
+    if caja is None and forma != "credito":
         raise _Error("Abre la caja del POS: la plata de la devolución sale de la caja abierta.")
 
     # Qué devuelve de cada línea (los campos del formulario se llaman cant_<id de la línea>)
@@ -181,7 +187,7 @@ def _registrar_devolucion_cliente(venta):
         dev_id = db.execute(
             "INSERT INTO devoluciones (numero, tipo, fecha, venta_id, motivo, forma_reembolso, caja_id, "
             "usuario_id, usuario_nombre, creado_en) VALUES (?, 'cliente', ?,?,?,?,?,?,?,?)",
-            (numero, ahora(), venta["id"], motivo, forma, caja["id"], g.user["id"], g.user["nombre"],
+            (numero, ahora(), venta["id"], motivo, forma, caja["id"] if caja else None, g.user["id"], g.user["nombre"],
              ahora())).lastrowid
 
         tot_sub = tot_iva = tot_total = tot_costo = 0.0
@@ -243,12 +249,14 @@ def _registrar_devolucion_cliente(venta):
 
         db.execute("UPDATE devoluciones SET subtotal=?, iva=?, total=?, costo=? WHERE id=?",
                    (tot_sub, tot_iva, tot_total, tot_costo, dev_id))
-        # La plata sale de la caja abierta (así el cierre de caja cuadra)
-        db.execute(
-            "INSERT INTO caja_movimientos (caja_id, fecha, tipo, forma_pago, monto, motivo, usuario_id, "
-            "usuario_nombre, creado_en) VALUES (?,?, 'salida', ?,?,?,?,?,?)",
-            (caja["id"], ahora(), forma, tot_total, f"Devolución {numero} (venta {venta['consecutivo']})",
-             g.user["id"], g.user["nombre"], ahora()))
+        # La plata sale de la caja abierta (así el cierre de caja cuadra).
+        # A crédito no sale plata: baja la deuda del cliente (ver app/cartera.py).
+        if forma != "credito":
+            db.execute(
+                "INSERT INTO caja_movimientos (caja_id, fecha, tipo, forma_pago, monto, motivo, usuario_id, "
+                "usuario_nombre, creado_en) VALUES (?,?, 'salida', ?,?,?,?,?,?)",
+                (caja["id"], ahora(), forma, tot_total, f"Devolución {numero} (venta {venta['consecutivo']})",
+                 g.user["id"], g.user["nombre"], ahora()))
         db.commit()
     except Exception:
         db.rollback()
@@ -256,7 +264,10 @@ def _registrar_devolucion_cliente(venta):
 
     registrar("devolucion_cliente", "devoluciones", dev_id,
               f"{numero} venta={venta['consecutivo']} total={tot_total} forma={forma} motivo={motivo}")
-    flash(f"Devolución {numero} registrada: entrégale {pesos(tot_total)} al cliente ({FORMAS_REEMBOLSO[forma]}).", "ok")
+    if forma == "credito":
+        flash(f"Devolución {numero} registrada: se descontaron {pesos(tot_total)} de la deuda del cliente.", "ok")
+    else:
+        flash(f"Devolución {numero} registrada: entrégale {pesos(tot_total)} al cliente ({FORMAS_REEMBOLSO[forma]}).", "ok")
     return dev_id
 
 

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{# CARTERA: cuánto debe cada cliente y desde cuándo. r = cartera.resumen() #}
+{% block titulo %}Cartera{% endblock %}
+{% block contenido %}
+<h1>Cartera <small class="suave" style="font-size:.6em;font-weight:500">cuentas por cobrar</small></h1>
+<p class="suave">Ventas a <strong>crédito</strong> a clientes registrados y sus abonos. Los abonos pagan primero las ventas más viejas.</p>
+
+<div class="rep-tarjetas">
+  <div class="eres-tarjeta"><span>Total por cobrar</span><strong>{{ r.total|pesos }}</strong>
+    <small>{{ r.n_deudores }} cliente{{ '' if r.n_deudores == 1 else 's' }} con deuda</small></div>
+  <div class="eres-tarjeta {{ 'negativa' if r.vencida else '' }}"><span>Vencida (más de {{ dias_vencida }} días)</span>
+    <strong>{{ r.vencida|pesos }}</strong><small>{{ 'conviene cobrarla ya' if r.vencida else 'nada vencido' }}</small></div>
+  {% for rg in r.rangos %}
+  <div class="eres-tarjeta"><span>{{ rg.texto }}</span><strong>{{ rg.total|pesos }}</strong></div>
+  {% endfor %}
+</div>
+
+<form method="get" class="filtros" style="margin-top:1rem">
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar cliente por nombre, documento o teléfono…">
+  <select name="ver">
+    <option value="">Solo los que deben</option>
+    <option value="todos" {% if todos %}selected{% endif %}>Todos los clientes (también inactivos)</option>
+  </select>
+  <button type="submit">Buscar</button>
+  <a class="boton" href="{{ url_for('cartera.cliente_nuevo') }}">+ Nuevo cliente</a>
+</form>
+
+<table class="tabla">
+  <thead><tr><th>Cliente</th><th>Documento</th><th>Teléfono</th><th style="text-align:right">Debe</th>
+    <th style="text-align:right">Cupo</th><th style="text-align:right">Disponible</th><th>Desde hace</th><th></th></tr></thead>
+  <tbody>
+    {% for f in r.filas %}
+    <tr class="{% if not f.cliente.activo %}inactivo{% endif %}">
+      <td><a href="{{ url_for('cartera.cliente_ver', cliente_id=f.cliente.id) }}"><strong>{{ f.cliente.nombre }}</strong></a></td>
+      <td>{{ f.cliente.documento or '—' }}</td>
+      <td>{{ f.cliente.telefono or '—' }}</td>
+      <td style="text-align:right"><strong>{% if f.saldo < -0.5 %}<span class="tag-ok">a favor {{ (-f.saldo)|pesos }}</span>{% else %}{{ f.saldo|pesos }}{% endif %}</strong></td>
+      <td style="text-align:right">{{ f.cliente.cupo|pesos if f.cliente.cupo is not none else 'Sin límite' }}</td>
+      <td style="text-align:right">{{ f.disponible|pesos if f.disponible is not none else '—' }}</td>
+      <td>{% if f.dias_mayor %}<span class="{{ 'tag-error' if f.vencida else 'tag-ok' }}">{{ f.dias_mayor }} día{{ '' if f.dias_mayor == 1 else 's' }}</span>{% elif f.saldo > 0.5 %}<span class="tag-ok">hoy</span>{% else %}—{% endif %}</td>
+      <td><a href="{{ url_for('cartera.cliente_ver', cliente_id=f.cliente.id) }}">Estado de cuenta</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="suave">{% if q or todos %}No hay clientes con esa búsqueda.{% else %}Nadie debe nada. 🎉 Para vender a crédito, registra al cliente con "+ Nuevo cliente".{% endif %}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

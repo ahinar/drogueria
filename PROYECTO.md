@@ -209,6 +209,16 @@
 - **En reportes:** R1 Ventas tiene el filtro **"Mostrar: Todo / Solo productos del inventario / Solo venta libre"** (ahora cuenta por líneas de venta), muestra cuánto fue de productos y cuánto de venta libre, y una sección aparte **"Otros ingresos (no son ventas)"** por categoría. Utilidades: la venta libre está dentro de las ventas con su costo; los otros ingresos se **suman** antes de la utilidad neta, una línea por categoría (se despliega el detalle).
 - Código: `app/pos.py` (`_guardar_linea_libre`, `api_otro_ingreso`), `app/otros_ingresos.py`, `static/js/pos_carrito.js` (`pedirVentaLibre`, `pedirOtroIngreso`). `window.pedirDatos` (ui.js) ahora también pide números y listas.
 
+### 5.9d Cartera (cuentas por cobrar, ventas a crédito) ✅
+- **Clientes** (`clientes`): nombre, cédula/NIT (no se repite), teléfono, dirección, **cupo** (vacío = sin límite), observaciones, activo. Los crea y edita el administrador o el DT en **Dinero → Cartera → + Nuevo cliente**.
+- **Vender a crédito en el POS:** en la ventana de pago, forma **"Crédito"** → buscador de clientes (nombre, cédula o teléfono) con lo que debe y su cupo disponible; muestra cuánto quedará debiendo. El servidor exige cliente activo y **no deja pasar el cupo**. No entra plata a la caja (el cierre lo muestra aparte, "Ventas a crédito"). `ventas.forma_pago = 'credito'` y `ventas.cliente_id`. El comprobante dice **VENTA A CRÉDITO**, el saldo total del cliente y una línea para su **firma**. Cualquier usuario puede vender a crédito a un cliente ya registrado.
+- **Abonos** (`cartera_abonos`, AB-0001): desde el POS (menú → "Abono de cartera", lista de quienes deben) o desde el estado de cuenta. No se puede abonar más de lo que debe. Efectivo, Nequi y Davivienda entran a la **caja abierta** (caja_movimientos "ingreso"); el efectivo exige caja abierta; transferencia/tarjeta solo quedan registradas. **Recibo de abono** en tirilla 80 mm (con el saldo pendiente). Anular un abono (admin/DT, con motivo) devuelve la deuda y, si su caja sigue abierta, saca la plata (salida).
+- **Saldo** = ventas a crédito (no anuladas) − devoluciones descontadas de la deuda − abonos. Los abonos pagan primero las ventas más viejas (FIFO), así se sabe qué ventas siguen pendientes y cuántos días llevan.
+- **Pantalla Cartera** (`/cartera`, admin y DT): total por cobrar, vencida (> 30 días), antigüedad 0–30 / 31–60 / 61–90 / +90, lista de clientes con lo que deben, cupo, disponible y días. **Estado de cuenta** por cliente: ventas pendientes, movimientos con saldo acumulado (como un extracto), registrar abono, imprimir.
+- **Devolución de una venta a crédito:** no se devuelve plata, se **descuenta de la deuda** (forma de reembolso "credito"; no necesita caja). Anular una venta a crédito borra esa deuda.
+- **Alerta en Inicio** (admin y DT): "Clientes con deuda de más de 30 días". R1 Ventas muestra "Crédito (cartera)" en las formas de pago.
+- Código: `app/cartera.py`, plantillas `cartera/`, `static/css/tirilla.css` (estilo compartido del comprobante y el recibo). Demo: 3 clientes de prueba.
+
 ### 5.9b Devoluciones ✅
 - `app/devoluciones.py`, ruta `/devoluciones` (solo admin y DT). Entradas: botón **↩️ Devolución** en la lista de ventas del POS, Inventario → Devoluciones y **🚚 Devolver al proveedor** en el detalle de un lote.
 - **De cliente (DC-0001):** se busca la venta (V-0012 o solo 12); por producto se elige cuánto devuelve (máximo lo comprado menos lo ya devuelto) y si **vuelve al inventario** (al mismo lote del que salió, empezando por el último; un lote "agotado" vuelve a disponible) o se da de **baja**. El valor es proporcional a lo que pagó (con descuento). La plata sale de la **caja abierta** como "salida" (efectivo, Nequi, Davivienda o tarjeta), así el cierre cuadra. Motivo obligatorio. Una venta con devolución ya no se puede anular.
@@ -398,7 +408,7 @@ Notas:
   9. **POS táctil:** botones grandes (mínimo 44 px), contraste alto.
   10. **Impresos coherentes:** comprobante de venta en tirilla de 80 mm y todos los PDF con el mismo encabezado.
   Forma de trabajo: primero la guía de estilo y una maqueta de 2–3 pantallas para aprobar, luego módulo por módulo.
-- [ ] (Idea) Cotizaciones y deudas/fiados.
+- [ ] (Idea) Cotizaciones. (Las deudas quedaron en **Cartera** ✅, ver 5.9d.)
 - [ ] (⏸ solo si el contador lo pide) Reporte de IVA con prorrateo (Art. 490 ET).
 
 ### Mediano plazo
@@ -415,7 +425,7 @@ Notas:
 - [ ] Alertas a Telegram / WhatsApp.
 
 ### Hecho (antes estaba en esta lista)
-- [x] Venta libre y otros ingresos, carrito del POS, gastos discriminados, utilidades y estado de resultados, módulo Reportes R1–R8, control de precios máximos con alerta, venta por presentación, panel de alertas, equipos y calibraciones, confirmaciones con la ventana del programa.
+- [x] Cartera (ventas a crédito y abonos), venta libre y otros ingresos, carrito del POS, gastos discriminados, utilidades y estado de resultados, módulo Reportes R1–R8, control de precios máximos con alerta, venta por presentación, panel de alertas, equipos y calibraciones, confirmaciones con la ventana del programa.
 
 ## 9. Pendientes por confirmar (con el usuario y terceros)
 
@@ -457,6 +467,7 @@ Notas:
 | 23 | `devoluciones` y `devolucion_lineas` (de cliente y a proveedor) |
 | 24 | `usuarios.tema` (verde, azul o clásico) |
 | 25 | `venta_lineas` reconstruida: `producto_id` opcional + `es_libre`, `costo_libre` (venta libre); tabla `otros_ingresos`; categorías `categoria_ingreso` (se siembran en init_db) |
+| 26 | Cartera: tabla `clientes` (cupo), `ventas.cliente_id`, tabla `cartera_abonos` |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
