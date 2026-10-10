@@ -737,6 +737,59 @@ MIGRATIONS = [
         CREATE INDEX idx_calibraciones_equipo ON calibraciones (equipo_id);
         """,
     ),
+    (
+        23,
+        """
+        -- ===== Devoluciones =====
+        -- tipo 'cliente':   un cliente devuelve algo que compró (sale de una venta).
+        -- tipo 'proveedor': se le devuelve mercancía al proveedor (vencidos, averías...).
+        CREATE TABLE devoluciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero TEXT NOT NULL UNIQUE,              -- DC-0001 (cliente) / DP-0001 (proveedor)
+            tipo TEXT NOT NULL CHECK (tipo IN ('cliente', 'proveedor')),
+            fecha TEXT NOT NULL,
+            venta_id INTEGER,                         -- cliente: venta de origen
+            proveedor_id INTEGER,                     -- proveedor: a quién se devuelve
+            motivo TEXT NOT NULL,
+            forma_reembolso TEXT,                     -- cliente: efectivo, nequi, davivienda, tarjeta
+            caja_id INTEGER,                          -- caja de la que salió el reembolso
+            con_credito INTEGER NOT NULL DEFAULT 1,   -- proveedor: 1 = reconoce el valor (nota crédito o cambio)
+            nota_credito TEXT,                        -- proveedor: número de la nota crédito
+            subtotal REAL NOT NULL DEFAULT 0,         -- sin IVA
+            iva REAL NOT NULL DEFAULT 0,
+            total REAL NOT NULL DEFAULT 0,            -- cliente: lo que se le devolvió; proveedor: valor al costo
+            costo REAL NOT NULL DEFAULT 0,            -- costo de la mercancía devuelta
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            FOREIGN KEY (venta_id) REFERENCES ventas (id),
+            FOREIGN KEY (proveedor_id) REFERENCES proveedores (id)
+        );
+        CREATE INDEX idx_devoluciones_fecha ON devoluciones (fecha);
+        CREATE INDEX idx_devoluciones_venta ON devoluciones (venta_id);
+
+        CREATE TABLE devolucion_lineas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            devolucion_id INTEGER NOT NULL,
+            producto_id INTEGER NOT NULL,
+            producto_nombre TEXT NOT NULL,
+            venta_linea_id INTEGER,                   -- cliente: línea de la venta
+            lote_id INTEGER,                          -- proveedor: lote que sale
+            presentacion TEXT,
+            cantidad REAL NOT NULL,                   -- en la presentación vendida (cliente) o unidades (proveedor)
+            unidades REAL NOT NULL,                   -- unidades del inventario (cantidad x factor)
+            destino TEXT NOT NULL CHECK (destino IN ('reingreso', 'baja', 'proveedor')),
+            subtotal REAL NOT NULL DEFAULT 0,
+            iva REAL NOT NULL DEFAULT 0,
+            total REAL NOT NULL DEFAULT 0,
+            costo REAL NOT NULL DEFAULT 0,
+            lotes_json TEXT,                          -- a qué lotes volvió (reingreso)
+            FOREIGN KEY (devolucion_id) REFERENCES devoluciones (id) ON DELETE CASCADE
+        );
+        CREATE INDEX idx_devolucion_lineas_dev ON devolucion_lineas (devolucion_id);
+        CREATE INDEX idx_devolucion_lineas_venta ON devolucion_lineas (venta_linea_id);
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

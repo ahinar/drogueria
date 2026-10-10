@@ -19,6 +19,8 @@
     <small>{{ cambio(cambios.ticket) }} · descuentos {{ pesos(d.actual.descuentos) }}</small></div>
 </div>
 {% if d.anuladas.n %}<p class="suave">❌ {{ d.anuladas.n }} venta(s) anulada(s) por {{ pesos(d.anuladas.total) }} (no se suman).</p>{% endif %}
+{% if d.devoluciones.n %}<p class="suave">↩️ {{ d.devoluciones.n }} devolución(es) de clientes por {{ pesos(d.devoluciones.total) }}
+  (se restan en <a href="{{ url_for('reportes.utilidades_ver') }}">Utilidades</a>).</p>{% endif %}
 
 {% if not d.actual.n %}
   <p class="rep-vacio">No hay ventas en este período.</p>

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titulo %}Devoluciones{% endblock %}
+{% block contenido %}
+{# Lista de devoluciones (de cliente y a proveedor). Ver app/devoluciones.py #}
+{% from "reportes/_macros.html" import pesos %}
+<div class="eres-cabecera">
+  <div>
+    <h1>↩️ Devoluciones</h1>
+    <p class="suave">De clientes (sale de una venta) y a proveedores (vencidos, averías, errores de pedido).</p>
+  </div>
+  <div class="sug-acciones">
+    <a class="boton" href="{{ url_for('devoluciones.cliente') }}">👤 Devolución de cliente</a>
+    <a class="boton secundario" href="{{ url_for('devoluciones.proveedor') }}">🚚 Devolver a proveedor</a>
+  </div>
+</div>
+{% if not devoluciones %}
+  <p class="rep-vacio">Todavía no hay devoluciones.</p>
+{% else %}
+<div class="rep-caja">
+<table class="rep-tabla">
+  <thead><tr><th>Número</th><th>Fecha</th><th>De / a</th><th>Motivo</th><th class="num">Valor</th></tr></thead>
+  <tbody>{% for d in devoluciones %}<tr>
+    <td><a href="{{ url_for('devoluciones.ver', dev_id=d.id) }}"><strong>{{ d.numero }}</strong></a>
+      <small>{{ 'Cliente' if d.tipo == 'cliente' else 'Proveedor' }} · {{ d.n_lineas }} producto(s)</small></td>
+    <td>{{ d.fecha[8:10] }}/{{ d.fecha[5:7] }}/{{ d.fecha[0:4] }}</td>
+    <td>{% if d.tipo == 'cliente' %}Venta {{ d.venta }}{% else %}{{ d.proveedor }}{% if not d.con_credito %}<small>sin nota crédito (pérdida)</small>{% endif %}{% endif %}</td>
+    <td>{{ d.motivo }}</td>
+    <td class="num">{{ pesos(d.total) }}</td>
+  </tr>{% endfor %}</tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

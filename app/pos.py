@@ -1080,6 +1080,9 @@ def anular_venta(venta_id):
         caja = db.execute("SELECT estado FROM cajas WHERE id = ?", (venta["caja_id"],)).fetchone()
         if venta["estado"] != "completada":
             raise _VentaError("Esa venta ya está anulada.")
+        # Si ya tuvo una devolución, anularla devolvería esas unidades dos veces
+        if db.execute("SELECT 1 FROM devoluciones WHERE venta_id = ?", (venta_id,)).fetchone():
+            raise _VentaError("Esa venta tiene una devolución registrada; no se puede anular.")
         if caja["estado"] != "abierta":
             raise _VentaError("Esa venta pertenece a una caja ya cerrada; no se puede anular.")
 

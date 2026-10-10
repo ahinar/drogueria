@@ -200,6 +200,12 @@
 - Cierre de caja como modal con desglose completo.
 - Modal de conteo reutilizable.
 
+### 5.9b Devoluciones ✅
+- `app/devoluciones.py`, ruta `/devoluciones` (solo admin y DT). Entradas: botón **↩️ Devolución** en la lista de ventas del POS, Inventario → Devoluciones y **🚚 Devolver al proveedor** en el detalle de un lote.
+- **De cliente (DC-0001):** se busca la venta (V-0012 o solo 12); por producto se elige cuánto devuelve (máximo lo comprado menos lo ya devuelto) y si **vuelve al inventario** (al mismo lote del que salió, empezando por el último; un lote "agotado" vuelve a disponible) o se da de **baja**. El valor es proporcional a lo que pagó (con descuento). La plata sale de la **caja abierta** como "salida" (efectivo, Nequi, Davivienda o tarjeta), así el cierre cuadra. Motivo obligatorio. Una venta con devolución ya no se puede anular.
+- **A proveedor (DP-0001):** por defecto muestra lotes vencidos y que vencen en 90 días (o se busca). Motivos: vencido, próximo a vencer, averiado, error en el pedido, retiro del mercado, otro. Si el proveedor reconoce el valor (nota crédito o cambio) el kardex registra 'devolucion'; si no, 'baja' (pérdida en Utilidades). Acta PDF para firmar (también para las de cliente).
+- **En reportes:** Utilidades resta las devoluciones de clientes de las ventas (y su costo si reingresó; con baja el costo se queda como pérdida), márgenes sobre ventas netas. R1 muestra cuántas devoluciones hubo. R4 resta lo devuelto al proveedor con nota crédito de lo comprado.
+
 ### 5.10 Importador (parcial)
 - Descarga de plantilla .xlsx / .csv.
 - Vista previa con análisis de errores.
@@ -319,7 +325,7 @@ Notas:
 - Visto en DATA FARMAC y anotado como idea: **Cotización** y **Deudas** (fiados).
 
 ### Fase 3: alertas y precios ⏳
-- **3.1** Devoluciones.
+- **3.1** Devoluciones ✅ (de cliente y a proveedor, con acta PDF).
 - **3.2** Precios máximos de venta ✅ (tope al vender + alerta en Inicio).
 - **3.3** Alertas INVIMA ✅ (panel de alertas del Inicio).
 - **3.4** Control especial (FNE) — flujo completo.
@@ -354,7 +360,6 @@ Notas:
 - [ ] Registrar los equipos reales y subir sus certificados de calibración.
 
 ### Corto plazo
-- [ ] Devoluciones (de cliente y a proveedor).
 - [ ] Resumen en el Inicio: ventas de hoy, semana y mes; utilidad del mes.
 - [ ] Descarga en Excel de los reportes.
 - [ ] Venta libre en el POS y registro de otros ingresos (entran como filtros de R1).
@@ -414,6 +419,7 @@ Notas:
 | 20 | `producto_presentaciones` (venta por unidad / sobre / caja) + `venta_lineas.presentacion_id` |
 | 21 | `caja_menor_movimientos.retiro_dueno` + categoría de gasto "Sueldo del dueño" |
 | 22 | `equipos` rehecha con más tipos y `frecuencia_meses`; tabla `calibraciones` |
+| 23 | `devoluciones` y `devolucion_lineas` (de cliente y a proveedor) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -453,7 +459,8 @@ Notas:
 - **R2 Utilidades (2026-10-09):** estado de resultados con costo real por lote, gastos por categoría, pérdidas de inventario, retiros del dueño aparte, comparación con el período anterior y PDF. Casilla "retiro del dueño" en caja menor. Decisiones de Fernando: pérdidas en línea aparte; su sueldo (variable) es gasto en "Sueldo del dueño" y además retira ganancias; registra todos los gastos en Contabilidad; por defecto mes actual vs anterior. **194 tests pasan**.
 - **Reportes (2026-10-09):** R6 Sugerido de compra (pedido por proveedor con WhatsApp e imprimir) y R1, R3, R4, R5, R7, R8 con menú común de reportes. **215 tests pasan**.
 - **Equipos y limpieza (2026-10-09):** módulo de equipos y calibraciones con certificado y alertas; todas las confirmaciones usan la ventana del programa (atributo `data-confirmar` en formularios y botones, manejado en base.html; en JS `await window.confirmar(...)`); plata en mensajes con punto de miles (`app/formato.py`, `pesos()`); Contabilidad sin tarjetas "próximamente" (llevan a Reportes). **229 tests pasan**.
-- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → ~~utilidades/estado de resultados~~ ✅ → ~~reportes~~ ✅ → ~~equipos/calibraciones~~ ✅ → devoluciones.
+- **Devoluciones (2026-10-09):** de cliente (reingreso al mismo lote o baja, reembolso desde la caja abierta) y a proveedor (con o sin nota crédito, acta PDF); integradas en Utilidades, R1 y R4. **246 tests pasan**.
+- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → ~~utilidades/estado de resultados~~ ✅ → ~~reportes~~ ✅ → ~~equipos/calibraciones~~ ✅ → ~~devoluciones~~ ✅.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 
 **Sesión anterior:** 2026-10-07. Se completó:

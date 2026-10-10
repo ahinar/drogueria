@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block titulo %}Devolución de cliente{% endblock %}
+{% block contenido %}
+{#
+  DEVOLUCIÓN DE CLIENTE
+  1) Buscar la venta. 2) Elegir cantidades y destino por producto. 3) Reembolso.
+  Los campos cant_<id> y destino_<id> los lee app/devoluciones.py
+#}
+{% from "reportes/_macros.html" import pesos, cant %}
+<p><a href="{{ url_for('devoluciones.lista') }}">← Devoluciones</a></p>
+<h1>👤 Devolución de cliente</h1>
+
+<form method="get" class="eres-filtros">
+  <label>Número de la venta
+    <input type="text" name="venta" value="{{ buscado }}" placeholder="V-0012 o 12" autofocus required>
+  </label>
+  <button type="submit" class="boton">🔍 Buscar</button>
+</form>
+
+{% if venta %}
+<div class="rep-caja">
+  <h2>Venta {{ venta.consecutivo }} · {{ venta.fecha[8:10] }}/{{ venta.fecha[5:7] }}/{{ venta.fecha[0:4] }} {{ venta.fecha[11:16] }}</h2>
+  <p class="suave" style="margin-top:0">{{ venta.cliente_nombre }} · pagó {{ pesos(venta.total) }} en {{ venta.forma_pago }} · vendió {{ venta.usuario_nombre }}</p>
+
+  {% if not caja %}
+    <p class="eres-aviso">⚠️ No hay caja abierta. Abre la caja en el POS: la plata de la devolución sale de ahí.</p>
+  {% endif %}
+
+  <form method="post" class="dev-form" data-confirmar="¿Registrar la devolución? Se le devolverá la plata al cliente y no se puede deshacer.">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="venta" value="{{ venta.consecutivo }}">
+    <table class="rep-tabla">
+      <thead><tr><th>Producto</th><th class="num">Compró</th><th class="num">Devuelve</th><th>¿Qué se hace?</th><th class="num">Valor</th></tr></thead>
+      <tbody>
+        {% for l in lineas %}
+        <tr data-valor="{{ l.total / l.cantidad }}">
+          <td>{{ l.producto_nombre }}<small>{{ l.presentacion or 'Unidad' }} · {{ pesos(l.total / l.cantidad) }} c/u{% if l.ya_devuelto %} · ya devolvió {{ cant(l.ya_devuelto) }}{% endif %}</small></td>
+          <td class="num">{{ cant(l.cantidad) }}</td>
+          <td class="num">
+            {% if l.disponible > 0 %}
+            <input type="number" class="dev-cant" name="cant_{{ l.id }}" min="0" max="{{ l.disponible }}" step="any" value="0" aria-label="Cantidad que devuelve">
+            {% else %}<span class="suave">nada</span>{% endif %}
+          </td>
+          <td>{% if l.disponible > 0 %}
+            <select name="destino_{{ l.id }}">
+              <option value="reingreso">✅ Vuelve al inventario (está bueno)</option>
+              <option value="baja">🗑 Baja (dañado o abierto)</option>
+            </select>{% endif %}</td>
+          <td class="num dev-valor">$0</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot><tr><td colspan="4">Total a devolver</td><td class="num" id="dev-total">$0</td></tr></tfoot>
+    </table>
+    <div class="grid-3-compact" style="margin-top:.8rem">
+      <label>Se le devuelve en
+        <select name="forma_reembolso">
+          {% for clave, texto in formas.items() %}<option value="{{ clave }}" {% if clave == venta.forma_pago %}selected{% endif %}>{{ texto }}</option>{% endfor %}
+        </select>
+      </label>
+      <label style="grid-column: span 2">Motivo *
+        <input type="text" name="motivo" required minlength="3" placeholder="Ej: producto equivocado, reacción adversa, empaque dañado">
+      </label>
+    </div>
+    <p class="suave">Si el motivo es una reacción adversa, recuerda reportarla a farmacovigilancia.</p>
+    <div class="acciones"><button type="submit" {% if not caja %}disabled{% endif %}>↩️ Registrar devolución</button></div>
+  </form>
+</div>
+<script>
+// Suma en vivo lo que se le devuelve al cliente (cantidad × valor que pagó por unidad)
+(function () {
+  const form = document.querySelector('.dev-form');
+  const peso = (n) => '$' + Math.round(n).toLocaleString('es-CO');
+  function sumar() {
+    let total = 0;
+    form.querySelectorAll('tbody tr').forEach((fila) => {
+      const input = fila.querySelector('.dev-cant');
+      const valor = input ? (parseFloat(input.value) || 0) * parseFloat(fila.dataset.valor) : 0;
+      fila.querySelector('.dev-valor').textContent = peso(valor);
+      total += valor;
+    });
+    document.getElementById('dev-total').textContent = peso(total);
+  }
+  form.addEventListener('input', sumar);
+})();
+</script>
+{% endif %}
+{% endblock %}

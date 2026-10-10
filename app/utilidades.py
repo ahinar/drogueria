@@ -168,6 +168,17 @@ def calcular(desde, hasta):
         costo += costo_linea
     n_ventas = len({ln["venta_id"] for ln in lineas})
 
+    # ---- 2.1b Devoluciones de clientes (se restan de las ventas) ----
+    # Lo devuelto se resta de las ventas. Si el producto volvió al inventario
+    # también se resta su costo; si se dio de baja, el costo se queda (pérdida).
+    dev = db.execute(
+        "SELECT COALESCE(SUM(l.subtotal), 0) AS subtotal, "
+        "       COALESCE(SUM(CASE WHEN l.destino = 'reingreso' THEN l.costo ELSE 0 END), 0) AS costo_reingreso "
+        "FROM devolucion_lineas l JOIN devoluciones d ON d.id = l.devolucion_id "
+        "WHERE d.tipo = 'cliente' AND d.fecha >= ? AND d.fecha < ?", (ini, fin)).fetchone()
+    devoluciones = float(dev["subtotal"])
+    costo -= float(dev["costo_reingreso"])
+
     # ---- 2.2 Gastos por categoría (con el detalle de cada gasto) ----
     gastos_filas = db.execute(
         "SELECT g.id, g.fecha, g.descripcion, g.monto, g.forma_pago, "
@@ -202,9 +213,10 @@ def calcular(desde, hasta):
         (ini, fin)).fetchone()[0]
 
     # ---- 2.5 Resultados ----
-    utilidad_bruta = ventas - costo
+    utilidad_bruta = ventas - devoluciones - costo
     utilidad_neta = utilidad_bruta - total_gastos - total_perdidas
-    pct = lambda parte: (parte / ventas * 100) if ventas else 0
+    netas = ventas - devoluciones          # los márgenes se calculan sobre las ventas netas
+    pct = lambda parte: (parte / netas * 100) if netas else 0
 
     return {
         "desde": desde, "hasta": hasta,
@@ -212,6 +224,7 @@ def calcular(desde, hasta):
         "ticket_promedio": (total_con_iva / n_ventas) if n_ventas else 0,
         "total_con_iva": total_con_iva, "iva": iva, "descuentos": descuentos,
         "ventas": ventas,
+        "devoluciones": devoluciones,
         "costo": costo,
         "utilidad_bruta": utilidad_bruta, "margen_bruto": pct(utilidad_bruta),
         "gastos": gastos, "total_gastos": total_gastos,

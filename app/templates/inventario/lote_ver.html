@@ -81,6 +81,8 @@
       <input type="text" name="motivo" placeholder="Motivo del ajuste (conteo físico, merma, etc.)" required style="width:340px;display:inline-block">
       <button type="submit" class="boton secundario">📝 Ajustar</button>
     </form>
+    <!-- Vencido, averiado o error de pedido: se devuelve al proveedor con acta -->
+    <p style="margin-top:.7rem"><a class="boton secundario" href="{{ url_for('devoluciones.proveedor', lote=lote['id']) }}">🚚 Devolver al proveedor</a></p>
   </div>
 </div>
 {% endif %}

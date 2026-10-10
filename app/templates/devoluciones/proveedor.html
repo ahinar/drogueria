@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block titulo %}Devolución a proveedor{% endblock %}
+{% block contenido %}
+{#
+  DEVOLUCIÓN A PROVEEDOR
+  Lista de lotes con existencias (por defecto: vencidos y los que vencen en 90 días).
+  Los campos cant_<id del lote> los lee app/devoluciones.py
+#}
+{% from "reportes/_macros.html" import pesos, cant, fecha %}
+<p><a href="{{ url_for('devoluciones.lista') }}">← Devoluciones</a></p>
+<h1>🚚 Devolución a proveedor</h1>
+
+<form method="get" class="eres-filtros">
+  <label>Buscar producto o lote <input type="search" name="q" value="{{ q }}" placeholder="Nombre, código, lote o código de barras"></label>
+  <button type="submit" class="boton secundario">🔍 Buscar</button>
+  {% if q or lote_id %}<a class="boton secundario" href="{{ url_for('devoluciones.proveedor') }}">Ver vencidos y por vencer</a>{% endif %}
+</form>
+{% if not q and not lote_id %}<p class="suave">Mostrando lotes <strong>vencidos y que vencen en 90 días</strong>. Busca otro producto si lo necesitas.</p>{% endif %}
+
+{% if not lotes %}
+  <p class="rep-vacio">No hay lotes con existencias que coincidan.</p>
+{% else %}
+<form method="post" class="rep-caja" data-confirmar="¿Registrar la devolución? Las unidades salen del inventario.">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="q" value="{{ q }}">
+  <table class="rep-tabla">
+    <thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th>Estado</th><th class="num">Hay</th><th class="num">Devolver</th></tr></thead>
+    <tbody>{% for l in lotes %}<tr>
+      <td>{{ l.producto_nombre }}<small>{{ l.producto_codigo }}{% if l.proveedor_nombre %} · lo vendió {{ l.proveedor_nombre }}{% endif %} · costo {{ pesos(l.costo_unitario) }}</small></td>
+      <td>{{ l.lote or 's/n' }}</td>
+      <td>{% if l.vencimiento and l.vencimiento < hoy %}<strong class="rep-negativo">{{ fecha(l.vencimiento) }}</strong>{% else %}{{ fecha(l.vencimiento) }}{% endif %}</td>
+      <td>{{ l.estado }}</td>
+      <td class="num">{{ cant(l.cantidad_disponible) }}</td>
+      <td class="num"><input type="number" name="cant_{{ l.id }}" min="0" max="{{ l.cantidad_disponible }}" step="any"
+        value="{{ l.cantidad_disponible|round(2) if lote_id else '' }}" class="sug-cantidad" aria-label="Cantidad a devolver"></td>
+    </tr>{% endfor %}</tbody>
+  </table>
+
+  <div class="grid-3-compact" style="margin-top:.8rem">
+    <label>Proveedor *
+      <select name="proveedor_id" required>
+        <option value="">— Elegir —</option>
+        {% for p in proveedores %}<option value="{{ p.id }}" {% if p.id == proveedor_sugerido %}selected{% endif %}>{{ p.razon_social }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Motivo *
+      <select name="motivo" required>
+        {% for m in motivos %}<option>{{ m }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Detalle <input type="text" name="detalle" placeholder="Opcional (obligatorio si el motivo es Otro)"></label>
+  </div>
+  <label class="check-linea"><input type="checkbox" name="con_credito" value="1" checked>
+    El proveedor reconoce el valor (nota crédito o cambio). Si no lo marcas, se registra como <strong>pérdida</strong>.</label>
+  <label>N.º de nota crédito (opcional) <input type="text" name="nota_credito"></label>
+  <div class="acciones"><button type="submit">🚚 Registrar devolución</button></div>
+</form>
+{% endif %}
+{% endblock %}

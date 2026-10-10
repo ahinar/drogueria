@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Devolución {{ d.numero }}{% endblock %}
+{% block contenido %}
+{% from "reportes/_macros.html" import pesos, cant, fecha %}
+<p><a href="{{ url_for('devoluciones.lista') }}">← Devoluciones</a></p>
+<div class="eres-cabecera">
+  <div>
+    <h1>↩️ Devolución {{ d.numero }}</h1>
+    <p class="suave">{{ fecha(d.fecha) }} {{ d.fecha[11:16] }} · registró {{ d.usuario_nombre }} ·
+      {% if d.tipo == 'cliente' %}de cliente, venta <a href="{{ url_for('pos.comprobante', venta_id=d.venta_id) }}">{{ d.venta }}</a>
+      · reembolso en {{ formas.get(d.forma_reembolso, d.forma_reembolso) }}
+      {% else %}a proveedor <strong>{{ d.proveedor }}</strong> ·
+        {{ ('con nota crédito' ~ (' N.º ' ~ d.nota_credito if d.nota_credito else '')) if d.con_credito else 'sin nota crédito: se registró como pérdida' }}{% endif %}</p>
+    <p><strong>Motivo:</strong> {{ d.motivo }}</p>
+  </div>
+  <a class="boton" href="{{ url_for('devoluciones.acta', dev_id=d.id) }}">📄 Acta PDF</a>
+</div>
+<div class="rep-caja">
+<table class="rep-tabla">
+  <thead><tr><th>Producto</th>{% if d.tipo == 'proveedor' %}<th>Lote</th><th>Vence</th>{% else %}<th>Destino</th>{% endif %}
+    <th class="num">Cantidad</th><th class="num">{{ 'Valor' if d.tipo == 'cliente' else 'Costo' }}</th></tr></thead>
+  <tbody>{% for l in lineas %}<tr>
+    <td>{{ l.producto_nombre }}{% if l.presentacion %}<small>{{ l.presentacion }}</small>{% endif %}</td>
+    {% if d.tipo == 'proveedor' %}<td>{{ l.lote_codigo or 's/n' }}</td><td>{{ fecha(l.vencimiento) }}</td>
+    {% else %}<td>{{ '✅ Volvió al inventario' if l.destino == 'reingreso' else '🗑 Baja (no volvió)' }}</td>{% endif %}
+    <td class="num">{{ cant(l.cantidad) }}</td><td class="num">{{ pesos(l.total) }}</td>
+  </tr>{% endfor %}</tbody>
+  <tfoot><tr><td colspan="{{ 4 if d.tipo == 'proveedor' else 3 }}">Total</td><td class="num">{{ pesos(d.total) }}</td></tr></tfoot>
+</table>
+</div>
+{% endblock %}

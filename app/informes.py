@@ -49,6 +49,10 @@ def ventas(desde, hasta, anterior_desde, anterior_hasta):
     anuladas = db.execute(
         "SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS total FROM ventas "
         "WHERE estado = 'anulada' AND fecha >= ? AND fecha < ?", (ini, fin)).fetchone()
+    # Devoluciones de clientes en el período (plata que se les devolvió)
+    devoluciones = db.execute(
+        "SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS total FROM devoluciones "
+        "WHERE tipo = 'cliente' AND fecha >= ? AND fecha < ?", (ini, fin)).fetchone()
 
     # Por día: TODOS los días del período, aunque en alguno no se haya vendido (sale en 0)
     por_dia_bd = {f["dia"]: dict(f) for f in db.execute(
@@ -88,6 +92,7 @@ def ventas(desde, hasta, anterior_desde, anterior_hasta):
             f["pct"] = f["total"] / total * 100
 
     return {"actual": actual, "anterior": anterior, "anuladas": dict(anuladas),
+            "devoluciones": dict(devoluciones),
             "por_dia": por_dia, "por_pago": por_pago, "por_vendedor": por_vendedor, "por_hora": horas}
 
 
@@ -160,6 +165,11 @@ def ventas_vs_compras(meses=12, hoy=None):
         "SELECT substr(r.fecha, 1, 7) AS mes, SUM(rl.cantidad_recibida * rl.costo_unitario) AS total "
         "FROM recepcion_lineas rl JOIN recepciones r ON r.id = rl.recepcion_id "
         "WHERE r.estado = 'aprobada' AND rl.resultado = 'aceptado' AND r.fecha >= ? GROUP BY mes", (desde,))}
+    # Lo devuelto al proveedor con nota crédito resta de lo comprado
+    for f in db.execute(
+            "SELECT substr(fecha, 1, 7) AS mes, SUM(total) AS total FROM devoluciones "
+            "WHERE tipo = 'proveedor' AND con_credito = 1 AND fecha >= ? GROUP BY mes", (desde,)):
+        comprado[f["mes"]] = (comprado.get(f["mes"]) or 0) - (f["total"] or 0)
 
     filas = []
     for d in lista:

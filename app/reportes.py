@@ -459,6 +459,8 @@ def _filas_estado(r):
     a, b = r["actual"], r["anterior"]
     filas = [
         {"texto": "Ventas (sin IVA)", "a": a["ventas"], "b": b["ventas"], "tipo": "linea", "sube_bueno": True},
+        {"texto": "− Devoluciones de clientes", "a": a["devoluciones"], "b": b["devoluciones"], "tipo": "resta",
+         "sube_bueno": False},
         {"texto": "− Costo de lo vendido", "a": a["costo"], "b": b["costo"], "tipo": "resta", "sube_bueno": False},
         {"texto": "= Utilidad bruta", "a": a["utilidad_bruta"], "b": b["utilidad_bruta"], "tipo": "total",
          "sube_bueno": True, "margen_a": a["margen_bruto"], "margen_b": b["margen_bruto"]},
