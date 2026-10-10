@@ -136,6 +136,15 @@ def _resumen(conteo):
     }
 
 
+def _paquete(opciones, venta_defecto_unidad_id):
+    """{"nombre": "Sello x 10", "factor": 10} si se vende por algo que trae
+    varias unidades; None si se vende por la unidad mínima (frasco, unidad)."""
+    from . import presentaciones as pres
+    defecto = pres.id_por_defecto(opciones, venta_defecto_unidad_id)
+    o = next((o for o in opciones if o["id"] == defecto and o["factor"] > 1), None)
+    return {"nombre": o["nombre"], "factor": o["factor"]} if o else None
+
+
 def _linea_json(l):
     """Convierte una línea de conteo en el formato que usa la pantalla."""
     if l is None:
@@ -227,7 +236,7 @@ def api_buscar(conteo_id):
 
     # ---- 1. Productos activos dentro del alcance que coinciden con lo buscado ----
     sql = ("SELECT p.id, p.codigo, p.codigo_barras, p.nombre, p.concentracion, "
-           "p.maneja_vencimiento, p.precio_compra, "
+           "p.maneja_vencimiento, p.precio_compra, p.venta_defecto_unidad_id, "
            "(SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre "
            "FROM productos p WHERE p.activo = 1"
            + _filtro_alcance(conteo))
@@ -269,6 +278,10 @@ def api_buscar(conteo_id):
     linea_por_lote = {l["lote_id"]: l for l in lineas if l["lote_id"] is not None}
 
     # ---- 3. Armar cada producto con sus lotes ----
+    # En qué se vende normalmente (ej. Sello x 10): así se puede contar
+    # "27 sellos y 4 unidades" en vez de sumar 274 a mano (pedido de Fernando)
+    from . import presentaciones as pres
+    opciones_de = pres.presentaciones_de(ids)
     resultado = []
     for p in productos:
         filas = []
@@ -300,6 +313,7 @@ def api_buscar(conteo_id):
             "nombre": p["nombre"], "concentracion": p["concentracion"],
             # Se cuenta en la unidad de inventario (ej: tabletas sueltas, no cajas)
             "unidad": p["unidad_nombre"] or "unidades",
+            "paquete": _paquete(opciones_de.get(p["id"], []), p["venta_defecto_unidad_id"]),
             "maneja_vencimiento": bool(p["maneja_vencimiento"]),
             "costo_sugerido": _costo_sugerido(p),
             "lotes": filas,

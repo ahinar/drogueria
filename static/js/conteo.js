@@ -23,6 +23,20 @@
   const cant = (n) => (+(+n).toFixed(2)).toLocaleString('es-CO');   // 9 -> "9", 2.5 -> "2,5"
   const HOY = new Date().toISOString().slice(0, 10);
 
+  // Cantidad dicha como se vende: 274 unidades, vendiendo por Sello x 10 ->
+  // "27 Sello x 10 + 4 Unidad". Sin paquete -> "274".
+  function enPaquetes(n, p) {
+    n = +n || 0;
+    const paq = p && p.paquete;
+    if (!paq || n <= 0) return cant(n);
+    const enteros = Math.floor(n / paq.factor + 1e-9);
+    const resto = +(n - enteros * paq.factor).toFixed(4);
+    const partes = [];
+    if (enteros) partes.push(enteros + ' ' + paq.nombre);
+    if (resto > 0) partes.push(cant(resto) + ' ' + (p.unidad || 'unidades'));
+    return partes.join(' + ');
+  }
+
   // Evita que un nombre con < o > rompa la página
   function esc(t) {
     return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -100,12 +114,63 @@
   }
 
   // Etiqueta de colores para la diferencia: rojo falta, verde sobra, gris igual
-  function etiquetaDiferencia(linea) {
+  function etiquetaDiferencia(linea, p) {
     if (!linea) return '';
     const d = linea.diferencia;
     if (Math.abs(d) < 1e-9) return '<span class="conteo-dif conteo-dif-ok">✓</span>';
+    // Con paquete se dice completo ("−3 Unidad"); sin paquete solo el número
+    const texto = p && p.paquete ? enPaquetes(Math.abs(d), p) : cant(Math.abs(d));
     return '<span class="conteo-dif ' + (d < 0 ? 'conteo-dif-falta' : 'conteo-dif-sobra') + '">' +
-      (d > 0 ? '+' : '') + cant(d) + '</span>';
+      (d > 0 ? '+' : '−') + esc(texto) + '</span>';
+  }
+
+  // Casilla(s) para escribir lo contado.
+  //   - Si se vende por unidad o frasco: una casilla ("¿cuántos?").
+  //   - Si se vende por Sello x 10: dos casillas, "sellos" + "sueltas".
+  //     Ej: 27 sellos y 4 sueltas -> se guarda 274 (el programa cuenta unidades).
+  // Los datos del lote van en el <div class="cnt-contado"> que las envuelve.
+  function casillasContado(p, l) {
+    const contada = l.linea ? +l.linea.contada : null;
+    const datos = (l.lote_id ? ' data-lote="' + l.lote_id + '"' : '') +
+      (l.linea ? ' data-linea="' + l.linea.id + '" data-guardado="' + contada + '"' : '');
+    const marca = l.linea ? ' data-contado="1"' : '';
+    const quien = esc(p.nombre) + ' lote ' + esc(l.lote || '');
+    if (!p.paquete) {
+      return '<div class="cnt-contado"' + datos + '><input type="text" inputmode="decimal" class="conteo-cantidad"' +
+        marca + (l.linea ? ' value="' + cant(contada) + '"' : '') +
+        ' placeholder="¿cuántos?" aria-label="Contado de ' + quien + '"></div>';
+    }
+    const f = p.paquete.factor;
+    const enteros = contada === null ? '' : Math.floor(contada / f + 1e-9);
+    const sueltas = contada === null ? '' : +(contada - enteros * f).toFixed(4);
+    return '<div class="cnt-contado cnt-doble"' + datos + ' data-factor="' + f + '">' +
+      '<label><input type="text" inputmode="numeric" class="conteo-cantidad conteo-paq"' + marca +
+        ' value="' + enteros + '" placeholder="0" aria-label="' + esc(p.paquete.nombre) + ' de ' + quien + '">' +
+        '<small>' + esc(p.paquete.nombre) + '</small></label>' +
+      '<label><input type="text" inputmode="decimal" class="conteo-cantidad conteo-sueltas"' + marca +
+        ' value="' + (sueltas === '' ? '' : cant(sueltas)) + '" placeholder="0" aria-label="Sueltas de ' + quien + '">' +
+        '<small>' + esc(p.unidad || 'unidades') + ' sueltas</small></label>' +
+    '</div>';
+  }
+
+  // Lo que hay escrito en la fila, en unidades. null = no escribió nada.
+  function totalEscrito(caja) {
+    // "1.200" (miles) -> 1200 ; "2,5" -> 2.5 ; vacío -> null
+    const numero = (i) => {
+      let t = i ? i.value.trim() : '';
+      if (t === '') return null;
+      if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+      return /^\d*([.,]\d+)?$/.test(t) ? parseFloat(t.replace(',', '.')) : NaN;
+    };
+    if (!caja.dataset.factor) {
+      const v = numero(caja.querySelector('input'));
+      return v;
+    }
+    const paq = numero(caja.querySelector('.conteo-paq'));
+    const sue = numero(caja.querySelector('.conteo-sueltas'));
+    if (paq === null && sue === null) return null;
+    if (Number.isNaN(paq) || Number.isNaN(sue)) return NaN;
+    return (paq || 0) * (+caja.dataset.factor) + (sue || 0);
   }
 
   // Una fila de la lista = un lote. "primera" indica si es el primer lote del
@@ -120,19 +185,15 @@
     return '<div class="cnt-fila' + (primera ? '' : ' cnt-mismo') + '" data-producto="' + p.id + '">' +
       '<div class="cnt-prod">' + (primera
         ? '<strong>' + esc(p.nombre) + (p.concentracion ? ' ' + esc(p.concentracion) : '') + '</strong>' +
-          '<span class="suave"> ' + esc(p.codigo) + ' · se cuenta en ' + esc(p.unidad || 'unidades') + '</span>'
+          '<span class="suave"> ' + esc(p.codigo) + (p.paquete ? ' · se vende por ' + esc(p.paquete.nombre)
+            : ' · se cuenta en ' + esc(p.unidad || 'unidades')) + '</span>'
         : '') + '</div>' +
       '<div class="cnt-lote"><span class="cnt-etq">Lote </span>' + esc(l.lote || 'Sin lote') + etiqueta + '</div>' +
       '<div class="cnt-vence' + (vencido ? ' conteo-vencido' : '') + '"><span class="cnt-etq">Vence </span>' +
         fecha(l.vencimiento) + (vencido ? ' ⚠' : '') + '</div>' +
-      '<div class="cnt-sistema num"><span class="cnt-etq">Sistema </span><b>' + cant(sistema) + '</b></div>' +
-      '<div class="cnt-contado"><input type="text" inputmode="decimal" class="conteo-cantidad"' +
-        (l.lote_id ? ' data-lote="' + l.lote_id + '"' : '') +
-        // data-guardado = lo ya guardado: si no lo cambias, no se vuelve a enviar
-        (l.linea ? ' data-linea="' + l.linea.id + '" data-contado="1" value="' + cant(l.linea.contada) +
-          '" data-guardado="' + cant(l.linea.contada) + '"' : '') +
-        ' placeholder="¿cuántos?" aria-label="Contado de ' + esc(p.nombre) + ' lote ' + esc(l.lote || '') + '"></div>' +
-      '<div class="cnt-dif">' + etiquetaDiferencia(l.linea) + '</div>' +
+      '<div class="cnt-sistema num"><span class="cnt-etq">Sistema </span><b>' + esc(enPaquetes(sistema, p)) + '</b></div>' +
+      casillasContado(p, l) +
+      '<div class="cnt-dif">' + etiquetaDiferencia(l.linea, p) + '</div>' +
       '<div class="cnt-quitar">' + (l.linea ? '<button type="button" class="conteo-quitar" data-linea="' +
         l.linea.id + '" title="Borrar lo contado de este lote">✕</button>' : '') + '</div>' +
     '</div>';
@@ -168,41 +229,48 @@
     return pedirJSON(URL_CONTAR, { method: 'POST', body: datos });
   }
 
+  // Se llama al presionar Enter o al salir de una casilla. Lee TODA la fila
+  // (sellos + sueltas) y guarda el total en unidades.
   async function guardarCasilla(input) {
-    const valor = input.value.trim();
-    if (valor === '' || valor === input.dataset.guardado) return;   // vacío o sin cambios
+    const caja = input.closest('.cnt-contado');
+    const total = totalEscrito(caja);
+    if (total === null) return;                                   // no escribió nada
+    if (Number.isNaN(total) || total < 0) { aviso('Escribe solo números.', true); return; }
+    // data-guardado = lo ya guardado: si no cambió, no se vuelve a enviar
+    if (caja.dataset.guardado !== undefined && +caja.dataset.guardado === total) return;
     const datos = new FormData();
-    datos.append('cantidad', valor);
-    if (input.dataset.lote) datos.append('lote_id', input.dataset.lote);
-    else if (input.dataset.linea) datos.append('linea_id', input.dataset.linea);   // lote encontrado ya anotado
-    input.classList.add('guardando');
+    datos.append('cantidad', String(total));
+    if (caja.dataset.lote) datos.append('lote_id', caja.dataset.lote);
+    else if (caja.dataset.linea) datos.append('linea_id', caja.dataset.linea);   // lote encontrado ya anotado
+    const casillas = caja.querySelectorAll('input');
+    casillas.forEach((i) => i.classList.add('guardando'));
     // Se marca como guardado ANTES de enviar: así, si Enter y "salir de la
     // casilla" ocurren casi juntos, no se envía dos veces.
-    const anterior = input.dataset.guardado;
-    input.dataset.guardado = valor;
+    const anterior = caja.dataset.guardado;
+    caja.dataset.guardado = total;
     try {
       const json = await enviarConteo(datos);
       if (!json.ok) {
-        input.dataset.guardado = anterior || '';
+        if (anterior === undefined) delete caja.dataset.guardado; else caja.dataset.guardado = anterior;
         aviso(json.error || 'No se pudo guardar.', true);
-        input.classList.add('con-error');
+        casillas.forEach((i) => i.classList.add('con-error'));
         return;
       }
-      input.classList.remove('con-error');
-      input.dataset.contado = '1';
-      input.dataset.linea = json.linea.id;
+      casillas.forEach((i) => { i.classList.remove('con-error'); i.dataset.contado = '1'; });
+      caja.dataset.linea = json.linea.id;
       // Se actualiza la fila: sistema al contar, diferencia y botón de quitar
       const fila = input.closest('.cnt-fila');
-      fila.querySelector('.cnt-sistema b').textContent = cant(json.linea.sistema);
-      fila.querySelector('.cnt-dif').innerHTML = etiquetaDiferencia(json.linea);
+      const p = productos.find((x) => x.id === +fila.dataset.producto);
+      fila.querySelector('.cnt-sistema b').textContent = enPaquetes(json.linea.sistema, p);
+      fila.querySelector('.cnt-dif').innerHTML = etiquetaDiferencia(json.linea, p);
       fila.querySelector('.cnt-quitar').innerHTML = '<button type="button" class="conteo-quitar" data-linea="' +
         json.linea.id + '" title="Borrar lo contado de este lote">✕</button>';
       pintarResumen(json.resumen);
     } catch (e) {
-      input.dataset.guardado = anterior || '';
+      if (anterior === undefined) delete caja.dataset.guardado; else caja.dataset.guardado = anterior;
       aviso('Error de conexión: ' + e.message, true);
     } finally {
-      input.classList.remove('guardando');
+      casillas.forEach((i) => i.classList.remove('guardando'));
     }
   }
 
@@ -212,13 +280,17 @@
     e.preventDefault();
     const casillas = [...lista.querySelectorAll('input.conteo-cantidad')];
     const siguiente = casillas[casillas.indexOf(e.target) + 1];
-    guardarCasilla(e.target);
+    // En "sellos", Enter solo pasa a "sueltas" (se guarda al terminar la fila)
+    if (!e.target.classList.contains('conteo-paq')) guardarCasilla(e.target);
     if (siguiente) { siguiente.focus(); siguiente.select(); }
     else { buscador.focus(); buscador.select(); }   // último lote: volver al buscador
   });
   // Salir de la casilla también guarda
   lista.addEventListener('focusout', (e) => {
-    if (e.target.classList.contains('conteo-cantidad')) guardarCasilla(e.target);
+    if (!e.target.classList.contains('conteo-cantidad')) return;
+    const caja = e.target.closest('.cnt-contado');
+    if (e.relatedTarget && caja.contains(e.relatedTarget)) return;   // pasó de "sellos" a "sueltas"
+    guardarCasilla(e.target);
   });
 
   // Quitar lo contado / ingresar un producto sin lotes

@@ -168,11 +168,11 @@ class TestRecepcionPorCaja(BaseUnidades):
 
 class TestImportador(BaseUnidades):
     def importar(self, filas):
-        from app.importador import ENCABEZADOS
+        from app.importador import TODAS_LAS_COLUMNAS
         import csv
         buffer = io.StringIO()
         w = csv.writer(buffer)
-        w.writerow(ENCABEZADOS)
+        w.writerow([e for _c, e, _ej in TODAS_LAS_COLUMNAS])   # formato nuevo + el anterior
         for f in filas:
             w.writerow(f)
         self.post(self.c, "/productos/importar/previsualizar",
@@ -181,8 +181,8 @@ class TestImportador(BaseUnidades):
         return self.post(self.c, "/productos/importar/confirmar")
 
     def fila(self, **valores):
-        from app.importador import COLUMNAS
-        return [valores.get(campo, "") for campo, _e, _ej in COLUMNAS]
+        from app.importador import TODAS_LAS_COLUMNAS
+        return [valores.get(campo, "") for campo, _e, _ej in TODAS_LAS_COLUMNAS]
 
     def test_con_presentaciones_y_venta_por_defecto(self):
         self.importar([self.fila(codigo="P10", nombre="Loratadina 10 mg", unidad_inventario="Tableta",
@@ -210,8 +210,9 @@ class TestImportador(BaseUnidades):
     def test_plantilla_trae_las_columnas_nuevas(self):
         r = self.c.get("/productos/importar/plantilla?formato=csv")
         texto = r.get_data().decode("utf-8-sig")
-        self.assertIn("Unidad de inventario", texto)
-        self.assertIn("Presentación 2 trae", texto)
+        self.assertIn("Unidad de venta", texto)
+        self.assertIn("¿Se vende suelto?", texto)
+        self.assertIn("Otra presentación trae", texto)
 
 
 # ======================================================================
@@ -291,3 +292,179 @@ class TestImportadorSuelto(TestImportador):
         p = self.uno("SELECT * FROM productos WHERE codigo = 'P20'")
         self.assertEqual((p["vende_suelto"], p["venta_defecto_unidad_id"], p["precio_venta"]),
                          (0, self.u["Sobre x 10"], 160))
+
+
+# ======================================================================
+# Pedido de Fernando (2026-10-10, 13:17): la ficha empieza por la UNIDAD DE
+# VENTA y su precio ("Ibuprofeno, Sello x 10 a $4.000") y DESPUÉS pregunta si
+# se vende suelto. El programa calcula el resto. Su ejemplo completo:
+#   recibe Caja x 300 -> 30 sellos; vende 2 sellos -> 28; vende 3 sueltas ->
+#   27 sellos y 7 unidades.
+# ======================================================================
+
+class TestFichaPorUnidadDeVenta(BaseVentas):
+    def setUp(self):
+        super().setUp()
+        con = self.db()
+        self.unidad = con.execute("SELECT id FROM unidades_medida WHERE nombre = 'Unidad'").fetchone()[0]
+        self.sello = con.execute("INSERT INTO unidades_medida (nombre, cantidad, activo, creado_en) "
+                                 "VALUES ('Sello x 10', 10, 1, ?) RETURNING id", (FECHA,)).fetchone()[0]
+        self.frasco = con.execute("INSERT INTO unidades_medida (nombre, cantidad, activo, creado_en) "
+                                  "VALUES ('Frasco', 1, 1, ?) RETURNING id", (FECHA,)).fetchone()[0]
+        self.sello_suelto = con.execute("INSERT INTO unidades_medida (nombre, cantidad, activo, creado_en) "
+                                        "VALUES ('Sello', 1, 1, ?) RETURNING id", (FECHA,)).fetchone()[0]
+        con.commit()
+        con.close()
+
+    def crear(self, **cambios):
+        """Crea 'Ibuprofeno 400' como lo haría Fernando en la ficha nueva."""
+        datos = {"codigo": "P900", "nombre": "Ibuprofeno 400", "iva_tipo": "excluido",
+                 "venta_unidad_id": str(self.sello), "venta_precio": "4.000", "venta_costo": "2500",
+                 "venta_trae": "10", "venta_maximo": "", "vende_suelto_en_form": "1", "vende_suelto": "1",
+                 "precio_venta": "", "unidad_venta_id": str(self.unidad)}
+        datos.update(cambios)
+        self.post(self.c, "/productos/nuevo", datos)
+        return self.uno("SELECT * FROM productos WHERE codigo = ?", datos["codigo"])
+
+    def test_sello_x_10_con_suelto_calculado(self):
+        p = self.crear()
+        self.assertEqual((p["unidad_venta_id"], p["venta_defecto_unidad_id"], p["vende_suelto"]),
+                         (self.unidad, self.sello, 1))
+        self.assertEqual((p["precio_venta"], p["precio_compra"]), (400, 250))      # $4.000 ÷ 10 y $2.500 ÷ 10
+        pres = self.uno("SELECT * FROM producto_presentaciones WHERE producto_id = ?", p["id"])
+        self.assertEqual((pres["unidad_id"], pres["factor"], pres["precio_venta"]), (self.sello, 10, 4000))
+
+    def test_precio_suelto_a_mano(self):
+        self.assertEqual(self.crear(precio_venta="500")["precio_venta"], 500)
+
+    def test_no_se_vende_suelto(self):
+        p = self.crear(vende_suelto="")
+        self.assertEqual((p["vende_suelto"], p["precio_venta"]), (0, 400))
+
+    def test_frasco_se_vende_y_se_cuenta_igual(self):
+        p = self.crear(venta_unidad_id=str(self.frasco), venta_precio="12000", venta_costo="8000",
+                       venta_trae="", unidad_venta_id=str(self.frasco))
+        self.assertEqual((p["unidad_venta_id"], p["venta_defecto_unidad_id"], p["precio_venta"], p["precio_compra"]),
+                         (self.frasco, None, 12000, 8000))
+        self.assertIsNone(self.uno("SELECT 1 FROM producto_presentaciones WHERE producto_id = ?", p["id"]))
+
+    def test_sello_de_7_con_cuantas_trae(self):
+        p = self.crear(venta_unidad_id=str(self.sello_suelto), venta_trae="7", venta_precio="2100")
+        pres = self.uno("SELECT * FROM producto_presentaciones WHERE producto_id = ?", p["id"])
+        self.assertEqual((pres["factor"], p["precio_venta"]), (7, 300))
+
+    def test_sin_cuantas_trae_no_se_guarda(self):
+        self.assertIsNone(self.crear(venta_unidad_id=str(self.sello_suelto), venta_trae=""))
+
+    def test_sin_precio_no_se_guarda(self):
+        self.assertIsNone(self.crear(venta_precio=""))
+
+    def test_editar_muestra_el_sello_arriba_y_no_lo_duplica(self):
+        p = self.crear()
+        html = self.c.get(f"/productos/{p['id']}/editar").get_data(as_text=True)
+        self.assertIn('name="venta_precio" id="venta_precio" required\n            value="4000"', html)
+        self.assertNotIn('name="pres_factor" class="pres-factor" value="10"', html)   # no está abajo también
+        # Guardar otra vez sin cambiar nada deja todo igual
+        self.post(self.c, f"/productos/{p['id']}/editar", {
+            "codigo": "P900", "nombre": "Ibuprofeno 400", "iva_tipo": "excluido",
+            "venta_unidad_id": str(self.sello), "venta_precio": "4000", "venta_costo": "2500",
+            "venta_trae": "10", "vende_suelto_en_form": "1", "vende_suelto": "1", "precio_venta": "400",
+            "unidad_venta_id": str(self.unidad)})
+        self.assertEqual(self.uno("SELECT COUNT(*) n FROM producto_presentaciones WHERE producto_id = ?",
+                                  p["id"])["n"], 1)
+        self.assertEqual(self.uno("SELECT precio_venta FROM productos WHERE id = ?", p["id"])[0], 400)
+
+    def test_el_ejemplo_de_fernando(self):
+        from app.presentaciones import presentaciones_de, texto_existencias
+        p = self.crear()
+        # Recibe 1 Caja x 300 (no está en la ficha: "Otra caja…") a $75.000
+        self.post(self.c, "/recepciones/nueva", {
+            "proveedor_id": "1", "factura_numero": "F-9", "linea_producto_id": [str(p["id"])],
+            "linea_lote": ["IB1"], "linea_vencimiento": [FUTURO], "linea_cantidad_recibida": ["1"],
+            "linea_costo": ["75000"], "linea_resultado": ["aceptado"], "linea_presentacion": ["otra"],
+            "linea_factor_otro": ["300"]})
+        rec = self.uno("SELECT id FROM recepciones ORDER BY id DESC")["id"]
+        self.post(self.c, f"/recepciones/{rec}/aprobar")
+        self.assertEqual(self.stock(p["id"]), 300)
+
+        def como_se_ve():
+            with self.app.test_request_context():
+                op = presentaciones_de([p["id"]])[p["id"]]
+            return texto_existencias(self.stock(p["id"]), op, next(o["id"] for o in op if o["factor"] == 10))
+        self.assertEqual(como_se_ve(), "30 Sello x 10")
+        # Vende 2 sellos (lo que el POS agrega al tocar) y 3 sueltas
+        info = self.c.get("/pos/api/productos?q=Ibuprofeno").get_json()["productos"][0]
+        self.abrir_caja()
+        self.assertTrue(self.cobrar([{"producto_id": p["id"], "presentacion_id": info["presentacion_defecto"],
+                                      "cantidad": 2}]).get_json()["ok"])
+        self.assertEqual(como_se_ve(), "28 Sello x 10")
+        self.assertTrue(self.cobrar([{"producto_id": p["id"], "presentacion_id": 0, "cantidad": 3}]).get_json()["ok"])
+        self.assertEqual(como_se_ve(), "27 Sello x 10 + 7 Unidad")
+
+    def test_crear_desde_la_recepcion(self):
+        lab = self.uno("SELECT id FROM catalogos WHERE tipo = 'laboratorio' LIMIT 1")
+        if lab is None:
+            con = self.db()
+            con.execute("INSERT INTO catalogos (tipo, nombre, activo, creado_en) VALUES ('laboratorio','Genfar',1,?)", (FECHA,))
+            con.commit()
+            con.close()
+            lab = self.uno("SELECT id FROM catalogos WHERE tipo = 'laboratorio' LIMIT 1")
+        j = self.post(self.c, "/recepciones/api/crear-producto", {
+            "nombre": "Naproxeno 250", "laboratorio_id": str(lab["id"]), "venta_unidad_id": str(self.sello),
+            "venta_trae": "10", "precio_venta": "3.000", "vende_suelto": "1"}).get_json()
+        self.assertTrue(j["ok"], j)
+        p = self.uno("SELECT * FROM productos WHERE id = ?", j["id"])
+        self.assertEqual((p["unidad_venta_id"], p["venta_defecto_unidad_id"], p["precio_venta"], p["vende_suelto"]),
+                         (self.unidad, self.sello, 300, 1))
+        self.assertEqual([o["factor"] for o in j["presentaciones"]], [1, 10])
+
+    def test_conteo_dice_en_que_se_vende(self):
+        p = self.crear()
+        self.lote(p["id"], "IB1", FUTURO, 274)
+        self.post(self.c, "/inventario/conteos/nuevo", {"descripcion": "Prueba"})
+        cid = self.uno("SELECT id FROM conteos")["id"]
+        prod = self.c.get(f"/inventario/conteos/{cid}/api/buscar?q=Ibuprofeno").get_json()["productos"][0]
+        self.assertEqual(prod["paquete"], {"nombre": "Sello x 10", "factor": 10})
+
+
+class TestImportadorFormatoNuevo(TestImportador):
+    """Plantilla nueva: Unidad de venta + precio, ¿suelto?, como la ficha."""
+    def test_sobre_x_10(self):
+        self.importar([self.fila(codigo="P30", nombre="Acetaminofén 500", unidad_venta="Sobre x 10",
+                                 venta_precio="1.600", venta_costo="1.000", vende_suelto="SI",
+                                 pres2="Caja x 100", pres2_trae="100", pres2_precio="15.000")])
+        p = self.uno("SELECT * FROM productos WHERE codigo = 'P30'")
+        unidad = self.uno("SELECT id FROM unidades_medida WHERE nombre = 'Unidad'")[0]
+        self.assertEqual((p["unidad_venta_id"], p["venta_defecto_unidad_id"], p["precio_venta"],
+                          p["precio_compra"], p["vende_suelto"]),
+                         (unidad, self.u["Sobre x 10"], 160, 100, 1))
+        pres = sorted((r["factor"], r["precio_venta"]) for r in self.db().execute(
+            "SELECT factor, precio_venta FROM producto_presentaciones WHERE producto_id = ?", (p["id"],)))
+        self.assertEqual(pres, [(10, 1600), (100, 15000)])
+
+    def test_frasco_y_no_suelto(self):
+        self.importar([self.fila(codigo="P31", nombre="Jarabe", unidad_venta="Frasco", venta_precio="12000"),
+                       self.fila(codigo="P32", nombre="Ibuprofeno", unidad_venta="Sello x 10",
+                                 venta_precio="4000", vende_suelto="NO", precio_suelto="")])
+        frasco = self.uno("SELECT * FROM productos WHERE codigo = 'P31'")
+        self.assertEqual((frasco["precio_venta"], frasco["venta_defecto_unidad_id"]), (12000, None))
+        self.assertEqual(self.uno("SELECT nombre FROM unidades_medida WHERE id = ?", frasco["unidad_venta_id"])[0], "Frasco")
+        ibu = self.uno("SELECT * FROM productos WHERE codigo = 'P32'")
+        self.assertEqual((ibu["vende_suelto"], ibu["precio_venta"]), (0, 400))
+
+    def test_sin_precio_no_entra(self):
+        self.importar([self.fila(codigo="P33", nombre="Sin precio", unidad_venta="Sello x 10")])
+        self.assertIsNone(self.uno("SELECT 1 FROM productos WHERE codigo = 'P33'"))
+
+
+class TestEscanerVendePorDefecto(BaseUnidades):
+    def test_codigo_del_producto_agrega_el_sobre(self):
+        con = self.db()
+        con.execute("UPDATE productos SET codigo_barras = '7701', venta_defecto_unidad_id = ? WHERE id = 1",
+                    (self.u["Sobre x 10"],))
+        con.commit()
+        con.close()
+        j = self.c.get("/pos/api/productos?q=7701").get_json()
+        self.assertTrue(j["exacto"])
+        self.assertEqual(j["presentacion_id"], j["productos"][0]["presentacion_defecto"])
+        self.assertNotEqual(j["presentacion_id"], 0)

@@ -28,33 +28,45 @@ COLUMNAS = [
     ("forma_farmaceutica", "Forma farmacéutica", "Tableta"),
     ("registro_sanitario", "Registro INVIMA", "INVIMA-2024M-12345"),
     ("registro_vence", "Vence INVIMA (AAAA-MM-DD)", "2027-12-31"),
-    # ---- UNIDADES ----
-    # El inventario se cuenta en la "Unidad de inventario" (la más pequeña que
-    # se vende: Tableta, Cápsula, Frasco). Los precios y el costo de estas
-    # columnas son de 1 unidad de inventario. Sobre y caja van en
-    # "Presentación 2" y "Presentación 3" (cuántas trae y su precio).
-    ("unidad_inventario", "Unidad de inventario", "Tableta"),
-    ("precio_compra", "Costo de 1 unidad", "120"),
-    ("precio_venta", "Precio de 1 unidad *", "200"),
-    ("precio_maximo", "Precio máximo de 1 unidad", ""),
+    # ---- CÓMO SE VENDE (igual que la ficha del producto) ----
+    # Primero la UNIDAD DE VENTA (lo que vende el POS al tocar el producto:
+    # Sello x 10, Frasco, Unidad) y su precio. Después si se vende suelto.
+    # Por dentro el inventario se cuenta en "Unidad" (sin decimales):
+    # al recibir una caja x 300 entran 30 sellos (= 300 unidades).
+    ("unidad_venta", "Unidad de venta *", "Sobre x 10"),
+    ("venta_trae", "¿Cuántas unidades trae?", "10"),
+    ("venta_precio", "Precio de venta *", "1600"),
+    ("venta_costo", "Costo de la unidad de venta", "1000"),
+    ("venta_maximo", "Precio máximo regulado", ""),
+    ("vende_suelto", "¿Se vende suelto? (SI/NO)", "SI"),
+    ("precio_suelto", "Precio de 1 unidad suelta (opcional)", ""),
     ("iva_tipo", "IVA tipo (gravado/excluido/exento)", "gravado"),
     ("iva_tarifa", "IVA tarifa %", "19"),
-    ("stock_minimo", "Stock mínimo", "5"),
+    ("stock_minimo", "Stock mínimo (en unidades)", "50"),
     ("requiere_formula", "¿Requiere fórmula? (SI/NO)", "NO"),
     ("cadena_frio", "¿Cadena de frío? (SI/NO)", "NO"),
     ("control_especial", "¿Control especial? (SI/NO)", "NO"),
     ("maneja_vencimiento", "¿Maneja vencimiento? (SI/NO)", "SI"),
     ("categorias", "Categorías (separadas por coma)", "Analgésicos"),
     ("observaciones", "Observaciones", ""),
-    ("pres2", "Presentación 2", "Sobre x 10"),
-    ("pres2_trae", "Presentación 2 trae", "10"),
-    ("pres2_precio", "Presentación 2 precio", "1800"),
-    ("pres3", "Presentación 3", "Caja x 100"),
-    ("pres3_trae", "Presentación 3 trae", "100"),
-    ("pres3_precio", "Presentación 3 precio", "15000"),
-    ("vender_como", "Se vende normalmente por", "Sobre x 10"),
-    ("vende_suelto", "¿Se vende suelto? (SI/NO)", "SI"),
+    # Otras formas de VENDER el mismo producto con su propio precio (opcional)
+    ("pres2", "Otra presentación", "Caja x 100"),
+    ("pres2_trae", "Otra presentación trae", "100"),
+    ("pres2_precio", "Otra presentación precio", "15000"),
+    ("pres3", "Otra presentación 2", ""),
+    ("pres3_trae", "Otra presentación 2 trae", ""),
+    ("pres3_precio", "Otra presentación 2 precio", ""),
 ]
+# Columnas del formato ANTERIOR (precio de 1 tableta + presentaciones). No salen
+# en la plantilla, pero si un archivo viejo las trae se siguen entendiendo.
+COLUMNAS_ANTIGUAS = [
+    ("unidad_inventario", "Unidad de inventario", "Tableta"),
+    ("precio_compra", "Costo de 1 unidad", "120"),
+    ("precio_venta", "Precio de 1 unidad", "200"),
+    ("precio_maximo", "Precio máximo de 1 unidad", ""),
+    ("vender_como", "Se vende normalmente por", "Sobre x 10"),
+]
+TODAS_LAS_COLUMNAS = COLUMNAS + COLUMNAS_ANTIGUAS
 # Las presentaciones extra que acepta el archivo (2 y 3)
 PRESENTACIONES_EXTRA = ("pres2", "pres3")
 ENCABEZADOS = [c[1] for c in COLUMNAS]
@@ -123,7 +135,7 @@ def _mapear_columnas(encabezados):
         return " ".join(s.split())
 
     mapa = {}
-    for campo, etiqueta, _ej in COLUMNAS:
+    for campo, etiqueta, _ej in TODAS_LAS_COLUMNAS:
         variantes = [normalizar(etiqueta), normalizar(campo)]
         # Alias manuales
         alias = {
@@ -137,10 +149,19 @@ def _mapear_columnas(encabezados):
             "forma_farmaceutica": ["forma farmaceutica", "forma", "presentacion"],
             "registro_sanitario": ["registro", "invima", "registro invima", "rs"],
             "registro_vence": ["vence registro", "vence rs", "vencimiento rs"],
-            "precio_compra": ["precio compra", "precio costo", "costo", "precio de compra"],
-            "precio_venta": ["precio venta", "precio", "precio de venta", "pvp"],
+            "precio_compra": ["costo de 1 unidad"],
+            "unidad_venta": ["unidad de venta", "se vende por", "presentacion de venta", "unidad"],
+            "venta_precio": ["precio", "precio venta", "pvp"],
+            "venta_costo": ["costo", "precio costo", "precio compra", "precio de compra"],
+            "venta_trae": ["trae", "cuantas trae", "unidades que trae"],
+            "precio_suelto": ["precio suelto", "precio unidad suelta", "precio de 1 unidad suelta"],
+            "pres2": ["presentacion 2"], "pres2_trae": ["presentacion 2 trae"],
+            "pres2_precio": ["presentacion 2 precio"],
+            "pres3": ["presentacion 3"], "pres3_trae": ["presentacion 3 trae"],
+            "pres3_precio": ["presentacion 3 precio"],
+            "precio_venta": ["precio de 1 unidad"],
             "precio_maximo": ["precio maximo", "pvp maximo", "precio regulado"],
-            "unidad_inventario": ["unidad", "unidad de venta", "se vende por", "unidad minima"],
+            "unidad_inventario": ["unidad minima", "unidad de inventario"],
             "vender_como": ["vender como", "vender por defecto", "presentacion por defecto",
                             "el pos lo vende como"],
             "vende_suelto": ["se vende suelto", "vende suelto", "suelto", "fraccionable"],
@@ -158,6 +179,8 @@ def _mapear_columnas(encabezados):
             if v in mapa.values():
                 continue
             for enc in encabezados:
+                if enc in mapa.values():          # ese encabezado ya lo tomó otra columna
+                    continue
                 if normalizar(enc) == v:
                     mapa[campo] = enc
                     break
@@ -238,6 +261,41 @@ def _unidad_por_defecto(db):
     return fila["id"] if fila else None
 
 
+def _modo_nuevo(fila, mapa):
+    """¿La fila viene con "Unidad de venta" (formato nuevo, como la ficha)?"""
+    return bool("unidad_venta" in mapa and (fila.get(mapa["unidad_venta"], "") or "").strip())
+
+
+def _venta_de_fila(db, fila, mapa, cache, unidad_basica):
+    """Formato nuevo -> como se guarda (igual que productos._traducir_venta).
+
+    Ej: "Sobre x 10" a $1.600, costo $1.000, suelto SI
+        -> se cuenta en Unidad; precio de 1 unidad $160; costo $100;
+           presentación Sobre x 10 (trae 10) a $1.600, que el POS vende por defecto.
+    Si la unidad de venta trae 1 (Frasco), se vende y se cuenta en Frasco.
+    """
+    venta_uid = _unidad_id(db, fila.get(mapa["unidad_venta"], ""), cache)
+    trae = _num(fila.get(mapa.get("venta_trae", "")), 0)
+    if trae <= 1:
+        fila_u = db.execute("SELECT cantidad FROM unidades_medida WHERE id = ?", (venta_uid,)).fetchone()
+        trae = float(fila_u["cantidad"] or 1) if fila_u and venta_uid != unidad_basica else 1
+    factor = trae if trae > 1 and unidad_basica else 1
+    precio = _num(fila.get(mapa.get("venta_precio", "")), 0)
+    costo = _num(fila.get(mapa.get("venta_costo", "")), 0)
+    maximo = _num(fila.get(mapa.get("venta_maximo", "")), 0)
+    texto_suelto = str(fila.get(mapa.get("vende_suelto", ""), "") or "").strip()
+    suelto = 1 if (factor <= 1 or not texto_suelto) else _bool(texto_suelto)
+    precio_suelto = _num(fila.get(mapa.get("precio_suelto", "")), 0)
+    return {
+        "venta_uid": venta_uid, "factor": factor, "precio": precio, "maximo": maximo or None,
+        "base_uid": unidad_basica if factor > 1 else venta_uid,
+        "vende_suelto": suelto,
+        "precio_venta": precio_suelto if (factor > 1 and suelto and precio_suelto > 0) else round(precio / factor, 2),
+        "precio_compra": round(costo / factor, 4),
+        "precio_maximo": round(maximo / factor, 2) if maximo else None,
+    }
+
+
 def _validar_fila(fila, mapa):
     errores = []
     codigo = fila.get(mapa.get("codigo", ""), "").strip()
@@ -251,8 +309,12 @@ def _validar_fila(fila, mapa):
         iva_tipo = "gravado"
     if _bool(fila.get(mapa.get("control_especial", ""))) and not fila.get(mapa.get("registro_sanitario", "")):
         errores.append("Control especial requiere Registro INVIMA")
-    # Si NO se vende suelto, debe tener al menos una presentación (sobre, caja...)
-    if "vende_suelto" in mapa and str(fila.get(mapa["vende_suelto"], "")).strip() \
+    if _modo_nuevo(fila, mapa):
+        # Formato nuevo: la unidad de venta necesita su precio
+        if _num(fila.get(mapa.get("venta_precio", "")), 0) <= 0:
+            errores.append("Falta el precio de venta")
+    # Formato anterior: si NO se vende suelto, debe tener al menos una presentación (sobre, caja...)
+    elif "vende_suelto" in mapa and str(fila.get(mapa["vende_suelto"], "")).strip() \
             and not _bool(fila.get(mapa["vende_suelto"])) \
             and not any((fila.get(mapa.get(p, ""), "") or "").strip() for p in PRESENTACIONES_EXTRA):
         errores.append("No se vende suelto pero no tiene presentaciones (ej. Sobre x 10)")
@@ -473,9 +535,20 @@ def confirmar():
                 iva_tipo = "gravado"
             iva_tarifa = _num(fila.get(mapa.get("iva_tarifa", "")), 19 if iva_tipo == "gravado" else 0)
 
-            precio_venta = _num(fila.get(mapa.get("precio_venta", "")), 0)
-            precio_compra = _num(fila.get(mapa.get("precio_compra", "")), 0)
-            precio_maximo = _num(fila.get(mapa.get("precio_maximo", "")), 0) or None
+            venta = _venta_de_fila(db, fila, mapa, cache_cat, unidad_default) if _modo_nuevo(fila, mapa) else None
+            if venta:
+                precio_venta, precio_compra = venta["precio_venta"], venta["precio_compra"]
+                precio_maximo = venta["precio_maximo"]
+                unidad_base = venta["base_uid"]
+            else:
+                # Formato anterior: precios de 1 unidad de inventario
+                # (un archivo de otro programa con solo "Precio" y "Costo" también sirve)
+                precio_venta = (_num(fila.get(mapa.get("precio_venta", "")), 0)
+                                or _num(fila.get(mapa.get("venta_precio", "")), 0))
+                precio_compra = (_num(fila.get(mapa.get("precio_compra", "")), 0)
+                                 or _num(fila.get(mapa.get("venta_costo", "")), 0))
+                precio_maximo = _num(fila.get(mapa.get("precio_maximo", "")), 0) or None
+                unidad_base = _unidad_id(db, fila.get(mapa.get("unidad_inventario", ""), ""), cache_cat) or unidad_default
 
             stock_minimo = int(_num(fila.get(mapa.get("stock_minimo", "")), 0))
             requiere_formula = _bool(fila.get(mapa.get("requiere_formula", "")))
@@ -507,7 +580,7 @@ def confirmar():
                  precio_compra, precio_venta, precio_maximo,
                  iva_tipo, iva_tarifa, stock_minimo,
                  requiere_formula, cadena_frio, control_especial, maneja_v,
-                 _unidad_id(db, fila.get(mapa.get("unidad_inventario", ""), ""), cache_cat) or unidad_default,
+                 unidad_base,
                  (fila.get(mapa.get("observaciones", ""), "") or "").strip() or None,
                  ahora()),
             )
@@ -519,11 +592,23 @@ def confirmar():
             texto_suelto = str(fila.get(mapa.get("vende_suelto", ""), "") or "").strip()
             suelto = 1 if not texto_suelto else _bool(texto_suelto)
             primera_pres = None
+            if venta:
+                suelto = venta["vende_suelto"]
+                db.execute("UPDATE productos SET vende_suelto = ? WHERE id = ?", (suelto, pid))
+                if venta["factor"] > 1:
+                    # La unidad de venta (Sobre x 10) es una presentación que el POS vende por defecto
+                    db.execute("INSERT INTO producto_presentaciones (producto_id, unidad_id, factor, precio_venta, "
+                               "precio_maximo, creado_en) VALUES (?,?,?,?,?,?)",
+                               (pid, venta["venta_uid"], venta["factor"], venta["precio"], venta["maximo"], ahora()))
+                    db.execute("UPDATE productos SET venta_defecto_unidad_id = ? WHERE id = ?",
+                               (venta["venta_uid"], pid))
             for p in PRESENTACIONES_EXTRA:
                 nombre_p = (fila.get(mapa.get(p, ""), "") or "").strip()
                 if not nombre_p:
                     continue
                 uid = _unidad_id(db, nombre_p, cache_cat)
+                if venta and uid in (venta["venta_uid"], venta["base_uid"]):
+                    continue                      # ya es la unidad de venta o la mínima
                 db.execute("INSERT INTO producto_presentaciones (producto_id, unidad_id, factor, precio_venta, "
                            "creado_en) VALUES (?,?,?,?,?)",
                            (pid, uid, _num(fila.get(mapa.get(p + "_trae", "")), 0),
@@ -533,7 +618,7 @@ def confirmar():
                 if primera_pres is None:
                     primera_pres = (uid, _num(fila.get(mapa.get(p + "_trae", "")), 0),
                                     _num(fila.get(mapa.get(p + "_precio", "")), 0))
-            if not suelto:
+            if not suelto and not venta:
                 # Solo se vende por presentación: si no dijeron cuál, la primera; y si no
                 # pusieron precio de 1 unidad, se calcula (precio del sobre ÷ cuántas trae)
                 db.execute("UPDATE productos SET vende_suelto = 0, "

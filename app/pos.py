@@ -631,6 +631,11 @@ def api_productos():
         for opcion in productos[0]["presentaciones"]:
             if opcion["codigo_barras"] == q:
                 exacto, presentacion_id = True, opcion["id"]
+                # El código del PRODUCTO (no el de una caja en particular) agrega lo
+                # que se vende normalmente (ej. el Sello x 10), igual que tocar la tarjeta.
+                # Para vender suelto se cambia en el carrito.
+                if opcion["id"] == pres.PRINCIPAL:
+                    presentacion_id = productos[0]["presentacion_defecto"]
                 break
     return jsonify({"ok": True, "productos": productos, "exacto": exacto,
                     "presentacion_id": presentacion_id})

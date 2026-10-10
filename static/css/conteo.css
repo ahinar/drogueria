@@ -222,3 +222,10 @@
    anchas de otras páginas se puedan desplazar; eso impide que el buscador se
    quede fijo. Solo en la página del conteo lo dejamos normal. */
 .contenido:has(.conteo-buscador) { overflow: visible; }
+
+/* Conteo en paquetes: "27 [Sello x 10]  +  4 [unidades sueltas]" */
+.cnt-doble { display: flex; gap: .4rem; }
+.cnt-doble label { flex: 1; display: flex; flex-direction: column; gap: .1rem; margin: 0; }
+.cnt-doble small { font-size: .72rem; color: #5b6b66; line-height: 1.1; }
+.cnt-doble .conteo-cantidad { width: 100%; }
+.cnt-dif .conteo-dif { border-radius: 10px; font-size: .78rem; line-height: 1.2; }

@@ -636,8 +636,27 @@ def api_crear_producto():
 
     if not laboratorio_id or not laboratorio_id.isdigit():
         return jsonify({"ok": False, "error": "El laboratorio es obligatorio."}), 400
+    # ---- Cómo se vende (igual que la ficha del producto) ----
+    # Formulario nuevo: "Unidad de venta" (Sello x 10) + precio + ¿suelto?.
+    # Por dentro se cuenta en "Unidad" (ver productos._traducir_venta).
+    from .importador import _num
+    from .productos import _id_unidad_basica, _cantidad_unidad
+    venta_uid = (request.form.get("venta_unidad_id") or "").strip()
+    factor = 1.0
+    if venta_uid.isdigit():
+        venta_uid = int(venta_uid)
+        trae = _num((request.form.get("venta_trae") or "").strip(), None)
+        basica = _id_unidad_basica()
+        if trae and trae > 1:
+            factor = float(trae)
+        elif basica and venta_uid != basica and _cantidad_unidad(venta_uid) > 1:
+            factor = _cantidad_unidad(venta_uid) / _cantidad_unidad(basica)
+        # Si trae más de 1, se cuenta en Unidad; si no (Frasco), se cuenta en lo mismo que se vende
+        unidad_venta_id = str(basica if factor > 1 and basica else venta_uid)
+    else:
+        venta_uid = None
     if not unidad_venta_id or not unidad_venta_id.isdigit():
-        return jsonify({"ok": False, "error": "Debes elegir la unidad de inventario."}), 400
+        return jsonify({"ok": False, "error": "Debes elegir la unidad de venta."}), 400
 
     dup = _producto_duplicado(nombre, int(laboratorio_id), concentracion)
     if dup:
@@ -648,10 +667,9 @@ def api_crear_producto():
             "duplicado_id": dup["id"],
         }), 409
 
-    try:
-        precio = float((request.form.get("precio_venta") or "0").replace(",", ".") or 0)
-    except ValueError:
-        precio = 0.0
+    precio = _num((request.form.get("precio_venta") or "").strip(), 0.0)
+    vende_suelto = 1 if (factor <= 1 or request.form.get("vende_suelto")) else 0
+    precio_unidad = round(precio / factor, 2) if factor > 1 else precio   # $4.000 ÷ 10 = $400
 
     maneja_venc = 1 if request.form.get("maneja_vencimiento") else 0
     requiere_formula = 1 if request.form.get("requiere_formula") else 0
@@ -673,17 +691,24 @@ def api_crear_producto():
             "maneja_vencimiento, requiere_formula, cadena_frio, control_especial, activo, creado_en) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?)",
             (codigo, nombre, concentracion, int(laboratorio_id),
-             registro, registro_vence, precio, int(unidad_venta_id),
+             registro, registro_vence, precio_unidad, int(unidad_venta_id),
              maneja_venc, requiere_formula, cadena_frio, control_especial, ahora()),
         )
+        nuevo_id = cur.lastrowid
+        db.execute("UPDATE productos SET vende_suelto = ? WHERE id = ?", (vende_suelto, nuevo_id))
+        if factor > 1:
+            # La unidad de venta (Sello x 10) queda como presentación y se vende por defecto
+            db.execute("INSERT INTO producto_presentaciones (producto_id, unidad_id, factor, precio_venta, "
+                       "creado_en) VALUES (?,?,?,?,?)", (nuevo_id, venta_uid, factor, precio, ahora()))
+            db.execute("UPDATE productos SET venta_defecto_unidad_id = ? WHERE id = ?", (venta_uid, nuevo_id))
         db.commit()
-        registrar("producto_creado_rapido", "productos", cur.lastrowid,
+        registrar("producto_creado_rapido", "productos", nuevo_id,
                   f"código={codigo} nombre={nombre} (desde recepción)")
 
         lab = db.execute("SELECT nombre FROM catalogos WHERE id = ?", (int(laboratorio_id),)).fetchone()
         return jsonify({
             "ok": True,
-            "id": cur.lastrowid,
+            "id": nuevo_id,
             "codigo": codigo,
             "nombre": nombre,
             "concentracion": concentracion or "",
@@ -692,6 +717,10 @@ def api_crear_producto():
             "maneja_vencimiento": maneja_venc,
             "cadena_frio": cadena_frio,
             "control_especial": control_especial,
+            # Para el selector "Viene en" de la línea (Unidad, Sello x 10, Otra caja…)
+            "presentaciones": _presentaciones_simples(nuevo_id),
+            "unidad": (db.execute("SELECT nombre FROM unidades_medida WHERE id = ?",
+                                  (int(unidad_venta_id),)).fetchone() or {"nombre": ""})["nombre"],
         })
     except sqlite3.IntegrityError:
         return jsonify({"ok": False, "error": "Ya existe un producto con ese código."}), 400

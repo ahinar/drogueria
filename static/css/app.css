@@ -2704,3 +2704,9 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
   border: 1px solid var(--borde, #d8e0e6); border-radius: .5rem; font-weight: 400 !important; cursor: pointer; }
 .opcion-radio input { width: auto !important; margin-top: .2rem; }
 .opcion-radio:has(input:checked) { border-color: var(--acento); background: var(--acento-suave, #e8f1fa); }
+
+/* Ficha del producto: lo que el JS esconde con "hidden" se esconde de verdad
+   (algunas reglas de .moderno ponen display:flex a los label y ganaban) */
+.form-tabs [hidden] { display: none !important; }
+.avanzado-unidad > summary { cursor: pointer; color: var(--texto-suave, #5b6b66); padding: .3rem 0; }
+#resumen-venta { background: var(--fondo-suave, #eef6f3); border-left: 4px solid var(--primario, #1f7a5c); padding: .5rem .8rem; }

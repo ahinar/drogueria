@@ -248,19 +248,28 @@
       </div>
 
       <!-- ===== Precios ===== -->
-      <div class="modal-seccion">Precio y venta</div>
+      <div class="modal-seccion">Cómo se vende</div>
+      {# Igual que la ficha del producto: primero la unidad de venta (Sello x 10)
+         y su precio; después si se vende suelto. Por dentro se cuenta en Unidad. #}
       <div class="modal-grid-2">
-        <label>Precio de venta
-          <input type="number" step="0.01" id="np-precio" value="0">
-        </label>
-        <label>Unidad de inventario (la más pequeña: tableta, frasco…) *
+        <label>Unidad de venta * <small class="suave">(lo que vende el POS: Sello x 10, Frasco…)</small>
           <select id="np-unidad">
             {% for u in unidades %}
-              <option value="{{ u['id'] }}" {% if u['nombre'] == 'Unidad' %}selected{% endif %}>
-                {{ u['nombre'] }}{% if u['cantidad'] != 1 %} (×{{ u['cantidad'] }}){% endif %}
+              <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}" {% if u['nombre'] == 'Unidad' %}selected{% endif %}>
+                {{ u['nombre'] }}
               </option>
             {% endfor %}
           </select>
+        </label>
+        <label><span id="np-etiqueta-precio">Precio de venta</span>
+          <input type="text" inputmode="decimal" id="np-precio" placeholder="Ej: 4.000">
+        </label>
+        <label id="np-campo-trae" hidden>¿Cuántas unidades trae?
+          <input type="text" inputmode="decimal" id="np-trae">
+        </label>
+        <label class="switch-linea" id="np-campo-suelto" hidden>
+          <input type="checkbox" id="np-suelto" checked>
+          <span>¿Se vende suelto? <small class="suave" id="np-precio-suelto"></small></span>
         </label>
       </div>
 
@@ -629,6 +638,28 @@
   const npRegistroVence = document.getElementById('np-registro-vence');
   const npPrecio = document.getElementById('np-precio');
   const npUnidad = document.getElementById('np-unidad');
+  const npTrae = document.getElementById('np-trae');
+  const npSuelto = document.getElementById('np-suelto');
+  // Unidad de venta que trae varias (Sello x 10): pedir cuántas trae y si se vende suelto
+  function npAjustarVenta(sugerir) {
+    const opt = npUnidad.options[npUnidad.selectedIndex];
+    const cantidad = opt ? (parseFloat(opt.dataset.cantidad) || 1) : 1;
+    const nombre = opt ? opt.textContent.trim() : '';
+    const esUnidad = nombre.toLowerCase() === 'unidad';
+    if (sugerir) npTrae.value = cantidad > 1 ? cantidad : '';
+    // Un "Sobre" sin número también puede traer varias: se deja escribir
+    document.getElementById('np-campo-trae').hidden = esUnidad;
+    const trae = parseFloat((npTrae.value || '').replace(',', '.')) || 0;
+    document.getElementById('np-campo-suelto').hidden = !(trae > 1);
+    document.getElementById('np-etiqueta-precio').textContent = 'Precio de 1 ' + (nombre || 'unidad');
+    const t = (npPrecio.value || '').trim();
+    const precio = parseFloat((/^\d{1,3}(\.\d{3})+$/.test(t) ? t.replace(/\./g, '') : t).replace(',', '.')) || 0;
+    document.getElementById('np-precio-suelto').textContent = trae > 1 && precio > 0
+      ? '(1 unidad = $' + Math.round(precio / trae).toLocaleString('es-CO') + ')' : '';
+  }
+  npUnidad.addEventListener('change', function () { npAjustarVenta(true); });
+  npTrae.addEventListener('input', function () { npAjustarVenta(false); });
+  npPrecio.addEventListener('input', function () { npAjustarVenta(false); });
   const npManejaVence = document.getElementById('np-maneja-vence');
   const npFormula = document.getElementById('np-formula');
   const npFrio = document.getElementById('np-frio');
@@ -649,7 +680,10 @@
       npLaboratorio.value = '';
       npRegistro.value = '';
       npRegistroVence.value = '';
-      npPrecio.value = '0';
+      npPrecio.value = '';
+      npTrae.value = '';
+      npSuelto.checked = true;
+      npAjustarVenta(true);
       npFormula.checked = false;
       npFrio.checked = false;
       npControl.checked = false;
@@ -718,7 +752,9 @@
     datos.append('registro_sanitario', npRegistro.value.trim());
     datos.append('registro_vence', npRegistroVence.value);
     datos.append('precio_venta', npPrecio.value || '0');
-    datos.append('unidad_venta_id', npUnidad.value);
+    datos.append('venta_unidad_id', npUnidad.value);
+    datos.append('venta_trae', npTrae.value);
+    if (npSuelto.checked) datos.append('vende_suelto', '1');
     if (npManejaVence.checked) datos.append('maneja_vencimiento', '1');
     if (npFormula.checked) datos.append('requiere_formula', '1');
     if (npFrio.checked) datos.append('cadena_frio', '1');
@@ -750,6 +786,8 @@
         maneja_vencimiento: json.maneja_vencimiento || 0,
         cadena_frio: json.cadena_frio || 0,
         control_especial: json.control_especial || 0,
+        presentaciones: json.presentaciones || [],
+        unidad: json.unidad || '',
       };
       seleccionarProducto(wrap, p);
       cerrarModal();

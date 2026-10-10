@@ -139,83 +139,93 @@
       </label>
     </div>
 
+    {# ================= VENTA Y PRECIOS =================
+       Se llena en el orden en que piensa el droguista (pedido de Fernando):
+         1. ¿Cómo lo vendes normalmente?  -> Unidad de venta (Sello x 10) y su precio ($4.000)
+         2. ¿Se vende suelto?             -> si sí, el programa calcula el precio de 1 unidad ($400)
+       Por dentro el inventario se CUENTA en la unidad mínima (Unidad, Tableta),
+       así nunca hay decimales: 27 sellos y 4 unidades = 274 unidades.
+       El servidor traduce estos campos en app/productos.py -> _traducir_venta(). #}
     <fieldset>
-      <legend>Precios</legend>
+      <legend>Venta y precios</legend>
+      <p class="suave" style="margin-top:0">Primero escribe <strong>cómo lo vendes normalmente</strong> y a qué precio.
+        Ej: Ibuprofeno → <strong>Sello x 10</strong> a <strong>$4.000</strong>. Si es un frasco o una crema, escoge <strong>Frasco</strong> o <strong>Unidad</strong>.</p>
+
+      <div class="grid-3-compact">
+        <label>Unidad de venta *
+          <div class="campo-con-boton">
+            <select name="venta_unidad_id" id="venta_unidad" class="sel-unidad" required>
+              <option value="">— Seleccionar —</option>
+              {% for u in unidades %}
+              <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}" {% if venta['unidad_id']==u['id'] %}selected{% endif %}>
+                {{ u['nombre'] }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" class="btn-mas" data-tipo="unidad" data-select="venta_unidad"
+              title="Crear nueva unidad de medida">+</button>
+          </div>
+          <small class="suave">Lo que el POS vende al tocar el producto. ¿Sello x 7? Créalo con el +.</small>
+        </label>
+        <label><span id="etiqueta-precio">Precio de venta</span> *
+          <input type="text" inputmode="decimal" name="venta_precio" id="venta_precio" required
+            value="{{ '%g' % venta['precio'] if venta['precio'] != '' else '' }}">
+        </label>
+        {# Cuántas unidades mínimas trae la unidad de venta. Se llena solo con la
+           unidad de medida (Sello x 10 -> 10) pero se puede corregir. #}
+        <label id="campo-trae">¿Cuántas <span class="nombre-unidad-min">unidades</span> trae?
+          <input type="text" inputmode="decimal" name="venta_trae" id="venta_trae"
+            value="{{ '%g' % venta['factor'] if venta['factor'] > 1 else '' }}">
+        </label>
+      </div>
 
       <div class="grid-3-compact">
         <label><span id="etiqueta-costo">Costo (opcional)</span>
-          <input type="number" step="0.01" name="precio_compra" id="precio_compra"
-            value="{{ producto['precio_compra'] if producto else 0 }}">
+          <input type="text" inputmode="decimal" name="venta_costo" id="venta_costo"
+            value="{{ '%g' % venta['costo'] if venta['costo'] != '' else '' }}">
         </label>
         <label>Margen deseado (%)
           <input type="number" step="0.1" id="margen" value="30">
         </label>
         <label>&nbsp;
-          <button type="button" id="btn-calcular" class="boton secundario" style="width:100%">💡 Calcular
+          <button type="button" id="btn-calcular" class="boton secundario" style="width:100%"><span class="ico-emoji">💡</span> Calcular
             sugerido</button>
         </label>
       </div>
 
       <div class="grid-3-compact">
         <label>Precio sugerido (solo referencia)
-          <input type="number" step="0.01" id="precio_sugerido" readonly class="ganancia">
+          <input type="text" id="precio_sugerido" readonly class="ganancia">
         </label>
-        <label><span id="etiqueta-precio">Precio de venta final</span> *
-          <input type="number" step="0.01" name="precio_venta" id="precio_venta" required min="0"
-            value="{{ producto['precio_venta'] if producto else 0 }}">
-        </label>
-        {# UNIDAD DE INVENTARIO: en ella se cuentan las existencias (la más pequeña
-           que se vende: tableta, cápsula, frasco...). Si el producto ya tiene
-           existencias o movimientos queda BLOQUEADA: cambiarla sin convertir
-           haría que 308 tabletas se leyeran como 308 sobres. #}
-        <label>Unidad de inventario *
-          <div class="campo-con-boton">
-            <select {% if unidad_bloqueada %}disabled{% else %}name="unidad_venta_id"{% endif %} id="unidad_venta_id" required>
-              <option value="">— Seleccionar —</option>
-              {% for u in unidades %}
-              <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}" {% if producto and
-                producto['unidad_venta_id']==u['id'] %}selected{% endif %}>
-                {{ u['nombre'] }}{% if u['cantidad'] != 1 %} (×{{ u['cantidad'] }}){% endif %}
-              </option>
-              {% endfor %}
-            </select>
-            {% if unidad_bloqueada %}
-              {# un select desactivado no se envía: el valor viaja en este campo oculto #}
-              <input type="hidden" name="unidad_venta_id" value="{{ producto['unidad_venta_id'] }}">
-            {% else %}
-            <button type="button" class="btn-mas" data-tipo="unidad" data-select="unidad_venta_id"
-              title="Crear nueva unidad de medida">+</button>
-            {% endif %}
-          </div>
-          {% if unidad_bloqueada %}
-          <small class="suave">Bloqueada porque ya tiene existencias o movimientos.
-            <a href="{{ url_for('productos.cambiar_unidad', prod_id=producto['id']) }}">Cambiar unidad de inventario…</a></small>
-          {% else %}
-          <small class="suave">La más pequeña que vendes (tableta, cápsula, frasco). Sobres y cajas van abajo, en "Presentaciones".</small>
-          {% endif %}
-        </label>
-      </div>
-
-      {# ¿Se vende la pasta suelta? Si no, solo se vende por sobre/caja y el
-         precio de la pasta se calcula solo (precio del sobre ÷ cuántas trae). #}
-      <input type="hidden" name="vende_suelto_en_form" value="1">
-      <label class="check-linea" style="margin:.3rem 0 .2rem">
-        <input type="checkbox" name="vende_suelto" id="vende_suelto" value="1"
-               {% if not producto or producto['vende_suelto'] %}checked{% endif %}>
-        Se vende suelto (por <span class="nombre-unidad-min">unidad</span>)
-      </label>
-      <small class="suave" id="ayuda-suelto" hidden>No se vende suelto: el precio de 1 <span class="nombre-unidad-min">unidad</span>
-        se calcula solo con el de la presentación de abajo. El inventario se sigue contando en <span class="nombre-unidad-min">unidad</span> (sin decimales).</small>
-
-      <p class="aviso error" id="aviso-unidad-grande" hidden style="margin:.4rem 0">
-        Ojo: la unidad de inventario debería ser la más pequeña que vendes (ej. Tableta).
-        Si también vendes por sobre o por caja, deja aquí la tableta y agrega el sobre y la caja abajo, en "Presentaciones".</p>
-      <p class="suave" id="equivalencia" style="margin-left:.2rem"></p>
-
-      <div class="grid-3-compact">
         <label>Ganancia
           <input type="text" id="ganancia" readonly class="ganancia">
         </label>
+        <label>Precio máximo regulado
+          <input type="text" inputmode="decimal" name="venta_maximo"
+            value="{{ '%g' % venta['maximo'] if venta['maximo'] != '' else '' }}">
+        </label>
+      </div>
+
+      {# El código de barras propio del sello (si tenía) viaja escondido para no perderlo #}
+      <input type="hidden" name="venta_barras" value="{{ venta['barras'] }}">
+
+      {# ---- 2. ¿Se vende suelto? Solo tiene sentido si la unidad de venta trae más de 1 ---- #}
+      <div id="bloque-suelto" class="bloque-suelto">
+        <input type="hidden" name="vende_suelto_en_form" value="1">
+        <label class="check-linea" style="margin:.3rem 0 .2rem">
+          <input type="checkbox" name="vende_suelto" id="vende_suelto" value="1"
+                 {% if not producto or producto['vende_suelto'] %}checked{% endif %}>
+          ¿Se vende suelto? (por <span class="nombre-unidad-min">unidad</span>)
+        </label>
+        <label id="campo-precio-suelto" style="max-width:320px">Precio de 1 <span class="nombre-unidad-min">unidad</span> suelta
+          <input type="text" inputmode="decimal" name="precio_venta" id="precio_venta"
+            value="{{ '%g' % producto['precio_venta'] if producto and venta['factor'] > 1 else '' }}">
+          <small class="suave" id="ayuda-precio-suelto"></small>
+        </label>
+      </div>
+
+      <p class="aviso" id="resumen-venta" style="margin:.6rem 0" hidden></p>
+
+      <div class="grid-3-compact">
         <label>Tipo de IVA
           <select name="iva_tipo" id="iva_tipo">
             {% for clave, texto in iva_tipos.items() %}
@@ -230,29 +240,57 @@
         </label>
       </div>
 
-      <div class="grid-3-compact">
-        <label>Precio máximo regulado
-          <input type="number" step="0.01" name="precio_maximo"
-            value="{{ producto['precio_maximo'] if producto and producto['precio_maximo'] else '' }}">
+      {# ---- Avanzado: en qué se CUENTA el inventario (casi siempre "Unidad") ----
+         Si el producto ya tiene existencias o movimientos queda BLOQUEADA:
+         cambiarla sin convertir haría que 308 tabletas se leyeran como 308 sobres. #}
+      <details class="avanzado-unidad" style="margin-top:.6rem">
+        <summary>El inventario se cuenta en: <strong id="nombre-base">Unidad</strong> (cambiar)</summary>
+        <label style="max-width:420px;margin-top:.5rem">Unidad mínima (en la que se cuenta) *
+          <div class="campo-con-boton">
+            <select {% if unidad_bloqueada %}disabled{% else %}name="unidad_venta_id"{% endif %} id="unidad_venta_id" class="sel-unidad" required>
+              <option value="">— Seleccionar —</option>
+              {% set base_id = producto['unidad_venta_id'] if producto else unidad_basica_id %}
+              {% for u in unidades %}
+              <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}" {% if base_id==u['id'] %}selected{% endif %}>
+                {{ u['nombre'] }}</option>
+              {% endfor %}
+            </select>
+            {% if unidad_bloqueada %}
+              {# un select desactivado no se envía: el valor viaja en este campo oculto #}
+              <input type="hidden" name="unidad_venta_id" value="{{ producto['unidad_venta_id'] }}">
+            {% else %}
+            <button type="button" class="btn-mas" data-tipo="unidad" data-select="unidad_venta_id"
+              title="Crear nueva unidad de medida">+</button>
+            {% endif %}
+          </div>
+          {% if unidad_bloqueada %}
+          <small class="suave">Bloqueada porque ya tiene existencias o movimientos.
+            <a href="{{ url_for('productos.cambiar_unidad', prod_id=producto['id']) }}">Cambiar unidad de inventario…</a></small>
+          {% else %}
+          <small class="suave">Casi siempre <strong>Unidad</strong> (1 pasta, 1 frasco). Así el inventario nunca tiene decimales.</small>
+          {% endif %}
         </label>
-      </div>
+        <p class="aviso error" id="aviso-unidad-grande" hidden style="margin:.4rem 0">
+          Ojo: aquí va la unidad más pequeña (Unidad, Tableta). El sello o la caja van arriba, en "Unidad de venta".</p>
+      </details>
     </fieldset>
 
-    <!-- ===== OTRAS PRESENTACIONES (sobre, caja...) =====
-         El inventario se cuenta en la "Unidad de inventario". Aquí se agregan
-         otras formas de vender el mismo producto, cada una con su precio.
+    <!-- ===== OTRAS PRESENTACIONES (opcional) =====
+         Otras formas de VENDER el mismo producto con su propio precio
+         (ej. la caja completa más barata). Para RECIBIR mercancía no hace falta:
+         en la recepción se escoge "viene en Caja x 300".
          Cada fila manda 5 campos con el mismo nombre (pres_...); el servidor
          los lee en orden (ver app/presentaciones.py, leer_del_formulario). -->
     <fieldset>
-      <legend>Presentaciones (sobre, caja…)</legend>
-      <p class="suave pres-ayuda">Ejemplo: si la unidad de inventario es <strong>Tableta</strong>,
-        aquí agregas <strong>Sobre x 10</strong> (trae 10) y <strong>Caja x 100</strong> (trae 100),
-        cada una con su precio. Al vender un sobre, el inventario baja 10 tabletas.</p>
+      <legend>Otras presentaciones (opcional)</legend>
+      <p class="suave pres-ayuda">Solo si también vendes el producto de otra forma con otro precio.
+        Ej: además del <strong>Sello x 10</strong>, la <strong>Caja x 100</strong> completa a $35.000.
+        Para recibir cajas del proveedor <strong>no</strong> hace falta agregarlas aquí.</p>
       <div id="pres-filas" class="pres-filas">
         {% for f in presentaciones %}
         <div class="pres-fila">
           <label>Unidad
-            <select name="pres_unidad_id" class="pres-unidad">
+            <select name="pres_unidad_id" class="pres-unidad sel-unidad">
               <option value="">— Elegir —</option>
               {% for u in unidades %}
               <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}" {% if f['unidad_id']==u['id'] %}selected{% endif %}>{{ u['nombre'] }}</option>
@@ -278,20 +316,11 @@
       </div>
       <button type="button" class="boton secundario" id="pres-agregar"><span class="ico-emoji">➕</span> Agregar presentación</button>
 
-      {# En qué presentación lo agrega el POS al tocar la tarjeta. Las opciones las
-         arma el JS con la unidad de inventario + las presentaciones de arriba. #}
-      <label style="margin-top:1rem;max-width:420px">Se vende normalmente por
-        <select name="venta_defecto_unidad_id" id="venta_defecto" data-actual="{{ producto['venta_defecto_unidad_id'] or '' if producto else '' }}">
-          <option value="">La unidad de inventario</option>
-        </select>
-        <small class="suave">Al tocar el producto en el POS se agrega esta presentación. Las demás siguen disponibles.</small>
-      </label>
-
       <!-- Molde vacío: el JS lo copia cada vez que se toca "Agregar presentación" -->
       <template id="pres-molde">
         <div class="pres-fila">
           <label>Unidad
-            <select name="pres_unidad_id" class="pres-unidad">
+            <select name="pres_unidad_id" class="pres-unidad sel-unidad">
               <option value="">— Elegir —</option>
               {% for u in unidades %}
               <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}">{{ u['nombre'] }}</option>
@@ -406,7 +435,7 @@
       <label>Nombre *
         <input type="text" id="modal-unidad-nombre" maxlength="120" autocomplete="off" placeholder="Ej: Sello x 10">
       </label>
-      <label>Cantidad (unidades base) *
+      <label>¿Cuántas unidades trae? (ej. Sello x 10 = 10) *
         <input type="number" id="modal-unidad-cantidad" step="0.01" value="1">
       </label>
       <label>Unidad de referencia
@@ -474,68 +503,145 @@
     selTipo.addEventListener('change', ajustarIva);
     ajustarIva();
 
-    // === Precios: ganancia + equivalencia ===
-    const pc = document.getElementById('precio_compra');
-    const pv = document.getElementById('precio_venta');
+    // =====================================================================
+    // VENTA Y PRECIOS
+    // La persona escribe: "se vende por Sello x 10 a $4.000". Con eso:
+    //   - "¿Cuántas trae?" se llena solo (10), sale de la unidad de medida
+    //   - el precio de 1 unidad suelta se calcula solo ($4.000 ÷ 10 = $400),
+    //     pero si la persona lo cambia a mano, ya no se toca
+    //   - abajo se muestra un resumen con un ejemplo de recepción y de venta
+    // =====================================================================
+    const selVenta = document.getElementById('venta_unidad');
+    const unidadSel = document.getElementById('unidad_venta_id');      // unidad mínima (se cuenta en ella)
+    const inpPrecio = document.getElementById('venta_precio');
+    const inpTrae = document.getElementById('venta_trae');
+    const inpCosto = document.getElementById('venta_costo');
+    const pv = document.getElementById('precio_venta');                 // precio de 1 unidad suelta
+    const chkSuelto = document.getElementById('vende_suelto');
     const psug = document.getElementById('precio_sugerido');
     const gan = document.getElementById('ganancia');
-    const unidadSel = document.getElementById('unidad_venta_id');
-    const equivalencia = document.getElementById('equivalencia');
 
-    function calcGanancia() {
-      const c = parseFloat(pc.value) || 0;
-      const v = parseFloat(pv.value) || 0;
-      const dif = v - c;
-      const pct = v > 0 ? (dif / v * 100).toFixed(1) : '—';
-      gan.value = '$' + dif.toFixed(2) + (pct !== '—' ? '  (margen ' + pct + '%)' : '');
+    // Convierte lo escrito a número (acepta "4.000" y "2,5" como en Colombia)
+    function numero(texto) {
+      texto = (texto || '').trim().replace(/\$/g, '').replace(/\s/g, '');
+      if (/^\d{1,3}(\.\d{3})+$/.test(texto)) texto = texto.replace(/\./g, '');   // 4.000 -> 4000
+      return parseFloat(texto.replace(',', '.')) || 0;
     }
-    function calcEquivalencia() {
-      const opt = unidadSel.options[unidadSel.selectedIndex];
-      if (!opt || !opt.value) { equivalencia.textContent = ''; return; }
-      const cant = parseFloat(opt.dataset.cantidad) || 1;
-      const v = parseFloat(pv.value) || 0;
-      if (cant > 1 && v > 0) {
-        equivalencia.textContent = '≈ $' + (v / cant).toFixed(2) + ' por Unidad';
-      } else {
-        equivalencia.textContent = '';
-      }
-    }
-    pc.addEventListener('input', calcGanancia);
-    pv.addEventListener('input', function () { calcGanancia(); calcEquivalencia(); });
-    unidadSel.addEventListener('change', calcEquivalencia);
-    // "Precio de 1 Tableta": que quede claro de qué unidad es el precio
-    function etiquetaPrecio() {
-      const opt = unidadSel.options[unidadSel.selectedIndex];
-      document.getElementById('etiqueta-precio').textContent = opt && opt.value
-        ? 'Precio de 1 ' + opt.textContent.trim().split(' (')[0] : 'Precio de venta final';
-      // El costo también es de 1 unidad de inventario (no el de la caja)
-      document.getElementById('etiqueta-costo').textContent = opt && opt.value
-        ? 'Costo de 1 ' + opt.textContent.trim().split(' (')[0] + ' (opcional)' : 'Costo (opcional)';
-    }
-    unidadSel.addEventListener('change', etiquetaPrecio);
-    etiquetaPrecio();
-    calcGanancia();
-    calcEquivalencia();
-
-    // === Otras presentaciones (sobre, caja...) ===
-    // "¿Cuántas trae?" se sugiere solo: cantidad de la unidad elegida ÷
-    // cantidad de la unidad principal. Ej: Caja x 100 sobre Unidad -> 100.
-    const presFilas = document.getElementById('pres-filas');
-    const presMolde = document.getElementById('pres-molde');
-
+    // "unidad" -> "unidades", "tableta" -> "tabletas"
+    function plural(palabra) { return /[aeiou]$/.test(palabra) ? palabra + 's' : palabra + 'es'; }
+    function pesos(n) { return '$' + Math.round(n).toLocaleString('es-CO'); }
     function cantidadDe(select) {
       const opt = select.options[select.selectedIndex];
       return opt && opt.value ? (parseFloat(opt.dataset.cantidad) || 1) : 0;
     }
-    // Debajo de cada fila: "≈ $180 por Tableta" (para comparar con el precio normal)
+    function nombreUnidad(select) {
+      const opt = select.options[select.selectedIndex];
+      return opt && opt.value ? opt.textContent.trim().split(' (')[0] : '';
+    }
+    // ¿Se vende por algo más grande que la unidad mínima? (Sello x 10 sí; Frasco no)
+    function esPresentacion() {
+      return selVenta.value && selVenta.value !== unidadSel.value;
+    }
+    function factorVenta() {
+      return esPresentacion() ? numero(inpTrae.value) : 1;
+    }
+
+    // ¿El precio suelto lo escribió la persona? Si ya era distinto del calculado, sí.
+    let sueltoManual = (function () {
+      const f = factorVenta(), p = numero(inpPrecio.value), s = numero(pv.value);
+      return f > 1 && s > 0 && Math.abs(s - p / f) > 1;
+    })();
+    pv.addEventListener('input', function () { sueltoManual = pv.value.trim() !== ''; actualizar(); });
+
+    // Al escoger la unidad de venta: sugerir cuántas trae (Sello x 10 -> 10)
+    selVenta.addEventListener('change', function () {
+      const base = cantidadDe(unidadSel) || 1;
+      const cant = cantidadDe(selVenta);
+      inpTrae.value = esPresentacion() && cant / base > 1 ? +(cant / base).toFixed(2) : '';
+      actualizar();
+    });
+
+    function actualizar() {
+      const base = nombreUnidad(unidadSel) || 'Unidad';
+      const venta = nombreUnidad(selVenta);
+      const factor = factorVenta();
+      const precio = numero(inpPrecio.value);
+      const costo = numero(inpCosto.value);
+      const conPresentacion = esPresentacion();
+
+      // Nombres que aparecen en las etiquetas
+      document.querySelectorAll('.nombre-unidad-min').forEach(function (s) { s.textContent = base.toLowerCase(); });
+      document.getElementById('nombre-base').textContent = base;
+      document.getElementById('etiqueta-precio').textContent = venta ? 'Precio de 1 ' + venta : 'Precio de venta';
+      document.getElementById('etiqueta-costo').textContent = venta ? 'Costo de 1 ' + venta + ' (opcional)' : 'Costo (opcional)';
+      document.getElementById('campo-trae').hidden = !conPresentacion;
+      inpTrae.required = conPresentacion;
+
+      // ¿Se vende suelto? solo si la unidad de venta trae más de 1
+      document.getElementById('bloque-suelto').hidden = !(conPresentacion && factor > 1);
+      const suelto = chkSuelto.checked;
+      document.getElementById('campo-precio-suelto').hidden = !suelto;
+      if (factor > 1 && precio > 0 && !sueltoManual) pv.value = Math.round(precio / factor);
+      document.getElementById('ayuda-precio-suelto').textContent = factor > 1 && precio > 0
+        ? 'Calculado: ' + pesos(precio) + ' ÷ ' + factor + ' = ' + pesos(precio / factor) + '. Puedes cambiarlo.' : '';
+
+      // Ganancia de la unidad de venta
+      const dif = precio - costo;
+      gan.value = precio > 0 ? pesos(dif) + (costo > 0 ? '  (margen ' + (dif / precio * 100).toFixed(1) + '%)' : '') : '';
+
+      // Resumen con el ejemplo de Fernando: llega una caja x 300, se venden 2 y 3 sueltas
+      const resumen = document.getElementById('resumen-venta');
+      if (conPresentacion && factor > 1 && venta) {
+        const caja = factor * 30;
+        const bases = plural(base.toLowerCase());
+        let texto = 'Así queda: si recibes una caja de ' + caja + ' ' + bases + ', entran <strong>30 ' + venta + '</strong>. ' +
+          'El POS vende por <strong>' + venta + '</strong>' + (precio > 0 ? ' a ' + pesos(precio) : '') + '.';
+        texto += suelto && factor > 3
+          ? ' Si vendes 1 ' + venta + ' y 3 sueltas, quedan 28 ' + venta + ' + ' + (factor - 3) + ' ' + bases + '.'
+          : (suelto ? '' : ' No se vende suelto.');
+        resumen.innerHTML = texto;
+        resumen.hidden = false;
+      } else if (venta) {
+        resumen.innerHTML = 'Se vende y se cuenta por <strong>' + venta + '</strong>' + (precio > 0 ? ' a ' + pesos(precio) : '') + '.';
+        resumen.hidden = false;
+      } else {
+        resumen.hidden = true;
+      }
+      // Aviso si la unidad mínima es "grande" (Caja x 100)
+      document.getElementById('aviso-unidad-grande').hidden = !(cantidadDe(unidadSel) > 1);
+      presFilas.querySelectorAll('.pres-fila').forEach(equivalePres);
+    }
+    [inpPrecio, inpTrae, inpCosto].forEach(function (i) { i.addEventListener('input', actualizar); });
+    chkSuelto.addEventListener('change', actualizar);
+    unidadSel.addEventListener('change', actualizar);
+
+    // === Calcular sugerido: costo ÷ (1 − margen) ===
+    document.getElementById('btn-calcular').addEventListener('click', function () {
+      const compra = numero(inpCosto.value);
+      const m = parseFloat(document.getElementById('margen').value) || 0;
+      if (compra <= 0) { window.avisar('Primero escribe el costo.', 'error'); return; }
+      if (m >= 100) { window.avisar('El margen debe ser menor a 100%.', 'error'); return; }
+      const sugerido = Math.round(compra / (1 - m / 100));
+      psug.value = pesos(sugerido);
+      inpPrecio.value = sugerido;
+      actualizar();
+    });
+
+    // === Otras presentaciones (opcional) ===
+    // "¿Cuántas trae?" se sugiere solo: cantidad de la unidad elegida ÷
+    // cantidad de la unidad mínima. Ej: Caja x 100 sobre Unidad -> 100.
+    const presFilas = document.getElementById('pres-filas');
+    const presMolde = document.getElementById('pres-molde');
+
+    // Debajo de cada fila: "≈ $350 por unidad" (para comparar con el precio normal)
     function equivalePres(fila) {
-      const factor = parseFloat((fila.querySelector('.pres-factor').value || '').replace(',', '.')) || 0;
-      const precio = parseFloat((fila.querySelector('.pres-precio').value || '').replace(',', '.')) || 0;
-      const principal = unidadSel.options[unidadSel.selectedIndex];
-      const nombre = principal && principal.value ? principal.textContent.trim().split(' (')[0] : 'unidad';
+      const factor = numero(fila.querySelector('.pres-factor').value);
+      const precio = numero(fila.querySelector('.pres-precio').value);
+      const base = (nombreUnidad(unidadSel) || 'unidad').toLowerCase();
+      const fv = factorVenta(), pvv = numero(inpPrecio.value);
       fila.querySelector('.pres-equivale').textContent = factor > 1 && precio > 0
-        ? '≈ $' + Math.round(precio / factor).toLocaleString('es-CO') + ' por ' + nombre +
-          ' (normal: $' + Math.round(parseFloat(pv.value) || 0).toLocaleString('es-CO') + ')'
+        ? '≈ ' + pesos(precio / factor) + ' por ' + base +
+          (fv > 0 && pvv > 0 ? ' (en la venta normal: ' + pesos(pvv / fv) + ')' : '')
         : '';
     }
     presFilas.addEventListener('change', function (e) {
@@ -560,92 +666,8 @@
       presFilas.appendChild(presMolde.content.cloneNode(true));
       presFilas.lastElementChild.querySelector('select').focus();
     });
-    presFilas.querySelectorAll('.pres-fila').forEach(equivalePres);
 
-    // === "El POS lo vende como": unidad de inventario + presentaciones de arriba ===
-    // Se vuelve a armar cada vez que cambian las filas, para que siempre
-    // muestre las presentaciones que hay en pantalla (aunque no se hayan guardado).
-    const selDefecto = document.getElementById('venta_defecto');
-    function nombreUnidad(select) {
-      const opt = select.options[select.selectedIndex];
-      return opt && opt.value ? opt.textContent.trim().split(' (')[0] : '';
-    }
-    function armarDefecto() {
-      const elegido = selDefecto.value || selDefecto.dataset.actual || '';
-      const base = nombreUnidad(unidadSel);
-      let html = '<option value="">' + (base ? base + ' (unidad de inventario)' : 'La unidad de inventario') + '</option>';
-      presFilas.querySelectorAll('.pres-fila').forEach(function (fila) {
-        const sel = fila.querySelector('.pres-unidad');
-        if (sel.value) html += '<option value="' + sel.value + '">' + nombreUnidad(sel) + '</option>';
-      });
-      selDefecto.innerHTML = html;
-      selDefecto.value = [...selDefecto.options].some(function (o) { return o.value === elegido; }) ? elegido : '';
-      selDefecto.dataset.actual = selDefecto.value;
-    }
-    selDefecto.addEventListener('change', function () { selDefecto.dataset.actual = selDefecto.value; });
-    presFilas.addEventListener('change', armarDefecto);
-    presFilas.addEventListener('click', function () { setTimeout(armarDefecto, 0); });   // al quitar una fila
-    unidadSel.addEventListener('change', armarDefecto);
-    armarDefecto();
-
-    // === "Se vende suelto": si no, el precio de la pasta no se escribe (se calcula) ===
-    const chkSuelto = document.getElementById('vende_suelto');
-    function ajustarSuelto() {
-      const suelto = chkSuelto.checked;
-      pv.required = suelto;
-      pv.readOnly = !suelto;
-      pv.style.background = suelto ? '' : '#f1f5f4';
-      document.getElementById('ayuda-suelto').hidden = suelto;
-      // Sin venta suelta, la opción "unidad de inventario" no sirve como venta normal
-      const optBase = selDefecto.querySelector('option[value=""]');
-      if (optBase) optBase.disabled = !suelto;
-      if (!suelto && !selDefecto.value && selDefecto.options.length > 1) {
-        selDefecto.selectedIndex = 1;
-        selDefecto.dataset.actual = selDefecto.value;
-      }
-      // Calcular el precio de la pasta: precio de la presentación ÷ cuántas trae
-      if (!suelto) {
-        const fila = [...presFilas.querySelectorAll('.pres-fila')].find(function (f) {
-          return f.querySelector('.pres-unidad').value === selDefecto.value;
-        });
-        if (fila) {
-          const factor = parseFloat((fila.querySelector('.pres-factor').value || '').replace(',', '.')) || 0;
-          const precio = parseFloat((fila.querySelector('.pres-precio').value || '').replace(',', '.')) || 0;
-          if (factor > 0 && precio > 0) { pv.value = (precio / factor).toFixed(2); calcGanancia(); }
-        }
-      }
-    }
-    function nombresUnidadMin() {
-      const nombre = nombreUnidad(unidadSel) || 'unidad';
-      document.querySelectorAll('.nombre-unidad-min').forEach(function (s) { s.textContent = nombre.toLowerCase(); });
-    }
-    chkSuelto.addEventListener('change', ajustarSuelto);
-    presFilas.addEventListener('input', function () { if (!chkSuelto.checked) ajustarSuelto(); });
-    presFilas.addEventListener('change', function () { setTimeout(ajustarSuelto, 0); });
-    selDefecto.addEventListener('change', ajustarSuelto);
-    unidadSel.addEventListener('change', nombresUnidadMin);
-    nombresUnidadMin();
-    ajustarSuelto();
-
-    // === Aviso si escogen una unidad "grande" (Caja x 100) como unidad de inventario ===
-    function avisoUnidadGrande() {
-      document.getElementById('aviso-unidad-grande').hidden = !(cantidadDe(unidadSel) > 1);
-    }
-    unidadSel.addEventListener('change', avisoUnidadGrande);
-    avisoUnidadGrande();
-
-    // === Calcular sugerido (÷ 1 − margen) ===
-    document.getElementById('btn-calcular').addEventListener('click', function () {
-      const compra = parseFloat(pc.value) || 0;
-      const m = parseFloat(document.getElementById('margen').value) || 0;
-      if (compra <= 0) { window.avisar('Primero ingresa el costo.', 'error'); return; }
-      if (m >= 100) { window.avisar('El margen debe ser menor a 100%.', 'error'); return; }
-      const sugerido = compra / (1 - m / 100);
-      psug.value = sugerido.toFixed(2);
-      pv.value = sugerido.toFixed(2);
-      calcGanancia();
-      calcEquivalencia();
-    });
+    actualizar();
 
     // === MODAL: crear catálogos y unidades ===
     const modal = document.getElementById('modal-crear');
@@ -694,6 +716,12 @@
       modalError.style.display = 'block';
     }
 
+    // Si el nombre dice "x 7" (ej. "Sello x 7"), la cantidad se llena sola
+    modalUnidadNombre.addEventListener('input', function () {
+      const m = modalUnidadNombre.value.match(/x\s*(\d+)/i);
+      if (m) modalUnidadCantidad.value = m[1];
+    });
+
     modalCancelar.addEventListener('click', cerrarModal);
     modal.addEventListener('click', function (e) {
       if (e.target === modal) cerrarModal();
@@ -741,23 +769,25 @@
           mostrarErrorModal(json.error || 'No se pudo guardar.');
           return;
         }
-        const sel = document.getElementById(select);
-        let opcion = sel.querySelector('option[value="' + json.id + '"]');
-        if (!opcion) {
-          opcion = document.createElement('option');
+        // Texto de la opción nueva (ej. "Sello x 7"; los catálogos solo llevan el nombre)
+        const texto = json.nombre;
+        function agregarOpcion(sel) {
+          if (sel.querySelector('option[value="' + json.id + '"]')) return;
+          const opcion = document.createElement('option');
           opcion.value = json.id;
-          let texto = json.nombre;
-          if (json.cantidad && parseFloat(json.cantidad) !== 1) {
-            texto += ' (×' + json.cantidad + ')';
-          }
           opcion.textContent = texto;
           if (json.cantidad) opcion.dataset.cantidad = json.cantidad;
           sel.appendChild(opcion);
         }
-        sel.value = json.id;
-        if (select === 'unidad_venta_id') {
-          sel.dispatchEvent(new Event('change'));
+        const sel = document.getElementById(select);
+        agregarOpcion(sel);
+        // Una unidad nueva sirve en TODAS las listas de unidades (venta, mínima, presentaciones)
+        if (tipo === 'unidad') {
+          document.querySelectorAll('select.sel-unidad').forEach(agregarOpcion);
+          presMolde.content.querySelectorAll('select.sel-unidad').forEach(agregarOpcion);
         }
+        sel.value = json.id;
+        sel.dispatchEvent(new Event('change'));     // para que se recalcule todo
         cerrarModal();
       } catch (e) {
         mostrarErrorModal('Error de conexión: ' + e.message);

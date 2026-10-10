@@ -37,11 +37,12 @@
   </ul>
   <h3 style="margin-top:1rem">Unidades: cómo llenarlas</h3>
   <ul class="suave">
-    <li><b>Unidad de inventario</b>: la más pequeña que vendes (Tableta, Cápsula, Frasco, Unidad). Las existencias se cuentan en ella.</li>
-    <li><b>Costo</b> y <b>precio de 1 unidad</b>: los de UNA unidad de inventario (una tableta), no los de la caja.</li>
-    <li><b>Presentación 2 y 3</b>: otras formas de venderlo, con cuántas unidades trae y su precio. Ej: Sobre x 10 · trae 10 · $1.800; Caja x 100 · trae 100 · $15.000.</li>
-    <li><b>Se vende normalmente por</b>: el nombre de la presentación que se agrega al tocar el producto en el POS (vacío = la unidad de inventario).</li>
-    <li><b>¿Se vende suelto?</b>: SI si también vendes la pasta suelta; NO si solo vendes el sobre o la caja (entonces el precio de 1 unidad puede ir vacío: se calcula).</li>
+    <li><b>Unidad de venta</b>: lo que vendes normalmente y lo que agrega el POS al tocar el producto (Sobre x 10, Sello x 10, Frasco, Unidad).</li>
+    <li><b>Precio de venta</b> y <b>Costo</b>: los de esa unidad de venta (el sobre completo, no la pasta). Ej: Sobre x 10 · $1.600.</li>
+    <li><b>¿Cuántas unidades trae?</b>: puede ir vacío si el nombre ya lo dice ("Sobre x 10" = 10). Para un "Sello" sin número, escribe cuántas trae.</li>
+    <li><b>¿Se vende suelto?</b>: SI si también vendes la pasta suelta (el precio de 1 unidad se calcula: $1.600 ÷ 10 = $160, o escríbelo en "Precio de 1 unidad suelta"). NO si solo vendes el sobre.</li>
+    <li>El inventario se cuenta por dentro en <b>unidades</b>, así nunca hay decimales: al recibir una caja x 300 entran 30 sobres.</li>
+    <li><b>Otra presentación</b> (opcional): otra forma de vender con su propio precio. Ej: Caja x 100 · trae 100 · $15.000. Para recibir cajas del proveedor no hace falta.</li>
     <li>Si una unidad no existe todavía (ej. "Blíster x 12"), se crea sola.</li>
   </ul>
 </div>

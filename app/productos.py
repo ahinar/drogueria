@@ -56,8 +56,44 @@ def _unidades():
     ).fetchall()
 
 
+def _id_unidad_basica():
+    """Id de la unidad "Unidad" (la cuenta mínima por defecto: 1 pasta, 1 frasco)."""
+    fila = get_db().execute("SELECT id FROM unidades_medida WHERE nombre = 'Unidad' COLLATE NOCASE").fetchone()
+    return fila["id"] if fila else None
+
+
+def _venta_de(producto):
+    """Lo que la ficha muestra ARRIBA: cómo se vende normalmente.
+
+    En la base de datos se guarda así (ver presentaciones.py):
+        - unidad_venta_id = la unidad mínima en que se CUENTA (Unidad, Tableta)
+        - la presentación de venta (Sello x 10) con su precio, y
+        - venta_defecto_unidad_id = cuál de ellas se vende al tocar en el POS.
+    Para la persona es más natural: "se vende por Sello x 10 a $4.000".
+    Devuelve {unidad_id, precio, costo, maximo, factor, fila_id}.
+    """
+    if not producto:
+        return {"unidad_id": None, "precio": "", "costo": "", "maximo": "", "factor": 1, "fila_id": None, "barras": ""}
+    fila = None
+    if producto["venta_defecto_unidad_id"]:
+        fila = get_db().execute(
+            "SELECT * FROM producto_presentaciones WHERE producto_id = ? AND unidad_id = ?",
+            (producto["id"], producto["venta_defecto_unidad_id"])).fetchone()
+    if fila is None:          # se vende por la unidad mínima (frasco, unidad...)
+        return {"unidad_id": producto["unidad_venta_id"], "precio": producto["precio_venta"] or 0,
+                "costo": producto["precio_compra"] or 0, "maximo": producto["precio_maximo"] or "",
+                "factor": 1, "fila_id": None, "barras": ""}
+    return {"unidad_id": fila["unidad_id"], "precio": fila["precio_venta"],
+            "costo": round((producto["precio_compra"] or 0) * fila["factor"], 2),
+            "maximo": fila["precio_maximo"] or "", "factor": fila["factor"], "fila_id": fila["id"],
+            "barras": fila["codigo_barras"] or ""}
+
+
 def _contexto_formulario(producto=None):
+    venta = _venta_de(producto)
     return {
+        "venta": venta,
+        "unidad_basica_id": _id_unidad_basica(),
         "formas": cat_opciones("forma_farmaceutica"),
         "principios": cat_opciones("principio"),
         "laboratorios": cat_opciones("laboratorio"),
@@ -69,7 +105,9 @@ def _contexto_formulario(producto=None):
         "usos_sel": _usos_de(producto["id"]) if producto else [],
         "codigo_sugerido": _siguiente_codigo() if not producto else None,
         # Otras formas de vender el producto (sobre, caja...). Ver app/presentaciones.py
-        "presentaciones": pres.filas_para_formulario(producto["id"] if producto else None),
+        # Otras presentaciones (ej. Caja x 100), SIN la de venta, que va arriba
+        "presentaciones": [f for f in pres.filas_para_formulario(producto["id"] if producto else None)
+                           if f["id"] != venta["fila_id"]],
         # Si ya tiene existencias o movimientos, la unidad de inventario queda bloqueada
         "unidad_bloqueada": pres.tiene_historia(get_db(), producto["id"]) if producto else False,
         "producto": producto,
@@ -219,8 +257,79 @@ def _leer_formulario():
     }
 
 
+def _cantidad_unidad(uid):
+    fila = get_db().execute("SELECT cantidad FROM unidades_medida WHERE id = ?", (uid,)).fetchone()
+    return float(fila["cantidad"] or 1) if fila else 1.0
+
+
+def _traducir_venta(datos):
+    """Convierte lo que se escribió ARRIBA ("Sello x 10 a $4.000, se vende suelto")
+    a como se guarda: unidad mínima + presentación de venta + precio de 1 unidad.
+
+    Ejemplo: Ibuprofeno, Sello x 10 a $4.000, costo del sello $2.500, suelto sí:
+        unidad mínima = Unidad
+        presentación  = Sello x 10 (trae 10) a $4.000  -> se vende por defecto
+        precio_venta  = $400 (lo que escribió, o $4.000 ÷ 10)
+        precio_compra = $250 ($2.500 ÷ 10)
+    """
+    from .importador import _num             # entiende "4.000" (miles) y "2,5" (decimales)
+
+    def num(campo):
+        return _num((request.form.get(campo) or "").strip(), None)
+    venta_uid = int(request.form.get("venta_unidad_id")) if (request.form.get("venta_unidad_id") or "").isdigit() else None
+    datos["venta_unidad_id"] = venta_uid
+    if not datos["unidad_venta_id"]:
+        datos["unidad_venta_id"] = _id_unidad_basica()      # la cuenta mínima por defecto
+    precio = num("venta_precio") or 0
+    costo = num("venta_costo") or 0
+    maximo = num("venta_maximo")
+    base = datos["unidad_venta_id"]
+    # Las otras presentaciones no pueden repetir la de venta (esa ya va arriba)
+    datos["presentaciones"] = [f for f in datos["presentaciones"] if f["unidad_id"] != venta_uid]
+    # ¿Cuántas unidades trae? Lo escrito en "Trae" (ej. un sello x 7), o lo que
+    # dice la unidad de medida (Sello x 10 = 10)
+    trae = num("venta_trae")
+    if not venta_uid or venta_uid == base:
+        factor = 1
+    elif trae and trae >= 1:
+        factor = trae
+    else:
+        factor = _cantidad_unidad(venta_uid) / _cantidad_unidad(base)
+    # Si se vende por algo distinto a la unidad mínima, tiene que traer más de 1
+    datos["venta_falta_trae"] = bool(venta_uid and venta_uid != base and factor <= 1)
+    if factor > 1:
+        barras = (request.form.get("venta_barras") or "").strip() or None
+        datos["presentaciones"].insert(0, {"unidad_id": venta_uid, "factor": float(factor), "precio": float(precio),
+                                           "maximo": maximo, "barras": barras})
+        datos["venta_defecto_unidad_id"] = venta_uid
+        datos["precio_compra"] = round(costo / factor, 4)
+        suelto_precio = num("precio_venta")
+        datos["precio_venta"] = (suelto_precio if datos["vende_suelto"] and suelto_precio
+                                 else round(precio / factor, 2))
+        datos["precio_maximo"] = round(maximo / factor, 2) if maximo else None
+    else:
+        # Se vende por la unidad mínima (un frasco, una unidad): no hay presentación aparte
+        datos["venta_defecto_unidad_id"] = None
+        datos["precio_venta"] = precio
+        datos["precio_compra"] = costo
+        datos["precio_maximo"] = maximo or None
+        datos["vende_suelto"] = 1
+    datos["venta_factor"] = factor
+
+
 def _validar(datos, producto_id=None):
     errores = []
+    # Formulario nuevo: "unidad de venta + precio" arriba (ver _traducir_venta)
+    if "venta_unidad_id" in request.form:
+        _traducir_venta(datos)
+        if not datos["venta_unidad_id"]:
+            errores.append("Escoge la unidad de venta (ej. Sello x 10, Frasco, Unidad).")
+        elif datos["venta_falta_trae"]:
+            errores.append("Escribe cuántas unidades trae la unidad de venta (ej. un sello trae 10).")
+        if datos["precio_venta"] <= 0 and not errores:
+            errores.append("Escribe el precio de venta.")
+        elif datos["venta_factor"] > 1 and datos["presentaciones"][0]["precio"] <= 0:
+            errores.append("Escribe el precio de venta.")
     if not datos["codigo"]:
         errores.append("El código interno es obligatorio.")
     if not datos["nombre"]:
