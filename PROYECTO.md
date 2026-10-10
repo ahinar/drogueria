@@ -361,6 +361,19 @@ Notas:
 - [ ] Registrar los equipos reales y subir sus certificados de calibración.
 
 ### Corto plazo
+- [ ] **Inicio:** quitar la sección "Accesos rápidos" (ya están en el menú lateral).
+- [ ] **Parte visual — que el programa se vea más profesional** (pedido por Fernando, 2026-10-10). Propuesta:
+  1. **Guía de estilo única:** colores de la marca Fervifarma, tipografía Inter (archivo local), tamaños y espacios en variables CSS; una página interna que muestre todos los componentes.
+  2. **Unificar componentes repetidos:** un solo estilo de botón, de tabla (hoy hay `.tabla`, `.rep-tabla`, `.sug-tabla`, `.eres-tabla`…), de tarjeta y de formulario.
+  3. **Íconos de verdad en vez de emojis** (juego SVG local, por ejemplo Lucide): los emojis se ven distintos en cada Windows.
+  4. **Barra superior útil:** título de la página, ruta (Inicio › Reportes › Ventas), caja abierta y usuario con su rol.
+  5. **Pantalla de ingreso con la marca** (logo, colores) y favicon.
+  6. **Formularios:** fechas en dd/mm/aaaa siempre (selector propio, no el del navegador en inglés), errores al lado del campo, campos agrupados.
+  7. **Mensajes tipo "toast"** que aparecen y se van solos, en vez de franjas que empujan la página.
+  8. **Tablas:** encabezado fijo al bajar, números alineados a la derecha, estados vacíos amables, paginación.
+  9. **POS táctil:** botones grandes (mínimo 44 px), contraste alto.
+  10. **Impresos coherentes:** comprobante de venta en tirilla de 80 mm y todos los PDF con el mismo encabezado.
+  Forma de trabajo: primero la guía de estilo y una maqueta de 2–3 pantallas para aprobar, luego módulo por módulo.
 - [ ] Venta libre en el POS y registro de otros ingresos (entran como filtros de R1).
 - [ ] (Idea) Cotizaciones y deudas/fiados.
 - [ ] (⏸ solo si el contador lo pide) Reporte de IVA con prorrateo (Art. 490 ET).
