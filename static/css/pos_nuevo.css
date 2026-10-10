@@ -329,3 +329,13 @@
   padding: .45rem .55rem; border: 1px solid #c8d2da; border-radius: .3rem;
   font: inherit; font-size: .9rem; resize: vertical;
 }
+
+/* ---------- Ventana "Cobrar venta" ----------
+   La regla general de app.css pone letra BLANCA a todos los botones; estos
+   botones tienen fondo claro, así que el texto no se veía. Les damos letra oscura. */
+.pos-pago-metodo {
+  color: #1f2a33; font-size: 1rem; padding: .75rem .5rem;
+}
+.pos-pago-metodo.activo { color: #0a4f8a; }
+.pos-pago-rapidos button { color: #1f2a33; font-weight: 600; }
+.pos-pago-rapidos button:hover { background: #e8f1fb; border-color: #9ec5ea; }

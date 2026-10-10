@@ -218,8 +218,8 @@
 ### 5.15 Toma de inventario (conteo físico)
 - Inventario → "📋 Toma de inventario". Ruta `/inventario/conteos/`.
 - Crear conteo (admin/DT): toda la droguería o una categoría. Solo uno abierto a la vez. Consecutivo CNT-####.
-- Contar (cualquier usuario), **sin conteo ciego**: buscador por nombre/código y lector de código de barras; cada lote muestra lo que dice el sistema y una casilla "Contado" (Enter guarda y pasa a la siguiente). Filtros: todos / pendientes / contados / con diferencia.
-- **Lote encontrado**: si un lote no está en el sistema se agrega ahí mismo (lote, vence, costo, cantidad). Así se carga el **inventario inicial** después de importar productos. Si el lote ya existía, se cuenta sobre el existente.
+- Contar (cualquier usuario), **sin conteo ciego**: **lista en orden alfabético**, una fila por lote (producto, lote, vence, sistema, casilla "Contado", diferencia). Enter guarda y pasa a la siguiente. Buscador (nombre/código/lector de barras) y filtros todos / pendientes / contados / con diferencia, fijos arriba al bajar. En el celular cada lote ocupa 3 líneas.
+- Botón general **"Producto encontrado"**: para mercancía que está en la estantería y no en el sistema. Se busca el producto (o se escanea) y se ingresa lote, vence, costo (sugerido) y cantidad. Así se carga el **inventario inicial** después de importar productos. Si el lote ya existía, se cuenta sobre el existente. Los productos sin lotes aparecen en la lista con un botón "Ingresar".
 - **Se puede vender mientras se cuenta**: al guardar se anota lo que decía el sistema en ese momento; al aplicar se SUMA la diferencia a lo que haya (no se reemplaza), así no se pierden las ventas.
 - Revisar: faltantes, sobrantes y encontrados (en unidades y a costo) + lista de lotes con existencias sin contar (esos NO se tocan al aplicar).
 - Aplicar (admin/DT): corrige todo de una vez (movimientos `ajuste` en kardex con referencia "Conteo CNT-####"), bitácora, y **Acta PDF** con firmas. Anular: sin cambios en lotes.
@@ -415,6 +415,7 @@ Notas:
 - Rediseño de la ventana "i" + ventana "Editar" encima: **104 tests pasan**.
 - Módulo **Toma de inventario** (conteo físico, inventario inicial, vender durante el conteo, acta PDF): **126 tests pasan**.
 - **Limpieza (2026-10-09):** menú por secciones (Día a día, Productos, Dinero, Consultas, Administración) y por rol (el auxiliar ya no ve enlaces que le niegan; el DT ahora ve Contabilidad y Caja menor); usos convertidos en buscador por síntoma; quitado el catálogo Tipos de pago y la tabla presentaciones_producto; aclarada salida de efectivo vs gasto; quitados avisos de "Próximamente" que estorbaban en el menú del POS; reportes reducidos de 15 a 8. **137 tests pasan**.
+- **Ajustes tras probar en Codespaces (2026-10-09):** conteo como lista alfabética, botón "Producto encontrado" en vez de "Lote encontrado", buscador fijo arriba; textos de los métodos de pago del cobro visibles (estaban en blanco sobre blanco).
 - Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → venta por presentación → panel de alertas → utilidades/estado de resultados → reportes → equipos/calibraciones → devoluciones.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 

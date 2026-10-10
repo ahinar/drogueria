@@ -58,27 +58,6 @@
 }
 .conteo-filtros button.activo { background: #0a4f8a; border-color: #0a4f8a; color: #fff; }
 
-/* Tarjeta de cada producto */
-.conteo-lista { display: flex; flex-direction: column; gap: .7rem; }
-.conteo-producto {
-  padding: .7rem .9rem; border: 1px solid #e6ebf0; border-radius: .5rem; background: #fff;
-}
-.conteo-producto-cab {
-  display: flex; justify-content: space-between; align-items: center; gap: .8rem; flex-wrap: wrap;
-  margin-bottom: .3rem;
-}
-.conteo-agregar {
-  padding: .3rem .7rem; border: 1px dashed #0a4f8a; border-radius: .35rem;
-  background: #fff; color: #0a4f8a; font-size: .82rem; cursor: pointer;
-}
-.conteo-agregar:hover { background: #e8f1fb; }
-.conteo-sin-lotes { margin: .3rem 0; font-size: .88rem; }
-
-/* Tabla de lotes */
-.conteo-tabla { width: 100%; border-collapse: collapse; font-size: .9rem; }
-.conteo-tabla th, .conteo-tabla td { padding: .35rem .45rem; border-bottom: 1px solid #f0f3f6; text-align: left; }
-.conteo-tabla th { color: #5c6b78; font-weight: 600; font-size: .78rem; }
-.conteo-tabla tr:last-child td { border-bottom: 0; }
 .num { text-align: right !important; }
 .conteo-vencido { color: #a11d1d; font-weight: 600; }
 
@@ -108,14 +87,6 @@
 }
 .conteo-quitar:hover { background: #fde8e8; color: #a11d1d; }
 
-/* Formulario de lote encontrado */
-.conteo-form-nuevo {
-  display: flex; flex-wrap: wrap; gap: .6rem; align-items: end;
-  margin-top: .6rem; padding: .7rem; border-radius: .4rem; background: #f4f8fc;
-}
-.conteo-form-nuevo label { display: flex; flex-direction: column; gap: .2rem; font-size: .78rem; font-weight: 600; margin: 0; }
-.conteo-form-nuevo input { padding: .35rem .5rem; border: 1px solid #c8d2da; border-radius: .3rem; width: 9rem; }
-.conteo-form-nuevo[hidden] { display: none; }
 
 .conteo-mas { text-align: center; margin: 1rem 0; }
 .conteo-vacio { text-align: center; padding: 2rem; }
@@ -138,18 +109,116 @@
 
 @media (max-width: 700px) {
   .conteo-nuevo { grid-template-columns: 1fr; }
-  .conteo-tabla th:nth-child(2), .conteo-tabla td:nth-child(2) { display: none; } /* oculta "Vence" en pantallas angostas */
 }
 
 /* El estilo general de .boton le gana a "hidden": lo forzamos a ocultarse */
 .conteo-mas [hidden] { display: none !important; }
 
-/* Columnas del mismo ancho en todos los productos, para que queden alineadas */
-.conteo-tabla { table-layout: fixed; }
-.conteo-tabla th:nth-child(1) { width: 26%; }   /* Lote */
-.conteo-tabla th:nth-child(2) { width: 18%; }   /* Vence */
-.conteo-tabla th:nth-child(3) { width: 12%; }   /* Sistema */
-.conteo-tabla th:nth-child(4) { width: 20%; }   /* Contado */
-.conteo-tabla th:nth-child(5) { width: 16%; }   /* Diferencia */
-.conteo-tabla th:nth-child(6) { width: 8%; }    /* Botón quitar */
-.conteo-tabla td:nth-child(4) { padding-left: 1.2rem; }
+
+/* =========================================================
+   LISTA ALFABÉTICA DEL CONTEO (una fila por lote)
+   ========================================================= */
+/* Mismas columnas para el encabezado y para cada fila */
+.cnt-encabezado,
+.cnt-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 2.6fr) minmax(0, 1.1fr) 6.5rem 4.5rem 7rem 4.5rem 2rem;
+  gap: .6rem; align-items: center;
+}
+.cnt-encabezado {
+  padding: .45rem .8rem; margin-top: .4rem;
+  font-size: .75rem; font-weight: 700; color: #5c6b78; text-transform: uppercase; letter-spacing: .03em;
+}
+.conteo-lista { gap: 0; background: #fff; border: 1px solid #e6ebf0; border-radius: .5rem; overflow: hidden; }
+.cnt-fila { padding: .45rem .8rem; border-top: 1px solid #e6ebf0; font-size: .92rem; }
+.cnt-fila:first-child { border-top: 0; }
+/* Lotes siguientes del mismo producto: sin línea fuerte, para que se vean juntos */
+.cnt-fila.cnt-mismo { border-top: 1px dashed #eef2f6; }
+.cnt-prod { min-width: 0; overflow-wrap: anywhere; }
+.cnt-etq { display: none; }             /* "Lote", "Vence", "Sistema": solo en celular */
+.cnt-contado .conteo-cantidad { width: 100%; }
+.cnt-dif { text-align: center; }
+
+/* Producto sin lotes en el sistema */
+.cnt-sin-lotes { background: #fbfcfd; }
+.cnt-sin-lotes-texto { grid-column: 2 / 6; font-size: .85rem; }
+.cnt-sin-lotes-accion { grid-column: 6 / 8; text-align: right; }
+
+/* Botones de la lista y de la ventana: letra oscura (la regla general la pone blanca) */
+.conteo-ingresar, .conteo-cambiar {
+  padding: .3rem .6rem; border: 1px solid #9ec5ea; border-radius: .35rem;
+  background: #fff; color: #0a4f8a; font-size: .82rem; cursor: pointer; white-space: nowrap;
+}
+.conteo-ingresar:hover, .conteo-cambiar:hover { background: #e8f1fb; }
+#btn-producto-encontrado { white-space: nowrap; padding: .6rem .9rem; font-size: .92rem; }
+
+/* =========================================================
+   VENTANA "PRODUCTO ENCONTRADO"
+   ========================================================= */
+#modal-producto-encontrado {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem; background: rgba(15, 23, 32, .55);
+}
+#modal-producto-encontrado .modal-caja {
+  width: 100%; max-width: 560px; max-height: 92vh; padding: 0; overflow: hidden;
+  display: flex; flex-direction: column; border-radius: .5rem; background: #fff;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, .35);
+}
+.cnt-modal-cuerpo { padding: 1rem 1.2rem; overflow-y: auto; }
+.cnt-modal-cuerpo label { display: flex; flex-direction: column; gap: .25rem; margin: 0 0 .7rem;
+  font-size: .85rem; font-weight: 600; color: #1f2a33; }
+.cnt-modal-cuerpo input { padding: .5rem .6rem; border: 1px solid #c8d2da; border-radius: .35rem;
+  font-size: 1rem; margin: 0; width: 100%; box-sizing: border-box; }
+.cnt-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 .8rem; }
+.cnt-sugerencias { display: flex; flex-direction: column; gap: .25rem; margin: -.3rem 0 .7rem; }
+.cnt-sugerencias:empty { display: none; }
+.cnt-sugerencias button {
+  text-align: left; padding: .5rem .6rem; border: 1px solid #e6ebf0; border-radius: .35rem;
+  background: #fff; color: #1f2a33; font-size: .9rem;
+}
+.cnt-sugerencias button:hover { background: #e8f1fb; }
+.cnt-elegido { padding: .6rem .7rem; margin-bottom: .7rem; border-radius: .35rem; background: #e8f1fb; }
+.cnt-elegido[hidden] { display: none; }
+
+/* =========================================================
+   CELULAR: cada lote ocupa tres líneas para que nada se monte
+     1) producto
+     2) lote · vence
+     3) sistema · [contado] · diferencia · ✕
+   ========================================================= */
+@media (max-width: 760px) {
+  .cnt-encabezado { display: none; }
+  .cnt-fila {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "prod    prod    prod prod"
+      "lote    vence   vence vence"
+      "sistema contado dif  quitar";
+    gap: .3rem .6rem; padding: .6rem .7rem;
+  }
+  .cnt-prod { grid-area: prod; }
+  .cnt-lote { grid-area: lote; }
+  .cnt-vence { grid-area: vence; }
+  .cnt-sistema { grid-area: sistema; text-align: left !important; }
+  .cnt-contado { grid-area: contado; }
+  .cnt-dif { grid-area: dif; }
+  .cnt-quitar { grid-area: quitar; }
+  .cnt-mismo .cnt-prod { display: none; }        /* mismo producto: no repetir el nombre */
+  .cnt-etq { display: inline; color: #8a97a3; font-size: .8rem; }
+  .cnt-fila { font-size: .9rem; }
+  .cnt-sin-lotes { grid-template-areas: "prod prod prod prod" "texto texto accion accion"; }
+  .cnt-sin-lotes-texto { grid-area: texto; }
+  .cnt-sin-lotes-accion { grid-area: accion; }
+  #btn-producto-encontrado { flex: 1 1 100%; }
+  .cnt-modal-grid { grid-template-columns: 1fr; }
+}
+
+/* La barra de arriba (☰ · Salir) también se queda fija, mide unos 57 px.
+   El buscador se pega justo debajo de ella para que no quede escondido. */
+.conteo-buscador { top: 57px; }
+
+/* El contenedor general (.contenido) tiene overflow:auto para que las tablas
+   anchas de otras páginas se puedan desplazar; eso impide que el buscador se
+   quede fijo. Solo en la página del conteo lo dejamos normal. */
+.contenido:has(.conteo-buscador) { overflow: visible; }

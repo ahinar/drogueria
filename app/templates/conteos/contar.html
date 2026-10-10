@@ -27,6 +27,8 @@
 <!-- ===== Buscador: nombre, código o lector de código de barras ===== -->
 <div class="conteo-buscador">
   <input type="search" id="conteo-buscar" placeholder="🔍 Buscar producto o escanear código de barras…" autofocus autocomplete="off">
+  <!-- Para mercancía que está en la estantería pero no en el sistema -->
+  <button type="button" class="boton" id="btn-producto-encontrado">➕ Producto encontrado</button>
   <div class="conteo-filtros" id="conteo-filtros">
     <button type="button" data-filtro="todos" class="activo">Todos</button>
     <button type="button" data-filtro="pendientes">Pendientes</button>
@@ -35,7 +37,11 @@
   </div>
 </div>
 
-<!-- ===== Aquí JS dibuja los productos con sus lotes ===== -->
+<!-- ===== Lista alfabética: una fila por lote. JS la dibuja (conteo.js) ===== -->
+<div class="cnt-encabezado" aria-hidden="true">
+  <span>Producto</span><span>Lote</span><span>Vence</span><span class="num">Sistema</span>
+  <span>Contado</span><span>Dif.</span><span></span>
+</div>
 <div id="conteo-lista" class="conteo-lista"><p class="suave">Cargando…</p></div>
 <div class="conteo-mas"><button type="button" class="boton secundario" id="conteo-mas" hidden>Cargar más productos</button></div>
 
@@ -43,6 +49,49 @@
 <input type="hidden" id="url-buscar" value="{{ url_for('conteos.api_buscar', conteo_id=conteo['id']) }}">
 <input type="hidden" id="url-contar" value="{{ url_for('conteos.api_contar', conteo_id=conteo['id']) }}">
 <input type="hidden" id="url-quitar" value="{{ url_for('conteos.api_quitar', conteo_id=conteo['id']) }}">
+{% endblock %}
+
+{% block modales %}
+<!-- =====================================================================
+     VENTANA "PRODUCTO ENCONTRADO"
+     Para registrar mercancía que está en la estantería y no en el sistema
+     (así se carga el inventario inicial). Si el lote ya existe, se cuenta
+     sobre el lote existente.
+     ===================================================================== -->
+<div id="modal-producto-encontrado" class="modal-oculto">
+  <div class="modal-caja cnt-modal">
+    <div class="info-barra">
+      <h2>➕ Producto encontrado</h2>
+      <button type="button" class="info-cerrar" id="pe-cerrar" aria-label="Cerrar">✕</button>
+    </div>
+    <form id="form-producto-encontrado" class="cnt-modal-cuerpo" autocomplete="off">
+      <!-- 1. Elegir el producto (buscador con sugerencias) -->
+      <label>Producto *
+        <input type="search" id="pe-buscar" placeholder="Nombre, código o escanear…">
+      </label>
+      <div id="pe-sugerencias" class="cnt-sugerencias"></div>
+      <div id="pe-elegido" class="cnt-elegido" hidden></div>
+      <input type="hidden" name="producto_id" id="pe-producto-id">
+
+      <!-- 2. Datos del lote -->
+      <div class="cnt-modal-grid">
+        <label><span id="pe-lote-etiqueta">Lote</span>
+          <input type="text" name="lote" id="pe-lote" maxlength="40"></label>
+        <label><span id="pe-vence-etiqueta">Vence</span>
+          <input type="date" name="vencimiento" id="pe-vence"></label>
+        <label>Costo unitario *
+          <input type="text" inputmode="decimal" name="costo" id="pe-costo" required></label>
+        <label>Cantidad contada *
+          <input type="text" inputmode="decimal" name="cantidad" id="pe-cantidad" required></label>
+      </div>
+      <p id="pe-error" class="editar-error" hidden></p>
+    </form>
+    <div class="info-pie">
+      <button type="button" class="boton" id="pe-guardar">Guardar</button>
+      <button type="button" class="boton secundario" id="pe-cancelar">Cancelar</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts_extra %}
