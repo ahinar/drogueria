@@ -231,12 +231,6 @@
     '</div>';
   }
 
-  // Botón debajo de los lotes de un producto que maneja vencimiento
-  function filaAgregarLote(p) {
-    return '<div class="cnt-agregar" data-producto="' + p.id + '">' +
-      '<button type="button" class="conteo-agregar-lote" data-agregar="' + p.id + '">+ Agregar lote</button></div>';
-  }
-
   // Lista vacía: si se buscó algo que no existe, ofrecer crearlo
   function pintarVacio() {
     const q = buscador.value.trim();
@@ -256,7 +250,6 @@
       let html = p.lotes.length
         ? p.lotes.map((l, i) => filaLote(p, l, i === 0)).join('')
         : filaNuevoLote(p, true, true);          // en 0: una línea lista para contar
-      if (p.maneja_vencimiento) html += filaAgregarLote(p);
       return html;
     }).join('');
   }
@@ -374,16 +367,6 @@
 
   // Quitar lo contado / ingresar un producto sin lotes
   lista.addEventListener('click', async (e) => {
-    const agregar = e.target.closest('[data-agregar]');
-    if (agregar) {
-      // Se agrega una línea nueva justo encima del botón y se va a la casilla Lote
-      const p = productos.find((x) => x.id === +agregar.dataset.agregar);
-      agregar.closest('.cnt-agregar').insertAdjacentHTML('beforebegin', filaNuevoLote(p, false, false));
-      const nueva = agregar.closest('.cnt-agregar').previousElementSibling;
-      const primero = nueva.querySelector('input:not([type=hidden])');
-      if (primero) primero.focus();
-      return;
-    }
     const quitarNueva = e.target.closest('.conteo-quitar-nueva');
     if (quitarNueva) {
       const fila = quitarNueva.closest('.cnt-fila');
@@ -467,11 +450,10 @@
       if (!json.ok) { mostrarErrorCP(json.error || 'No se pudo crear.'); return; }
       aviso('Producto creado: ' + json.nombre);
       modalCP.classList.add('modal-oculto');
-      // Se busca por su código para que quede solo él en la lista, listo para contar
-      buscador.value = json.codigo;
-      await buscar(false);
-      const casilla = lista.querySelector('.cnt-fila-nueva input:not([type=hidden])');
-      if (casilla) casilla.focus();
+      // Se busca con todos sus datos (paquete, vencimiento, costo) y se abre
+      // "Agregar" con él ya elegido: falta lote, vencimiento y cantidad
+      const r = await pedirJSON(URL_BUSCAR + '?q=' + encodeURIComponent(json.codigo) + '&filtro=todos');
+      abrirAgregar(r.productos.find((x) => x.id === json.id) || null);
     } catch (e) {
       mostrarErrorCP('Error de conexión: ' + e.message);
     } finally {
@@ -485,6 +467,156 @@
   modalCP.addEventListener('click', (e) => { if (e.target === modalCP) cerrarCrearProducto(); });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !modalCP.classList.contains('modal-oculto')) cerrarCrearProducto();
+  });
+
+  // ---------------------------------------------------------------
+  // 5b. VENTANA "AGREGAR" (un solo botón para todo lo que no está en la lista)
+  // ---------------------------------------------------------------
+  // 1) se busca el producto (o se crea uno nuevo), 2) se escribe lote,
+  // vencimiento (si maneja) y cantidad. Si se vende por Sello x 10, la
+  // cantidad va en sellos + sueltas. Se guarda con la misma dirección del
+  // conteo (si ese lote ya existe, se cuenta sobre el mismo lote).
+  const modalAG = $('modal-agregar');
+  const agBuscar = $('ag-buscar');
+  const agSug = $('ag-sugerencias');
+  let agProducto = null;
+  let agResultados = [];
+  let agEspera = null;
+
+  function errorAG(texto) { $('ag-error').textContent = texto; $('ag-error').hidden = !texto; }
+
+  function abrirAgregar(producto) {
+    $('form-agregar').reset();
+    // La fecha usa el calendario dd/mm/aaaa (ui.js): reset() no la borra, se borra a mano
+    $('ag-vence').value = '';
+    errorAG('');
+    agSug.innerHTML = '';
+    elegirAG(producto || null);
+    modalAG.classList.remove('modal-oculto');
+    (producto ? ($('ag-lote').offsetParent ? $('ag-lote') : $('ag-paq')) : agBuscar).focus();
+  }
+  function cerrarAgregar() { modalAG.classList.add('modal-oculto'); buscador.focus(); }
+
+  // Deja el producto elegido y muestra solo los campos que necesita
+  function elegirAG(p) {
+    agProducto = p;
+    $('ag-producto-id').value = p ? p.id : '';
+    agBuscar.hidden = !!p;
+    agSug.innerHTML = '';
+    $('ag-elegido').hidden = !p;
+    $('ag-datos').hidden = !p;
+    if (!p) return;
+    $('ag-elegido').innerHTML = '<strong>' + esc(p.nombre) + (p.concentracion ? ' ' + esc(p.concentracion) : '') +
+      '</strong> <span class="suave">' + esc(p.codigo) + '</span> <button type="button" class="conteo-cambiar" id="ag-cambiar">Cambiar</button>';
+    $('ag-cambiar').addEventListener('click', () => { elegirAG(null); agBuscar.value = ''; agBuscar.focus(); });
+    // Lote y vencimiento solo si el producto los maneja
+    $('ag-campo-lote').hidden = !p.maneja_vencimiento;
+    $('ag-campo-vence').hidden = !p.maneja_vencimiento;
+    // Cantidad: en paquetes + sueltas (Sello x 10) o en unidades
+    const unidad = (p.unidad || 'unidades');
+    $('ag-etq-paq').textContent = p.paquete ? p.paquete.nombre : 'Cantidad (' + unidad.toLowerCase() + ')';
+    $('ag-campo-sueltas').hidden = !p.paquete;
+    $('ag-etq-sueltas').textContent = unidad + ' sueltas';
+    // Costo: solo se pide si el producto no tiene uno conocido
+    $('ag-campo-costo').hidden = p.costo_sugerido > 0;
+    $('ag-costo').value = p.costo_sugerido > 0 ? Math.round(p.costo_sugerido * 100) / 100 : '';
+    totalAG();
+  }
+  // Debajo: "= 274 unidades" (lo que se va a guardar)
+  function numAG(id) {
+    let t = ($(id).value || '').trim();
+    if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, '');
+    return t === '' ? 0 : parseFloat(t.replace(',', '.'));
+  }
+  function totalAG() {
+    if (!agProducto) return 0;
+    const f = agProducto.paquete ? agProducto.paquete.factor : 1;
+    const total = numAG('ag-paq') * f + (agProducto.paquete ? numAG('ag-sueltas') : 0);
+    const u = (agProducto.unidad || 'unidad').toLowerCase();
+    const plural = /[aeiou]$/.test(u) ? u + 's' : u + 'es';          // tableta -> tabletas
+    $('ag-total').textContent = agProducto.paquete && total > 0 ? '= ' + cant(total) + ' ' + (total === 1 ? u : plural) : '';
+    return total;
+  }
+  $('ag-paq').addEventListener('input', totalAG);
+  $('ag-sueltas').addEventListener('input', totalAG);
+
+  // Sugerencias mientras se escribe (incluye productos en 0) + crear uno nuevo
+  async function sugerirAG() {
+    const q = agBuscar.value.trim();
+    if (q.length < 2) { agSug.innerHTML = ''; return; }
+    const json = await pedirJSON(URL_BUSCAR + '?q=' + encodeURIComponent(q) + '&filtro=todos');
+    agResultados = json.productos.slice(0, 8);
+    if (json.exacto && agResultados.length === 1) { elegirAG(agResultados[0]); abrirAgregarFoco(); return; }
+    agSug.innerHTML = agResultados.map((p) => '<button type="button" data-elegir="' + p.id + '">' + esc(p.nombre) +
+        (p.concentracion ? ' ' + esc(p.concentracion) : '') + ' <span class="suave">' + esc(p.codigo) +
+        (p.lotes.length ? '' : ' · en 0') + '</span></button>').join('') +
+      '<button type="button" class="cnt-crear-nuevo" data-crear="1">+ No está: crear producto "' + esc(q) + '"</button>';
+  }
+  function abrirAgregarFoco() {
+    const primero = [...modalAG.querySelectorAll('#ag-datos input:not([type=hidden])')].find((i) => i.offsetParent);
+    if (primero) primero.focus();
+  }
+  agBuscar.addEventListener('input', () => { clearTimeout(agEspera); agEspera = setTimeout(sugerirAG, 250); });
+  agBuscar.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); clearTimeout(agEspera); sugerirAG(); }
+  });
+  agSug.addEventListener('click', (e) => {
+    if (e.target.closest('[data-crear]')) {
+      modalAG.classList.add('modal-oculto');
+      abrirCrearProducto(agBuscar.value.trim());
+      return;
+    }
+    const b = e.target.closest('[data-elegir]');
+    if (b) { elegirAG(agResultados.find((p) => p.id === +b.dataset.elegir)); abrirAgregarFoco(); }
+  });
+
+  async function guardarAgregar() {
+    errorAG('');
+    if (!agProducto) { errorAG('Primero busca y elige el producto.'); agBuscar.focus(); return; }
+    if (agProducto.maneja_vencimiento && (!$('ag-lote').value.trim() || !$('ag-vence').value)) {
+      errorAG('Escribe el lote y la fecha de vencimiento.'); return;
+    }
+    const total = totalAG();
+    if (!(total > 0)) { errorAG('Escribe la cantidad encontrada.'); return; }
+    const datos = new FormData();
+    datos.append('producto_id', agProducto.id);
+    if (agProducto.maneja_vencimiento) {          // sin vencimiento: "Sin lote"
+      datos.append('lote', $('ag-lote').value.trim());
+      datos.append('vencimiento', $('ag-vence').value);
+    }
+    datos.append('cantidad', String(total));
+    if ($('ag-costo').value.trim()) datos.append('costo', $('ag-costo').value.trim());
+    $('ag-guardar').disabled = true;
+    try {
+      const json = await enviarConteo(datos);
+      if (!json.ok) { errorAG(json.error || 'No se pudo guardar.'); return; }
+      aviso('Guardado: ' + agProducto.nombre);
+      // La lista muestra ese producto, con el lote recién anotado
+      buscador.value = agProducto.codigo;
+      cerrarAgregar();
+      buscar(false);
+    } catch (e) {
+      errorAG('Error de conexión: ' + e.message);
+    } finally {
+      $('ag-guardar').disabled = false;
+    }
+  }
+
+  $('btn-agregar').addEventListener('click', () => abrirAgregar(null));
+  $('ag-guardar').addEventListener('click', guardarAgregar);
+  $('ag-cancelar').addEventListener('click', cerrarAgregar);
+  $('ag-cerrar').addEventListener('click', cerrarAgregar);
+  modalAG.addEventListener('click', (e) => { if (e.target === modalAG) cerrarAgregar(); });
+  // Enter en los datos = pasar a la siguiente casilla; en la última, Guardar
+  $('form-agregar').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.target === agBuscar) return;
+    e.preventDefault();
+    const campos = [...modalAG.querySelectorAll('#ag-datos input:not([type=hidden])')].filter((i) => i.offsetParent);
+    const sig = campos[campos.indexOf(e.target) + 1];
+    if (sig) sig.focus(); else guardarAgregar();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modalAG.classList.contains('modal-oculto')) cerrarAgregar();
   });
 
   // ---------------------------------------------------------------

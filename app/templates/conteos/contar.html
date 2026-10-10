@@ -22,12 +22,13 @@
 </div>
 
 <p class="conteo-ayuda"><span class="ico-emoji">💡</span> Escribe la cantidad <strong>apenas termines de contar cada lote</strong> y presiona Enter.
-  ¿Encontraste un lote que no está? Toca <strong>+ Agregar lote</strong> debajo del producto.
-  ¿Un producto en 0 o que no existe? <strong>Búscalo</strong> arriba (nombre o lector de código de barras).</p>
+  ¿Encontraste algo que no está en la lista (otro lote, un producto en 0 o uno que no existe)? Toca <strong>+ Agregar</strong>.</p>
 
 <!-- ===== Buscador: nombre, código o lector de código de barras ===== -->
 <div class="conteo-buscador">
   <input type="search" id="conteo-buscar" placeholder="🔍 Buscar producto o escanear código de barras…" autofocus autocomplete="off">
+  <!-- UN solo botón para todo lo que no está en la lista: otro lote, un producto en 0 o uno nuevo -->
+  <button type="button" class="boton" id="btn-agregar"><span class="ico-emoji">➕</span> Agregar</button>
   <div class="conteo-filtros" id="conteo-filtros">
     <button type="button" data-filtro="todos" class="activo">Todos</button>
     <button type="button" data-filtro="pendientes">Pendientes</button>
@@ -51,6 +52,53 @@
 {% endblock %}
 
 {% block modales %}
+<!-- =====================================================================
+     VENTANA "AGREGAR" (un solo botón, pedido de Fernando)
+     Para lo que se encontró en la estantería y no está en la lista:
+       - otro lote de un producto que ya tiene existencias
+       - un producto que existe pero está en 0
+       - un producto que no existe -> "Crear producto nuevo" (ventana de abajo)
+     Se escribe: producto, lote, vencimiento (si maneja) y cantidad.
+     ===================================================================== -->
+<div id="modal-agregar" class="modal-oculto">
+  <div class="modal-caja cnt-modal">
+    <div class="info-barra">
+      <h2><span class="ico-emoji">➕</span> Agregar al conteo</h2>
+      <button type="button" class="info-cerrar" id="ag-cerrar" aria-label="Cerrar">✕</button>
+    </div>
+    <form id="form-agregar" class="cnt-modal-cuerpo" autocomplete="off">
+      <!-- 1. Producto: buscar (nombre, código o lector) o crear uno nuevo -->
+      <label>Producto *
+        <input type="search" id="ag-buscar" placeholder="Nombre, código o escanear…"></label>
+      <div id="ag-sugerencias" class="cnt-sugerencias"></div>
+      <div id="ag-elegido" class="cnt-elegido" hidden></div>
+      <input type="hidden" name="producto_id" id="ag-producto-id">
+
+      <!-- 2. Lote, vencimiento y cantidad (se muestran al elegir el producto) -->
+      <div id="ag-datos" hidden>
+        <div class="cnt-modal-grid">
+          <label id="ag-campo-lote">Lote *
+            <input type="text" name="lote" id="ag-lote" maxlength="40"></label>
+          <label id="ag-campo-vence">Vence *
+            <input type="date" name="vencimiento" id="ag-vence"></label>
+          <label><span id="ag-etq-paq">Cantidad</span> *
+            <input type="text" inputmode="decimal" id="ag-paq"></label>
+          <label id="ag-campo-sueltas"><span id="ag-etq-sueltas">Unidades sueltas</span>
+            <input type="text" inputmode="decimal" id="ag-sueltas" placeholder="0"></label>
+          <label id="ag-campo-costo">Costo de 1 unidad *
+            <input type="text" inputmode="decimal" name="costo" id="ag-costo"></label>
+        </div>
+        <p class="suave" id="ag-total" style="margin:0"></p>
+      </div>
+      <p id="ag-error" class="editar-error" hidden></p>
+    </form>
+    <div class="info-pie">
+      <button type="button" class="boton" id="ag-guardar">Guardar</button>
+      <button type="button" class="boton secundario" id="ag-cancelar">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- =====================================================================
      VENTANA "CREAR PRODUCTO"
      Cuando en la estantería aparece algo que NO existe en el sistema.

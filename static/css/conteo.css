@@ -155,12 +155,12 @@
 /* =========================================================
    VENTANA "PRODUCTO ENCONTRADO"
    ========================================================= */
-#modal-crear-producto {
+#modal-crear-producto, #modal-agregar {
   position: fixed; inset: 0; z-index: 10000;
   display: flex; align-items: center; justify-content: center;
   padding: 1rem; background: rgba(15, 23, 32, .55);
 }
-#modal-crear-producto .modal-caja {
+#modal-crear-producto .modal-caja, #modal-agregar .modal-caja {
   width: 100%; max-width: 560px; max-height: 92vh; padding: 0; overflow: hidden;
   display: flex; flex-direction: column; border-radius: .5rem; background: #fff;
   box-shadow: 0 20px 50px rgba(0, 0, 0, .35);
@@ -249,3 +249,5 @@
 .cnt-modal-cuerpo label.check-linea { justify-content: flex-start; }
 .cnt-modal-cuerpo input[type=checkbox] { width: auto; flex: 0 0 auto; }
 .cnt-fila-nueva .cnt-vence input:not([type=hidden]) { font-size: .82rem; padding: .3rem .3rem; }
+.cnt-sugerencias .cnt-crear-nuevo { color: #1f7a5c; font-weight: 600; border-top: 1px dashed #c9d6d1; }
+#btn-agregar { white-space: nowrap; }
