@@ -2710,3 +2710,16 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 .form-tabs [hidden] { display: none !important; }
 .avanzado-unidad > summary { cursor: pointer; color: var(--texto-suave, #5b6b66); padding: .3rem 0; }
 #resumen-venta { background: var(--fondo-suave, #eef6f3); border-left: 4px solid var(--primario, #1f7a5c); padding: .5rem .8rem; }
+
+/* Ficha del producto: "Precio de venta $ [4.000] por [SELLO X 10 ▾] [+]" (como Odoo) */
+.precio-por { display: grid; grid-template-columns: max-content 1fr; gap: .5rem .9rem; align-items: center; max-width: 640px; }
+.precio-por > label { margin: 0; font-weight: 600; }
+.precio-por-fila { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; }
+.precio-por-fila input[type=text] { max-width: 150px; }
+.precio-por-signo { color: var(--texto-suave, #5b6b66); }
+.precio-por-texto { color: var(--texto-suave, #5b6b66); }
+.precio-por-unidad { flex: 1; min-width: 180px; }
+@media (max-width: 560px) {
+  .precio-por { grid-template-columns: 1fr; gap: .2rem; }
+  .precio-por-fila input[type=text] { max-width: 120px; }
+}

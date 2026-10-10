@@ -148,14 +148,18 @@
        El servidor traduce estos campos en app/productos.py -> _traducir_venta(). #}
     <fieldset>
       <legend>Venta y precios</legend>
-      <p class="suave" style="margin-top:0">Primero escribe <strong>cómo lo vendes normalmente</strong> y a qué precio.
-        Ej: Ibuprofeno → <strong>Sello x 10</strong> a <strong>$4.000</strong>. Si es un frasco o una crema, escoge <strong>Frasco</strong> o <strong>Unidad</strong>.</p>
-
-      <div class="grid-3-compact">
-        <label>Unidad de venta *
-          <div class="campo-con-boton">
-            <select name="venta_unidad_id" id="venta_unidad" class="sel-unidad" required>
-              <option value="">— Seleccionar —</option>
+      {# Como en Odoo (captura de Fernando): "Precio de venta $4.000 por SELLO X 10".
+         El costo va por la MISMA unidad de venta (lo que cuesta el sello, no la pasta). #}
+      <div class="precio-por">
+        <label for="venta_precio"><span>Precio de venta *</span></label>
+        <div class="precio-por-fila">
+          <span class="precio-por-signo">$</span>
+          <input type="text" inputmode="decimal" name="venta_precio" id="venta_precio" required placeholder="4.000"
+            value="{{ '%g' % venta['precio'] if venta['precio'] != '' else '' }}">
+          <span class="precio-por-texto">por</span>
+          <div class="campo-con-boton precio-por-unidad">
+            <select name="venta_unidad_id" id="venta_unidad" class="sel-unidad" required aria-label="Unidad de venta">
+              <option value="">— Unidad de venta —</option>
               {% for u in unidades %}
               <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}" {% if venta['unidad_id']==u['id'] %}selected{% endif %}>
                 {{ u['nombre'] }}</option>
@@ -164,25 +168,29 @@
             <button type="button" class="btn-mas" data-tipo="unidad" data-select="venta_unidad"
               title="Crear nueva unidad de medida">+</button>
           </div>
-          <small class="suave">Lo que el POS vende al tocar el producto. ¿Sello x 7? Créalo con el +.</small>
-        </label>
-        <label><span id="etiqueta-precio">Precio de venta</span> *
-          <input type="text" inputmode="decimal" name="venta_precio" id="venta_precio" required
-            value="{{ '%g' % venta['precio'] if venta['precio'] != '' else '' }}">
-        </label>
-        {# Cuántas unidades mínimas trae la unidad de venta. Se llena solo con la
-           unidad de medida (Sello x 10 -> 10) pero se puede corregir. #}
-        <label id="campo-trae">¿Cuántas <span class="nombre-unidad-min">unidades</span> trae?
-          <input type="text" inputmode="decimal" name="venta_trae" id="venta_trae"
-            value="{{ '%g' % venta['factor'] if venta['factor'] > 1 else '' }}">
-        </label>
-      </div>
+        </div>
 
-      <div class="grid-3-compact">
-        <label><span id="etiqueta-costo">Costo (opcional)</span>
-          <input type="text" inputmode="decimal" name="venta_costo" id="venta_costo"
+        <label for="venta_costo"><span>Costo</span></label>
+        <div class="precio-por-fila">
+          <span class="precio-por-signo">$</span>
+          <input type="text" inputmode="decimal" name="venta_costo" id="venta_costo" placeholder="opcional"
             value="{{ '%g' % venta['costo'] if venta['costo'] != '' else '' }}">
-        </label>
+          <span class="precio-por-texto">por <strong id="costo-por">la unidad de venta</strong></span>
+        </div>
+
+        {# Cuántas unidades mínimas trae la unidad de venta. Se llena solo con el
+           nombre de la unidad ("SELLO X 10" -> 10). Solo se muestra si el nombre
+           no lo dice (ej. "Sello" a secas), o para corregirlo. #}
+        <label for="venta_trae" id="etiqueta-trae"><span>¿Cuántas trae?</span></label>
+        <div class="precio-por-fila" id="campo-trae">
+          <input type="text" inputmode="decimal" name="venta_trae" id="venta_trae" style="max-width:110px"
+            value="{{ '%g' % venta['factor'] if venta['factor'] > 1 else '' }}">
+          <span class="precio-por-texto"><span class="nombre-unidad-min">unidades</span></span>
+        </div>
+      </div>
+      <small class="suave">El POS vende por esta unidad al tocar el producto. ¿No está "SELLO X 7"? Créala con el <strong>+</strong>.</small>
+
+      <div class="grid-3-compact" style="margin-top:.6rem">
         <label>Margen deseado (%)
           <input type="number" step="0.1" id="margen" value="30">
         </label>
@@ -572,9 +580,13 @@
       // Nombres que aparecen en las etiquetas
       document.querySelectorAll('.nombre-unidad-min').forEach(function (s) { s.textContent = base.toLowerCase(); });
       document.getElementById('nombre-base').textContent = base;
-      document.getElementById('etiqueta-precio').textContent = venta ? 'Precio de 1 ' + venta : 'Precio de venta';
-      document.getElementById('etiqueta-costo').textContent = venta ? 'Costo de 1 ' + venta + ' (opcional)' : 'Costo (opcional)';
-      document.getElementById('campo-trae').hidden = !conPresentacion;
+      document.getElementById('costo-por').textContent = venta || 'la unidad de venta';
+      // "¿Cuántas trae?" solo se pide si el nombre de la unidad no lo dice
+      // (ej. "Sello" a secas). "SELLO X 10" ya trae 10: no hay que preguntar.
+      const baseCant = cantidadDe(unidadSel) || 1;
+      const pedirTrae = conPresentacion && (cantidadDe(selVenta) / baseCant <= 1 || numero(inpTrae.value) !== cantidadDe(selVenta) / baseCant);
+      document.getElementById('campo-trae').hidden = !pedirTrae;
+      document.getElementById('etiqueta-trae').hidden = !pedirTrae;
       inpTrae.required = conPresentacion;
 
       // ¿Se vende suelto? solo si la unidad de venta trae más de 1

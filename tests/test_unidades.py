@@ -362,7 +362,8 @@ class TestFichaPorUnidadDeVenta(BaseVentas):
     def test_editar_muestra_el_sello_arriba_y_no_lo_duplica(self):
         p = self.crear()
         html = self.c.get(f"/productos/{p['id']}/editar").get_data(as_text=True)
-        self.assertIn('name="venta_precio" id="venta_precio" required\n            value="4000"', html)
+        import re
+        self.assertRegex(html, r'id="venta_precio"[^>]*value="4000"')   # precio del sello arriba
         self.assertNotIn('name="pres_factor" class="pres-factor" value="10"', html)   # no está abajo también
         # Guardar otra vez sin cambiar nada deja todo igual
         self.post(self.c, f"/productos/{p['id']}/editar", {
