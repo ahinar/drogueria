@@ -104,6 +104,21 @@ def _base_grande(producto):
     return {"nombre": u["nombre"], "cantidad": cantidad} if cantidad > 1 else None
 
 
+def _vecinos(prod_id):
+    """Para las flechas ‹ › de la ficha (como Odoo): el producto anterior y el
+    siguiente en orden alfabético (el mismo de la lista), y en qué puesto va.
+    Devuelve {anterior, siguiente, posicion, total}.
+    """
+    ids = [f["id"] for f in get_db().execute(
+        "SELECT id FROM productos WHERE activo = 1 ORDER BY nombre COLLATE NOCASE, id").fetchall()]
+    if prod_id not in ids:
+        return None
+    i = ids.index(prod_id)
+    return {"anterior": ids[i - 1] if i > 0 else None,
+            "siguiente": ids[i + 1] if i + 1 < len(ids) else None,
+            "posicion": i + 1, "total": len(ids)}
+
+
 def _contexto_formulario(producto=None):
     venta = _venta_de(producto)
     return {
@@ -129,6 +144,7 @@ def _contexto_formulario(producto=None):
         # Si ya tiene existencias o movimientos, la unidad de inventario queda bloqueada
         "unidad_bloqueada": pres.tiene_historia(get_db(), producto["id"]) if producto else False,
         "producto": producto,
+        "vecinos": _vecinos(producto["id"]) if producto else None,
     }
 
 
@@ -523,6 +539,13 @@ def editar(prod_id):
                 registrar("producto_editado", "productos", prod_id,
                           f"código={datos['codigo']}{texto_pres}")
                 flash("Producto actualizado.", "ok")
+                # "Guardar y siguiente →": pasa al próximo producto (para editar muchos seguidos)
+                if request.form.get("_despues") == "siguiente":
+                    vec = _vecinos(prod_id)
+                    if vec and vec["siguiente"]:
+                        return redirect(url_for("productos.editar", prod_id=vec["siguiente"]))
+                if request.form.get("_despues") == "quedarse":
+                    return redirect(url_for("productos.editar", prod_id=prod_id))
                 return redirect(url_for("productos.lista"))
             except sqlite3.IntegrityError:
                 errores.append("Ya existe otro producto con ese código.")

@@ -562,3 +562,23 @@ class TestProductoContadoEnSellos(TestFichaPorUnidadDeVenta):
         p = self.uno("SELECT * FROM productos WHERE id = 1")
         self.assertEqual((p["unidad_venta_id"], p["venta_defecto_unidad_id"], p["precio_venta"], p["vende_suelto"]),
                          (self.unidad, self.sello, 160, 1))
+
+
+class TestFlechasDeLaFicha(BaseUnidades):
+    def test_anterior_siguiente_y_guardar_y_siguiente(self):
+        con = self.db()
+        nombres = [r["nombre"] for r in con.execute(
+            "SELECT nombre FROM productos WHERE activo = 1 ORDER BY nombre COLLATE NOCASE, id")]
+        ids = [r["id"] for r in con.execute(
+            "SELECT id FROM productos WHERE activo = 1 ORDER BY nombre COLLATE NOCASE, id")]
+        con.close()
+        primero = ids[0]
+        html = self.c.get(f"/productos/{primero}/editar").get_data(as_text=True)
+        self.assertIn(f"1 / {len(ids)}", html)
+        if len(ids) > 1:
+            self.assertIn(f'href="/productos/{ids[1]}/editar"', html)
+        r = self.post(self.c, "/productos/1/editar", {
+            "codigo": "P00001", "nombre": "Acetaminofén 500 mg", "iva_tipo": "excluido",
+            "precio_venta": "200", "unidad_venta_id": str(self.u["Tableta"]), "_despues": "siguiente"})
+        vec_ids = [r2 for r2 in ids]
+        self.assertIn("/editar", r.headers["Location"])

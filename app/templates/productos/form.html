@@ -1,7 +1,21 @@
 {% extends "base.html" %}
 {% block titulo %}{{ 'Editar producto' if producto else 'Nuevo producto' }}{% endblock %}
 {% block contenido %}
-<h1>{{ 'Editar producto' if producto else 'Nuevo producto' }}</h1>
+{# Encabezado con las flechas ‹ › para pasar de un producto a otro (como Odoo).
+   Orden alfabético, igual que la lista. Atajos: Alt + ← y Alt + →.
+   Si hay cambios sin guardar, pregunta antes de salir. #}
+<div class="ficha-encabezado">
+  <h1>{{ 'Editar producto' if producto else 'Nuevo producto' }}</h1>
+  {% if vecinos %}
+  <nav class="ficha-flechas" aria-label="Pasar de producto">
+    <span class="suave">{{ vecinos.posicion }} / {{ vecinos.total }}</span>
+    {% if vecinos.anterior %}<a class="boton secundario flecha" id="prod-anterior" href="{{ url_for('productos.editar', prod_id=vecinos.anterior) }}" title="Producto anterior (Alt + ←)">‹</a>
+    {% else %}<span class="boton secundario flecha deshabilitada">‹</span>{% endif %}
+    {% if vecinos.siguiente %}<a class="boton secundario flecha" id="prod-siguiente" href="{{ url_for('productos.editar', prod_id=vecinos.siguiente) }}" title="Producto siguiente (Alt + →)">›</a>
+    {% else %}<span class="boton secundario flecha deshabilitada">›</span>{% endif %}
+  </nav>
+  {% endif %}
+</div>
 
 
 <form method="post" class="formulario form-tabs" enctype="multipart/form-data" autocomplete="off">
@@ -442,6 +456,10 @@
 
   <div class="acciones acciones-form">
     <button type="submit"><span class="ico-emoji">💾</span> Guardar</button>
+    {% if vecinos and vecinos.siguiente %}
+    {# Guarda y abre el siguiente producto: para revisar muchos seguidos #}
+    <button type="submit" name="_despues" value="siguiente" class="boton secundario">Guardar y siguiente ›</button>
+    {% endif %}
     <a class="boton secundario" href="{{ url_for('productos.lista') }}">Cancelar</a>
   </div>
 </form>
@@ -858,6 +876,28 @@
         modalGuardar.disabled = false;
         modalGuardar.textContent = 'Guardar';
       }
+    });
+
+    // ===== Flechas ‹ ›: avisar si hay cambios sin guardar =====
+    const formFicha = document.querySelector('form.form-tabs');
+    let hayCambios = false;
+    formFicha.addEventListener('input', function () { hayCambios = true; });
+    formFicha.addEventListener('change', function (e) { if (e.isTrusted) hayCambios = true; });
+    formFicha.addEventListener('submit', function () { hayCambios = false; });
+    async function irA(enlace) {
+      if (!enlace) return;
+      if (hayCambios && !(await window.confirmar('Tienes cambios sin guardar en este producto. ¿Salir sin guardar?'))) return;
+      hayCambios = false;
+      window.location = enlace.href;
+    }
+    document.querySelectorAll('.ficha-flechas a.flecha').forEach(function (a) {
+      a.addEventListener('click', function (e) { e.preventDefault(); irA(a); });
+    });
+    // Atajos de teclado: Alt + ← (anterior) y Alt + → (siguiente)
+    document.addEventListener('keydown', function (e) {
+      if (!e.altKey) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); irA(document.getElementById('prod-anterior')); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); irA(document.getElementById('prod-siguiente')); }
     });
 
     // ===== Preview de imagen del producto =====
