@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block titulo %}Recepción {{ rec['numero'] }}{% endblock %}
 {% block contenido %}
-<h1>📦 Recepción {{ rec['numero'] }}</h1>
+<h1><span class="ico-emoji">📦</span> Recepción {{ rec['numero'] }}</h1>
 
 <div class="rece-acciones">
   <a class="boton secundario" href="{{ url_for('recepciones.lista') }}">← Volver</a>

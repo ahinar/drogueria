@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block titulo %}Lote · {{ lote['producto_nombre'] }}{% endblock %}
 {% block contenido %}
-<h1>🗃️ Lote de {{ lote['producto_nombre'] }}</h1>
+<h1><span class="ico-emoji">🗃️</span> Lote de {{ lote['producto_nombre'] }}</h1>
 
 <div class="rece-acciones">
   <a class="boton secundario" href="{{ url_for('inventario.lotes') }}">← Volver</a>

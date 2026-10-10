@@ -4,7 +4,7 @@
 {% block titulo %}Ventas vs compras{% endblock %}
 {% block reporte %}
 {# R4 · VENTAS VS COMPRAS. d = informes.ventas_vs_compras() #}
-<h1>⚖️ Ventas vs compras</h1>
+<h1><span class="ico-emoji">⚖️</span> Ventas vs compras</h1>
 <p class="suave">Últimos 12 meses. <strong>Vendido</strong> = ventas sin IVA. <strong>Comprado</strong> = mercancía recibida
   y aprobada en recepción técnica, al costo.</p>
 <p class="no-imprimir"><button type="button" class="boton secundario" onclick="window.print()">🖨️ Imprimir</button></p>
@@ -41,12 +41,14 @@
 <script>
 // Dos barras por mes: vendido (azul) y comprado (naranja)
 (function () {
+  // Color del tema elegido (Verde, Azul o Clásico), leído de temas.css
+  const colorTema = getComputedStyle(document.documentElement).getPropertyValue('--acento').trim() || '#0a4f8a';
   const filas = JSON.parse(document.getElementById('datos-vc').textContent);
   const pesos = (v) => '$' + Math.round(v).toLocaleString('es-CO');
   new Chart(document.getElementById('grafico-vc'), {
     type: 'bar',
     data: { labels: filas.map((f) => f.mes), datasets: [
-      { label: 'Vendido', data: filas.map((f) => f.vendido), backgroundColor: '#0a4f8a', borderRadius: 4 },
+      { label: 'Vendido', data: filas.map((f) => f.vendido), backgroundColor: colorTema, borderRadius: 4 },
       { label: 'Comprado', data: filas.map((f) => f.comprado), backgroundColor: '#e0892b', borderRadius: 4 },
     ] },
     options: { responsive: true, maintainAspectRatio: false,

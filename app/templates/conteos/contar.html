@@ -6,7 +6,7 @@
 <!-- ===== Encabezado del conteo ===== -->
 <div class="conteo-cabecera">
   <div>
-    <h1>📋 Conteo {{ conteo['numero'] }}</h1>
+    <h1><span class="ico-emoji">📋</span> Conteo {{ conteo['numero'] }}</h1>
     <p class="suave">{{ conteo['categoria'] or 'Toda la droguería' }}{% if conteo['descripcion'] %} · {{ conteo['descripcion'] }}{% endif %}</p>
   </div>
   <a class="boton" href="{{ url_for('conteos.revisar', conteo_id=conteo['id']) }}">Revisar diferencias →</a>

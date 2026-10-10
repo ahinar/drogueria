@@ -10,7 +10,7 @@
 
 <div class="conteo-cabecera">
   <div>
-    <h1>📋 Conteo {{ conteo['numero'] }}
+    <h1><span class="ico-emoji">📋</span> Conteo {{ conteo['numero'] }}
       <span class="conteo-estado conteo-estado-{{ conteo['estado'] }}">{{ conteo['estado']|capitalize }}</span></h1>
     <p class="suave">{{ conteo['categoria'] or 'Toda la droguería' }}{% if conteo['descripcion'] %} · {{ conteo['descripcion'] }}{% endif %}
       · creado {{ conteo['creado_en'][:16] }} por {{ conteo['creado_por_nombre'] or '—' }}

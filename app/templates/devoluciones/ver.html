@@ -5,7 +5,7 @@
 <p><a href="{{ url_for('devoluciones.lista') }}">← Devoluciones</a></p>
 <div class="eres-cabecera">
   <div>
-    <h1>↩️ Devolución {{ d.numero }}</h1>
+    <h1><span class="ico-emoji">↩️</span> Devolución {{ d.numero }}</h1>
     <p class="suave">{{ fecha(d.fecha) }} {{ d.fecha[11:16] }} · registró {{ d.usuario_nombre }} ·
       {% if d.tipo == 'cliente' %}de cliente, venta <a href="{{ url_for('pos.comprobante', venta_id=d.venta_id) }}">{{ d.venta }}</a>
       · reembolso en {{ formas.get(d.forma_reembolso, d.forma_reembolso) }}

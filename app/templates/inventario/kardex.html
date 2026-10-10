@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block titulo %}Kardex · {{ producto['nombre'] }}{% endblock %}
 {% block contenido %}
-<h1>📋 Kardex · {{ producto['codigo'] }} — {{ producto['nombre'] }}</h1>
+<h1><span class="ico-emoji">📋</span> Kardex · {{ producto['codigo'] }} — {{ producto['nombre'] }}</h1>
 
 <div class="rece-acciones">
   <a class="boton secundario" href="{{ url_for('inventario.kardex_buscar') }}">← Buscar otro</a>

@@ -4,7 +4,7 @@
 {% block titulo %}Reporte de ventas{% endblock %}
 {% block reporte %}
 {# R1 · VENTAS. d = informes.ventas(); cambios = % frente al período anterior #}
-<h1>🛒 Ventas</h1>
+<h1><span class="ico-emoji">🛒</span> Ventas</h1>
 <p class="suave"><strong>{{ per.actual.texto|capitalize }}</strong> comparado con {{ per.anterior.texto }} · las ventas anuladas no cuentan</p>
 {% include "reportes/_periodo.html" with context %}
 
@@ -76,11 +76,13 @@
 <script>
 // Gráfico de barras: una barra por día con el total vendido (con IVA)
 (function () {
+  // Color del tema elegido (Verde, Azul o Clásico), leído de temas.css
+  const colorTema = getComputedStyle(document.documentElement).getPropertyValue('--acento').trim() || '#0a4f8a';
   const valores = JSON.parse(document.getElementById('datos-ventas').textContent);
   const etiquetas = JSON.parse(document.getElementById('etiquetas-ventas').textContent);
   new Chart(document.getElementById('grafico-ventas'), {
     type: 'bar',
-    data: { labels: etiquetas, datasets: [{ label: 'Ventas del día', data: valores, backgroundColor: '#0a4f8a', borderRadius: 4 }] },
+    data: { labels: etiquetas, datasets: [{ label: 'Ventas del día', data: valores, backgroundColor: colorTema, borderRadius: 4 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false },

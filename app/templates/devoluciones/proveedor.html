@@ -8,7 +8,7 @@
 #}
 {% from "reportes/_macros.html" import pesos, cant, fecha %}
 <p><a href="{{ url_for('devoluciones.lista') }}">← Devoluciones</a></p>
-<h1>🚚 Devolución a proveedor</h1>
+<h1><span class="ico-emoji">🚚</span> Devolución a proveedor</h1>
 
 <form method="get" class="eres-filtros">
   <label>Buscar producto o lote <input type="search" name="q" value="{{ q }}" placeholder="Nombre, código, lote o código de barras"></label>

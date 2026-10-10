@@ -193,3 +193,13 @@
 .moderno .pos-carrito { order: 2; border-right: 0; border-left: 1px solid var(--borde); }
 .moderno .pos-productos { order: 1; }
 @media (max-width: 900px) { .moderno .pos-layout { grid-template-columns: 1fr; height: auto; } }
+
+/* ---------- Reportes: el menú de reportes pasa a ser pestañas arriba ---------- */
+.moderno .rep-layout { grid-template-columns: 1fr; gap: .9rem; }
+.moderno .rep-menu { position: static; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: .45rem;
+  background: transparent; border: 0; padding: 0 0 .25rem; }
+.moderno .rep-menu a { padding: .45rem .9rem; border: 1px solid var(--borde); border-radius: 999px; background: var(--superficie);
+  color: var(--texto); font-size: .88rem; flex: none; }
+.moderno .rep-menu a:hover { border-color: var(--acento-anillo); background: var(--superficie); }
+.moderno .rep-menu a.activo { color: #fff; }
+.moderno .rep-menu-titulo { display: none !important; }

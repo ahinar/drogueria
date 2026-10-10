@@ -58,7 +58,7 @@ class TestVentas(BaseReportes):
         html = self.c.get("/reportes/ventas").get_data(as_text=True)
         self.assertIn("grafico-ventas", html)
         self.assertIn("$2.000", html)
-        self.assertIn('class="activo">🛒 Ventas', html)        # el menú marca el reporte actual
+        self.assertIn('href="/reportes/ventas" class="activo"', html)   # el menú marca el reporte actual
         self.assertIn("No hay ventas", self.c.get("/reportes/ventas?mes=2020-01").get_data(as_text=True))
 
 

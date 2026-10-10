@@ -10,7 +10,7 @@
 <p><a href="{{ url_for('equipos.lista') }}">← Equipos</a></p>
 <div class="eres-cabecera">
   <div>
-    <h1>📏 {{ equipo.nombre }} <span class="equipo-estado {{ equipo.estado_color }}">{{ equipo.estado_texto }}</span></h1>
+    <h1><span class="ico-emoji">📏</span> {{ equipo.nombre }} <span class="equipo-estado {{ equipo.estado_color }}">{{ equipo.estado_texto }}</span></h1>
     <p class="suave">{{ equipo.tipo_texto }}{% if equipo.marca %} · {{ equipo.marca }}{% endif %}{% if equipo.modelo %} {{ equipo.modelo }}{% endif %}{% if equipo.serie %} · serie {{ equipo.serie }}{% endif %}
       · zona: {{ equipo.zona_nombre or 'ninguna' }} · calibrar cada {{ equipo.frecuencia_meses }} meses
       · {{ lecturas }} lectura(s) de temperatura tomadas con este equipo{% if not equipo.activo %} · <strong>dado de baja</strong>{% endif %}</p>

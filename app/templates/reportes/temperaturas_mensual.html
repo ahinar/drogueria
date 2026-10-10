@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block titulo %}Registro mensual de temperaturas{% endblock %}
 {% block contenido %}
-<h1>📅 Registro mensual de temperaturas</h1>
+<h1><span class="ico-emoji">📅</span> Registro mensual de temperaturas</h1>
 <p class="suave">Descarga la plantilla mensual de una zona en PDF. Se llena con los datos ya registrados en el sistema y deja espacios en blanco para los días faltantes.</p>
 
 <form method="get" action="{{ url_for('reportes.temperaturas_mensual_pdf') }}" class="formulario" style="max-width:600px">

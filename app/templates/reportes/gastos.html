@@ -4,7 +4,7 @@
 {% block titulo %}Reporte de gastos{% endblock %}
 {% block reporte %}
 {# R5 · GASTOS. d = informes.gastos() #}
-<h1>💸 Gastos</h1>
+<h1><span class="ico-emoji">💸</span> Gastos</h1>
 <p class="suave"><strong>{{ per.actual.texto|capitalize }}</strong> comparado con {{ per.anterior.texto }}</p>
 {% include "reportes/_periodo.html" with context %}
 

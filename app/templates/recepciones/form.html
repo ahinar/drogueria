@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block titulo %}Nueva recepción{% endblock %}
 {% block contenido %}
-<h1>📦 Nueva recepción técnica</h1>
+<h1><span class="ico-emoji">📦</span> Nueva recepción técnica</h1>
 
 <form method="post" enctype="multipart/form-data" class="form-tabs">
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">

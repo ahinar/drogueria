@@ -9,24 +9,24 @@
 {% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
 <div class="rep-layout">
   <nav class="rep-menu no-imprimir" aria-label="Reportes">
-    <a href="{{ url_for('reportes.index') }}" class="rep-menu-titulo">📊 Reportes</a>
+    <a href="{{ url_for('reportes.index') }}" class="rep-menu-titulo"><span class="ico-emoji">📊</span> Reportes</a>
     {% if jefe %}
-    <a href="{{ url_for('reportes.ventas_ver') }}" class="{{ 'activo' if reporte_activo == 'ventas' }}">🛒 Ventas</a>
-    <a href="{{ url_for('reportes.utilidades_ver') }}" class="{{ 'activo' if reporte_activo == 'utilidades' }}">📈 Utilidades</a>
-    <a href="{{ url_for('reportes.top_ver') }}" class="{{ 'activo' if reporte_activo == 'top' }}">🏆 Top productos</a>
-    <a href="{{ url_for('reportes.ventas_compras_ver') }}" class="{{ 'activo' if reporte_activo == 'ventas_compras' }}">⚖️ Ventas vs compras</a>
-    <a href="{{ url_for('reportes.gastos_ver') }}" class="{{ 'activo' if reporte_activo == 'gastos' }}">💸 Gastos</a>
-    <a href="{{ url_for('reportes.sugerido_ver') }}" class="{{ 'activo' if reporte_activo == 'sugerido' }}">📦 Sugerido de compra</a>
+    <a href="{{ url_for('reportes.ventas_ver') }}" class="{{ 'activo' if reporte_activo == 'ventas' }}"><span class="ico-emoji">🛒</span> Ventas</a>
+    <a href="{{ url_for('reportes.utilidades_ver') }}" class="{{ 'activo' if reporte_activo == 'utilidades' }}"><span class="ico-emoji">📈</span> Utilidades</a>
+    <a href="{{ url_for('reportes.top_ver') }}" class="{{ 'activo' if reporte_activo == 'top' }}"><span class="ico-emoji">🏆</span> Top productos</a>
+    <a href="{{ url_for('reportes.ventas_compras_ver') }}" class="{{ 'activo' if reporte_activo == 'ventas_compras' }}"><span class="ico-emoji">⚖️</span> Ventas vs compras</a>
+    <a href="{{ url_for('reportes.gastos_ver') }}" class="{{ 'activo' if reporte_activo == 'gastos' }}"><span class="ico-emoji">💸</span> Gastos</a>
+    <a href="{{ url_for('reportes.sugerido_ver') }}" class="{{ 'activo' if reporte_activo == 'sugerido' }}"><span class="ico-emoji">📦</span> Sugerido de compra</a>
     {% endif %}
-    <a href="{{ url_for('reportes.recepciones_ver') }}" class="{{ 'activo' if reporte_activo == 'recepciones' }}">🚚 Recepciones</a>
-    <a href="{{ url_for('reportes.vencimientos_ver') }}" class="{{ 'activo' if reporte_activo == 'vencimientos' }}">⏳ Vencimientos</a>
-    <a href="{{ url_for('reportes.temperaturas') }}">🌡️ Temperaturas</a>
+    <a href="{{ url_for('reportes.recepciones_ver') }}" class="{{ 'activo' if reporte_activo == 'recepciones' }}"><span class="ico-emoji">🚚</span> Recepciones</a>
+    <a href="{{ url_for('reportes.vencimientos_ver') }}" class="{{ 'activo' if reporte_activo == 'vencimientos' }}"><span class="ico-emoji">⏳</span> Vencimientos</a>
+    <a href="{{ url_for('reportes.temperaturas') }}"><span class="ico-emoji">🌡️</span> Temperaturas</a>
   </nav>
   <div class="rep-cuerpo">
     <!-- Descargar en Excel las tablas de este reporte (static/js/excel.js) -->
     <div class="rep-herramientas no-imprimir">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-      <button type="button" class="boton secundario" id="exportar-excel" data-url="{{ url_for('reportes.excel') }}">📥 Excel</button>
+      <button type="button" class="boton secundario" id="exportar-excel" data-url="{{ url_for('reportes.excel') }}"><span class="ico-emoji">📥</span> Excel</button>
     </div>
     {% block reporte %}{% endblock %}
   </div>

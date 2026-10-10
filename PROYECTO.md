@@ -371,7 +371,7 @@ Notas:
 - [ ] Registrar los equipos reales y subir sus certificados de calibración.
 
 ### Corto plazo
-- [~] **Parte visual — que el programa se vea más profesional** (en curso: temas, letra, íconos del menú, barra superior e Inicio ✅; faltan POS, reportes en pestañas, títulos con emoji en cada pantalla, selector de fechas propio, toasts, tirilla 80 mm) (pedido por Fernando, 2026-10-10). Propuesta:
+- [~] **Parte visual — que el programa se vea más profesional** (en curso: temas, letra, íconos del menú, barra superior, Inicio, POS con carrito a la derecha, reportes en pestañas y títulos sin emoji ✅; faltan selector de fechas propio, mensajes tipo toast, ventanas propias para Cliente/Nota del POS (hoy usan prompt del navegador), tirilla 80 mm) (pedido por Fernando, 2026-10-10). Propuesta:
   1. **Guía de estilo única:** colores de la marca Fervifarma, tipografía Inter (archivo local), tamaños y espacios en variables CSS; una página interna que muestre todos los componentes.
   2. **Unificar componentes repetidos:** un solo estilo de botón, de tabla (hoy hay `.tabla`, `.rep-tabla`, `.sug-tabla`, `.eres-tabla`…), de tarjeta y de formulario.
   3. **Íconos de verdad en vez de emojis** (juego SVG local, por ejemplo Lucide): los emojis se ven distintos en cada Windows.
@@ -485,6 +485,7 @@ Notas:
 - **Resumen y Excel (2026-10-09):** tarjetas de semana, mes y utilidad del mes en el Inicio; descarga en Excel de cualquier reporte. **249 tests pasan**.
 - **Rediseño parte 1 (2026-10-10):** temas por usuario (Verde salud, Azul, Clásico), letra IBM Plex Sans local, íconos de línea, menú y barra superior nuevos, Inicio sin accesos rápidos. Rama `antes-del-rediseno` para volver atrás. **255 tests pasan**.
 - **Rediseño parte 2 (2026-10-10):** POS con varias ventas a la vez (pestañas, botón + y F4) y carrito a la derecha en el diseño nuevo.
+- **Rediseño parte 3 (2026-10-10):** reportes con pestañas arriba (diseño nuevo), gráficos con el color del tema, títulos de página sin emoji en el diseño nuevo (en Clásico siguen).
 - Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → ~~utilidades/estado de resultados~~ ✅ → ~~reportes~~ ✅ → ~~equipos/calibraciones~~ ✅ → ~~devoluciones~~ ✅.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 
