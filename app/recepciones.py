@@ -106,12 +106,21 @@ def _laboratorios():
     ).fetchall()
 
 
+def _catalogo(tipo):
+    return get_db().execute(
+        "SELECT id, nombre FROM catalogos WHERE tipo = ? AND activo = 1 ORDER BY nombre COLLATE NOCASE",
+        (tipo,)).fetchall()
+
+
 def _contexto_form(rec=None):
     return {
         "proveedores": _proveedores(),
         "productos": _productos(),
         "unidades": _unidades(),
         "laboratorios": _laboratorios(),
+        # Para la ventana "Completar datos" de cada línea (datos técnicos del producto)
+        "principios": _catalogo("principio"),
+        "formas": _catalogo("forma_farmaceutica"),
         "estados": ESTADOS,
         "empaques": EMPAQUES,
         "resultados": RESULTADOS,
@@ -766,6 +775,60 @@ def api_crear_producto():
         })
     except sqlite3.IntegrityError:
         return jsonify({"ok": False, "error": "Ya existe un producto con ese código."}), 400
+
+
+# ---------- Completar los datos técnicos del producto desde la recepción ----------
+# Pasa mucho: llega un producto al que le falta el registro INVIMA, el
+# laboratorio o la concentración. En vez de salir a la ficha, se completan
+# aquí mismo (ventana "Completar datos" de la línea) y quedan guardados en la
+# ficha del producto. Queda en la bitácora.
+_CAMPOS_TECNICOS = ("laboratorio_id", "principio_id", "forma_farmaceutica_id",
+                    "concentracion", "registro_sanitario", "registro_vence")
+
+
+def _tecnicos_de(producto_id):
+    p = get_db().execute(
+        "SELECT p.id, p.nombre, p.laboratorio_id, p.principio_id, p.forma_farmaceutica_id, p.concentracion, "
+        "p.registro_sanitario, p.registro_vence, p.cadena_frio, p.control_especial, "
+        "(SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS laboratorio "
+        "FROM productos p WHERE p.id = ?", (producto_id,)).fetchone()
+    return dict(p) if p else None
+
+
+@bp.route("/api/producto/<int:producto_id>/tecnicos", methods=["GET", "POST"])
+@login_required
+def api_datos_tecnicos(producto_id):
+    actual = _tecnicos_de(producto_id)
+    if actual is None:
+        return jsonify({"ok": False, "error": "Ese producto no existe."}), 404
+    if request.method == "GET":
+        return jsonify({"ok": True, "producto": actual})
+    f = request.form
+    nuevos = {}
+    for campo in ("laboratorio_id", "principio_id", "forma_farmaceutica_id"):
+        v = (f.get(campo) or "").strip()
+        nuevos[campo] = int(v) if v.isdigit() else None
+    for campo in ("concentracion", "registro_sanitario"):
+        nuevos[campo] = (f.get(campo) or "").strip() or None
+    vence = (f.get("registro_vence") or "").strip()
+    if vence:
+        try:
+            datetime.strptime(vence, "%Y-%m-%d")
+        except ValueError:
+            return jsonify({"ok": False, "error": "La fecha de vencimiento del registro no es válida."}), 400
+    nuevos["registro_vence"] = vence or None
+    if (actual["cadena_frio"] or actual["control_especial"]) and not nuevos["registro_sanitario"]:
+        return jsonify({"ok": False, "error": "Este producto es de cadena de frío o control especial: "
+                                              "el registro INVIMA es obligatorio."}), 400
+    cambios = [c for c in _CAMPOS_TECNICOS if (actual[c] or None) != nuevos[c]]
+    if cambios:
+        db = get_db()
+        db.execute("UPDATE productos SET " + ", ".join(f"{c} = ?" for c in cambios) + ", actualizado_en = ? "
+                   "WHERE id = ?", [nuevos[c] for c in cambios] + [ahora(), producto_id])
+        db.commit()
+        registrar("producto_datos_tecnicos", "productos", producto_id,
+                  "desde recepción: " + ", ".join(f"{c}={nuevos[c]}" for c in cambios))
+    return jsonify({"ok": True, "producto": _tecnicos_de(producto_id), "cambios": len(cambios)})
 
 
 @bp.route("/api/crear-unidad", methods=["POST"])

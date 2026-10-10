@@ -731,3 +731,30 @@ class TestImportadorUnico(TestImportarDeOtroPrograma):
         self.subir([[None, None, "JARABE X", None, None, "Unidades", 9000, 4, 5000]], None)
         p = self.uno("SELECT * FROM productos WHERE nombre = 'JARABE X'")
         self.assertEqual((p["maneja_vencimiento"], self.stock(p["id"])), (1, 0))   # sin dato: maneja lote
+
+
+class TestCompletarDatosDesdeRecepcion(BaseUnidades):
+    def test_guardar_invima_y_laboratorio_en_la_ficha(self):
+        con = self.db()
+        lab = con.execute("INSERT INTO catalogos (tipo, nombre, activo, creado_en) VALUES ('laboratorio','Genfar',1,?)",
+                          (FECHA,)).lastrowid
+        con.commit()
+        con.close()
+        j = self.c.get("/recepciones/api/producto/1/tecnicos").get_json()
+        self.assertTrue(j["ok"])
+        j = self.post(self.c, "/recepciones/api/producto/1/tecnicos", {
+            "registro_sanitario": "INVIMA 2020M-0001", "registro_vence": "2030-01-31",
+            "laboratorio_id": str(lab), "concentracion": "500 mg"}).get_json()
+        self.assertTrue(j["ok"], j)
+        p = self.uno("SELECT * FROM productos WHERE id = 1")
+        self.assertEqual((p["registro_sanitario"], p["registro_vence"], p["laboratorio_id"], p["concentracion"]),
+                         ("INVIMA 2020M-0001", "2030-01-31", lab, "500 mg"))
+        self.assertIsNotNone(self.uno("SELECT 1 FROM bitacora WHERE accion = 'producto_datos_tecnicos'"))
+
+    def test_cadena_de_frio_exige_invima(self):
+        con = self.db()
+        con.execute("UPDATE productos SET cadena_frio = 1 WHERE id = 1")
+        con.commit()
+        con.close()
+        j = self.post(self.c, "/recepciones/api/producto/1/tecnicos", {"registro_sanitario": ""}).get_json()
+        self.assertFalse(j["ok"])

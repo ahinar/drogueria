@@ -90,6 +90,8 @@
                 <small class="hint-rs {% if not lp.registro_sanitario %}sin-rs{% endif %}">
                   {% if lp.registro_sanitario %}RS: {{ lp.registro_sanitario }}{% else %}<span class="ico-emoji">⚠</span> SIN registro INVIMA{% endif %}
                 </small>
+                {# Completar INVIMA, laboratorio, concentración... sin salir de la recepción #}
+                <button type="button" class="btn-tecnicos">✎ Completar datos</button>
               </td>
               <td><input type="text" name="linea_lote" value="{{ lp.lote }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
               <td><input type="date" name="linea_vencimiento" value="{{ lp.vencimiento }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
@@ -133,6 +135,7 @@
                 <button type="button" class="btn-mas btn-nuevo-producto" title="Crear producto nuevo">+</button>
               </div>
               <small class="hint-rs">RS: —</small>
+              <button type="button" class="btn-tecnicos" hidden>✎ Completar datos</button>
             </td>
             <td><input type="text" name="linea_lote"></td>
             <td><input type="date" name="linea_vencimiento"></td>
@@ -201,6 +204,46 @@
 
 
 <!-- ============ MODAL: alta rápida de producto ============ -->
+<!-- =====================================================================
+     VENTANA "COMPLETAR DATOS" (datos técnicos del producto)
+     Desde la línea de la recepción se completan INVIMA, laboratorio,
+     principio activo, forma y concentración. Se guardan en la FICHA del
+     producto (ver recepciones.api_datos_tecnicos).
+     ===================================================================== -->
+<div id="modal-tecnicos" class="modal-oculto">
+  <div class="modal-caja modal-caja-formulario">
+    <div class="modal-header">
+      <h2>Completar datos del producto</h2>
+      <p class="suave" id="dt-nombre"></p>
+    </div>
+    <div class="modal-body">
+      <div class="modal-grid-2">
+        <label>Registro INVIMA
+          <input type="text" id="dt-registro" autocomplete="off" placeholder="Ej: INVIMA-2024M-12345"></label>
+        <label>Vence registro
+          <input type="date" id="dt-registro-vence"></label>
+        <label>Laboratorio
+          <select id="dt-laboratorio"><option value="">— Sin dato —</option>
+            {% for l in laboratorios %}<option value="{{ l['id'] }}">{{ l['nombre'] }}</option>{% endfor %}</select></label>
+        <label>Concentración
+          <input type="text" id="dt-concentracion" placeholder="Ej: 500 mg"></label>
+        <label>Principio activo
+          <select id="dt-principio"><option value="">— Sin dato —</option>
+            {% for p in principios %}<option value="{{ p['id'] }}">{{ p['nombre'] }}</option>{% endfor %}</select></label>
+        <label>Forma farmacéutica
+          <select id="dt-forma"><option value="">— Sin dato —</option>
+            {% for f in formas %}<option value="{{ f['id'] }}">{{ f['nombre'] }}</option>{% endfor %}</select></label>
+      </div>
+      <p class="suave" style="margin:.4rem 0 0">Quedan guardados en la ficha del producto.</p>
+      <p id="dt-error" class="aviso error" style="display:none;margin-top:.6rem"></p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="dt-cancelar" class="boton secundario">Cancelar</button>
+      <button type="button" id="dt-guardar" class="boton">Guardar en la ficha</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-producto" class="modal-oculto">
   <div class="modal-caja modal-caja-formulario">
     <div class="modal-header">
@@ -325,6 +368,8 @@
     const hint = wrap.parentElement.querySelector('.hint-rs');
     if (!hint) return;
     const id = hidden.value;
+    const btnTec = wrap.parentElement.querySelector('.btn-tecnicos');
+    if (btnTec) btnTec.hidden = !id;
     if (!id) {
       hint.textContent = 'RS: —';
       hint.classList.remove('sin-rs');
@@ -768,6 +813,72 @@
   modal.addEventListener('click', function (e) { if (e.target === modal) cerrarModal(); });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && !modal.classList.contains('modal-oculto')) cerrarModal();
+  });
+
+  // ===== "✎ Completar datos": INVIMA, laboratorio... del producto de la línea =====
+  const modalTec = document.getElementById('modal-tecnicos');
+  let tecLinea = null;                 // la línea (tr) que se está completando
+  const dt = (id) => document.getElementById(id);
+  function errorTec(t) { dt('dt-error').textContent = t || ''; dt('dt-error').style.display = t ? 'block' : 'none'; }
+
+  body.addEventListener('click', async function (e) {
+    const btn = e.target.closest('.btn-tecnicos');
+    if (!btn) return;
+    tecLinea = btn.closest('tr');
+    const hidden = tecLinea.querySelector('.linea-producto-id');
+    if (!hidden.value) return;
+    errorTec('');
+    try {
+      const r = await fetch('/recepciones/api/producto/' + hidden.value + '/tecnicos', { credentials: 'same-origin' });
+      const j = await r.json();
+      if (!j.ok) { window.avisar(j.error || 'No se pudo abrir.', 'error'); return; }
+      const p = j.producto;
+      dt('dt-nombre').textContent = p.nombre;
+      dt('dt-registro').value = p.registro_sanitario || '';
+      dt('dt-registro-vence').value = p.registro_vence || '';
+      dt('dt-laboratorio').value = p.laboratorio_id || '';
+      dt('dt-concentracion').value = p.concentracion || '';
+      dt('dt-principio').value = p.principio_id || '';
+      dt('dt-forma').value = p.forma_farmaceutica_id || '';
+      modalTec.classList.remove('modal-oculto');
+      (p.registro_sanitario ? dt('dt-laboratorio') : dt('dt-registro')).focus();
+    } catch (err) {
+      window.avisar('Error de conexión: ' + err.message, 'error');
+    }
+  });
+  function cerrarTec() { modalTec.classList.add('modal-oculto'); }
+  dt('dt-cancelar').addEventListener('click', cerrarTec);
+  modalTec.addEventListener('click', function (e) { if (e.target === modalTec) cerrarTec(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modalTec.classList.contains('modal-oculto')) cerrarTec();
+  });
+  dt('dt-guardar').addEventListener('click', async function () {
+    const hidden = tecLinea.querySelector('.linea-producto-id');
+    const fd = new FormData();
+    fd.append('_csrf', csrfToken);
+    fd.append('registro_sanitario', dt('dt-registro').value.trim());
+    fd.append('registro_vence', dt('dt-registro-vence').value);
+    fd.append('laboratorio_id', dt('dt-laboratorio').value);
+    fd.append('concentracion', dt('dt-concentracion').value.trim());
+    fd.append('principio_id', dt('dt-principio').value);
+    fd.append('forma_farmaceutica_id', dt('dt-forma').value);
+    this.disabled = true;
+    try {
+      const r = await fetch('/recepciones/api/producto/' + hidden.value + '/tecnicos',
+                            { method: 'POST', body: fd, credentials: 'same-origin' });
+      const j = await r.json();
+      if (!j.ok) { errorTec(j.error || 'No se pudo guardar.'); return; }
+      // La línea se actualiza: aviso de INVIMA y datos para el resto de la recepción
+      hidden.dataset.rs = j.producto.registro_sanitario || '';
+      hidden.dataset.rsVence = j.producto.registro_vence || '';
+      actualizarHint(tecLinea.querySelector('.buscar-producto-wrap'));
+      cerrarTec();
+      window.avisar('Datos guardados en la ficha de ' + j.producto.nombre + '.', 'ok');
+    } catch (err) {
+      errorTec('Error de conexión: ' + err.message);
+    } finally {
+      this.disabled = false;
+    }
   });
 
   npNuevoLab.addEventListener('click', async function () {
