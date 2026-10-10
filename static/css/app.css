@@ -2723,3 +2723,9 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
   .precio-por { grid-template-columns: 1fr; gap: .2rem; }
   .precio-por-fila input[type=text] { max-width: 120px; }
 }
+
+/* Recepción: "Cantidad [1] [CAJA X 300 ▾]" en una sola línea (como Odoo) */
+#tabla-lineas .cant-udm { display: flex; gap: .3rem; align-items: center; }
+#tabla-lineas .cant-udm input[name="linea_cantidad_recibida"] { width: 4.2rem; flex: 0 0 4.2rem; }
+#tabla-lineas .cant-udm select { flex: 1 1 auto; min-width: 0; width: auto; }
+#tabla-lineas .linea-equivale { display: block; margin-top: .15rem; font-size: .72rem; white-space: nowrap; }

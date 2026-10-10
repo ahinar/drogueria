@@ -57,16 +57,16 @@
       <table class="tabla tabla-recepcion" id="tabla-lineas">
         <thead>
           <tr>
-            <th style="width:26%">Producto</th>
-            <th style="width:10%">Lote</th>
+            <th style="width:22%">Producto</th>
+            <th style="width:9%">Lote</th>
             <th style="width:10%">Vence</th>
-            <th style="width:11%">Cantidad · UdM</th>
-            <th style="width:9%">Costo por UdM</th>
-            <th style="width:10%">Temp. ingreso °C</th>
-            <th style="width:9%">Empaque</th>
-            <th style="width:10%">Resultado</th>
-            <th style="width:12%">Motivo</th>
-            <th style="width:5%"></th>
+            <th style="width:18%">Cantidad · UdM</th>
+            <th style="width:8%">Costo por UdM</th>
+            <th style="width:6%">Temp. °C</th>
+            <th style="width:8%">Empaque</th>
+            <th style="width:9%">Resultado</th>
+            <th style="width:7%">Motivo</th>
+            <th style="width:3%"></th>
           </tr>
         </thead>
         <tbody id="lineas-body">
@@ -93,11 +93,12 @@
               </td>
               <td><input type="text" name="linea_lote" value="{{ lp.lote }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
               <td><input type="date" name="linea_vencimiento" value="{{ lp.vencimiento }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
-              <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="{{ lp.cantidad_recibida }}" required>
+              <td><div class="cant-udm">{# cantidad y UdM en la misma línea, como Odoo #}
+                <input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="{{ lp.cantidad_recibida }}" required>
                 {# "Viene en": Tableta, Sobre x 10, Caja x 100 (ver recepciones._leer_lineas_formulario) #}
                 <select name="linea_presentacion" class="linea-pres" aria-label="Unidad en que llegó" data-actual="{{ lp.presentacion_id }}">
                   {% for o in lp.presentaciones %}<option value="{{ o.id }}" data-factor="{{ o.factor }}" {% if o.id == lp.presentacion_id %}selected{% endif %}>{{ o.nombre }}</option>{% endfor %}
-                </select>
+                </select></div>
                 <input type="number" name="linea_factor_otro" class="linea-otro" min="2" step="1" placeholder="¿Cuántas trae?"
                        value="{{ lp.factor_otro }}" {% if lp.presentacion_id != 'otra' %}hidden{% endif %}>
                 <small class="linea-equivale suave"></small></td>
@@ -135,8 +136,9 @@
             </td>
             <td><input type="text" name="linea_lote"></td>
             <td><input type="date" name="linea_vencimiento"></td>
-            <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="0" required>
-              <select name="linea_presentacion" class="linea-pres" aria-label="Viene en"><option value="0" data-factor="1">—</option></select>
+            <td><div class="cant-udm">
+              <input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="0" required>
+              <select name="linea_presentacion" class="linea-pres" aria-label="Viene en"><option value="0" data-factor="1">—</option></select></div>
               {# Solo se ve con "Otra caja…": cuántas unidades trae (ej. 300). Siempre se envía, para que las listas cuadren #}
               <input type="number" name="linea_factor_otro" class="linea-otro" min="2" step="1" placeholder="¿Cuántas trae?" hidden>
               <small class="linea-equivale suave"></small></td>
