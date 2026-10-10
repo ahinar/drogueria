@@ -70,6 +70,18 @@
     </label>
   </fieldset>
 
+  <fieldset>
+    <legend>Impresora de tirillas</legend>
+    <label>Ancho del papel (comprobante de venta y recibos de abono)
+      <select name="ancho_tirilla">
+        <option value="80" {% if valores['ancho_tirilla'] != '58' %}selected{% endif %}>80 mm (la más común en cajas registradoras)</option>
+        <option value="58" {% if valores['ancho_tirilla'] == '58' %}selected{% endif %}>58 mm (impresoras pequeñas o portátiles)</option>
+      </select>
+      <small class="suave">Mide el rollo de papel: si es angosto (como el de un datáfono), es de 58 mm.
+        En cada tirilla también hay botones para imprimir una vez en el otro ancho.</small>
+    </label>
+  </fieldset>
+
   <div class="acciones">
     <button type="submit" name="_accion" value="guardar">Guardar configuración</button>
   </div>

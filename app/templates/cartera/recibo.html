@@ -1,15 +1,22 @@
 <!doctype html>
-<html lang="es">
+{#- Ancho del papel: el de la dirección (?papel=58 u 80, botones de arriba) o el de Configuración -#}
+{%- set papel = request.args.get('papel') if request.args.get('papel') in ('58', '80') else (config['ancho_tirilla'] or '80') %}
+<html lang="es" class="papel-{{ papel }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Recibo {{ a['numero'] }}</title>
   {# RECIBO DE ABONO en tirilla de 80 mm (mismo estilo del comprobante de venta) #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tirilla.css') }}">
+  {# Tamaño del papel para la impresora: ancho del rollo x largo de la tirilla (ver tirilla.js) #}
+  <script src="{{ url_for('static', filename='js/tirilla.js') }}"></script>
 </head>
 <body>
   <div class="barra">
     <button type="button" onclick="window.print()">Imprimir</button>
+    <span class="anchos" title="Ancho del papel">
+      <a href="?papel=58" class="{{ 'activo' if papel == '58' else '' }}">58</a><a href="?papel=80" class="{{ 'activo' if papel == '80' else '' }}">80</a>
+    </span>
     <a href="javascript:history.back()">Volver</a>
   </div>
 

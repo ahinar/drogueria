@@ -3,7 +3,7 @@
    y recibo de abono. Lo usan pos/comprobante.html y
    cartera/recibo.html, para que se vean iguales.
    ========================================================= */
-@page { size: 80mm auto; margin: 0; }
+@page { size: 80mm 297mm; margin: 0; }   /* respaldo; tirilla.js pone el largo exacto */
 * { box-sizing: border-box; }
 html { background: #e9edf1; }
 body {
@@ -34,8 +34,29 @@ td { padding: .4mm 0; vertical-align: top; }
 .barra button { background: #0f766e; border-color: #0f766e; color: #fff; }
 @media print {
   html, body { background: #fff; }
-  body { margin: 0; box-shadow: none; width: 72mm; }
+  /* centrado: las impresoras térmicas no imprimen los milímetros de las orillas */
+  body { margin: 0 auto; box-shadow: none; width: 72mm; }
   .barra { display: none; }
 }
 .firma { margin-top: 10mm; border-top: 1px solid #000; padding-top: 1mm; text-align: center; font-size: 11px; }
 .credito { text-align: center; font-weight: bold; border: 1px dashed #000; padding: 1mm; margin: 2mm 0; }
+
+/* Botones 58 / 80 de la barra (solo pantalla) */
+.barra .anchos { display: flex; flex: 0 0 auto; }
+.barra .anchos a { flex: 0 0 auto; padding: 8px 9px; border-radius: 0; }
+.barra .anchos a:first-child { border-radius: 8px 0 0 8px; }
+.barra .anchos a:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
+.barra .anchos a.activo { background: #1a2733; color: #fff; border-color: #1a2733; }
+
+/* ===== PAPEL DE 58 mm =====
+   Las impresoras de 58 mm imprimen unos 48 mm de ancho: todo más angosto
+   y la letra un poco más pequeña para que quepan los precios en la misma línea. */
+.papel-58 body { width: 48mm; padding: 3mm 1.5mm; font-size: 10.5px; line-height: 1.3; }
+.papel-58 h1 { font-size: 13px; }
+.papel-58 .suave { font-size: 9.5px; }
+.papel-58 .logo { max-width: 30mm; max-height: 16mm; }
+.papel-58 .total td { font-size: 13px; }
+.papel-58 .der { padding-left: 1mm; }
+.papel-58 .anulada { font-size: 13px; }
+.papel-58 .barra { flex-wrap: wrap; }
+@media print { .papel-58 body { width: 48mm; margin: 0 auto; } }

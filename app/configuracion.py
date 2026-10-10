@@ -43,6 +43,8 @@ DEFAULTS = {
     "horario": "",
     "pie_pagina": "Comprobante interno, no válido como factura.",
     "logo_ruta": "",
+    # Ancho del papel de la impresora de tirillas (comprobante y recibos): "58" u "80" mm
+    "ancho_tirilla": "80",
 }
 
 
@@ -87,6 +89,8 @@ def ver():
         for clave, _titulo, _tipo in CAMPOS:
             nuevos[clave] = request.form.get(clave, "").strip()
         nuevos["pie_pagina"] = request.form.get("pie_pagina", "").strip()
+        # Solo se aceptan los dos anchos que existen en el mercado
+        nuevos["ancho_tirilla"] = "58" if request.form.get("ancho_tirilla") == "58" else "80"
 
         # Manejar subida de logo
         archivo_logo = request.files.get("logo")

@@ -218,6 +218,7 @@
 - **Devolución de una venta a crédito:** no se devuelve plata, se **descuenta de la deuda** (forma de reembolso "credito"; no necesita caja). Anular una venta a crédito borra esa deuda.
 - **Alerta en Inicio** (admin y DT): "Clientes con deuda de más de 30 días". R1 Ventas muestra "Crédito (cartera)" en las formas de pago.
 - Código: `app/cartera.py`, plantillas `cartera/`, `static/css/tirilla.css` (estilo compartido del comprobante y el recibo). Demo: 3 clientes de prueba.
+- **Ancho de la tirilla: 58 u 80 mm** (Configuración del negocio → "Impresora de tirillas"; por defecto 80). Cada tirilla (comprobante y recibo) tiene botones **58 / 80** para imprimir una vez en el otro ancho (`?papel=58`). `static/js/tirilla.js` mide el largo de la tirilla y le da a la impresora el tamaño exacto del papel (ancho × largo); el contenido va centrado (72 mm útiles en 80, 48 mm en 58).
 
 ### 5.9b Devoluciones ✅
 - `app/devoluciones.py`, ruta `/devoluciones` (solo admin y DT). Entradas: botón **↩️ Devolución** en la lista de ventas del POS, Inventario → Devoluciones y **🚚 Devolver al proveedor** en el detalle de un lote.
