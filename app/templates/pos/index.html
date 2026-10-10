@@ -5,6 +5,9 @@
 
   <!-- ============ COLUMNA IZQUIERDA: CARRITO ============ -->
   <aside class="pos-carrito">
+    <!-- Pestañas de ventas abiertas ("Venta 1", "Venta 2"...) y botón + para
+         atender a otro cliente. Las dibuja pos_carrito.js (pintarPestanas). -->
+    <div class="pos-ventas-tabs" id="pos-ventas-tabs" role="tablist" aria-label="Ventas abiertas"></div>
     <div class="pos-carrito-header">
       <span class="pos-caja-numero">Caja #{{ caja['numero'] }}</span>
       <span class="pos-caja-hora">{{ caja['abierta_en'][11:16] }}</span>

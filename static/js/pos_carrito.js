@@ -13,6 +13,8 @@
 //   6. Atajos de teclado físico (números, backspace, delete, +, -, Enter)
 //   7. Registrar gastos sin salir del POS
 //   8. Carrito persistente (no se pierde al navegar o cerrar)
+//   9. VARIAS VENTAS A LA VEZ: pestañas "Venta 1", "Venta 2"... y botón +
+//      para atender a otro cliente sin perder la venta que estaba a medias.
 // =====================================================================
 (function () {
   'use strict';
@@ -71,43 +73,146 @@
   if (!URL.productos || !URL.cobrar) return;
 
   const CAJA_ID = ($('pos-caja-id') && $('pos-caja-id').value) || 'default';
-  const CLAVE_CARRITO = 'pos_carrito_caja_' + CAJA_ID;
+  const CLAVE_CARRITO = 'pos_carrito_caja_' + CAJA_ID;   // formato viejo (una sola venta)
+  const CLAVE_VENTAS = 'pos_ventas_caja_' + CAJA_ID;     // formato nuevo (varias ventas)
+  const MAX_VENTAS = 8;
 
-  // Limpieza: borrar carritos de cajas anteriores
+  // Limpieza: borrar lo guardado de cajas anteriores (de otro turno)
   try {
     const aBorrar = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('pos_carrito_caja_') && k !== CLAVE_CARRITO) {
+      if (k && ((k.startsWith('pos_carrito_caja_') && k !== CLAVE_CARRITO) ||
+                (k.startsWith('pos_ventas_caja_') && k !== CLAVE_VENTAS))) {
         aBorrar.push(k);
       }
     }
     aBorrar.forEach(k => localStorage.removeItem(k));
   } catch (e) { /* silencio */ }
 
-  // Cargar carrito guardado
+  // ---------------------------------------------------------------
+  // VARIAS VENTAS ABIERTAS
+  // ---------------------------------------------------------------
+  // "ventas" es la lista de ventas abiertas; cada una tiene su carrito,
+  // su cliente y su nota. "activa" es la posición de la que se ve.
+  // Las variables carrito / cliente / nota de siempre apuntan a la venta
+  // activa, así el resto del código no cambia.
+  const ventaVacia = (id) => ({ id: id, carrito: [], cliente: { nombre: '', documento: '' }, nota: '' });
+  let ventas = [ventaVacia(1)];
+  let activa = 0;
+
+  // Cargar lo guardado en el navegador (o el carrito del formato viejo)
   try {
-    const guardado = localStorage.getItem(CLAVE_CARRITO);
-    if (guardado) carrito = JSON.parse(guardado) || [];
-  } catch (e) { carrito = []; }
+    const guardado = JSON.parse(localStorage.getItem(CLAVE_VENTAS) || 'null');
+    if (guardado && Array.isArray(guardado.ventas) && guardado.ventas.length) {
+      ventas = guardado.ventas;
+      activa = Math.min(Math.max(0, guardado.activa || 0), ventas.length - 1);
+    } else {
+      const viejo = JSON.parse(localStorage.getItem(CLAVE_CARRITO) || 'null');
+      if (Array.isArray(viejo)) ventas[0].carrito = viejo;
+    }
+    localStorage.removeItem(CLAVE_CARRITO);
+  } catch (e) { ventas = [ventaVacia(1)]; activa = 0; }
+  carrito = ventas[activa].carrito;
+  cliente = ventas[activa].cliente || { nombre: '', documento: '' };
+  nota = ventas[activa].nota || '';
+
   // Carritos guardados antes de existir las presentaciones: eran todos "unidad principal"
-  carrito.forEach((it) => {
+  ventas.forEach((v) => v.carrito.forEach((it) => {
     if (it.factor == null) { it.factor = 1; it.presentacion_id = 0; it.presentacion = ''; }
     if (it.stock_base == null) it.stock_base = it.stock;
-  });
+  }));
 
-  // Guarda una copia del carrito en el navegador para no perderlo si se recarga la página.
-  // Si el carrito está vacío no guardamos nada (así no quedan restos de ventas ya cobradas).
+  // Guarda TODAS las ventas abiertas en el navegador: no se pierden si se
+  // recarga la página, se cierra el navegador o se va la luz.
   function guardarCarrito() {
+    ventas[activa].carrito = carrito;
+    ventas[activa].cliente = cliente;
+    ventas[activa].nota = nota;
     try {
-      if (carrito.length) localStorage.setItem(CLAVE_CARRITO, JSON.stringify(carrito));
-      else localStorage.removeItem(CLAVE_CARRITO);
+      const hayAlgo = ventas.some((v) => v.carrito.length || v.cliente.nombre || v.nota);
+      if (hayAlgo || ventas.length > 1) {
+        localStorage.setItem(CLAVE_VENTAS, JSON.stringify({ ventas: ventas, activa: activa }));
+      } else {
+        localStorage.removeItem(CLAVE_VENTAS);
+      }
     } catch (e) { /* si el navegador no deja guardar, seguimos sin guardar */ }
+    pintarPestanas();
   }
+
+  // Después de cobrar: la venta cobrada se cierra. Si había otras abiertas,
+  // se pasa a la siguiente; si no, queda una venta nueva vacía.
   function limpiarCarrito() {
-    carrito = [];
+    ventas.splice(activa, 1);
+    if (!ventas.length) ventas.push(ventaVacia(1));
+    activa = Math.min(activa, ventas.length - 1);
+    carrito = ventas[activa].carrito;
+    cliente = ventas[activa].cliente;
+    nota = ventas[activa].nota;
     seleccionado = -1;
-    try { localStorage.removeItem(CLAVE_CARRITO); } catch (e) {}
+    guardarCarrito();
+  }
+
+  // Cambiar a otra venta abierta (clic en su pestaña)
+  function cambiarVenta(i) {
+    if (i === activa || !ventas[i]) return;
+    guardarCarrito();                 // primero se guarda la que se deja
+    activa = i;
+    carrito = ventas[i].carrito;
+    cliente = ventas[i].cliente;
+    nota = ventas[i].nota;
+    seleccionado = -1;
+    pintarCarrito();
+    inputBusqueda.focus();
+  }
+
+  // Botón +: abre una venta nueva (para atender a otro cliente)
+  function nuevaVenta() {
+    if (ventas.length >= MAX_VENTAS) { aviso('Máximo ' + MAX_VENTAS + ' ventas abiertas a la vez.'); return; }
+    guardarCarrito();
+    const siguiente = ventas.reduce((m, v) => Math.max(m, v.id), 0) + 1;
+    ventas.push(ventaVacia(siguiente));
+    cambiarVenta(ventas.length - 1);
+    aviso('Venta ' + siguiente + ' abierta. La anterior quedó guardada en su pestaña.');
+  }
+
+  // La ✕ de una pestaña: descarta esa venta (pregunta si tiene productos)
+  async function cerrarVenta(i) {
+    const v = ventas[i];
+    if (!v) return;
+    const lista = i === activa ? carrito : v.carrito;
+    if (lista.length && !(await window.confirmar('¿Descartar la Venta ' + v.id + ' con ' + lista.length +
+        ' producto(s)? No se cobra nada.', { textoAceptar: 'Descartar' }))) return;
+    guardarCarrito();
+    ventas.splice(i, 1);
+    if (!ventas.length) ventas.push(ventaVacia(1));
+    // Si se cerró una pestaña anterior a la activa, la activa corre una posición
+    if (i < activa) activa -= 1;
+    activa = Math.min(activa, ventas.length - 1);
+    carrito = ventas[activa].carrito;
+    cliente = ventas[activa].cliente;
+    nota = ventas[activa].nota;
+    seleccionado = -1;
+    pintarCarrito();
+  }
+
+  // Dibuja las pestañas: "Venta 1 · 3", "Venta 2 · Juan · 1", y el botón +
+  function pintarPestanas() {
+    const caja = $('pos-ventas-tabs');
+    if (!caja) return;
+    caja.innerHTML = ventas.map((v, i) => {
+      const lista = i === activa ? carrito : v.carrito;
+      const n = lista.reduce((s, it) => s + 1, 0);
+      const quien = v.cliente && v.cliente.nombre ? ' · ' + esc(v.cliente.nombre.split(' ')[0]) : '';
+      return '<div class="pos-venta-tab' + (i === activa ? ' activa' : '') + '">' +
+        '<button type="button" class="pos-venta-ir" data-venta="' + i + '" title="Ver esta venta">' +
+          'Venta ' + v.id + quien + (n ? ' <span class="pos-venta-n">' + n + '</span>' : '') + '</button>' +
+        (ventas.length > 1 || n ? '<button type="button" class="pos-venta-cerrar" data-cerrar="' + i +
+          '" aria-label="Descartar la venta ' + v.id + '" title="Descartar esta venta">×</button>' : '') +
+        '</div>';
+    }).join('') +
+      '<button type="button" class="pos-venta-nueva" id="pos-venta-nueva" title="Nueva venta: atender a otro cliente (F4)" ' +
+      'aria-label="Nueva venta">+</button>';
   }
 
   const inputBusqueda = $('pos-input-busqueda');
@@ -376,7 +481,8 @@
       // window.confirmar (base.html) muestra la ventana del programa y responde después
       if (carrito.length) {
         window.confirmar('¿Vaciar el carrito?').then((ok) => {
-          if (ok) { limpiarCarrito(); pintarCarrito(); }
+          // Vaciar = quitar los productos de ESTA venta (la pestaña sigue abierta)
+          if (ok) { carrito.splice(0); seleccionado = -1; pintarCarrito(); }
         });
       }
       return;
@@ -615,8 +721,7 @@
       $('exito-comprobante').href = json.url_comprobante;
       $('pago-form').style.display = 'none';
       $('pago-exito').style.display = '';
-      limpiarCarrito();   // vacía el carrito Y borra la copia guardada en el navegador
-      cliente = { nombre: '', documento: '' }; nota = '';
+      limpiarCarrito();   // cierra la venta cobrada (si hay otras abiertas, pasa a la siguiente)
       pintarCarrito();
       buscar(false);
     } catch (e) {
@@ -1083,6 +1188,27 @@
     // Si se abrió "¿Cómo lo vendes?", el foco se queda en sus botones (teclas 1, 2, 3)
     if (!modalPres || modalPres.classList.contains('modal-oculto')) inputBusqueda.focus();
   });
+
+  // F4 = nueva venta (atender a otro cliente). Funciona aunque se esté
+  // escribiendo en el buscador, pero no con una ventana abierta.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'F4') return;
+    if (document.querySelector('[id^="modal-"]:not(.modal-oculto)')) return;
+    e.preventDefault();
+    nuevaVenta();
+  });
+
+  // Pestañas de ventas: cambiar, descartar o abrir una nueva
+  const tabsVentas = $('pos-ventas-tabs');
+  if (tabsVentas) {
+    tabsVentas.addEventListener('click', (e) => {
+      const ir = e.target.closest('[data-venta]');
+      const cerrar = e.target.closest('[data-cerrar]');
+      if (cerrar) cerrarVenta(+cerrar.dataset.cerrar);
+      else if (ir) cambiarVenta(+ir.dataset.venta);
+      else if (e.target.closest('#pos-venta-nueva')) nuevaVenta();
+    });
+  }
 
   $('pos-categorias').addEventListener('click', (e) => {
     const boton = e.target.closest('.pos-cat');

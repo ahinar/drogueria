@@ -187,3 +187,9 @@
 .moderno .boton-chico { border-radius: 8px; }
 .moderno .boton-chico.sec, .moderno .boton.sec, .moderno button.sec { background: var(--superficie); color: var(--texto); border: 1px solid var(--borde); }
 .moderno a.boton-chico.sec, .moderno a.boton.sec { color: var(--texto); }
+
+/* ---------- POS: carrito a la derecha y más aire ---------- */
+.moderno .pos-layout { grid-template-columns: minmax(0, 1fr) 400px; margin: -1.6rem -2rem -2.4rem; height: calc(100vh - 64px); }
+.moderno .pos-carrito { order: 2; border-right: 0; border-left: 1px solid var(--borde); }
+.moderno .pos-productos { order: 1; }
+@media (max-width: 900px) { .moderno .pos-layout { grid-template-columns: 1fr; height: auto; } }
