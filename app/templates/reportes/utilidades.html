@@ -85,7 +85,7 @@
     <tr class="eres-{{ f.tipo }}{% if f.final %} eres-final{% endif %}">
       <td>
         {% if f.detalle %}
-          <!-- Tocar una categoría de gasto muestra sus gastos -->
+          <!-- Tocar una categoría (de gasto o de otro ingreso) muestra su detalle -->
           <details class="eres-detalle">
             <summary>{{ f.texto }}</summary>
             <ul>
@@ -114,10 +114,12 @@
   <ul>
     <li><strong>Ventas sin IVA:</strong> lo vendido en el POS (sin las ventas anuladas), con los descuentos ya restados y sin el IVA, que es de la DIAN.
       Con IVA fueron {{ pesos(a.total_con_iva) }} (IVA cobrado: {{ pesos(a.iva) }}).</li>
+    {% if a.ventas_libres %}<li><strong>Venta libre:</strong> de las ventas, {{ pesos(a.ventas_libres) }} fueron venta libre (cosas que no están en el inventario, como una inyectología). Su costo es el que se escribió al venderla.</li>{% endif %}
     <li><strong>Costo de lo vendido:</strong> lo que costó en la compra cada unidad vendida, según el lote del que salió.</li>
     <li><strong>Gastos:</strong> todo lo registrado en Contabilidad y en el POS, por categoría. Toca una categoría para ver el detalle.
       Tu sueldo va en la categoría "Sueldo del dueño".</li>
     <li><strong>Pérdidas:</strong> mercancía que salió sin venderse, al costo: vencidos y averías dados de baja, y faltantes al aplicar un conteo.</li>
+    <li><strong>Otros ingresos:</strong> plata que entró y no es venta (comisión de recargas, arriendo, reciclaje…), registrada en el POS o en Contabilidad. Se suma al final.</li>
     <li><strong>Retiros del dueño:</strong> retiros de caja menor marcados "Es plata que me llevo como dueño". No son gasto; se restan aparte para ver cuánto queda en el negocio.</li>
     <li>Si el mes va en curso, se compara con los mismos días del mes anterior.</li>
   </ul>

@@ -212,6 +212,15 @@ def main():
         con.execute("INSERT INTO gastos (fecha, categoria_id, descripcion, monto, forma_pago, usuario_nombre, "
                     "creado_en) VALUES (?,?,?,?, 'transferencia', 'Fernando (demo)', ?)",
                     (fecha, catalogo("categoria_gasto", categoria), descripcion, monto, ahora))
+    # ---- 8b. Otros ingresos (plata que entra y no es venta) ----
+    for categoria, descripcion, monto, fecha in (
+            ("Arriendo de espacios", "Arriendo de la vitrina de cosméticos", 150000, hoy.replace(day=1).isoformat()),
+            ("Comisiones (recargas, pagos de servicios)", "Comisión recargas", 38000, hoy.isoformat()),
+            ("Arriendo de espacios", "Arriendo de la vitrina de cosméticos", 150000, mes_pasado)):
+        con.execute("INSERT INTO otros_ingresos (fecha, categoria_id, descripcion, monto, forma_pago, origen, "
+                    "usuario_nombre, activo, creado_en) VALUES (?,?,?,?, 'transferencia', 'ninguna', "
+                    "'Fernando (demo)', 1, ?)",
+                    (fecha, catalogo("categoria_ingreso", categoria), descripcion, monto, ahora))
     # Un retiro de ganancia del dueño desde la caja menor
     con.execute("INSERT INTO caja_menor_movimientos (fecha, tipo, monto, motivo, usuario_nombre, retiro_dueno, "
                 "creado_en) VALUES (?, 'retiro', 50000, 'Retiro de ganancia (demo)', 'Fernando (demo)', 1, ?)",

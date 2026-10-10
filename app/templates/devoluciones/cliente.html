@@ -39,6 +39,7 @@
           <td class="num">
             {% if l.disponible > 0 %}
             <input type="number" class="dev-cant" name="cant_{{ l.id }}" min="0" max="{{ l.disponible }}" step="any" value="0" aria-label="Cantidad que devuelve">
+            {% elif l.es_libre %}<span class="suave" title="La venta libre no se devuelve: si se cobró mal, anula la venta">venta libre</span>
             {% else %}<span class="suave">nada</span>{% endif %}
           </td>
           <td>{% if l.disponible > 0 %}

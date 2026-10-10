@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{# Formulario de OTRO INGRESO (nuevo o editar). Ver app/otros_ingresos.py #}
+{% block titulo %}{{ 'Editar ingreso' if ingreso else 'Nuevo ingreso' }}{% endblock %}
+{% block contenido %}
+<h1>{{ 'Editar ingreso' if ingreso else 'Nuevo ingreso' }}</h1>
+
+{% if bloqueado %}
+<p class="eres-aviso">Este ingreso se registró en la <strong>caja del POS</strong>
+  ({{ ingreso['forma_pago'] }}, {{ ingreso['monto']|pesos }}). Para que la caja siga cuadrando,
+  aquí solo se cambian la categoría y los textos. Si el monto quedó mal, anúlalo y regístralo de nuevo.</p>
+{% elif not ingreso %}
+<p class="suave">Usa este formulario para la plata que <strong>no pasó por la caja del POS</strong>
+  (por ejemplo, un arriendo que llegó al banco). Lo que se recibe en efectivo en el mostrador
+  se registra mejor desde el POS → menú → "Otro ingreso", para que entre a la caja.</p>
+{% endif %}
+
+<form method="post" class="formulario" style="max-width:720px">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <fieldset>
+    <legend>Datos del ingreso</legend>
+
+    <div class="grid-2">
+      <label>Fecha *
+        {% if bloqueado %}<input type="text" value="{{ ingreso['fecha']|fecha_hora }}" disabled>
+        {% else %}<input type="date" name="fecha" required max="{{ hoy }}"
+               value="{{ ingreso['fecha'][:10] if ingreso else hoy }}">{% endif %}
+      </label>
+      <label>Categoría *
+        <select name="categoria_id" required>
+          <option value="">— Seleccionar —</option>
+          {% for c in categorias %}
+            <option value="{{ c['id'] }}" {% if ingreso and ingreso['categoria_id'] == c['id'] %}selected{% endif %}>{{ c['nombre'] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <label>Descripción *
+      <input type="text" name="descripcion" required minlength="3" maxlength="200"
+             placeholder="Ej: Comisión recargas de octubre"
+             value="{{ ingreso['descripcion'] if ingreso else '' }}">
+    </label>
+
+    <div class="grid-2">
+      <label>Monto *
+        <input type="number" step="1" name="monto" min="1" {% if bloqueado %}disabled{% else %}required{% endif %}
+               value="{{ '%g' % ingreso['monto'] if ingreso else '' }}">
+      </label>
+      <label>Forma de pago *
+        <select name="forma_pago" {% if bloqueado %}disabled{% endif %}>
+          {% set fp = ingreso['forma_pago'] if ingreso else 'transferencia' %}
+          {% for clave, texto in formas.items() %}
+            <option value="{{ clave }}" {% if fp == clave %}selected{% endif %}>{{ texto }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <label>N° comprobante (opcional)
+      <input type="text" name="comprobante" value="{{ ingreso['comprobante'] if ingreso and ingreso['comprobante'] else '' }}">
+    </label>
+    <label>Observaciones (opcional)
+      <textarea name="observaciones" rows="3">{{ ingreso['observaciones'] if ingreso and ingreso['observaciones'] else '' }}</textarea>
+    </label>
+  </fieldset>
+
+  <div class="acciones">
+    <button type="submit">Guardar</button>
+    <a class="boton secundario" href="{{ url_for('otros_ingresos.lista') }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

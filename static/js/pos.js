@@ -45,6 +45,9 @@
     // Mostramos la aclaración y ejemplos distintos según el tipo.
     const ayuda = document.getElementById('mov-ayuda');
     if (ayuda) ayuda.hidden = tipo !== 'salida';
+    // Y en el ingreso: meter plata (base, cambio) no es lo mismo que plata ganada
+    const ayudaIngreso = document.getElementById('mov-ayuda-ingreso');
+    if (ayudaIngreso) ayudaIngreso.hidden = tipo !== 'ingreso';
     movMotivo.placeholder = tipo === 'ingreso'
       ? 'Ej: base adicional, cambio de billetes, devolución de un préstamo…'
       : 'Ej: consignación en el banco, paso a caja menor, cambio de billetes…';
@@ -68,6 +71,14 @@
       cerrarModalMovimiento();
       const item = document.querySelector('.pos-drawer-item[data-accion="registrar-gasto"]');
       if (item) item.click();
+    });
+  }
+  // Botón "Es plata ganada → registrar otro ingreso"
+  const irIngreso = document.getElementById('mov-ir-ingreso');
+  if (irIngreso) {
+    irIngreso.addEventListener('click', () => {
+      cerrarModalMovimiento();
+      if (window.pedirOtroIngreso) window.pedirOtroIngreso();
     });
   }
   if (modalMov) {

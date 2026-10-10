@@ -158,9 +158,15 @@ def index():
         "ORDER BY nombre COLLATE NOCASE"
     ).fetchall()
 
+    # Categorías de "otro ingreso" (recargas, arriendo...), para la ventana del POS
+    categorias_ingreso = [dict(f) for f in db.execute(
+        "SELECT id, nombre FROM catalogos WHERE tipo = 'categoria_ingreso' AND activo = 1 "
+        "ORDER BY nombre COLLATE NOCASE")]
+
     return render_template("pos/index.html", caja=caja, resumen=resumen,
                            categorias=categorias,
                            categorias_gasto=categorias_gasto,
+                           categorias_ingreso=categorias_ingreso,
                            saldo_caja_menor=_cm_saldo(db))
 
 @bp.route("/abrir-caja", methods=["GET", "POST"])
@@ -340,6 +346,65 @@ def api_gasto():
               f"monto={monto} origen={origen} forma_pago={forma_pago}")
 
     return jsonify({"ok": True, "gasto_id": gasto_id})
+
+# ============================================================
+# API · Otro ingreso (plata que entra y NO es una venta)
+# ============================================================
+
+FORMAS_INGRESO = ("efectivo", "nequi", "davivienda", "tarjeta", "transferencia")
+
+
+@bp.route("/api/otro-ingreso", methods=["POST"])
+@login_required
+def api_otro_ingreso():
+    """Registra un OTRO INGRESO desde el POS (comisión de recargas, arriendo...).
+
+    Es el "espejo" del gasto:
+    - Queda en la tabla otros_ingresos (sale en Contabilidad, en Utilidades
+      y en el reporte de Ventas).
+    - Si es en EFECTIVO, además entra a la caja abierta como un ingreso
+      (caja_movimientos), para que el cierre de caja cuadre.
+    """
+    caja = _caja_abierta()
+    if caja is None:
+        return jsonify({"ok": False, "error": "No hay caja POS abierta."}), 400
+    categoria_id = (request.form.get("categoria_id") or "").strip()
+    descripcion = " ".join((request.form.get("descripcion") or "").split())[:200]
+    forma_pago = (request.form.get("forma_pago") or "efectivo").strip().lower()
+    try:
+        monto = float((request.form.get("monto") or "0").replace(",", "."))
+    except ValueError:
+        return jsonify({"ok": False, "error": "Monto inválido."}), 400
+
+    db = get_db()
+    if not categoria_id.isdigit() or db.execute(
+            "SELECT 1 FROM catalogos WHERE id = ? AND tipo = 'categoria_ingreso'",
+            (int(categoria_id),)).fetchone() is None:
+        return jsonify({"ok": False, "error": "Escoge una categoría."}), 400
+    if len(descripcion) < 3:
+        return jsonify({"ok": False, "error": "Escribe de qué es el ingreso."}), 400
+    if monto <= 0:
+        return jsonify({"ok": False, "error": "El monto debe ser mayor a cero."}), 400
+    if forma_pago not in FORMAS_INGRESO:
+        return jsonify({"ok": False, "error": "Forma de pago inválida."}), 400
+
+    ingreso_id = db.execute(
+        "INSERT INTO otros_ingresos (fecha, categoria_id, descripcion, monto, forma_pago, origen, "
+        "caja_id, usuario_id, usuario_nombre, activo, creado_en) VALUES (?,?,?,?,?, 'pos', ?,?,?,1,?)",
+        (ahora(), int(categoria_id), descripcion, monto, forma_pago, caja["id"],
+         g.user["id"], g.user["nombre"], ahora()),
+    ).lastrowid
+    if forma_pago == "efectivo":
+        db.execute(
+            "INSERT INTO caja_movimientos (caja_id, fecha, tipo, forma_pago, monto, motivo, "
+            "usuario_id, usuario_nombre, creado_en) VALUES (?,?, 'ingreso', 'efectivo', ?,?,?,?,?)",
+            (caja["id"], ahora(), monto, f"Otro ingreso: {descripcion}",
+             g.user["id"], g.user["nombre"], ahora()),
+        )
+    db.commit()
+    registrar("otro_ingreso_desde_pos", "otros_ingresos", ingreso_id,
+              f"monto={monto} forma_pago={forma_pago} · {descripcion}")
+    return jsonify({"ok": True, "ingreso_id": ingreso_id})
 
 # ============================================================
 # API · Cierre de caja
@@ -828,6 +893,7 @@ def api_cobrar():
     db = get_db()
     hoy = date.today().isoformat()
     cambios_precio = []   # textos para la bitácora si el cajero cambió algún precio
+    ventas_libres = []    # textos para la bitácora de cada línea de venta libre
 
     db.execute("BEGIN IMMEDIATE")
     try:
@@ -845,6 +911,16 @@ def api_cobrar():
         sum_subtotal = sum_descuento = sum_iva = sum_total = 0
 
         for item in carrito:
+            # ---- VENTA LIBRE: algo que no está en el inventario ----
+            # (una inyectología, una toma de presión...). No descuenta stock.
+            if isinstance(item, dict) and item.get("libre"):
+                base, descuento, iva_valor, total_linea, texto = _guardar_linea_libre(db, venta_id, item)
+                ventas_libres.append(texto)
+                sum_subtotal += base
+                sum_descuento += descuento
+                sum_iva += iva_valor
+                sum_total += total_linea
+                continue
             try:
                 producto_id = int(item.get("producto_id"))
                 # 0 = unidad principal; otro número = sobre, caja... (producto_presentaciones)
@@ -1018,9 +1094,73 @@ def api_cobrar():
     for texto in cambios_precio:
         registrar("venta_precio_modificado", "ventas", venta_id,
                   f"{consecutivo} · {texto}")
+    for texto in ventas_libres:
+        registrar("venta_libre", "ventas", venta_id, f"{consecutivo} · {texto}")
     return jsonify({"ok": True, "venta_id": venta_id, "consecutivo": consecutivo,
                     "total": sum_total, "cambio": cambio,
                     "url_comprobante": url_for("pos.comprobante", venta_id=venta_id)})
+
+# Tarifas de IVA que se pueden escoger en una venta libre (0 = sin IVA)
+TARIFAS_LIBRE = (0, 5, 19)
+
+
+def _guardar_linea_libre(db, venta_id, item):
+    """Guarda una línea de VENTA LIBRE y devuelve (base, descuento, iva, total, texto).
+
+    Lo que manda el navegador:
+      descripcion  -> qué se vendió (ej: "Inyectología")
+      precio       -> precio de CADA UNA, con IVA incluido
+      cantidad, descuento_pct
+      iva_tarifa   -> 0, 5 o 19
+      costo        -> (opcional) cuánto le cuesta a la droguería cada una
+    Aquí el precio SÍ lo pone el cajero (no hay un precio guardado con qué
+    compararlo), por eso no se pide motivo; todo queda en la bitácora.
+    """
+    descripcion = " ".join(str(item.get("descripcion") or "").split())[:120]
+    if len(descripcion) < 3:
+        raise _VentaError("Venta libre: escribe qué se está vendiendo (mínimo 3 letras).")
+    try:
+        precio = float(item.get("precio"))
+        cantidad = round(float(item.get("cantidad")), 4)
+        desc_pct = float(item.get("descuento_pct") or 0)
+        tarifa = float(item.get("iva_tarifa") or 0)
+        costo_txt = item.get("costo")
+        costo = float(costo_txt) if costo_txt not in (None, "") else None
+    except (TypeError, ValueError):
+        raise _VentaError(f"{descripcion}: hay un dato inválido en la venta libre.")
+    if precio <= 0:
+        raise _VentaError(f"{descripcion}: el precio debe ser mayor a cero.")
+    if cantidad <= 0:
+        raise _VentaError(f"{descripcion}: la cantidad debe ser mayor a cero.")
+    if not 0 <= desc_pct <= 100:
+        raise _VentaError("El descuento debe estar entre 0 y 100 %.")
+    if tarifa not in TARIFAS_LIBRE:
+        raise _VentaError(f"{descripcion}: la tarifa de IVA debe ser 0, 5 o 19 %.")
+    if costo is not None and costo < 0:
+        raise _VentaError(f"{descripcion}: el costo no puede ser negativo.")
+
+    # Mismas cuentas que una línea normal (ver más abajo en api_cobrar)
+    bruto = cantidad * precio
+    descuento = _a_pesos(bruto * desc_pct / 100)
+    total_linea = _a_pesos(bruto) - descuento
+    if tarifa > 0:
+        base = _a_pesos(total_linea / (1 + tarifa / 100))
+        iva_valor = total_linea - base
+    else:
+        base, iva_valor = total_linea, 0
+
+    db.execute(
+        "INSERT INTO venta_lineas (venta_id, producto_id, producto_codigo, producto_nombre, "
+        "presentacion, factor, cantidad, precio_unitario, descuento_linea, iva_tipo, iva_tarifa, "
+        "subtotal, iva_valor, total, lotes_json, precio_original, es_libre, costo_libre) "
+        "VALUES (?, NULL, 'LIBRE', ?, NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, 1, ?)",
+        (venta_id, descripcion, cantidad, precio, descuento,
+         "gravado" if tarifa > 0 else "excluido", tarifa, base, iva_valor, total_linea,
+         precio, costo),
+    )
+    texto = f"{descripcion}: {_fmt_cant(cantidad)} x {pesos(precio)} = {pesos(total_linea)}"
+    return base, descuento, iva_valor, total_linea, texto
+
 
 def _venta_o_404(venta_id):
     venta = get_db().execute("SELECT * FROM ventas WHERE id = ?", (venta_id,)).fetchone()

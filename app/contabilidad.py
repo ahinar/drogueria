@@ -83,6 +83,11 @@ def index():
         "WHERE g.activo = 1 ORDER BY g.id DESC LIMIT 8"
     ).fetchall()
 
+    # Otros ingresos del mes (plata que entra y no es venta)
+    ingresos_mes, n_ingresos = db.execute(
+        "SELECT COALESCE(SUM(monto), 0), COUNT(*) FROM otros_ingresos "
+        "WHERE activo = 1 AND fecha >= ?", (inicio_mes,)).fetchone()
+
     # MESES_ES para el título
     meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
              "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
@@ -94,6 +99,8 @@ def index():
         total_mes_anterior=total_mes_anterior,
         por_categoria=por_categoria,
         ultimos=ultimos,
+        ingresos_mes=ingresos_mes,
+        n_ingresos=n_ingresos,
         mes_actual=f"{meses[hoy.month]} {hoy.year}",
     )
 

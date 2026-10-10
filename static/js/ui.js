@@ -92,7 +92,13 @@
          campos: [
            { nombre: 'nombre', etiqueta: 'Nombre', valor: 'Ana' },
            { nombre: 'nota', etiqueta: 'Nota', tipo: 'area', minimo: 3 },
+           { nombre: 'precio', etiqueta: 'Precio', tipo: 'numero', obligatorio: true, mayorQue: 0 },
+           { nombre: 'iva', etiqueta: 'IVA', tipo: 'opciones',
+             opciones: [{ valor: '0', texto: 'Sin IVA' }, { valor: '19', texto: '19 %' }] },
          ],
+       Tipos de campo: (sin tipo) = texto · 'area' = texto largo ·
+       'numero' = número (devuelve un número, o '' si lo dejan vacío) ·
+       'opciones' = lista para escoger. "ayuda" pone una línea gris debajo.
          textoAceptar: 'Guardar',
        });
        if (datos === null) → la persona canceló
@@ -128,15 +134,37 @@
       (opciones.campos || []).forEach(function (c) {
         const label = document.createElement('label');
         label.textContent = c.etiqueta || c.nombre;
-        const input = c.tipo === 'area'
-          ? document.createElement('textarea')
-          : document.createElement('input');
-        if (c.tipo === 'area') input.rows = 3; else input.type = 'text';
-        input.value = c.valor || '';
-        input.placeholder = c.placeholder || '';
-        input.autocomplete = 'off';
-        if (c.maximo) input.maxLength = c.maximo;
+        let input;
+        if (c.tipo === 'area') {
+          input = document.createElement('textarea');
+          input.rows = 3;
+        } else if (c.tipo === 'opciones') {
+          // Lista para escoger (<select>), ej: tarifa de IVA
+          input = document.createElement('select');
+          (c.opciones || []).forEach(function (op) {
+            const o = document.createElement('option');
+            o.value = op.valor;
+            o.textContent = op.texto;
+            input.appendChild(o);
+          });
+        } else {
+          input = document.createElement('input');
+          input.type = 'text';
+          if (c.tipo === 'numero') input.inputMode = 'decimal';   // teclado de números
+        }
+        if (c.valor != null) input.value = c.valor;
+        if (c.tipo !== 'opciones') {
+          input.placeholder = c.placeholder || '';
+          input.autocomplete = 'off';
+          if (c.maximo) input.maxLength = c.maximo;
+        }
         label.appendChild(input);
+        if (c.ayuda) {                      // línea gris de explicación
+          const ayuda = document.createElement('small');
+          ayuda.className = 'modal-ui-ayuda';
+          ayuda.textContent = c.ayuda;
+          label.appendChild(ayuda);
+        }
         caja.appendChild(label);
         entradas[c.nombre] = { input: input, campo: c };
       });
@@ -181,16 +209,30 @@
         e.preventDefault();      // no recargar la página
         e.stopPropagation();
         const datos = {};
+        // Muestra el problema en rojo y pone el cursor en el campo
+        function problema(nombre, texto) {
+          error.textContent = (entradas[nombre].campo.etiqueta || nombre) + ': ' + texto;
+          error.style.display = '';
+          entradas[nombre].input.focus();
+        }
         for (const nombre in entradas) {
+          const c = entradas[nombre].campo;
           const valor = entradas[nombre].input.value.trim();
-          const minimo = entradas[nombre].campo.minimo || 0;
-          if (valor.length < minimo) {
-            error.textContent = (entradas[nombre].campo.etiqueta || nombre) +
-              ': escribe al menos ' + minimo + ' letras.';
-            error.style.display = '';
-            entradas[nombre].input.focus();
-            return;
+          if (c.obligatorio && !valor) { problema(nombre, 'no puede quedar vacío.'); return; }
+          if (c.tipo === 'numero') {
+            if (!valor) { datos[nombre] = ''; continue; }
+            // Acepta "15.000" (punto de miles), "15000", "2,5" y "2.5".
+            // Solo se quitan los puntos cuando parecen de miles (grupos de 3).
+            const limpio = /^\d{1,3}(\.\d{3})+(,\d+)?$/.test(valor) ? valor.replace(/\./g, '') : valor;
+            const n = Number(limpio.replace(',', '.'));
+            if (!isFinite(n)) { problema(nombre, 'escribe solo números.'); return; }
+            if (c.mayorQue != null && !(n > c.mayorQue)) { problema(nombre, 'debe ser mayor a ' + c.mayorQue + '.'); return; }
+            if (c.minimoNumero != null && n < c.minimoNumero) { problema(nombre, 'no puede ser menor a ' + c.minimoNumero + '.'); return; }
+            datos[nombre] = n;
+            continue;
           }
+          const minimo = c.minimo || 0;
+          if (valor.length < minimo) { problema(nombre, 'escribe al menos ' + minimo + ' letras.'); return; }
           datos[nombre] = valor;
         }
         terminar(datos);
@@ -198,7 +240,7 @@
 
       // Pone el cursor en el primer campo (y selecciona su texto)
       // (de inmediato, para que no se pierda ninguna tecla)
-      const primero = caja.querySelector('input, textarea');
+      const primero = caja.querySelector('input, textarea, select');
       if (primero) { primero.focus(); if (primero.select) primero.select(); }
     });
   };

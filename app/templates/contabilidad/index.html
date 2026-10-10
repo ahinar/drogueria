@@ -29,6 +29,18 @@
   </div>
 </div>
 
+<!-- ===== Otros ingresos del mes ===== -->
+<div class="tarjetas-kpi" style="margin:-.6rem 0 1.4rem">
+  <a class="kpi-card" href="{{ url_for('otros_ingresos.lista') }}" style="text-decoration:none;color:inherit">
+    <div class="kpi-icono">💰</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Otros ingresos de {{ mes_actual }}</span>
+      <strong class="kpi-valor">{{ ingresos_mes|pesos }}</strong>
+      <span class="kpi-detalle">{{ n_ingresos }} registro{{ 's' if n_ingresos != 1 else '' }} · recargas, arriendo…</span>
+    </div>
+  </a>
+</div>
+
 <!-- ===== Acciones ===== -->
 <div class="rejilla" style="margin-bottom:1.5rem">
   <a class="modulo" href="{{ url_for('contabilidad.gastos_lista') }}">
@@ -38,6 +50,10 @@
   <a class="modulo" href="{{ url_for('contabilidad.gastos_nuevo') }}">
     <h2><span class="ico-emoji">➕</span> Nuevo gasto</h2>
     <p>Registrar un gasto con categoría, monto y comprobante.</p>
+  </a>
+  <a class="modulo" href="{{ url_for('otros_ingresos.lista') }}">
+    <h2><span class="ico-emoji">💰</span> Otros ingresos</h2>
+    <p>Plata que entra y no es venta: comisión de recargas, arriendo, reciclaje, reintegros.</p>
   </a>
   <!-- Los informes de plata viven en Reportes (un solo lugar para cada cosa) -->
   <a class="modulo" href="{{ url_for('reportes.utilidades_ver') }}">

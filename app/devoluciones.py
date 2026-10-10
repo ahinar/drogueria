@@ -108,6 +108,10 @@ def _lineas_devolvibles(venta_id):
         d = dict(ln)
         d["ya_devuelto"] = ya
         d["disponible"] = round(ln["cantidad"] - ya, 4)
+        # La VENTA LIBRE (ej: una inyectología) no se devuelve: no hay producto
+        # que vuelva al inventario. Si se cobró mal, se anula la venta completa.
+        if ln["es_libre"]:
+            d["disponible"] = 0
         salida.append(d)
     return salida
 

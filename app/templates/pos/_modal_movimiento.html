@@ -13,6 +13,13 @@
           <button type="button" class="boton secundario" id="mov-ir-gasto"><span class="ico-emoji">💸</span> Registrar gasto</button></p>
       </div>
 
+      <!-- Solo se ve en "Ingreso": meter plata (base, cambio) no es lo mismo que plata ganada -->
+      <div id="mov-ayuda-ingreso" class="mov-ayuda" hidden>
+        <p>El <strong>ingreso de efectivo</strong> es para <strong>meter plata</strong> a la caja: más base, cambio de billetes.</p>
+        <p>¿Es <strong>plata que se ganó</strong> y no es una venta (recargas, arriendo, reciclaje)? Eso es otro ingreso.
+          <button type="button" class="boton secundario" id="mov-ir-ingreso">Registrar otro ingreso</button></p>
+      </div>
+
       <label>Forma de pago
         <select name="forma_pago" id="mov-forma-pago">
           <option value="efectivo">Efectivo</option>

@@ -475,6 +475,12 @@ def _filas_estado(r):
          "tipo": "resta", "sube_bueno": False},
         {"texto": "− Pérdidas: faltantes del conteo", "a": a["faltantes_conteo"], "b": b["faltantes_conteo"],
          "tipo": "resta", "sube_bueno": False},
+    ]
+    # Otros ingresos (recargas, arriendo...): se SUMAN, una fila por categoría
+    for i_ in r["filas_ingresos"]:
+        filas.append({"texto": f"+ Otros ingresos: {i_['categoria']}", "a": i_["actual"], "b": i_["anterior"],
+                      "tipo": "linea", "sube_bueno": True, "detalle": i_["detalle"]})
+    filas += [
         {"texto": "= Utilidad neta", "a": a["utilidad_neta"], "b": b["utilidad_neta"], "tipo": "total",
          "sube_bueno": True, "margen_a": a["margen_neto"], "margen_b": b["margen_neto"], "final": True},
         {"texto": "Retiros del dueño (no es gasto)", "a": a["retiros_dueno"], "b": b["retiros_dueno"],
@@ -631,10 +637,14 @@ def ventas_ver():
     from . import informes
     per, ctx = _periodo_pedido()
     a, b = per["actual"], per["anterior"]
-    datos = informes.ventas(a["desde"], a["hasta"], b["desde"], b["hasta"])
+    # Filtro "Mostrar": todo, solo productos del inventario o solo venta libre
+    tipo = request.args.get("tipo") if request.args.get("tipo") in informes.TIPOS_VENTA else "todo"
+    datos = informes.ventas(a["desde"], a["hasta"], b["desde"], b["hasta"], tipo)
     cambios = {k: utilidades.variacion(datos["actual"][k], datos["anterior"][k])
                for k in ("con_iva", "sin_iva", "n", "ticket")}
-    return render_template("reportes/ventas.html", d=datos, cambios=cambios, **ctx)
+    return render_template("reportes/ventas.html", d=datos, cambios=cambios, tipo=tipo,
+                           tipos={k: v[0] for k, v in informes.TIPOS_VENTA.items()},
+                           extra_filtros={"tipo": tipo}, **ctx)
 
 
 @bp.route("/top")

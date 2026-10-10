@@ -799,6 +799,88 @@ MIGRATIONS = [
         ALTER TABLE usuarios ADD COLUMN tema TEXT NOT NULL DEFAULT 'verde';
         """,
     ),
+    (
+        25,
+        """
+        -- ===== Venta libre y otros ingresos =====
+        -- 1) VENTA LIBRE: vender algo que NO está en el inventario (una
+        --    inyectología, una toma de presión...). Esas líneas no tienen
+        --    producto, así que producto_id debe poder quedar vacío (NULL).
+        --    SQLite no deja quitar el "NOT NULL" de una columna: se crea la
+        --    tabla de nuevo, se copian los datos y se cambia el nombre.
+        --    Columnas nuevas:
+        --      es_libre    = 1 si la línea es venta libre
+        --      costo_libre = lo que le cuesta a la droguería CADA UNA (opcional,
+        --                    para que Utilidades calcule bien la ganancia)
+        CREATE TABLE venta_lineas_nueva (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venta_id INTEGER NOT NULL,
+            producto_id INTEGER,                      -- vacío en las líneas de venta libre
+            producto_codigo TEXT NOT NULL,
+            producto_nombre TEXT NOT NULL,
+            presentacion TEXT,
+            factor REAL NOT NULL DEFAULT 1,
+            cantidad REAL NOT NULL DEFAULT 1,
+            precio_unitario REAL NOT NULL DEFAULT 0,
+            descuento_linea REAL NOT NULL DEFAULT 0,
+            iva_tipo TEXT NOT NULL DEFAULT 'gravado',
+            iva_tarifa REAL NOT NULL DEFAULT 0,
+            subtotal REAL NOT NULL DEFAULT 0,
+            iva_valor REAL NOT NULL DEFAULT 0,
+            total REAL NOT NULL DEFAULT 0,
+            lotes_json TEXT,
+            precio_original REAL,
+            motivo_precio TEXT,
+            presentacion_id INTEGER,
+            es_libre INTEGER NOT NULL DEFAULT 0,
+            costo_libre REAL,
+            FOREIGN KEY (venta_id) REFERENCES ventas (id) ON DELETE CASCADE,
+            FOREIGN KEY (producto_id) REFERENCES productos (id)
+        );
+        INSERT INTO venta_lineas_nueva (id, venta_id, producto_id, producto_codigo, producto_nombre,
+                presentacion, factor, cantidad, precio_unitario, descuento_linea, iva_tipo, iva_tarifa,
+                subtotal, iva_valor, total, lotes_json, precio_original, motivo_precio, presentacion_id)
+            SELECT id, venta_id, producto_id, producto_codigo, producto_nombre,
+                presentacion, factor, cantidad, precio_unitario, descuento_linea, iva_tipo, iva_tarifa,
+                subtotal, iva_valor, total, lotes_json, precio_original, motivo_precio, presentacion_id
+            FROM venta_lineas;
+        DROP TABLE venta_lineas;
+        ALTER TABLE venta_lineas_nueva RENAME TO venta_lineas;
+        CREATE INDEX idx_venta_lineas_venta ON venta_lineas (venta_id);
+        CREATE INDEX idx_venta_lineas_producto ON venta_lineas (producto_id);
+
+        -- 2) OTROS INGRESOS: plata que entra y NO es una venta (comisión de
+        --    recargas, arriendo de un espacio, reciclaje...). Es el "espejo"
+        --    de la tabla gastos.
+        --    origen: 'pos' = entró a la caja del POS abierta; 'ninguna' = no
+        --    pasó por la caja (ej: llegó al banco).
+        CREATE TABLE otros_ingresos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha TEXT NOT NULL,
+            categoria_id INTEGER NOT NULL,
+            descripcion TEXT NOT NULL,
+            monto REAL NOT NULL DEFAULT 0,
+            forma_pago TEXT NOT NULL DEFAULT 'efectivo'
+                CHECK (forma_pago IN ('efectivo', 'nequi', 'davivienda', 'tarjeta', 'transferencia')),
+            origen TEXT NOT NULL DEFAULT 'ninguna' CHECK (origen IN ('pos', 'ninguna')),
+            caja_id INTEGER,
+            comprobante TEXT,
+            observaciones TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            activo INTEGER NOT NULL DEFAULT 1,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT,
+            FOREIGN KEY (categoria_id) REFERENCES catalogos (id),
+            FOREIGN KEY (caja_id) REFERENCES cajas (id)
+        );
+        CREATE INDEX idx_otros_ingresos_fecha ON otros_ingresos (fecha);
+
+        -- Las categorías de ingreso se siembran en init_db (más abajo), igual que
+        -- las de gasto: si se sembraran aquí, la siembra general de catálogos
+        -- creería que ya hay catálogos y no pondría los demás.
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:
@@ -982,6 +1064,21 @@ def init_db(ruta) -> int:
                         "VALUES ('categoria_gasto', ?, 1, ?)",
                         (nombre, _ahora),
                     )
+                conn.commit()
+        except sqlite3.OperationalError:
+            pass
+
+        # Sembrar categorías de OTROS INGRESOS (si no existen)
+        try:
+            if not conn.execute("SELECT 1 FROM catalogos WHERE tipo = 'categoria_ingreso' LIMIT 1").fetchone():
+                from datetime import datetime as _dt
+                _ahora = _dt.now().isoformat(sep=" ", timespec="seconds")
+                for nombre in ["Comisiones (recargas, pagos de servicios)", "Arriendo de espacios",
+                               "Reciclaje y aprovechamientos", "Reintegros y reembolsos",
+                               "Intereses bancarios", "Otros"]:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO catalogos (tipo, nombre, activo, creado_en) "
+                        "VALUES ('categoria_ingreso', ?, 1, ?)", (nombre, _ahora))
                 conn.commit()
         except sqlite3.OperationalError:
             pass

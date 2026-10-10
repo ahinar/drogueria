@@ -2648,3 +2648,9 @@ html body .cal-dias button.elegido { background: var(--acento) !important; color
 .cal-dias button:disabled { opacity: .3; cursor: not-allowed; }
 .cal-pie { display: flex; justify-content: space-between; margin-top: .4rem; border-top: 1px solid var(--borde, #e3e8ee); padding-top: .4rem; }
 html body .cal-pie button { padding: .35rem .7rem; color: var(--acento); font-weight: 600; }
+.modal-ui select {
+  display: block; width: 100%; margin-top: .3rem; padding: .55rem .6rem; font: inherit; font-weight: 400;
+  border: 1px solid var(--borde, #cfd8e3); border-radius: .45rem; background: #fff;
+}
+.modal-ui-ayuda { display: block; margin-top: .25rem; font-weight: 400; font-size: .8rem; color: var(--texto-suave, #5b6b79); }
+.modal-ui .fila-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 .8rem; }

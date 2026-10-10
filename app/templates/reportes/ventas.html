@@ -8,6 +8,19 @@
 <p class="suave"><strong>{{ per.actual.texto|capitalize }}</strong> comparado con {{ per.anterior.texto }} · las ventas anuladas no cuentan</p>
 {% include "reportes/_periodo.html" with context %}
 
+{# Filtro "Mostrar": todo, solo productos del inventario o solo venta libre.
+   Conserva el período elegido (mes o fechas). #}
+<form method="get" class="eres-filtros no-imprimir rep-mostrar">
+  {% for k in ('mes', 'desde', 'hasta') %}{% if args.get(k) %}<input type="hidden" name="{{ k }}" value="{{ args.get(k) }}">{% endif %}{% endfor %}
+  <label>Mostrar
+    <select name="tipo" onchange="this.form.submit()">
+      {% for clave, texto in tipos.items() %}<option value="{{ clave }}" {% if clave == tipo %}selected{% endif %}>{{ texto }}</option>{% endfor %}
+    </select>
+  </label>
+  <noscript><button type="submit" class="boton secundario">Ver</button></noscript>
+</form>
+{% if tipo != 'todo' %}<p class="sug-aviso">Filtro: <strong>{{ tipos[tipo] }}</strong>. Los números de abajo cuentan solo esas líneas de venta.</p>{% endif %}
+
 <div class="rep-tarjetas">
   <div class="eres-tarjeta"><span>Vendido (con IVA)</span><strong>{{ pesos(d.actual.con_iva) }}</strong>
     <small>{{ cambio(cambios.con_iva) }} vs {{ pesos(d.anterior.con_iva) }}</small></div>
@@ -18,9 +31,31 @@
   <div class="eres-tarjeta"><span>Ticket promedio</span><strong>{{ pesos(d.actual.ticket) }}</strong>
     <small>{{ cambio(cambios.ticket) }} · descuentos {{ pesos(d.actual.descuentos) }}</small></div>
 </div>
+{% if tipo == 'todo' and d.composicion.libre %}
+<p class="suave">De lo vendido: <strong>{{ pesos(d.composicion.productos) }}</strong> en productos del inventario
+  y <strong>{{ pesos(d.composicion.libre) }}</strong> en venta libre (inyectologías, servicios…).</p>
+{% endif %}
 {% if d.anuladas.n %}<p class="suave">❌ {{ d.anuladas.n }} venta(s) anulada(s) por {{ pesos(d.anuladas.total) }} (no se suman).</p>{% endif %}
 {% if d.devoluciones.n %}<p class="suave">↩️ {{ d.devoluciones.n }} devolución(es) de clientes por {{ pesos(d.devoluciones.total) }}
   (se restan en <a href="{{ url_for('reportes.utilidades_ver') }}">Utilidades</a>).</p>{% endif %}
+
+{# ---- OTROS INGRESOS: plata que entró y no es venta. Va aparte. ---- #}
+{% set oi = d.otros_ingresos %}
+{% if oi.n or oi.total_anterior %}
+<div class="rep-caja" style="margin:1rem 0">
+  <h2><span class="ico-emoji">💰</span> Otros ingresos (no son ventas)</h2>
+  <p class="suave" style="margin-top:0">Comisión de recargas, arriendo, reciclaje… No se suman en los totales de arriba;
+    sí se suman en <a href="{{ url_for('reportes.utilidades_ver') }}">Utilidades</a>.
+    <a href="{{ url_for('otros_ingresos.lista') }}">Ver el detalle</a>.</p>
+  <table class="rep-tabla">
+    <thead><tr><th>Categoría</th><th class="num">Registros</th><th class="num">Total</th></tr></thead>
+    <tbody>{% for f in oi.por_categoria %}<tr><td>{{ f.nombre }}</td><td class="num">{{ f.n }}</td><td class="num">{{ pesos(f.total) }}</td></tr>
+      {% else %}<tr><td colspan="3" class="suave">Ninguno en este período.</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><td>Total</td><td class="num">{{ oi.n }}</td><td class="num">{{ pesos(oi.total) }}
+      <small class="suave">(antes {{ pesos(oi.total_anterior) }})</small></td></tr></tfoot>
+  </table>
+</div>
+{% endif %}
 
 {% if not d.actual.n %}
   <p class="rep-vacio">No hay ventas en este período.</p>

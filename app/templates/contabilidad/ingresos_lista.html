@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{# Lista de OTROS INGRESOS (plata que entra y no es venta). Ver app/otros_ingresos.py #}
+{% block titulo %}Otros ingresos{% endblock %}
+{% block contenido %}
+<h1><span class="ico-emoji">💰</span> Otros ingresos</h1>
+<p class="suave">Plata que entra y <strong>no es una venta</strong>: comisión de recargas, arriendo, reciclaje, reintegros…
+  Los que se registran en el POS en efectivo entran a esa caja.</p>
+
+<form method="get" class="filtros">
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por descripción, comprobante o categoría…">
+  <select name="categoria">
+    <option value="">Todas las categorías</option>
+    {% for c in categorias %}
+      <option value="{{ c['id'] }}" {% if cat_id == c['id'] %}selected{% endif %}>{{ c['nombre'] }}</option>
+    {% endfor %}
+  </select>
+  <select name="filtro">
+    <option value="activos" {% if filtro=='activos' %}selected{% endif %}>Solo activos</option>
+    <option value="inactivos" {% if filtro=='inactivos' %}selected{% endif %}>Solo anulados</option>
+    <option value="todos" {% if filtro=='todos' %}selected{% endif %}>Todos</option>
+  </select>
+  <label>Desde <input type="date" name="desde" value="{{ desde }}"></label>
+  <label>Hasta <input type="date" name="hasta" value="{{ hasta }}"></label>
+  <button type="submit">Filtrar</button>
+  <a class="boton" href="{{ url_for('otros_ingresos.nuevo') }}">+ Nuevo ingreso</a>
+</form>
+
+<div class="tarjetas-kpi" style="margin-bottom:1rem">
+  <div class="kpi-card">
+    <div class="kpi-icono">💰</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Total (activos)</span>
+      <strong class="kpi-valor">{{ total_filtro|pesos }}</strong>
+      <span class="kpi-detalle">{{ filas|length }} registro{{ 's' if filas|length != 1 else '' }}</span>
+    </div>
+  </div>
+</div>
+
+<table class="tabla">
+  <thead>
+    <tr>
+      <th>Fecha</th><th>Categoría</th><th>Descripción</th><th>Forma de pago</th>
+      <th>Por dónde entró</th><th>Usuario</th><th style="text-align:right">Monto</th><th>Estado</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for f in filas %}
+    <tr class="{% if not f['activo'] %}inactivo{% endif %}">
+      <td><small>{{ f['fecha']|fecha_hora }}</small></td>
+      <td>{{ f['categoria_nombre'] or '—' }}</td>
+      <td>{{ f['descripcion'] }}{% if f['comprobante'] %}<br><small class="suave">Comprobante: {{ f['comprobante'] }}</small>{% endif %}</td>
+      <td>{{ formas.get(f['forma_pago'], f['forma_pago']) }}</td>
+      <td>{% if f['origen'] == 'pos' %}Caja POS{% if f['caja_numero'] %} #{{ f['caja_numero'] }}{% endif %}{% else %}Contabilidad{% endif %}</td>
+      <td>{{ f['usuario_nombre'] or '—' }}</td>
+      <td style="text-align:right"><strong>{{ f['monto']|pesos }}</strong></td>
+      <td>{% if f['activo'] %}<span class="tag-ok">Activo</span>{% else %}<span class="tag-error">Anulado</span>{% endif %}</td>
+      <td>
+        <a href="{{ url_for('otros_ingresos.editar', ingreso_id=f['id']) }}">Editar</a>
+        <form method="post" action="{{ url_for('otros_ingresos.anular', ingreso_id=f['id']) }}" style="display:inline"
+              {% if f['activo'] %}data-confirmar="¿Anular este ingreso? Dejará de contar en Utilidades y en los reportes."{% endif %}>
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit">{{ 'Reactivar' if not f['activo'] else 'Anular' }}</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9">No hay ingresos con esos filtros.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

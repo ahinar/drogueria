@@ -14,6 +14,7 @@ bp = Blueprint("catalogos", __name__, url_prefix="/admin/catalogos")
 TIPOS = {
     "categoria":          ("Categorías de producto", "🏷️"),
     "categoria_gasto":    ("Categorías de gasto",    "💸"),
+    "categoria_ingreso":  ("Categorías de otros ingresos", "💰"),
     "forma_farmaceutica": ("Formas farmacéuticas",   "💊"),
     "principio":          ("Principios activos",     "🧪"),
     "laboratorio":        ("Laboratorios",           "🏭"),
@@ -178,6 +179,10 @@ def eliminar(tipo, cat_id):
     en_uso = False
     if tipo == "categoria_gasto":
         fila = db.execute("SELECT 1 FROM gastos WHERE categoria_id = ? LIMIT 1", (cat_id,)).fetchone()
+        if fila:
+            en_uso = True
+    if tipo == "categoria_ingreso":
+        fila = db.execute("SELECT 1 FROM otros_ingresos WHERE categoria_id = ? LIMIT 1", (cat_id,)).fetchone()
         if fila:
             en_uso = True
 

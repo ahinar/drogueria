@@ -201,6 +201,14 @@
 - Cierre de caja como modal con desglose completo.
 - Modal de conteo reutilizable.
 
+### 5.9c Venta libre y otros ingresos ✅
+- **Venta libre** (botón "Venta libre" debajo del carrito o menú del POS): cobrar algo que **no está en el inventario** (inyectología, toma de presión…). Ventana propia con: qué se vende, precio de cada uno (con IVA), cantidad, IVA (sin IVA / 19 % / 5 %) y **costo opcional** (para que Utilidades calcule bien la ganancia). Entra al carrito como una línea más (se puede cambiar cantidad, % y precio sin pedir motivo, porque no hay precio guardado con qué comparar) y **no descuenta inventario**. Se guarda en `venta_lineas` con `es_libre = 1`, `producto_id` vacío, código `LIBRE` y `costo_libre`; queda en la bitácora (`venta_libre`). Sale en el comprobante. **No se puede devolver** (si se cobró mal, se anula la venta). No aparece en Top productos ni en Sugerido.
+- **Otros ingresos**: plata que entra y **no es venta** (comisión de recargas, arriendo de un espacio, reciclaje, reintegros, intereses). Tabla `otros_ingresos` (espejo de `gastos`), categorías en Administración → Catálogos → "Categorías de otros ingresos".
+  - **Desde el POS** (menú → "Otro ingreso"): si es en **efectivo entra a la caja abierta** (caja_movimientos "ingreso") y el cierre cuadra; por Nequi/Davivienda/transferencia solo queda registrado. La ventana "Ingreso de efectivo" aclara la diferencia: *ingreso de efectivo* = meter plata (base, cambio); *otro ingreso* = plata ganada; tiene un botón directo.
+  - **Desde Contabilidad** (`/contabilidad/ingresos`, admin y DT): lista con filtros, nuevo, editar y anular. Para la plata que no pasó por la caja (ej: arriendo que llegó al banco). A un ingreso que entró por la caja del POS **no se le cambia monto, forma de pago ni fecha** (para que la caja siga cuadrando): si quedó mal, se anula y se registra otra vez. Contabilidad muestra el total del mes.
+- **En reportes:** R1 Ventas tiene el filtro **"Mostrar: Todo / Solo productos del inventario / Solo venta libre"** (ahora cuenta por líneas de venta), muestra cuánto fue de productos y cuánto de venta libre, y una sección aparte **"Otros ingresos (no son ventas)"** por categoría. Utilidades: la venta libre está dentro de las ventas con su costo; los otros ingresos se **suman** antes de la utilidad neta, una línea por categoría (se despliega el detalle).
+- Código: `app/pos.py` (`_guardar_linea_libre`, `api_otro_ingreso`), `app/otros_ingresos.py`, `static/js/pos_carrito.js` (`pedirVentaLibre`, `pedirOtroIngreso`). `window.pedirDatos` (ui.js) ahora también pide números y listas.
+
 ### 5.9b Devoluciones ✅
 - `app/devoluciones.py`, ruta `/devoluciones` (solo admin y DT). Entradas: botón **↩️ Devolución** en la lista de ventas del POS, Inventario → Devoluciones y **🚚 Devolver al proveedor** en el detalle de un lote.
 - **De cliente (DC-0001):** se busca la venta (V-0012 o solo 12); por producto se elige cuánto devuelve (máximo lo comprado menos lo ya devuelto) y si **vuelve al inventario** (al mismo lote del que salió, empezando por el último; un lote "agotado" vuelve a disponible) o se da de **baja**. El valor es proporcional a lo que pagó (con descuento). La plata sale de la **caja abierta** como "salida" (efectivo, Nequi, Davivienda o tarjeta), así el cierre cuadra. Motivo obligatorio. Una venta con devolución ya no se puede anular.
@@ -337,8 +345,8 @@ Notas:
 - **Utilidades** vive en Reportes; la tarjeta de Contabilidad lleva a ese reporte (un solo lugar).
 - R6: solo cuenta stock vendible (no cuarentena ni vencidos). Las primeras semanas tras
   el inventario inicial no hay historial de ventas; mientras tanto se guía por el stock mínimo.
-- Más adelante, cuando existan: **venta libre** en el POS y **otros ingresos** → se agregan
-  como filtros dentro de R1 Ventas (no como reportes aparte).
+- **Venta libre** y **otros ingresos** ✅ quedaron como filtro y sección dentro de R1 Ventas
+  (no como reportes aparte). Ver 5.9c.
 - _Descartados por decisión de Fernando: Top 5 servicios y Medicamentos vs Servicios._
 - Visto en DATA FARMAC y anotado como idea: **Cotización** y **Deudas** (fiados).
 
@@ -390,12 +398,11 @@ Notas:
   9. **POS táctil:** botones grandes (mínimo 44 px), contraste alto.
   10. **Impresos coherentes:** comprobante de venta en tirilla de 80 mm y todos los PDF con el mismo encabezado.
   Forma de trabajo: primero la guía de estilo y una maqueta de 2–3 pantallas para aprobar, luego módulo por módulo.
-- [ ] Venta libre en el POS y registro de otros ingresos (entran como filtros de R1).
 - [ ] (Idea) Cotizaciones y deudas/fiados.
 - [ ] (⏸ solo si el contador lo pide) Reporte de IVA con prorrateo (Art. 490 ET).
 
 ### Mediano plazo
-- [ ] Módulo de control especial (FNE) con libro oficial (hoy el POS bloquea su venta).
+- [ ] Módulo de control especial (FNE) con libro oficial (hoy el POS bloquea su venta). ⏸ Fernando lo deja para una actualización posterior (2026-10-10).
 - [ ] Gestión documental (POE con versiones), plan de saneamiento, capacitaciones, farmacovigilancia.
 - [ ] Modo Inspección (paquete para la Secretaría de Salud).
 - [ ] Empaquetado para Windows (ventana propia, instalador, arranque automático).
@@ -408,7 +415,7 @@ Notas:
 - [ ] Alertas a Telegram / WhatsApp.
 
 ### Hecho (antes estaba en esta lista)
-- [x] Carrito del POS, gastos discriminados, utilidades y estado de resultados, módulo Reportes R1–R8, control de precios máximos con alerta, venta por presentación, panel de alertas, equipos y calibraciones, confirmaciones con la ventana del programa.
+- [x] Venta libre y otros ingresos, carrito del POS, gastos discriminados, utilidades y estado de resultados, módulo Reportes R1–R8, control de precios máximos con alerta, venta por presentación, panel de alertas, equipos y calibraciones, confirmaciones con la ventana del programa.
 
 ## 9. Pendientes por confirmar (con el usuario y terceros)
 
@@ -449,6 +456,7 @@ Notas:
 | 22 | `equipos` rehecha con más tipos y `frecuencia_meses`; tabla `calibraciones` |
 | 23 | `devoluciones` y `devolucion_lineas` (de cliente y a proveedor) |
 | 24 | `usuarios.tema` (verde, azul o clásico) |
+| 25 | `venta_lineas` reconstruida: `producto_id` opcional + `es_libre`, `costo_libre` (venta libre); tabla `otros_ingresos`; categorías `categoria_ingreso` (se siembran en init_db) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 

@@ -44,7 +44,8 @@ def create_app(test_config=None):
     base_datos.init_app(app)
 
     from . import (admin, apariencia, auth, caja_menor, catalogos, configuracion,
-                   contabilidad, conteos, devoluciones, equipos, importador, inventario, main, pos, productos,
+                   contabilidad, conteos, devoluciones, equipos, importador, inventario, main,
+                   otros_ingresos, pos, productos,
                    proveedores, recepciones, reportes, temperaturas, unidades)
 
     app.register_blueprint(auth.bp)
@@ -67,6 +68,7 @@ def create_app(test_config=None):
     app.register_blueprint(equipos.bp)   # equipos y calibraciones
     app.register_blueprint(devoluciones.bp)   # devoluciones de cliente y a proveedor
     app.register_blueprint(apariencia.bp)     # tema (colores) de cada usuario
+    app.register_blueprint(otros_ingresos.bp) # plata que entra y no es venta
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
     # {{ 12345 | pesos }} → "$12.345" (formato colombiano, ver app/formato.py)

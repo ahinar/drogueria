@@ -20,6 +20,10 @@ DE DÓNDE SALE CADA NÚMERO:
       cuántas unidades; se multiplica por el costo_unitario de ese lote.
       Es el costo REAL (no un promedio).
     - Gastos: tabla gastos (activos), agrupados por categoría.
+    - Venta libre (ej: inyectología): está dentro de las ventas; su costo es el
+      que escribió el cajero (opcional) por la cantidad.
+    - Otros ingresos: tabla otros_ingresos (activos). Se suman al final, antes
+      de la utilidad neta.
     - Pérdidas: movimientos_inventario de tipo 'ajuste' o 'baja' con cantidad
       NEGATIVA (salió mercancía sin venderse), valorizados al costo del lote.
       Los sobrantes (ajustes positivos) NO se suman como ganancia, porque
@@ -139,7 +143,8 @@ def calcular(desde, hasta):
 
     # ---- 2.1 Ventas y costo de lo vendido ----
     lineas = db.execute(
-        "SELECT vl.subtotal, vl.iva_valor, vl.total, vl.descuento_linea, vl.lotes_json, vl.venta_id "
+        "SELECT vl.subtotal, vl.iva_valor, vl.total, vl.descuento_linea, vl.lotes_json, vl.venta_id, "
+        "       vl.es_libre, vl.costo_libre, vl.cantidad "
         "FROM venta_lineas vl JOIN ventas v ON v.id = vl.venta_id "
         "WHERE v.estado = 'completada' AND v.fecha >= ? AND v.fecha < ?", (ini, fin)).fetchall()
 
@@ -154,13 +159,20 @@ def calcular(desde, hasta):
         costos = {f["id"]: float(f["costo_unitario"] or 0) for f in db.execute(
             f"SELECT id, costo_unitario FROM lotes WHERE id IN ({marcas})", list(lotes_usados))}
 
-    ventas = iva = total_con_iva = descuentos = costo = 0.0
+    ventas = iva = total_con_iva = descuentos = costo = ventas_libres = 0.0
     lineas_sin_costo = 0     # líneas cuyo lote tiene costo $0 (la utilidad sale "inflada")
     for ln in lineas:
         ventas += ln["subtotal"]
         iva += ln["iva_valor"]
         total_con_iva += ln["total"]
         descuentos += ln["descuento_linea"]
+        if ln["es_libre"]:
+            # VENTA LIBRE (ej: inyectología): no sale de un lote. Su costo es el
+            # que escribió el cajero (opcional) x la cantidad. Un servicio puede
+            # costar $0 de verdad, así que NO cuenta como "línea sin costo".
+            ventas_libres += ln["subtotal"]
+            costo += (ln["costo_libre"] or 0) * ln["cantidad"]
+            continue
         costo_linea = sum(a["cantidad"] * costos.get(a["lote_id"], 0)
                           for a in json.loads(ln["lotes_json"] or "[]"))
         if costo_linea <= 0:
@@ -212,9 +224,25 @@ def calcular(desde, hasta):
         "WHERE tipo = 'retiro' AND retiro_dueno = 1 AND fecha >= ? AND fecha < ?",
         (ini, fin)).fetchone()[0]
 
+    # ---- 2.4b Otros ingresos (plata que entra y no es venta) ----
+    # Ej: comisión de recargas, arriendo. Se suman DESPUÉS de los gastos,
+    # como en un estado de resultados normal ("ingresos no operacionales").
+    ingresos_filas = db.execute(
+        "SELECT i.id, i.fecha, i.descripcion, i.monto, i.forma_pago, "
+        "       COALESCE(c.nombre, 'Sin categoría') AS categoria "
+        "FROM otros_ingresos i LEFT JOIN catalogos c ON c.id = i.categoria_id "
+        "WHERE i.activo = 1 AND i.fecha >= ? AND i.fecha < ? ORDER BY i.fecha", (ini, fin)).fetchall()
+    por_cat_ing = {}
+    for f in ingresos_filas:
+        cat = por_cat_ing.setdefault(f["categoria"], {"categoria": f["categoria"], "total": 0.0, "detalle": []})
+        cat["total"] += f["monto"]
+        cat["detalle"].append(dict(f))
+    otros_ingresos = sorted(por_cat_ing.values(), key=lambda c: -c["total"])
+    total_otros_ingresos = sum(c["total"] for c in otros_ingresos)
+
     # ---- 2.5 Resultados ----
     utilidad_bruta = ventas - devoluciones - costo
-    utilidad_neta = utilidad_bruta - total_gastos - total_perdidas
+    utilidad_neta = utilidad_bruta - total_gastos - total_perdidas + total_otros_ingresos
     netas = ventas - devoluciones          # los márgenes se calculan sobre las ventas netas
     pct = lambda parte: (parte / netas * 100) if netas else 0
 
@@ -224,11 +252,13 @@ def calcular(desde, hasta):
         "ticket_promedio": (total_con_iva / n_ventas) if n_ventas else 0,
         "total_con_iva": total_con_iva, "iva": iva, "descuentos": descuentos,
         "ventas": ventas,
+        "ventas_libres": ventas_libres,          # parte de "ventas" que fue venta libre
         "devoluciones": devoluciones,
         "costo": costo,
         "utilidad_bruta": utilidad_bruta, "margen_bruto": pct(utilidad_bruta),
         "gastos": gastos, "total_gastos": total_gastos,
         "faltantes_conteo": faltantes_conteo, "bajas": bajas, "total_perdidas": total_perdidas,
+        "otros_ingresos": otros_ingresos, "total_otros_ingresos": total_otros_ingresos,
         "utilidad_neta": utilidad_neta, "margen_neto": pct(utilidad_neta),
         "retiros_dueno": float(retiros),
         "queda": utilidad_neta - float(retiros),
@@ -263,4 +293,19 @@ def estado_de_resultados(mes=None, desde=None, hasta=None, hoy=None):
             "detalle": act["detalle"] if act else [],
         })
 
-    return {"periodo": per, "actual": actual, "anterior": anterior, "filas_gastos": filas_gastos}
+    # Lo mismo para las categorías de otros ingresos
+    ing_ant = {c["categoria"]: c["total"] for c in anterior["otros_ingresos"]}
+    nombres_ing = [c["categoria"] for c in actual["otros_ingresos"]] + \
+                  [n for n in ing_ant if n not in {c["categoria"] for c in actual["otros_ingresos"]}]
+    filas_ingresos = []
+    for nombre in nombres_ing:
+        act = next((c for c in actual["otros_ingresos"] if c["categoria"] == nombre), None)
+        filas_ingresos.append({
+            "categoria": nombre,
+            "actual": act["total"] if act else 0,
+            "anterior": ing_ant.get(nombre, 0),
+            "detalle": act["detalle"] if act else [],
+        })
+
+    return {"periodo": per, "actual": actual, "anterior": anterior, "filas_gastos": filas_gastos,
+            "filas_ingresos": filas_ingresos}

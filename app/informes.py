@@ -28,23 +28,63 @@ def _limites(desde, hasta):
 # R1 · VENTAS
 # ======================================================================
 
-def _totales_ventas(db, ini, fin):
+# Filtro "Mostrar" del reporte R1. Se cuenta por LÍNEAS de venta, porque
+# un mismo tiquete puede tener productos del inventario Y venta libre.
+TIPOS_VENTA = {
+    "todo": ("Todo", ""),
+    "productos": ("Solo productos del inventario", " AND vl.es_libre = 0"),
+    "libre": ("Solo venta libre", " AND vl.es_libre = 1"),
+}
+
+# Base de casi todas las consultas de R1: líneas de ventas completadas en el período
+_DESDE_LINEAS = ("FROM venta_lineas vl JOIN ventas v ON v.id = vl.venta_id "
+                 "WHERE v.estado = 'completada' AND v.fecha >= ? AND v.fecha < ?")
+
+
+def _totales_ventas(db, ini, fin, filtro=""):
+    """Totales del período. n = cuántos tiquetes distintos."""
     fila = db.execute(
-        "SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS con_iva, "
-        "       COALESCE(SUM(subtotal), 0) AS sin_iva, COALESCE(SUM(iva), 0) AS iva, "
-        "       COALESCE(SUM(descuento), 0) AS descuentos "
-        "FROM ventas WHERE estado = 'completada' AND fecha >= ? AND fecha < ?", (ini, fin)).fetchone()
+        "SELECT COUNT(DISTINCT v.id) AS n, COALESCE(SUM(vl.total), 0) AS con_iva, "
+        "       COALESCE(SUM(vl.subtotal), 0) AS sin_iva, COALESCE(SUM(vl.iva_valor), 0) AS iva, "
+        "       COALESCE(SUM(vl.descuento_linea), 0) AS descuentos "
+        + _DESDE_LINEAS + filtro, (ini, fin)).fetchone()
     datos = dict(fila)
     datos["ticket"] = datos["con_iva"] / datos["n"] if datos["n"] else 0
     return datos
 
 
-def ventas(desde, hasta, anterior_desde, anterior_hasta):
-    """R1: totales (y los del período anterior), por día, forma de pago, vendedor y hora."""
+def _otros_ingresos(db, ini, fin):
+    """Otros ingresos del período (recargas, arriendo...): total y por categoría."""
+    por_cat = [dict(f) for f in db.execute(
+        "SELECT COALESCE(c.nombre, 'Sin categoría') AS nombre, COUNT(*) AS n, SUM(i.monto) AS total "
+        "FROM otros_ingresos i LEFT JOIN catalogos c ON c.id = i.categoria_id "
+        "WHERE i.activo = 1 AND i.fecha >= ? AND i.fecha < ? GROUP BY nombre ORDER BY total DESC",
+        (ini, fin))]
+    return {"total": sum(f["total"] for f in por_cat), "n": sum(f["n"] for f in por_cat),
+            "por_categoria": por_cat}
+
+
+def ventas(desde, hasta, anterior_desde, anterior_hasta, tipo="todo"):
+    """R1: totales (y los del período anterior), por día, forma de pago, vendedor y hora.
+
+    tipo = 'todo', 'productos' (del inventario) o 'libre' (venta libre).
+    Además trae la composición (productos vs venta libre) y los OTROS
+    INGRESOS del período, que se muestran aparte (no son ventas).
+    """
     db = get_db()
+    filtro = TIPOS_VENTA.get(tipo, TIPOS_VENTA["todo"])[1]
     ini, fin = _limites(desde, hasta)
-    actual = _totales_ventas(db, ini, fin)
-    anterior = _totales_ventas(db, *_limites(anterior_desde, anterior_hasta))
+    ini_ant, fin_ant = _limites(anterior_desde, anterior_hasta)
+    actual = _totales_ventas(db, ini, fin, filtro)
+    anterior = _totales_ventas(db, ini_ant, fin_ant, filtro)
+
+    # Composición: cuánto fue de productos y cuánto de venta libre (siempre todo)
+    composicion = {
+        "productos": _totales_ventas(db, ini, fin, TIPOS_VENTA["productos"][1])["con_iva"],
+        "libre": _totales_ventas(db, ini, fin, TIPOS_VENTA["libre"][1])["con_iva"],
+    }
+    otros = _otros_ingresos(db, ini, fin)
+    otros["total_anterior"] = _otros_ingresos(db, ini_ant, fin_ant)["total"]
 
     anuladas = db.execute(
         "SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS total FROM ventas "
@@ -56,8 +96,8 @@ def ventas(desde, hasta, anterior_desde, anterior_hasta):
 
     # Por día: TODOS los días del período, aunque en alguno no se haya vendido (sale en 0)
     por_dia_bd = {f["dia"]: dict(f) for f in db.execute(
-        "SELECT substr(fecha, 1, 10) AS dia, COUNT(*) AS n, SUM(total) AS total "
-        "FROM ventas WHERE estado = 'completada' AND fecha >= ? AND fecha < ? GROUP BY dia", (ini, fin))}
+        "SELECT substr(v.fecha, 1, 10) AS dia, COUNT(DISTINCT v.id) AS n, SUM(vl.total) AS total "
+        + _DESDE_LINEAS + filtro + " GROUP BY dia", (ini, fin))}
     por_dia, d = [], desde
     while d <= hasta:
         f = por_dia_bd.get(d.isoformat(), {"n": 0, "total": 0})
@@ -67,19 +107,18 @@ def ventas(desde, hasta, anterior_desde, anterior_hasta):
 
     def agrupar(columna):
         return [dict(f) for f in db.execute(
-            f"SELECT {columna} AS nombre, COUNT(*) AS n, SUM(total) AS total FROM ventas "
-            "WHERE estado = 'completada' AND fecha >= ? AND fecha < ? "
-            f"GROUP BY {columna} ORDER BY total DESC", (ini, fin))]
+            f"SELECT {columna} AS nombre, COUNT(DISTINCT v.id) AS n, SUM(vl.total) AS total "
+            + _DESDE_LINEAS + filtro + f" GROUP BY {columna} ORDER BY total DESC", (ini, fin))]
 
-    por_pago = agrupar("forma_pago")
+    por_pago = agrupar("v.forma_pago")
     for f in por_pago:
         f["nombre"] = FORMAS_PAGO.get(f["nombre"], f["nombre"])
-    por_vendedor = agrupar("COALESCE(usuario_nombre, '—')")
+    por_vendedor = agrupar("COALESCE(v.usuario_nombre, '—')")
 
     # Por hora del día: ¿a qué horas se vende más? (sirve para turnos)
     por_hora = {int(f["hora"]): dict(f) for f in db.execute(
-        "SELECT substr(fecha, 12, 2) AS hora, COUNT(*) AS n, SUM(total) AS total FROM ventas "
-        "WHERE estado = 'completada' AND fecha >= ? AND fecha < ? GROUP BY hora", (ini, fin))}
+        "SELECT substr(v.fecha, 12, 2) AS hora, COUNT(DISTINCT v.id) AS n, SUM(vl.total) AS total "
+        + _DESDE_LINEAS + filtro + " GROUP BY hora", (ini, fin))}
     horas = [{"hora": h, "n": por_hora.get(h, {}).get("n", 0), "total": por_hora.get(h, {}).get("total", 0) or 0}
              for h in range(24)]
     # Solo el rango de horas con ventas (ej: 7 a. m. a 9 p. m.)
@@ -92,7 +131,7 @@ def ventas(desde, hasta, anterior_desde, anterior_hasta):
             f["pct"] = f["total"] / total * 100
 
     return {"actual": actual, "anterior": anterior, "anuladas": dict(anuladas),
-            "devoluciones": dict(devoluciones),
+            "devoluciones": dict(devoluciones), "composicion": composicion, "otros_ingresos": otros,
             "por_dia": por_dia, "por_pago": por_pago, "por_vendedor": por_vendedor, "por_hora": horas}
 
 
@@ -108,7 +147,8 @@ def top_productos(desde, hasta, cuantos=10, orden="dinero"):
         "SELECT vl.producto_id, vl.producto_codigo, vl.producto_nombre, vl.cantidad, "
         "       COALESCE(vl.factor, 1) AS factor, vl.subtotal, vl.total, vl.lotes_json "
         "FROM venta_lineas vl JOIN ventas v ON v.id = vl.venta_id "
-        "WHERE v.estado = 'completada' AND v.fecha >= ? AND v.fecha < ?", (ini, fin)).fetchall()
+        "WHERE v.estado = 'completada' AND v.fecha >= ? AND v.fecha < ? "
+        "AND vl.es_libre = 0", (ini, fin)).fetchall()    # la venta libre no es un producto
 
     # Costo de los lotes usados (para la utilidad de cada producto)
     ids = {a["lote_id"] for ln in lineas for a in json.loads(ln["lotes_json"] or "[]")}

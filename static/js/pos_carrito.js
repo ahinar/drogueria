@@ -242,6 +242,7 @@
   // todas las líneas del mismo producto. Ej: hay 120 tabletas; si ya hay
   // 1 caja x 100 en el carrito, de sobres x 10 solo caben (120-100)/10 = 2.
   function topeDe(it) {
+    if (it.libre) return 1e9;   // venta libre: no sale del inventario, no hay tope
     const otras = carrito.reduce((suma, x) =>
       (x !== it && x.producto_id === it.producto_id) ? suma + x.cantidad * x.factor : suma, 0);
     const libres = Math.max(0, it.stock_base - otras);
@@ -395,6 +396,7 @@
       contenedorCarrito.innerHTML = carrito.map((it, i) => {
         const l = calcularLinea(it);
         const detalle = [
+          it.libre ? 'Venta libre' + (it.iva_tarifa > 0 ? ' · IVA ' + it.iva_tarifa + '%' : '') : '',
           it.presentacion ? '📦 ' + it.presentacion : '',
           it.concentracion,
           peso(it.precio) + ' c/u',
@@ -696,6 +698,12 @@
     // Por cada producto mandamos solo lo necesario. El precio normal NO se manda:
     // lo pone el servidor. Solo si el cajero lo cambió viajan precio_nuevo y motivo_precio.
     datos.append('carrito', JSON.stringify(carrito.map((i) => {
+      // Venta libre: aquí SÍ viaja el precio, porque no hay uno guardado
+      if (i.libre) {
+        return { libre: 1, descripcion: i.nombre, precio: i.precio, cantidad: i.cantidad,
+                 descuento_pct: i.descuento_pct, iva_tarifa: i.iva_tarifa,
+                 costo: i.costo === '' || i.costo == null ? null : i.costo };
+      }
       const linea = { producto_id: i.producto_id, presentacion_id: i.presentacion_id || 0,
                       cantidad: i.cantidad, descuento_pct: i.descuento_pct };
       if (cambioDePrecio(i)) {
@@ -784,6 +792,92 @@
     guardarCarrito();
     aviso(nota ? 'Nota guardada' : 'Nota borrada');
   }
+  // VENTA LIBRE: vender algo que no está en el inventario (una inyectología,
+  // una toma de presión, una fotocopia...). Entra al carrito como una línea
+  // más, pero al cobrar no descuenta nada del inventario.
+  async function pedirVentaLibre() {
+    const datos = await window.pedirDatos({
+      titulo: 'Venta libre',
+      texto: 'Para cobrar algo que no está en el inventario (ej: inyectología, toma de presión).',
+      campos: [
+        { nombre: 'descripcion', etiqueta: '¿Qué se vende?', minimo: 3, maximo: 120,
+          placeholder: 'Ej: Inyectología' },
+        { nombre: 'precio', etiqueta: 'Precio de cada uno (con IVA)', tipo: 'numero',
+          obligatorio: true, mayorQue: 0, placeholder: 'Ej: 5000' },
+        { nombre: 'cantidad', etiqueta: 'Cantidad', tipo: 'numero', valor: '1', mayorQue: 0 },
+        { nombre: 'iva', etiqueta: 'IVA', tipo: 'opciones', opciones: [
+          { valor: '0', texto: 'Sin IVA (excluido o exento)' },
+          { valor: '19', texto: 'IVA 19 %' },
+          { valor: '5', texto: 'IVA 5 %' },
+        ] },
+        { nombre: 'costo', etiqueta: 'Costo de cada uno (opcional)', tipo: 'numero', minimoNumero: 0,
+          ayuda: 'Lo que le cuesta a la droguería (jeringa, algodón...). Sirve para calcular la ganancia.' },
+      ],
+      textoAceptar: 'Agregar al carrito',
+    });
+    if (datos === null) return;
+    const tarifa = Number(datos.iva) || 0;
+    carrito.push({
+      libre: true,                         // así se reconoce en todo el código
+      producto_id: null, presentacion_id: 0, presentacion: '', factor: 1, stock_base: 0,
+      nombre: datos.descripcion,
+      precio: datos.precio,
+      precio_original: null,               // no hay precio "normal" con qué comparar
+      cantidad: datos.cantidad === '' ? 1 : datos.cantidad,
+      descuento_pct: 0,
+      iva_tipo: tarifa > 0 ? 'gravado' : 'excluido',
+      iva_tarifa: tarifa,
+      costo: datos.costo,
+    });
+    seleccionar(carrito.length - 1);
+    pintarCarrito();
+    aviso('Agregado: ' + datos.descripcion);
+  }
+  $('btn-venta-libre').addEventListener('click', pedirVentaLibre);
+
+  // OTRO INGRESO: plata que entra y NO es una venta (comisión de recargas,
+  // arriendo, reciclaje...). Si es en efectivo, entra a esta caja.
+  async function pedirOtroIngreso() {
+    let categorias = [];
+    try { categorias = JSON.parse($('categorias-ingreso').textContent || '[]'); } catch (e) { /* vacío */ }
+    if (!categorias.length) {
+      aviso('No hay categorías de ingreso. Créalas en Administración → Catálogos.');
+      return;
+    }
+    const datos = await window.pedirDatos({
+      titulo: 'Otro ingreso',
+      texto: 'Plata que entra y NO es una venta: comisión de recargas, arriendo, reciclaje…',
+      campos: [
+        { nombre: 'categoria_id', etiqueta: 'Categoría', tipo: 'opciones',
+          opciones: categorias.map((c) => ({ valor: String(c.id), texto: c.nombre })) },
+        { nombre: 'descripcion', etiqueta: 'Descripción', minimo: 3, maximo: 200,
+          placeholder: 'Ej: comisión recargas de la semana' },
+        { nombre: 'monto', etiqueta: 'Monto', tipo: 'numero', obligatorio: true, mayorQue: 0 },
+        { nombre: 'forma_pago', etiqueta: 'Cómo llegó la plata', tipo: 'opciones', opciones: [
+          { valor: 'efectivo', texto: 'Efectivo (entra a esta caja)' },
+          { valor: 'nequi', texto: 'Nequi' },
+          { valor: 'davivienda', texto: 'Davivienda' },
+          { valor: 'transferencia', texto: 'Transferencia' },
+        ] },
+      ],
+      textoAceptar: 'Registrar ingreso',
+    });
+    if (datos === null) return;
+    const form = new FormData();
+    form.append('_csrf', csrf());
+    for (const clave in datos) form.append(clave, datos[clave]);
+    try {
+      const resp = await fetch($('url-api-otro-ingreso').value,
+        { method: 'POST', body: form, credentials: 'same-origin' });
+      const json = await resp.json();
+      if (!json.ok) { window.avisar(json.error || 'No se pudo registrar.', 'error'); return; }
+      window.avisar('Ingreso registrado: ' + datos.descripcion + ' · ' + peso(datos.monto), 'ok');
+    } catch (e) {
+      window.avisar('Error de conexión: ' + e.message, 'error');
+    }
+  }
+  // Para que el botón de la ventana "Ingreso de efectivo" (pos.js) la pueda abrir
+  window.pedirOtroIngreso = pedirOtroIngreso;
   $('btn-cliente').addEventListener('click', pedirCliente);
   $('btn-nota').addEventListener('click', pedirNota);
 
@@ -861,6 +955,8 @@
       else if (accion === 'consulta-inventario') window.location.href = URL.inventario;
       else if (accion === 'cliente') { cerrar(); pedirCliente(); }
       else if (accion === 'nota') { cerrar(); pedirNota(); }
+      else if (accion === 'venta-libre') { cerrar(); pedirVentaLibre(); }
+      else if (accion === 'otro-ingreso') { cerrar(); pedirOtroIngreso(); }
       else if (accion === 'registrar-gasto') { cerrar(); abrirModalGasto(); }
     });
   });
