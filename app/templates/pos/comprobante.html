@@ -25,7 +25,7 @@
     <span class="anchos" title="Ancho del papel">
       <a href="?papel=58" class="{{ 'activo' if papel == '58' else '' }}">58</a><a href="?papel=80" class="{{ 'activo' if papel == '80' else '' }}">80</a>
     </span>
-    <a href="{{ url_for('pos.index') }}">Volver al POS</a>
+    <a href="{{ url_for('pos.index') }}" onclick="return volverDeTirilla(event)">Volver al POS</a>
   </div>
 
   {# ---------- Encabezado: logo y datos del negocio ---------- #}

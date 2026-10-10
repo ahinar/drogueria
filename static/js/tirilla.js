@@ -30,3 +30,21 @@
   window.addEventListener('load', ajustarPapel);
   window.addEventListener('beforeprint', ajustarPapel);
 })();
+
+/* ---------------------------------------------------------------------
+   BOTÓN "VOLVER" DE LA TIRILLA
+   El POS abre el comprobante en una ventana (pestaña) NUEVA. Si "Volver"
+   abriera el POS otra vez, quedarían dos POS abiertos. Por eso:
+     - si esta ventana la abrió el POS -> se CIERRA y queda el POS de antes
+     - si se llegó aquí de otra forma (ej. desde Ventas) -> se va a la dirección del enlace
+   Uso en el HTML: <a href="/pos/" onclick="return volverDeTirilla(event)">
+   --------------------------------------------------------------------- */
+function volverDeTirilla(e) {
+  if (window.opener && !window.opener.closed) {
+    e.preventDefault();
+    try { window.opener.focus(); } catch (err) { /* otro origen: no importa */ }
+    window.close();
+    return false;
+  }
+  return true;          // no hay ventana que la abrió: el enlace funciona normal
+}

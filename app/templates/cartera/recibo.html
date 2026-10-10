@@ -17,7 +17,7 @@
     <span class="anchos" title="Ancho del papel">
       <a href="?papel=58" class="{{ 'activo' if papel == '58' else '' }}">58</a><a href="?papel=80" class="{{ 'activo' if papel == '80' else '' }}">80</a>
     </span>
-    <a href="javascript:history.back()">Volver</a>
+    <a href="javascript:history.back()" onclick="return volverDeTirilla(event)">Volver</a>
   </div>
 
   {% if config['logo_ruta'] %}<img class="logo" src="{{ url_for('static', filename=config['logo_ruta']) }}" alt="">{% endif %}
