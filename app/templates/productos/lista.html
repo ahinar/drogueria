@@ -52,8 +52,11 @@
           <span class="producto-lab">{{ p['laboratorio_nombre'] }}</span>
         {% endif %}
         <div class="producto-precio">
-          <strong>${{ '%.0f'|format(p['precio_venta']) }}</strong>
-          <small>por {{ p['unidad_nombre'] or 'Unidad' }}</small>
+          {# Precio de lo que se vende normalmente (ej. $1.600 por Sobre x 10) #}
+          {% set v = venta.get(p['id'], {}) %}
+          <strong>{{ (v.precio if v else p['precio_venta'])|pesos }}</strong>
+          <small>por {{ v.por if v else (p['unidad_nombre'] or 'Unidad') }}</small>
+          <small class="suave" style="display:block">Hay: {{ v.existencias if v else '—' }}</small>
         </div>
         <div class="producto-tags">
           {% if p['cadena_frio'] %}<span class="tag frio"><span class="ico-emoji">❄</span> Frío</span>{% endif %}
@@ -86,7 +89,7 @@
         <th>Nombre</th>
         <th>Principio / Lab</th>
         <th>Categorías</th>
-        <th>Precio de venta</th>
+        <th>Precio y existencias</th>
         <th>Alertas</th>
         <th>Estado</th>
         <th></th>
@@ -106,8 +109,10 @@
         </td>
         <td><small>{{ p['categorias_txt'] or '—' }}</small></td>
         <td>
-          <strong>${{ '%.0f'|format(p['precio_venta']) }}</strong><br>
-          <small>por {{ p['unidad_nombre'] or 'Unidad' }}</small>
+          {% set v = venta.get(p['id'], {}) %}
+          <strong>{{ (v.precio if v else p['precio_venta'])|pesos }}</strong><br>
+          <small>por {{ v.por if v else (p['unidad_nombre'] or 'Unidad') }}</small><br>
+          <small class="suave">Hay: {{ v.existencias if v else '—' }}</small>
         </td>
         <td>
           {% if p['cadena_frio'] %}<span class="tag frio"><span class="ico-emoji">❄</span> Frío</span>{% endif %}

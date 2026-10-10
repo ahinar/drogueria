@@ -147,6 +147,7 @@ def _lineas_previas_formulario():
     resultados = request.form.getlist("linea_resultado")
     motivos = request.form.getlist("linea_motivo")
     presentaciones = request.form.getlist("linea_presentacion")
+    factores_otros = request.form.getlist("linea_factor_otro")
 
     db = get_db()
     lineas = []
@@ -182,7 +183,10 @@ def _lineas_previas_formulario():
             "estado_empaque": v(empaques, i) or "bueno",
             "resultado": v(resultados, i) or "aceptado",
             "motivo_rechazo": v(motivos, i),
-            "presentacion_id": int(v(presentaciones, i)) if v(presentaciones, i).isdigit() else 0,
+            # "otra" = una caja que no está en la ficha, con su "cuántas trae" escrito
+            "presentacion_id": (int(v(presentaciones, i)) if v(presentaciones, i).isdigit()
+                                else v(presentaciones, i) if v(presentaciones, i) == "otra" else 0),
+            "factor_otro": v(factores_otros, i),
             "presentaciones": _presentaciones_simples(int(pid)),
         })
     return lineas
@@ -202,6 +206,8 @@ def _leer_lineas_formulario():
     obs_lineas = request.form.getlist("linea_observaciones")
     # "Viene en": id de la presentación (0 = unidad de inventario, otro = sobre, caja...)
     presentaciones = request.form.getlist("linea_presentacion")
+    # Si escogieron "Otra caja…": cuántas unidades trae esa caja (ej. 300)
+    factores_otros = request.form.getlist("linea_factor_otro")
 
     lineas, errores = [], []
     for i, pid in enumerate(prod_ids):
@@ -256,7 +262,18 @@ def _leer_lineas_formulario():
         # y el costo por tableta = $25.000 / 100 = $250. Así el resto del
         # programa (lotes, kardex, utilidades) sigue igual.
         pres_txt = v(presentaciones, i)
-        presentacion = pres.presentacion_para_vender(int(pid), int(pres_txt)) if pres_txt.isdigit() else None
+        if pres_txt == "otra":
+            # Caja que no está en la ficha (hoy llegó x 300, otro día x 100)
+            try:
+                factor_otro = float(v(factores_otros, i).replace(",", ".") or 0)
+            except ValueError:
+                factor_otro = 0
+            if factor_otro <= 1:
+                errores.append(f"{nombre}: escribe cuántas unidades trae la caja (más de 1).")
+                factor_otro = 1
+            presentacion = {"nombre": f"Caja x {factor_otro:g}", "factor": factor_otro}
+        else:
+            presentacion = pres.presentacion_para_vender(int(pid), int(pres_txt)) if pres_txt.isdigit() else None
         if presentacion is None:
             presentacion = {"nombre": None, "factor": 1}
         factor = float(presentacion["factor"] or 1)

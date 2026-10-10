@@ -954,6 +954,16 @@ MIGRATIONS = [
         ALTER TABLE recepcion_lineas ADD COLUMN factor REAL NOT NULL DEFAULT 1;
         """,
     ),
+    (
+        28,
+        """
+        -- ===== ¿Se vende suelto? =====
+        -- 1 = el POS también vende la unidad mínima (la pasta suelta).
+        -- 0 = solo se vende por sus presentaciones (sobre, caja...): el POS no
+        --     ofrece la pasta suelta y el servidor no la deja vender.
+        ALTER TABLE productos ADD COLUMN vende_suelto INTEGER NOT NULL DEFAULT 1;
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

@@ -212,3 +212,82 @@ class TestImportador(BaseUnidades):
         texto = r.get_data().decode("utf-8-sig")
         self.assertIn("Unidad de inventario", texto)
         self.assertIn("Presentación 2 trae", texto)
+
+
+# ======================================================================
+# Pedido de Fernando (2026-10-10, 12:41): trabajar "por sobre" como en su POS,
+# pero sin decimales. Ver las existencias en sobres, decidir si se vende
+# suelto, y recibir cajas de cualquier tamaño.
+# ======================================================================
+
+class TestExistenciasComoSeVende(BaseUnidades):
+    def test_texto(self):
+        from app.presentaciones import texto_existencias
+        op = [{"id": 0, "nombre": "Tableta", "factor": 1}, {"id": 7, "nombre": "Sobre x 10", "factor": 10}]
+        self.assertEqual(texto_existencias(295, op, 7), "29 Sobre x 10 + 5 Tableta")
+        self.assertEqual(texto_existencias(300, op, 7), "30 Sobre x 10")
+        self.assertEqual(texto_existencias(295, op, 0), "295 Tableta")
+
+    def test_lista_de_productos_y_kardex(self):
+        self.lote(1, "L1", FUTURO, 295)
+        self.ficha(venta_defecto_unidad_id=str(self.u["Sobre x 10"]))
+        lista = self.c.get("/productos/?vista=lista").get_data(as_text=True)
+        self.assertIn("29 Sobre x 10 + 5 Tableta", lista)
+        self.assertIn("$1.800", lista)                       # precio de lo que se vende normalmente
+        kardex = self.c.get("/inventario/kardex/1").get_data(as_text=True)
+        self.assertIn("29 Sobre x 10 + 5 Tableta", kardex)
+
+
+class TestNoSeVendeSuelto(BaseUnidades):
+    def test_solo_por_sobre(self):
+        self.lote(1, "L1", FUTURO, 300)
+        self.ficha(vende_suelto_en_form="1", precio_venta="0")     # casilla "Se vende suelto" sin marcar
+        prod = self.uno("SELECT * FROM productos WHERE id = 1")
+        self.assertEqual(prod["vende_suelto"], 0)
+        self.assertEqual(prod["venta_defecto_unidad_id"], self.u["Sobre x 10"])   # se escoge solo
+        self.assertEqual(prod["precio_venta"], 180)                # $1.800 ÷ 10, calculado
+        p = self.c.get("/pos/api/productos?q=Acetamin").get_json()["productos"][0]
+        self.assertFalse(p["presentaciones"][0]["vendible"])        # la tableta no se ofrece
+        self.abrir_caja()
+        j = self.cobrar([{"producto_id": 1, "presentacion_id": 0, "cantidad": 5}])
+        self.assertFalse(j.get_json()["ok"])
+        self.assertIn("no se vende suelto", j.get_json()["error"])
+        sobre = p["presentacion_defecto"]
+        self.assertTrue(self.cobrar([{"producto_id": 1, "presentacion_id": sobre, "cantidad": 1}]).get_json()["ok"])
+        self.assertEqual(self.stock(1), 290)
+
+    def test_sin_presentaciones_no_se_puede(self):
+        self.ficha(vende_suelto_en_form="1", pres_unidad_id=[], pres_factor=[], pres_precio=[],
+                   pres_maximo=[], pres_barras=[])
+        self.assertEqual(self.uno("SELECT vende_suelto FROM productos WHERE id = 1")[0], 1)   # no se guardó
+
+    def test_por_defecto_se_vende_suelto(self):
+        self.ficha()                                                # formularios viejos: sin la marca
+        self.assertEqual(self.uno("SELECT vende_suelto FROM productos WHERE id = 1")[0], 1)
+
+
+class TestRecepcionOtraCaja(BaseUnidades):
+    def test_caja_x_300_que_no_esta_en_la_ficha(self):
+        datos = {"proveedor_id": "1", "factura_numero": "F-2", "linea_producto_id": ["1"], "linea_lote": ["L9"],
+                 "linea_vencimiento": [FUTURO], "linea_cantidad_recibida": ["1"], "linea_costo": ["36000"],
+                 "linea_resultado": ["aceptado"], "linea_presentacion": ["otra"], "linea_factor_otro": ["300"]}
+        self.post(self.c, "/recepciones/nueva", datos)
+        linea = self.uno("SELECT * FROM recepcion_lineas")
+        self.assertEqual((linea["cantidad_recibida"], linea["costo_unitario"], linea["presentacion"]),
+                         (300, 120, "Caja x 300"))
+
+    def test_otra_caja_sin_cantidad_no_se_guarda(self):
+        datos = {"proveedor_id": "1", "factura_numero": "F-3", "linea_producto_id": ["1"], "linea_lote": ["L9"],
+                 "linea_vencimiento": [FUTURO], "linea_cantidad_recibida": ["1"], "linea_costo": ["36000"],
+                 "linea_resultado": ["aceptado"], "linea_presentacion": ["otra"], "linea_factor_otro": [""]}
+        self.post(self.c, "/recepciones/nueva", datos)
+        self.assertIsNone(self.uno("SELECT 1 FROM recepcion_lineas"))
+
+
+class TestImportadorSuelto(TestImportador):
+    def test_no_se_vende_suelto(self):
+        self.importar([self.fila(codigo="P20", nombre="Ibuprofeno 400", unidad_inventario="Tableta",
+                                 pres2="Sobre x 10", pres2_trae="10", pres2_precio="1.600", vende_suelto="NO")])
+        p = self.uno("SELECT * FROM productos WHERE codigo = 'P20'")
+        self.assertEqual((p["vende_suelto"], p["venta_defecto_unidad_id"], p["precio_venta"]),
+                         (0, self.u["Sobre x 10"], 160))

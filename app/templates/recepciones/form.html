@@ -97,7 +97,10 @@
                 {# "Viene en": Tableta, Sobre x 10, Caja x 100 (ver recepciones._leer_lineas_formulario) #}
                 <select name="linea_presentacion" class="linea-pres" aria-label="Viene en">
                   {% for o in lp.presentaciones %}<option value="{{ o.id }}" data-factor="{{ o.factor }}" {% if o.id == lp.presentacion_id %}selected{% endif %}>{{ o.nombre }}</option>{% endfor %}
+                  <option value="otra" data-factor="0" {% if lp.presentacion_id == 'otra' %}selected{% endif %}>Otra caja…</option>
                 </select>
+                <input type="number" name="linea_factor_otro" class="linea-otro" min="2" step="1" placeholder="¿Cuántas trae?"
+                       value="{{ lp.factor_otro }}" {% if lp.presentacion_id != 'otra' %}hidden{% endif %}>
                 <small class="linea-equivale suave"></small></td>
               <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="{{ lp.costo_unitario }}" required></td>
               <td><input type="number" step="0.1" name="linea_temperatura_ingreso"
@@ -135,6 +138,8 @@
             <td><input type="date" name="linea_vencimiento"></td>
             <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="0" required>
               <select name="linea_presentacion" class="linea-pres" aria-label="Viene en"><option value="0" data-factor="1">—</option></select>
+              {# Solo se ve con "Otra caja…": cuántas unidades trae (ej. 300). Siempre se envía, para que las listas cuadren #}
+              <input type="number" name="linea_factor_otro" class="linea-otro" min="2" step="1" placeholder="¿Cuántas trae?" hidden>
               <small class="linea-equivale suave"></small></td>
             <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="0" required></td>
             <td><input type="number" step="0.1" name="linea_temperatura_ingreso"
@@ -360,7 +365,9 @@
       ? p.presentaciones : [{ id: 0, nombre: p.unidad || 'Unidad', factor: 1 }];
     sel.innerHTML = lista.map(function (o) {
       return '<option value="' + o.id + '" data-factor="' + o.factor + '">' + escaparHTML(o.nombre) + '</option>';
-    }).join('');
+    }).join('') +
+      // Caja que no está en la ficha: se escribe cuántas trae (ej. Caja x 300)
+      '<option value="otra" data-factor="0">Otra caja…</option>';
     sel.value = String(presentacionId || 0);
     if (sel.selectedIndex < 0) sel.selectedIndex = 0;
     sel.dataset.base = lista[0].nombre;          // nombre de la unidad de inventario
@@ -371,8 +378,14 @@
     const sel = tr.querySelector('.linea-pres');
     const nota = tr.querySelector('.linea-equivale');
     if (!sel || !nota) return;
-    const opt = sel.options[sel.selectedIndex];
-    const factor = opt ? parseFloat(opt.dataset.factor) || 1 : 1;
+    // "Otra caja…" muestra la casilla de cuántas trae
+    const otro = tr.querySelector('.linea-otro');
+    if (otro) {
+      otro.hidden = sel.value !== 'otra';
+      otro.required = sel.value === 'otra';
+      otro.placeholder = '¿Cuántas ' + (sel.dataset.base || 'unidades').toLowerCase() + ' trae?';
+    }
+    const factor = factorLinea(tr);
     const cant = parseFloat(tr.querySelector('input[name="linea_cantidad_recibida"]').value) || 0;
     const costo = parseFloat(tr.querySelector('input[name="linea_costo"]').value) || 0;
     nota.textContent = factor > 1 && cant > 0
@@ -383,6 +396,9 @@
   function factorLinea(tr) {
     const sel = tr.querySelector('.linea-pres');
     const opt = sel && sel.options[sel.selectedIndex];
+    if (opt && opt.value === 'otra') {
+      return parseFloat(tr.querySelector('.linea-otro').value) || 1;
+    }
     return opt ? parseFloat(opt.dataset.factor) || 1 : 1;
   }
 
@@ -580,6 +596,8 @@
     if (selPres) selPres.innerHTML = '<option value="0" data-factor="1">—</option>';
     const eq = nueva.querySelector('.linea-equivale');
     if (eq) eq.textContent = '';
+    const otroNuevo = nueva.querySelector('.linea-otro');
+    if (otroNuevo) { otroNuevo.hidden = true; otroNuevo.required = false; }
     const hint = nueva.querySelector('.hint-rs');
     if (hint) { hint.textContent = 'RS: —'; hint.classList.remove('sin-rs'); }
     const temp = nueva.querySelector('.input-temp-ingreso');
@@ -767,7 +785,8 @@
 
   // Recalcular cuando cambia cualquier cantidad o costo
   body.addEventListener('input', function (e) {
-    if (e.target.name === 'linea_cantidad_recibida' || e.target.name === 'linea_costo') {
+    if (e.target.name === 'linea_cantidad_recibida' || e.target.name === 'linea_costo' ||
+        e.target.name === 'linea_factor_otro') {
       recalcularTotales();
       equivalenciaLinea(e.target.closest('tr'));
     }

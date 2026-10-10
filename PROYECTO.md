@@ -209,6 +209,11 @@ Problema que lo originó: el acetaminofén tenía 308 **tabletas**; al cambiar "
 - **Recepciones por caja/sobre:** cada línea tiene **"viene en"** (presentaciones del producto); cantidad y costo se escriben como en la factura (3 cajas a $25.000) y se guardan en unidades (300 tabletas a $250); `recepcion_lineas.presentacion` y `factor` para mostrarlo. Escanear el código de barras de la caja deja la línea en "Caja". El detalle muestra "3 Caja x 100 = 300 Tableta".
 - **Importador:** columnas nuevas **Unidad de inventario**, **Costo/Precio de 1 unidad**, **Presentación 2 / 3** (nombre, cuántas trae, precio) y **El POS lo vende como**. Unidades que no existen se crean ("Blíster x 12" → cantidad 12). Los números aceptan punto de miles (1.800). La plantilla y la ayuda salen de la misma lista de columnas.
 - Conteo físico y kardex dicen en qué unidad se cuenta ("se cuenta en Tableta").
+- **Trabajar "por sobre", como en el POS de Fernando, pero sin decimales** (2026-10-10, tarde): en su POS anterior la unidad de venta era el sobre ($1.600 x Sobre x 10) y 5 pastas había que venderlas como 0,5. Aquí por dentro se cuentan pastas, pero:
+  - Las **existencias se muestran como se vende**: "29 Sobre x 10 + 5 Tableta" (POS: tarjeta, "i" y "¿Cómo lo vendes?"; lista de productos, que además muestra el precio de lo que se vende normalmente; kardex). Función `presentaciones.texto_existencias` (y su copia en `pos_carrito.js`).
+  - **"Se vende suelto"** (`productos.vende_suelto`, migración 28): si se desmarca, el POS no ofrece la pasta suelta, el servidor no la deja vender, debe haber al menos una presentación, "Se vende normalmente por" se escoge solo y el **precio de la pasta se calcula** (precio del sobre ÷ cuántas trae) para costos y márgenes. Un formulario sin la casilla (campo oculto `vende_suelto_en_form`) deja "sí".
+  - **Recepciones: "Otra caja…"** en "viene en", para cajas que no están en la ficha (hoy x 300, mañana x 100): se escribe cuántas trae y se guarda como "Caja x 300".
+  - Importador: columna **"¿Se vende suelto? (SI/NO)"** (vacío = SI); con NO el precio de 1 unidad puede ir vacío.
 - Pruebas: `tests/test_unidades.py` (incluye el caso de Fernando).
 
 ### 5.9c Venta libre y otros ingresos ✅
@@ -480,6 +485,7 @@ Notas:
 | 25 | `venta_lineas` reconstruida: `producto_id` opcional + `es_libre`, `costo_libre` (venta libre); tabla `otros_ingresos`; categorías `categoria_ingreso` (se siembran en init_db) |
 | 26 | Cartera: tabla `clientes` (cupo), `ventas.cliente_id`, tabla `cartera_abonos` |
 | 27 | `productos.venta_defecto_unidad_id`; `recepcion_lineas.presentacion` y `factor` (recibir por caja/sobre) |
+| 28 | `productos.vende_suelto` (1 = también se vende la unidad mínima suelta) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 

@@ -122,12 +122,41 @@ def lista():
     sql += " ORDER BY p.nombre COLLATE NOCASE"
     filas = get_db().execute(sql, params).fetchall()
 
-    respuesta = render_template("productos/lista.html",
-                                productos=filas, q=q, filtro=filtro, vista=vista)
+    respuesta = render_template("productos/lista.html", productos=filas, q=q, filtro=filtro,
+                                vista=vista, venta=_como_se_vende([f["id"] for f in filas]))
     from flask import make_response
     resp = make_response(respuesta)
     resp.set_cookie("productos_vista", vista, max_age=60 * 60 * 24 * 365)
     return resp
+
+
+def _como_se_vende(producto_ids):
+    """Para la lista de productos: {id: {precio, por, existencias}} dicho como se vende.
+
+    Ej: acetaminofén que se vende por sobre -> precio $1.600 "por Sobre x 10"
+    y existencias "29 Sobre x 10 + 5 Tableta" (por dentro son 295 tabletas).
+    Las existencias son las VENDIBLES (lotes disponibles y no vencidos).
+    """
+    if not producto_ids:
+        return {}
+    from datetime import date
+    db = get_db()
+    marcas = ",".join("?" * len(producto_ids))
+    hoy = date.today().isoformat()
+    stock = {f["producto_id"]: f["total"] for f in db.execute(
+        "SELECT producto_id, SUM(cantidad_disponible) AS total FROM lotes "
+        f"WHERE producto_id IN ({marcas}) AND estado = 'disponible' AND cantidad_disponible > 0 "
+        "AND (vencimiento IS NULL OR vencimiento = '' OR vencimiento >= ?) GROUP BY producto_id",
+        list(producto_ids) + [hoy])}
+    defecto = {f["id"]: f["venta_defecto_unidad_id"] for f in db.execute(
+        f"SELECT id, venta_defecto_unidad_id FROM productos WHERE id IN ({marcas})", list(producto_ids))}
+    salida = {}
+    for pid, opciones in pres.presentaciones_de(producto_ids).items():
+        id_def = pres.id_por_defecto(opciones, defecto.get(pid))
+        normal = next((o for o in opciones if o["id"] == id_def), opciones[0])
+        salida[pid] = {"precio": normal["precio"], "por": normal["nombre"],
+                       "existencias": pres.texto_existencias(stock.get(pid, 0), opciones, id_def)}
+    return salida
 
 
 def _leer_formulario():
@@ -182,6 +211,11 @@ def _leer_formulario():
         "presentaciones": pres.leer_del_formulario(request.form),
         # En qué presentación lo vende el POS al tocar la tarjeta (vacío = unidad de inventario)
         "venta_defecto_unidad_id": cat("venta_defecto_unidad_id"),
+        # ¿Se vende la pasta suelta? (casilla marcada = sí)
+        # (una casilla sin marcar no se envía; el campo oculto "vende_suelto_en_form" dice
+        #  que la casilla SÍ estaba en el formulario. Sin él, se deja "sí", como siempre fue)
+        "vende_suelto": 1 if (request.form.get("vende_suelto")
+                              or not request.form.get("vende_suelto_en_form")) else 0,
     }
 
 
@@ -207,6 +241,20 @@ def _validar(datos, producto_id=None):
             errores.append("La unidad de inventario no se puede cambiar aquí porque el producto ya tiene "
                            "existencias o movimientos. Usa el botón 'Cambiar unidad de inventario', "
                            "que convierte las cantidades.")
+    # Si NO se vende suelto: tiene que tener al menos una presentación (sobre,
+    # caja...), lo normal es venderlo por una de ellas, y el precio de la pasta
+    # se calcula solo (precio del sobre ÷ cuántas trae), para costos y márgenes.
+    if not datos["vende_suelto"]:
+        validas = [f for f in datos["presentaciones"] if f["unidad_id"] and isinstance(f["factor"], float)
+                   and f["factor"] > 1 and isinstance(f["precio"], float) and f["precio"] > 0]
+        if not validas:
+            errores.append("Si no se vende suelto, agrega al menos una presentación (ej. Sobre x 10) con su precio.")
+        else:
+            if datos["venta_defecto_unidad_id"] in (None, datos["unidad_venta_id"]):
+                datos["venta_defecto_unidad_id"] = validas[0]["unidad_id"]
+            principal = next((f for f in validas if f["unidad_id"] == datos["venta_defecto_unidad_id"]), validas[0])
+            if datos["precio_venta"] <= 0:
+                datos["precio_venta"] = round(principal["precio"] / principal["factor"], 2)
     # La presentación por defecto debe ser una de las del producto
     if datos["venta_defecto_unidad_id"]:
         if datos["venta_defecto_unidad_id"] == datos["unidad_venta_id"]:
@@ -261,8 +309,8 @@ def nuevo():
                      datos["maneja_vencimiento"], datos["observaciones"], ahora()),
                 )
                 pid = cur.lastrowid
-                db.execute("UPDATE productos SET venta_defecto_unidad_id = ? WHERE id = ?",
-                           (datos["venta_defecto_unidad_id"], pid))
+                db.execute("UPDATE productos SET venta_defecto_unidad_id = ?, vende_suelto = ? WHERE id = ?",
+                           (datos["venta_defecto_unidad_id"], datos["vende_suelto"], pid))
                 _guardar_relaciones(db, pid, datos["categorias"], datos["usos"])
                 texto_pres = pres.guardar(db, pid, datos["presentaciones"], ahora())
 
@@ -316,8 +364,8 @@ def editar(prod_id):
                      datos["requiere_formula"], datos["cadena_frio"], datos["control_especial"],
                      datos["maneja_vencimiento"], datos["observaciones"], ahora(), prod_id),
                 )
-                db.execute("UPDATE productos SET venta_defecto_unidad_id = ? WHERE id = ?",
-                           (datos["venta_defecto_unidad_id"], prod_id))
+                db.execute("UPDATE productos SET venta_defecto_unidad_id = ?, vende_suelto = ? WHERE id = ?",
+                           (datos["venta_defecto_unidad_id"], datos["vende_suelto"], prod_id))
                 _guardar_relaciones(db, prod_id, datos["categorias"], datos["usos"])
                 texto_pres = pres.guardar(db, prod_id, datos["presentaciones"], ahora())
 

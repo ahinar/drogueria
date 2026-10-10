@@ -742,6 +742,8 @@ def api_producto_info(producto_id):
         "principio_activo": (principio["nombre"] if principio else None) or p["principio_activo"],
         "stock": stock,
         "presentaciones": lista_pres,
+        # Cómo se vende normalmente (para decir "29 Sobre x 10 + 5 Tableta")
+        "presentacion_defecto": pres.id_por_defecto(lista_pres, p["venta_defecto_unidad_id"]),
         "lotes": [{"lote": l["lote"], "vencimiento": l["vencimiento"],
                    "cantidad": l["cantidad_disponible"]} for l in lotes],
         "otros_lotes": {"cuarentena": otros["cuarentena"] or 0,
@@ -972,6 +974,9 @@ def api_cobrar():
             if presentacion is None:
                 raise _VentaError(f"{nombre}: esa presentación ya no existe. "
                                   "Quítalo del carrito y agrégalo de nuevo.")
+            if not presentacion.get("vendible", True):
+                raise _VentaError(f"{nombre}: no se vende suelto. Véndelo por "
+                                  "una de sus presentaciones (sobre, caja...).")
             factor = float(presentacion["factor"])
             if presentacion_id != pres.PRINCIPAL:
                 nombre = f"{nombre} ({presentacion['nombre']})"

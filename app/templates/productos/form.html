@@ -161,7 +161,7 @@
           <input type="number" step="0.01" id="precio_sugerido" readonly class="ganancia">
         </label>
         <label><span id="etiqueta-precio">Precio de venta final</span> *
-          <input type="number" step="0.01" name="precio_venta" id="precio_venta" required
+          <input type="number" step="0.01" name="precio_venta" id="precio_venta" required min="0"
             value="{{ producto['precio_venta'] if producto else 0 }}">
         </label>
         {# UNIDAD DE INVENTARIO: en ella se cuentan las existencias (la más pequeña
@@ -195,6 +195,17 @@
           {% endif %}
         </label>
       </div>
+
+      {# ¿Se vende la pasta suelta? Si no, solo se vende por sobre/caja y el
+         precio de la pasta se calcula solo (precio del sobre ÷ cuántas trae). #}
+      <input type="hidden" name="vende_suelto_en_form" value="1">
+      <label class="check-linea" style="margin:.3rem 0 .2rem">
+        <input type="checkbox" name="vende_suelto" id="vende_suelto" value="1"
+               {% if not producto or producto['vende_suelto'] %}checked{% endif %}>
+        Se vende suelto (por <span class="nombre-unidad-min">unidad</span>)
+      </label>
+      <small class="suave" id="ayuda-suelto" hidden>No se vende suelto: el precio de 1 <span class="nombre-unidad-min">unidad</span>
+        se calcula solo con el de la presentación de abajo. El inventario se sigue contando en <span class="nombre-unidad-min">unidad</span> (sin decimales).</small>
 
       <p class="aviso error" id="aviso-unidad-grande" hidden style="margin:.4rem 0">
         Ojo: la unidad de inventario debería ser la más pequeña que vendes (ej. Tableta).
@@ -269,7 +280,7 @@
 
       {# En qué presentación lo agrega el POS al tocar la tarjeta. Las opciones las
          arma el JS con la unidad de inventario + las presentaciones de arriba. #}
-      <label style="margin-top:1rem;max-width:420px">El POS lo vende por defecto como
+      <label style="margin-top:1rem;max-width:420px">Se vende normalmente por
         <select name="venta_defecto_unidad_id" id="venta_defecto" data-actual="{{ producto['venta_defecto_unidad_id'] or '' if producto else '' }}">
           <option value="">La unidad de inventario</option>
         </select>
@@ -576,6 +587,45 @@
     presFilas.addEventListener('click', function () { setTimeout(armarDefecto, 0); });   // al quitar una fila
     unidadSel.addEventListener('change', armarDefecto);
     armarDefecto();
+
+    // === "Se vende suelto": si no, el precio de la pasta no se escribe (se calcula) ===
+    const chkSuelto = document.getElementById('vende_suelto');
+    function ajustarSuelto() {
+      const suelto = chkSuelto.checked;
+      pv.required = suelto;
+      pv.readOnly = !suelto;
+      pv.style.background = suelto ? '' : '#f1f5f4';
+      document.getElementById('ayuda-suelto').hidden = suelto;
+      // Sin venta suelta, la opción "unidad de inventario" no sirve como venta normal
+      const optBase = selDefecto.querySelector('option[value=""]');
+      if (optBase) optBase.disabled = !suelto;
+      if (!suelto && !selDefecto.value && selDefecto.options.length > 1) {
+        selDefecto.selectedIndex = 1;
+        selDefecto.dataset.actual = selDefecto.value;
+      }
+      // Calcular el precio de la pasta: precio de la presentación ÷ cuántas trae
+      if (!suelto) {
+        const fila = [...presFilas.querySelectorAll('.pres-fila')].find(function (f) {
+          return f.querySelector('.pres-unidad').value === selDefecto.value;
+        });
+        if (fila) {
+          const factor = parseFloat((fila.querySelector('.pres-factor').value || '').replace(',', '.')) || 0;
+          const precio = parseFloat((fila.querySelector('.pres-precio').value || '').replace(',', '.')) || 0;
+          if (factor > 0 && precio > 0) { pv.value = (precio / factor).toFixed(2); calcGanancia(); }
+        }
+      }
+    }
+    function nombresUnidadMin() {
+      const nombre = nombreUnidad(unidadSel) || 'unidad';
+      document.querySelectorAll('.nombre-unidad-min').forEach(function (s) { s.textContent = nombre.toLowerCase(); });
+    }
+    chkSuelto.addEventListener('change', ajustarSuelto);
+    presFilas.addEventListener('input', function () { if (!chkSuelto.checked) ajustarSuelto(); });
+    presFilas.addEventListener('change', function () { setTimeout(ajustarSuelto, 0); });
+    selDefecto.addEventListener('change', ajustarSuelto);
+    unidadSel.addEventListener('change', nombresUnidadMin);
+    nombresUnidadMin();
+    ajustarSuelto();
 
     // === Aviso si escogen una unidad "grande" (Caja x 100) como unidad de inventario ===
     function avisoUnidadGrande() {

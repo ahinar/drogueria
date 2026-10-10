@@ -31,6 +31,8 @@ def _principal(fila):
         "precio": float(fila["precio_venta"] or 0),
         "precio_maximo": float(fila["precio_maximo"] or 0),
         "codigo_barras": fila["codigo_barras"],
+        # ¿Se vende suelta (la pasta)? Si no, el POS no la ofrece (productos.vende_suelto)
+        "vendible": bool(fila["vende_suelto"]),
     }
 
 
@@ -47,7 +49,7 @@ def presentaciones_de(producto_ids):
 
     # 1. La unidad principal de cada producto (siempre existe)
     for f in db.execute(
-            "SELECT p.id, p.precio_venta, p.precio_maximo, p.codigo_barras, p.unidad_venta_id, "
+            "SELECT p.id, p.precio_venta, p.precio_maximo, p.codigo_barras, p.unidad_venta_id, p.vende_suelto, "
             "       u.nombre AS unidad_nombre "
             "FROM productos p LEFT JOIN unidades_medida u ON u.id = p.unidad_venta_id "
             f"WHERE p.id IN ({marcas})", list(producto_ids)):
@@ -67,6 +69,7 @@ def presentaciones_de(producto_ids):
             "precio": float(f["precio_venta"] or 0),
             "precio_maximo": float(f["precio_maximo"] or 0),
             "codigo_barras": f["codigo_barras"],
+            "vendible": True,
         })
     return resultado
 
@@ -222,6 +225,38 @@ def tiene_historia(db, producto_id):
 def id_por_defecto(opciones, venta_defecto_unidad_id):
     """Cuál de las presentaciones vende el POS al tocar la tarjeta (su id; 0 = unidad de inventario)."""
     for o in opciones:
-        if venta_defecto_unidad_id and o["unidad_id"] == venta_defecto_unidad_id:
+        if venta_defecto_unidad_id and o["unidad_id"] == venta_defecto_unidad_id and o["vendible"]:
             return o["id"]
+    # Si no se vende suelto, lo normal es la primera presentación (ej. el sobre)
+    if opciones and not opciones[0]["vendible"] and len(opciones) > 1:
+        return opciones[1]["id"]
     return PRINCIPAL
+
+
+def _numero_corto(n):
+    """295.0 -> '295' ; 2.5 -> '2,5'"""
+    return f"{n:g}".replace(".", ",")
+
+
+def texto_existencias(cantidad, opciones, defecto_id=PRINCIPAL):
+    """Existencias dichas en la unidad en que se vende normalmente.
+
+    295 tabletas, vendiendo por Sobre x 10  ->  "29 Sobre x 10 + 5 Tableta"
+    300 tabletas                            ->  "30 Sobre x 10"
+    Si se vende por la unidad mínima         ->  "295 Tableta"
+    Así se ve como en un POS de droguería ("30 sobres"), pero sin decimales:
+    por dentro el programa siempre cuenta pastas.
+    """
+    cantidad = float(cantidad or 0)
+    base = opciones[0]["nombre"] if opciones else "unidades"
+    pres = next((o for o in opciones if o["id"] == defecto_id and o["factor"] > 1), None)
+    if pres is None or cantidad <= 0:
+        return f"{_numero_corto(cantidad)} {base}"
+    enteros = int(cantidad // pres["factor"] + 1e-9)
+    resto = round(cantidad - enteros * pres["factor"], 4)
+    partes = []
+    if enteros:
+        partes.append(f"{enteros} {pres['nombre']}")
+    if resto > 1e-9:
+        partes.append(f"{_numero_corto(resto)} {base}")
+    return " + ".join(partes)

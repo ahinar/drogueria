@@ -356,6 +356,10 @@ def kardex(producto_id):
     producto = db.execute(
         "SELECT p.*, (SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre "
         "FROM productos p WHERE p.id = ?", (producto_id,)).fetchone()
+    # Para decir el stock como se vende: "29 Sobre x 10 + 5 Tableta"
+    from . import presentaciones as pres
+    opciones_pres = pres.presentaciones_de([producto_id]).get(producto_id, []) if producto else []
+    defecto_pres = pres.id_por_defecto(opciones_pres, producto["venta_defecto_unidad_id"]) if producto else 0
     if producto is None:
         abort(404)
 
@@ -382,7 +386,8 @@ def kardex(producto_id):
     return render_template("inventario/kardex.html",
                            producto=producto, movimientos=movimientos,
                            total_lotes=total_lotes, lotes=lotes,
-                           estados=ESTADOS_LOTE)
+                           estados=ESTADOS_LOTE,
+                           existencias_txt=pres.texto_existencias(total_lotes["total"], opciones_pres, defecto_pres))
 
 
 # ---------- Vencimientos (semáforo) ----------

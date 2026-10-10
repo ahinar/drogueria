@@ -52,7 +52,8 @@ COLUMNAS = [
     ("pres3", "Presentación 3", "Caja x 100"),
     ("pres3_trae", "Presentación 3 trae", "100"),
     ("pres3_precio", "Presentación 3 precio", "15000"),
-    ("vender_como", "El POS lo vende como", "Sobre x 10"),
+    ("vender_como", "Se vende normalmente por", "Sobre x 10"),
+    ("vende_suelto", "¿Se vende suelto? (SI/NO)", "SI"),
 ]
 # Las presentaciones extra que acepta el archivo (2 y 3)
 PRESENTACIONES_EXTRA = ("pres2", "pres3")
@@ -140,7 +141,9 @@ def _mapear_columnas(encabezados):
             "precio_venta": ["precio venta", "precio", "precio de venta", "pvp"],
             "precio_maximo": ["precio maximo", "pvp maximo", "precio regulado"],
             "unidad_inventario": ["unidad", "unidad de venta", "se vende por", "unidad minima"],
-            "vender_como": ["vender como", "vender por defecto", "presentacion por defecto"],
+            "vender_como": ["vender como", "vender por defecto", "presentacion por defecto",
+                            "el pos lo vende como"],
+            "vende_suelto": ["se vende suelto", "vende suelto", "suelto", "fraccionable"],
             "iva_tipo": ["iva", "tipo iva"],
             "iva_tarifa": ["tarifa iva", "iva pct", "porcentaje iva"],
             "stock_minimo": ["minimo", "stock min", "minimo stock"],
@@ -248,6 +251,11 @@ def _validar_fila(fila, mapa):
         iva_tipo = "gravado"
     if _bool(fila.get(mapa.get("control_especial", ""))) and not fila.get(mapa.get("registro_sanitario", "")):
         errores.append("Control especial requiere Registro INVIMA")
+    # Si NO se vende suelto, debe tener al menos una presentación (sobre, caja...)
+    if "vende_suelto" in mapa and str(fila.get(mapa["vende_suelto"], "")).strip() \
+            and not _bool(fila.get(mapa["vende_suelto"])) \
+            and not any((fila.get(mapa.get(p, ""), "") or "").strip() for p in PRESENTACIONES_EXTRA):
+        errores.append("No se vende suelto pero no tiene presentaciones (ej. Sobre x 10)")
     # Presentaciones 2 y 3: si tienen nombre, deben traer más de 1 unidad y tener precio
     for p in PRESENTACIONES_EXTRA:
         nombre_p = (fila.get(mapa.get(p, ""), "") or "").strip()
@@ -507,6 +515,10 @@ def confirmar():
 
             # Presentaciones (Sobre x 10, Caja x 100) y cuál vende el POS por defecto
             vender_como = (fila.get(mapa.get("vender_como", ""), "") or "").strip().lower()
+            # ¿Se vende suelto? Vacío = SÍ (como siempre)
+            texto_suelto = str(fila.get(mapa.get("vende_suelto", ""), "") or "").strip()
+            suelto = 1 if not texto_suelto else _bool(texto_suelto)
+            primera_pres = None
             for p in PRESENTACIONES_EXTRA:
                 nombre_p = (fila.get(mapa.get(p, ""), "") or "").strip()
                 if not nombre_p:
@@ -518,6 +530,18 @@ def confirmar():
                             _num(fila.get(mapa.get(p + "_precio", "")), 0), ahora()))
                 if vender_como and vender_como == nombre_p.lower():
                     db.execute("UPDATE productos SET venta_defecto_unidad_id = ? WHERE id = ?", (uid, pid))
+                if primera_pres is None:
+                    primera_pres = (uid, _num(fila.get(mapa.get(p + "_trae", "")), 0),
+                                    _num(fila.get(mapa.get(p + "_precio", "")), 0))
+            if not suelto:
+                # Solo se vende por presentación: si no dijeron cuál, la primera; y si no
+                # pusieron precio de 1 unidad, se calcula (precio del sobre ÷ cuántas trae)
+                db.execute("UPDATE productos SET vende_suelto = 0, "
+                           "venta_defecto_unidad_id = COALESCE(venta_defecto_unidad_id, ?) WHERE id = ?",
+                           (primera_pres[0], pid))
+                if precio_venta <= 0 and primera_pres[1] > 0:
+                    db.execute("UPDATE productos SET precio_venta = ? WHERE id = ?",
+                               (round(primera_pres[2] / primera_pres[1], 2), pid))
 
             # Categorías
             cats = (fila.get(mapa.get("categorias", ""), "") or "").strip()

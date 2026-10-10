@@ -312,14 +312,13 @@
           '<div class="pos-card-codigo">' + esc(p.concentracion || p.codigo) + '</div>' +
           sirvePara +
           // Otras presentaciones: el chip se puede tocar para escoger (data-elegir)
-          (p.presentaciones && p.presentaciones.length > 1
+          (vendibles(p).length > 1
             ? '<div class="pos-card-pres" data-elegir="' + p.id + '" title="Tocar para escoger cómo venderlo">📦 ' +
               (defectoDe(p).id ? 'Otras: ' : 'También: ') +
-              esc(p.presentaciones.filter((x) => x.id !== defectoDe(p).id).map((x) => x.nombre).join(' · ')) + '</div>'
+              esc(vendibles(p).filter((x) => x.id !== defectoDe(p).id).map((x) => x.nombre).join(' · ')) + '</div>'
             : '') +
-          // Stock SIEMPRE en la unidad de inventario (ej: "288 Tableta")
-          '<div class="pos-card-stock">' + (agotado ? 'Agotado' : 'Stock: ' + (+p.stock.toFixed(2)) +
-            (p.presentaciones && p.presentaciones[0] ? ' ' + esc(p.presentaciones[0].nombre) : '')) + '</div>' +
+          // Stock en la unidad en que se vende (ej: "29 Sobre x 10 + 5 Tableta")
+          '<div class="pos-card-stock">' + (agotado ? 'Agotado' : 'Hay: ' + esc(textoExistencias(p, p.stock))) + '</div>' +
           // Precio de lo que se vende al tocar (ej: "Sobre x 10 · $2.000")
           '<div class="pos-card-precio">' + (defectoDe(p).id ? '<small>' + esc(defectoDe(p).nombre) + '</small> ' : '') +
             peso(defectoDe(p).precio) + '</div>' +
@@ -332,7 +331,28 @@
   // ---------------------------------------------------------------
   // presentacionId: 0 = unidad principal; otro número = sobre, caja...
   // Si no se indica y el producto tiene varias presentaciones, se pregunta.
-  // La presentación que se vende al tocar la tarjeta (ficha: "El POS lo vende por defecto como")
+  // Presentaciones que el POS puede vender (sin la pasta suelta si no se vende suelto)
+  function vendibles(prod) {
+    return (prod.presentaciones || []).filter((x) => x.vendible !== false);
+  }
+
+  // "295 tabletas" dicho como se vende: "29 Sobre x 10 + 5 Tableta"
+  // (igual que presentaciones.texto_existencias en Python)
+  function textoExistencias(prod, cantidad) {
+    const opciones = prod.presentaciones || [];
+    const base = opciones[0] ? opciones[0].nombre : 'unidades';
+    const pres = defectoDe(prod);
+    const n = (x) => String(+x.toFixed(2)).replace('.', ',');
+    if (!pres || !(pres.factor > 1) || cantidad <= 0) return n(cantidad) + ' ' + base;
+    const enteros = Math.floor(cantidad / pres.factor + 1e-9);
+    const resto = +(cantidad - enteros * pres.factor).toFixed(4);
+    const partes = [];
+    if (enteros) partes.push(enteros + ' ' + pres.nombre);
+    if (resto > 1e-9) partes.push(n(resto) + ' ' + base);
+    return partes.join(' + ');
+  }
+
+  // La presentación que se vende al tocar la tarjeta (ficha: "Se vende normalmente por")
   function defectoDe(prod) {
     const opciones = prod.presentaciones || [];
     return opciones.find((x) => x.id === prod.presentacion_defecto) ||
@@ -346,9 +366,14 @@
     }
     if (prod.stock <= 0) { aviso('Producto agotado.'); return; }
 
+    // Solo las presentaciones que se pueden vender (si no se vende suelto,
+    // la unidad mínima no aparece: vendible = false)
     const opciones = prod.presentaciones && prod.presentaciones.length
-      ? prod.presentaciones
+      ? prod.presentaciones.filter((x) => x.vendible !== false)
       : [{ id: 0, nombre: '', factor: 1, precio: prod.precio }];
+    if (presentacionId != null && !opciones.some((x) => x.id === presentacionId)) {
+      presentacionId = prod.presentacion_defecto;     // ej. escanearon el código de la pasta
+    }
     if (presentacionId == null) {
       // Si la ficha dice "vender por defecto como Sobre x 10", se agrega directo.
       // Si no, y hay varias presentaciones, se pregunta "¿Cómo lo vendes?".
@@ -1160,7 +1185,9 @@
     // ---- Franja amarilla ----
     $('info-nombre').textContent = p.nombre + (p.concentracion ? ' ' + p.concentracion : '');
     $('info-precio').textContent = peso(p.precio);
-    $('info-a-la-mano').textContent = 'A la mano: ' + cant(p.stock) + ' unidades';
+    // "A la mano" como se vende (29 sobres + 5 tab.) y entre paréntesis en pastas
+    $('info-a-la-mano').textContent = 'A la mano: ' + textoExistencias(p, p.stock) +
+      (defectoDe(p).factor > 1 ? ' (' + cant(p.stock) + ' en total)' : '');
     $('info-iva').textContent = p.iva_tipo === 'gravado'
       ? 'IVA: ' + cant(p.iva_tarifa) + ' % (= ' + peso(p.iva_valor) + ')'
       : 'IVA: ' + (p.iva_tipo === 'exento' ? 'Exento' : 'Excluido') + ' (= $0)';
@@ -1383,11 +1410,11 @@
     if (!modalPres) { agregar(prod, 0); return; }
     productoEligiendo = prod;
     $('pres-producto').textContent = prod.nombre + (prod.concentracion ? ' ' + prod.concentracion : '') +
-      ' · hay ' + (+prod.stock.toFixed(2)) + ' ' + (prod.presentaciones[0].nombre || 'unidades');
+      ' · hay ' + textoExistencias(prod, prod.stock);
     // Unidades que ya están en el carrito de este producto (cualquier presentación)
     const enCarrito = carrito.reduce((suma, x) =>
       x.producto_id === prod.id ? suma + x.cantidad * x.factor : suma, 0);
-    $('pres-opciones').innerHTML = prod.presentaciones.map((x, i) => {
+    $('pres-opciones').innerHTML = prod.presentaciones.filter((x) => x.vendible !== false).map((x, i) => {
       const alcanza = prod.stock - enCarrito >= x.factor - 1e-9;
       const trae = x.factor === 1 ? 'unidad de inventario' : 'trae ' + (+x.factor.toFixed(2));
       return '<button type="button" class="pres-opcion" data-pres="' + x.id + '"' + (alcanza ? '' : ' disabled') + '>' +
@@ -1448,7 +1475,7 @@
     const prod = productosMostrados.find((p) => p.id === +tarjeta.dataset.id);
     if (!prod) return;
     // Tocar "📦 Otras: ..." abre "¿Cómo lo vendes?" para escoger otra presentación
-    if (e.target.closest('[data-elegir]') && prod.presentaciones.length > 1) {
+    if (e.target.closest('[data-elegir]') && vendibles(prod).length > 1) {
       if (prod.control_especial) agregar(prod);        // muestra el aviso de siempre
       else if (prod.stock <= 0) aviso('Producto agotado.');
       else elegirPresentacion(prod);
