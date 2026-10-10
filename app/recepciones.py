@@ -184,12 +184,37 @@ def _lineas_previas_formulario():
             "resultado": v(resultados, i) or "aceptado",
             "motivo_rechazo": v(motivos, i),
             # "otra" = una caja que no está en la ficha, con su "cuántas trae" escrito
+            # "u12" = una unidad de medida cualquiera (CAJA X 12) que no está en la ficha
             "presentacion_id": (int(v(presentaciones, i)) if v(presentaciones, i).isdigit()
-                                else v(presentaciones, i) if v(presentaciones, i) == "otra" else 0),
+                                else v(presentaciones, i) if (v(presentaciones, i) == "otra"
+                                                              or v(presentaciones, i).startswith("u")) else 0),
             "factor_otro": v(factores_otros, i),
             "presentaciones": _presentaciones_simples(int(pid)),
         })
     return lineas
+
+
+def _presentacion_por_unidad(producto_id, unidad_id):
+    """"Viene en" una unidad de medida cualquiera (ej. CAJA X 12).
+
+    Si el producto ya la tiene como presentación, se usa ese "cuántas trae".
+    Si no: cantidad de la unidad ÷ cantidad de la unidad del inventario
+    (CAJA X 12 sobre Unidad -> 12). Devuelve {nombre, factor} o None.
+    """
+    db = get_db()
+    u = db.execute("SELECT id, nombre, cantidad FROM unidades_medida WHERE id = ?", (unidad_id,)).fetchone()
+    if u is None:
+        return None
+    propia = db.execute("SELECT factor FROM producto_presentaciones WHERE producto_id = ? AND unidad_id = ?",
+                        (producto_id, unidad_id)).fetchone()
+    if propia:
+        return {"nombre": u["nombre"], "factor": float(propia["factor"])}
+    base = db.execute("SELECT um.id, um.cantidad FROM productos p JOIN unidades_medida um "
+                      "ON um.id = p.unidad_venta_id WHERE p.id = ?", (producto_id,)).fetchone()
+    if base and base["id"] == unidad_id:
+        return {"nombre": u["nombre"], "factor": 1.0}
+    cant_base = float(base["cantidad"] or 1) if base else 1.0
+    return {"nombre": u["nombre"], "factor": round(float(u["cantidad"] or 1) / cant_base, 4)}
 
 
 def _leer_lineas_formulario():
@@ -272,6 +297,14 @@ def _leer_lineas_formulario():
                 errores.append(f"{nombre}: escribe cuántas unidades trae la caja (más de 1).")
                 factor_otro = 1
             presentacion = {"nombre": f"Caja x {factor_otro:g}", "factor": factor_otro}
+        elif pres_txt.startswith("u") and pres_txt[1:].isdigit():
+            # Cualquier unidad de medida (ej. "CAJA X 12"), aunque no esté en la ficha:
+            # así lo pidió Fernando, como en Odoo. Cuántas trae sale de la unidad.
+            presentacion = _presentacion_por_unidad(int(pid), int(pres_txt[1:]))
+            if presentacion is None:
+                errores.append(f"{nombre}: esa unidad no existe.")
+            elif presentacion["factor"] < 1:
+                errores.append(f"{nombre}: la unidad {presentacion['nombre']} es más pequeña que la del inventario.")
         else:
             presentacion = pres.presentacion_para_vender(int(pid), int(pres_txt)) if pres_txt.isdigit() else None
         if presentacion is None:
@@ -724,6 +757,38 @@ def api_crear_producto():
         })
     except sqlite3.IntegrityError:
         return jsonify({"ok": False, "error": "Ya existe un producto con ese código."}), 400
+
+
+@bp.route("/api/crear-unidad", methods=["POST"])
+@login_required
+def api_crear_unidad():
+    """Crea una unidad de medida desde la línea de la recepción (ej. "CAJA X 12").
+
+    Si el nombre ya existe, devuelve la que hay. Si no escriben cuántas trae,
+    se lee del nombre ("CAJA X 12" -> 12).
+    """
+    import re
+    from .importador import _num
+    nombre = " ".join((request.form.get("nombre") or "").upper().split())
+    if not nombre:
+        return jsonify({"ok": False, "error": "Escribe el nombre (ej. CAJA X 12)."}), 400
+    cantidad = _num((request.form.get("cantidad") or "").strip(), 0)
+    if cantidad <= 0:
+        m = re.search(r"x\s*(\d+(?:[.,]\d+)?)\s*$", nombre, re.I)
+        cantidad = float(m.group(1).replace(",", ".")) if m else 0
+    if cantidad <= 1:
+        return jsonify({"ok": False, "error": "Escribe cuántas unidades trae (más de 1)."}), 400
+    db = get_db()
+    fila = db.execute("SELECT id, nombre, cantidad FROM unidades_medida WHERE nombre = ? COLLATE NOCASE",
+                      (nombre,)).fetchone()
+    if fila is None:
+        cur = db.execute("INSERT INTO unidades_medida (nombre, cantidad, referencia_id, activo, creado_en) "
+                         "VALUES (?, ?, NULL, 1, ?)", (nombre, cantidad, ahora()))
+        db.commit()
+        registrar("unidad_medida_creada_api", "unidades_medida", cur.lastrowid,
+                  f"nombre={nombre} cantidad={cantidad:g} (desde recepción)")
+        fila = {"id": cur.lastrowid, "nombre": nombre, "cantidad": cantidad}
+    return jsonify({"ok": True, "id": fila["id"], "nombre": fila["nombre"], "cantidad": fila["cantidad"]})
 
 
 # ---------- PDF ----------

@@ -469,3 +469,30 @@ class TestEscanerVendePorDefecto(BaseUnidades):
         self.assertTrue(j["exacto"])
         self.assertEqual(j["presentacion_id"], j["productos"][0]["presentacion_defecto"])
         self.assertNotEqual(j["presentacion_id"], 0)
+
+
+class TestRecepcionCualquierUnidad(BaseUnidades):
+    """Captura de Fernando: el aceite se vende por Unidad pero llegó en CAJA X 12."""
+    def recibir(self, presentacion, cantidad="1", costo="17300"):
+        self.post(self.c, "/recepciones/nueva", {
+            "proveedor_id": "1", "factura_numero": "F-12", "linea_producto_id": ["1"], "linea_lote": ["AC1"],
+            "linea_vencimiento": [FUTURO], "linea_cantidad_recibida": [cantidad], "linea_costo": [costo],
+            "linea_resultado": ["aceptado"], "linea_presentacion": [presentacion]})
+        return self.uno("SELECT * FROM recepcion_lineas")
+
+    def test_caja_x_12_que_no_esta_en_la_ficha(self):
+        j = self.post(self.c, "/recepciones/api/crear-unidad", {"nombre": "caja x 12"}).get_json()
+        self.assertEqual((j["nombre"], j["cantidad"]), ("CAJA X 12", 12))
+        linea = self.recibir(f"u{j['id']}")
+        self.assertEqual((linea["cantidad_recibida"], round(linea["costo_unitario"], 2), linea["presentacion"]),
+                         (12, round(17300 / 12, 2), "CAJA X 12"))
+
+    def test_si_la_ficha_la_tiene_usa_su_factor(self):
+        linea = self.recibir(f"u{self.u['Caja x 100']}", cantidad="2", costo="15000")
+        self.assertEqual(linea["cantidad_recibida"], 200)
+
+    def test_crear_unidad_sin_cantidad(self):
+        j = self.post(self.c, "/recepciones/api/crear-unidad", {"nombre": "Caja"}).get_json()
+        self.assertFalse(j["ok"])
+        j = self.post(self.c, "/recepciones/api/crear-unidad", {"nombre": "Caja grande", "cantidad": "24"}).get_json()
+        self.assertEqual(j["cantidad"], 24)

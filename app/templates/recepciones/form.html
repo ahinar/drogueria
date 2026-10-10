@@ -60,8 +60,8 @@
             <th style="width:26%">Producto</th>
             <th style="width:10%">Lote</th>
             <th style="width:10%">Vence</th>
-            <th style="width:11%">Cantidad · viene en</th>
-            <th style="width:9%">Costo de cada una</th>
+            <th style="width:11%">Cantidad · UdM</th>
+            <th style="width:9%">Costo por UdM</th>
             <th style="width:10%">Temp. ingreso °C</th>
             <th style="width:9%">Empaque</th>
             <th style="width:10%">Resultado</th>
@@ -95,9 +95,8 @@
               <td><input type="date" name="linea_vencimiento" value="{{ lp.vencimiento }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
               <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="{{ lp.cantidad_recibida }}" required>
                 {# "Viene en": Tableta, Sobre x 10, Caja x 100 (ver recepciones._leer_lineas_formulario) #}
-                <select name="linea_presentacion" class="linea-pres" aria-label="Viene en">
+                <select name="linea_presentacion" class="linea-pres" aria-label="Unidad en que llegó" data-actual="{{ lp.presentacion_id }}">
                   {% for o in lp.presentaciones %}<option value="{{ o.id }}" data-factor="{{ o.factor }}" {% if o.id == lp.presentacion_id %}selected{% endif %}>{{ o.nombre }}</option>{% endfor %}
-                  <option value="otra" data-factor="0" {% if lp.presentacion_id == 'otra' %}selected{% endif %}>Otra caja…</option>
                 </select>
                 <input type="number" name="linea_factor_otro" class="linea-otro" min="2" step="1" placeholder="¿Cuántas trae?"
                        value="{{ lp.factor_otro }}" {% if lp.presentacion_id != 'otra' %}hidden{% endif %}>
@@ -305,6 +304,8 @@
 </div>
 
 <script>
+  // Todas las unidades de medida (para la columna UdM de cada línea: CAJA X 12, SELLO X 10…)
+  const UNIDADES = [{% for u in unidades %}{ id: {{ u['id'] }}, nombre: {{ u['nombre']|tojson }}, cantidad: {{ u['cantidad'] or 1 }} }{% if not loop.last %}, {% endif %}{% endfor %}];
 (function () {
   const body = document.getElementById('lineas-body');
   const csrfToken = document.querySelector('input[name="_csrf"]').value;
@@ -374,14 +375,78 @@
       ? p.presentaciones : [{ id: 0, nombre: p.unidad || 'Unidad', factor: 1 }];
     sel.innerHTML = lista.map(function (o) {
       return '<option value="' + o.id + '" data-factor="' + o.factor + '">' + escaparHTML(o.nombre) + '</option>';
-    }).join('') +
-      // Caja que no está en la ficha: se escribe cuántas trae (ej. Caja x 300)
-      '<option value="otra" data-factor="0">Otra caja…</option>';
+    }).join('');
+    completarUnidades(sel);
     sel.value = String(presentacionId || 0);
     if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+    sel.dataset.anterior = sel.value;
     sel.dataset.base = lista[0].nombre;          // nombre de la unidad de inventario
     equivalenciaLinea(tr);
   }
+  // ---- COLUMNA UdM: además de las presentaciones del producto, CUALQUIER unidad ----
+  // (como en Odoo: el aceite se vende por Unidad pero llegó en CAJA X 12).
+  // Valor "u<id>" = unidad de medida; el servidor calcula cuántas trae.
+  // Al final: "+ Crear unidad…" para una que no existe (ej. CAJA X 300).
+  function completarUnidades(sel) {
+    sel.querySelectorAll('optgroup, option[value="nueva"], option[value="otra"]').forEach(function (o) { o.remove(); });
+    const propias = [...sel.options].map(function (o) { return o.textContent.trim().toLowerCase(); });
+    const grupo = document.createElement('optgroup');
+    grupo.label = 'Otras unidades';
+    UNIDADES.forEach(function (u) {
+      if (u.cantidad <= 1 || propias.includes(u.nombre.toLowerCase())) return;
+      const o = document.createElement('option');
+      o.value = 'u' + u.id;
+      o.dataset.factor = u.cantidad;
+      o.textContent = u.nombre;
+      grupo.appendChild(o);
+    });
+    if (grupo.children.length) sel.appendChild(grupo);
+    const crear = document.createElement('option');
+    crear.value = 'nueva';
+    crear.textContent = '+ Crear unidad (ej. CAJA X 12)…';
+    sel.appendChild(crear);
+  }
+
+  // "+ Crear unidad…": pide el nombre y cuántas trae, la crea y la deja escogida
+  async function crearUnidadDesdeLinea(sel) {
+    const anterior = sel.dataset.anterior || '0';
+    const datos = await window.pedirDatos({
+      titulo: 'Nueva unidad de medida',
+      texto: 'Ej: CAJA X 12, CAJA X 300, SELLO X 7. Cuántas trae se lee del nombre.',
+      campos: [
+        { nombre: 'nombre', etiqueta: 'Nombre', obligatorio: true },
+        { nombre: 'cantidad', etiqueta: '¿Cuántas unidades trae? (si el nombre no lo dice)', tipo: 'numero', minimoNumero: 2 },
+      ],
+      textoAceptar: 'Crear',
+    });
+    if (!datos) { sel.value = anterior; return; }
+    const fd = new FormData();
+    fd.append('_csrf', csrfToken);
+    fd.append('nombre', datos.nombre);
+    fd.append('cantidad', datos.cantidad || '');
+    try {
+      const resp = await fetch('/recepciones/api/crear-unidad', { method: 'POST', body: fd, credentials: 'same-origin' });
+      const json = await resp.json();
+      if (!json.ok) { window.avisar(json.error || 'No se pudo crear.', 'error'); sel.value = anterior; return; }
+      if (!UNIDADES.some(function (u) { return u.id === json.id; })) {
+        UNIDADES.push({ id: json.id, nombre: json.nombre, cantidad: parseFloat(json.cantidad) || 1 });
+      }
+      // Que aparezca en TODAS las líneas, y queda escogida en esta
+      body.querySelectorAll('.linea-pres').forEach(function (s) {
+        const v = s.value;
+        completarUnidades(s);
+        s.value = v === 'nueva' ? 'u' + json.id : v;
+      });
+      if (sel.value !== 'u' + json.id) sel.value = 'u' + json.id;
+      window.avisar('Unidad ' + json.nombre + ' lista.', 'ok');
+    } catch (e) {
+      window.avisar('Error de conexión: ' + e.message, 'error');
+      sel.value = anterior;
+    }
+    recalcularTotales();
+    equivalenciaLinea(sel.closest('tr'));
+  }
+
   // Debajo de la cantidad: "= 300 Tableta · $250 c/u"
   function equivalenciaLinea(tr) {
     const sel = tr.querySelector('.linea-pres');
@@ -833,6 +898,8 @@
   // Al cambiar "Viene en" (Tableta / Caja x 100): recalcular totales y la equivalencia
   body.addEventListener('change', function (e) {
     if (e.target.classList.contains('linea-pres')) {
+      if (e.target.value === 'nueva') { crearUnidadDesdeLinea(e.target); return; }
+      e.target.dataset.anterior = e.target.value;
       recalcularTotales();
       equivalenciaLinea(e.target.closest('tr'));
     }
@@ -840,7 +907,13 @@
   // Filas que vienen ya llenas (cuando el servidor devolvió un error)
   body.querySelectorAll('tr.linea').forEach(function (tr) {
     const sel = tr.querySelector('.linea-pres');
-    if (sel && sel.options.length) sel.dataset.base = sel.options[0].textContent;
+    if (sel && sel.options.length) {
+      sel.dataset.base = sel.options[0].textContent;
+      completarUnidades(sel);
+      if (sel.dataset.actual) sel.value = sel.dataset.actual;      // ej. "u12" (CAJA X 12)
+      if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+      sel.dataset.anterior = sel.value;
+    }
     equivalenciaLinea(tr);
   });
 
