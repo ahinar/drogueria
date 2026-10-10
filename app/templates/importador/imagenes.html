@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titulo %}Importar fotos{% endblock %}
+{% block contenido %}
+<h1><span class="ico-emoji">🖼️</span> Importar fotos de productos desde Odoo</h1>
+
+{% if resultado %}
+<div class="panel">
+  <h2 class="panel-titulo">Resultado</h2>
+  <ul>
+    <li><b>{{ resultado.puestas }}</b> producto(s) con foto nueva.</li>
+    <li>{{ resultado.ya_tenian }} ya tenían foto (no se cambiaron).</li>
+    <li>{{ resultado.sin_foto }} fila(s) sin foto en Odoo.</li>
+    {% if resultado.no_encontrados %}<li>{{ resultado.no_encontrados|length }} no se encontraron en el programa:
+      <small class="suave">{{ resultado.no_encontrados[:15]|join(', ') }}{% if resultado.no_encontrados|length > 15 %}…{% endif %}</small></li>{% endif %}
+    {% if resultado.danadas %}<li class="texto-alerta">{{ resultado.danadas|length }} foto(s) no se pudieron leer:
+      <small>{{ resultado.danadas[:10]|join(', ') }}</small></li>{% endif %}
+  </ul>
+  <a class="boton" href="{{ url_for('productos.lista') }}">Ver productos</a>
+</div>
+{% endif %}
+
+<div class="panel" style="margin-top:1rem">
+  <h2 class="panel-titulo">Paso 1 · Exporta de Odoo</h2>
+  <ol class="suave">
+    <li>Inventario → Productos, en vista de <b>lista</b>. Marca la casilla de arriba y "Seleccionar todos".</li>
+    <li><b>⚙ Acciones → Exportar</b>, formato <b>CSV</b> (no Excel: Excel corta las fotos).</li>
+    <li>Campos: <b>Nombre</b>, <b>Código de barras</b> e <b>Imagen 512</b> (o "Imagen").</li>
+  </ol>
+</div>
+
+<div class="panel" style="margin-top:1rem">
+  <h2 class="panel-titulo">Paso 2 · Sube el archivo</h2>
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>Archivo (.csv)
+      <input type="file" name="archivo" accept=".csv,.xlsx" required></label>
+    <label class="check-linea"><input type="checkbox" name="reemplazar" value="1"> Reemplazar las fotos que ya tienen los productos</label>
+    <p class="suave">Puede tardar un poco si son muchas fotos. No cierres la página.</p>
+    <button type="submit" class="boton">Importar fotos</button>
+  </form>
+</div>
+{% endblock %}

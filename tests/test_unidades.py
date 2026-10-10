@@ -708,3 +708,30 @@ class TestImportarExistenciasOdoo(TestImportarDeOdoo):
         # Subir el mismo archivo otra vez no duplica
         self.subir_existencias(filas)
         self.assertEqual(self.stock(a), 255)
+
+
+class TestImportarFotosOdoo(BaseUnidades):
+    def test_foto_por_codigo_de_barras_y_por_nombre(self):
+        import base64
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.new("RGB", (40, 30), (200, 30, 30)).save(buf, "PNG")
+        foto = base64.b64encode(buf.getvalue()).decode()
+        con = self.db()
+        con.execute("UPDATE productos SET codigo_barras = '7701' WHERE id = 1")
+        nombre2 = con.execute("SELECT nombre FROM productos WHERE id = 2").fetchone()[0]
+        con.commit()
+        con.close()
+        csv_txt = "Nombre,Código de barras,Imagen 512\n" + f"Otro nombre,7701,{foto}\n" + f"{nombre2},,{foto}\n" + "No existe,,abc\n"
+        html = self.post(self.c, "/productos/importar/imagenes/",
+                         {"archivo": (io.BytesIO(csv_txt.encode("utf-8")), "fotos.csv")},
+                         content_type="multipart/form-data").get_data(as_text=True)
+        self.assertIn("<b>2</b> producto(s) con foto nueva", html)
+        rutas = [r[0] for r in self.db().execute("SELECT imagen FROM productos WHERE id IN (1, 2)")]
+        self.assertTrue(all(r and r.startswith("uploads/productos/") for r in rutas))
+        # Limpieza: borrar las fotos de prueba que quedaron en static/uploads
+        import os
+        for r in rutas:
+            ruta = os.path.join(self.app.static_folder, r)
+            if os.path.exists(ruta):
+                os.remove(ruta)
