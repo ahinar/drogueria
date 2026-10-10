@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block titulo %}Utilidades{% endblock %}
+{% block contenido %}
+{#
+  R2 · ESTADO DE RESULTADOS
+  - r      = lo que calcula app/utilidades.py (actual, anterior, periodo...)
+  - filas  = las filas de la tabla, armadas en app/reportes.py (_filas_estado)
+  - pesos  = filtro para mostrar plata como $1.234.567
+#}
+{% macro pesos(n) -%}
+  {%- if n < -0.5 %}-{% endif %}${{ '{:,.0f}'.format(n|abs).replace(',', '.') }}
+{%- endmacro %}
+{% macro cambio(f) -%}
+  {# Verde si el cambio es bueno (más ventas, menos gastos); rojo si es malo #}
+  {%- if f.cambio is none -%}<span class="eres-cambio">—</span>
+  {%- else -%}
+    {%- set bueno = (f.cambio > 0) == f.sube_bueno if f.sube_bueno is not none else none -%}
+    <span class="eres-cambio {% if f.cambio|abs < 0.05 %}{% elif bueno %}bueno{% elif bueno is not none %}malo{% endif %}">
+      {{ '▲' if f.cambio > 0 else ('▼' if f.cambio < 0 else '') }} {{ '%.1f'|format(f.cambio|abs) }} %
+    </span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% set a = r.actual %}
+{% set per = r.periodo %}
+
+<div class="eres-cabecera">
+  <div>
+    <h1>📈 Utilidades · Estado de resultados</h1>
+    <p class="suave"><strong>{{ per.actual.texto|capitalize }}</strong> comparado con {{ per.anterior.texto }}</p>
+  </div>
+  <a class="boton" href="{{ url_for('reportes.utilidades_pdf', **args) }}">📄 Descargar PDF</a>
+</div>
+
+<!-- ===== Elegir período: un mes, o un rango libre de fechas ===== -->
+<form method="get" class="eres-filtros">
+  <label>Mes
+    <select name="mes" onchange="this.form.desde.value=''; this.form.hasta.value=''; this.form.submit()">
+      {% for valor, texto in meses %}
+        <option value="{{ valor }}" {% if per.modo == 'mes' and per.mes == valor %}selected{% endif %}>{{ texto|capitalize }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <span class="suave eres-o">o entre fechas</span>
+  <label>Desde <input type="date" name="desde" value="{{ args.get('desde', '') if per.modo == 'rango' else '' }}"></label>
+  <label>Hasta <input type="date" name="hasta" value="{{ args.get('hasta', '') if per.modo == 'rango' else '' }}"></label>
+  <button type="submit" class="boton secundario">Ver</button>
+</form>
+
+{% if a.lineas_sin_costo %}
+<p class="eres-aviso">⚠️ {{ a.lineas_sin_costo }} línea(s) de venta salieron de lotes con <strong>costo $0</strong>
+  (por ejemplo, cargados en el conteo sin costo). La utilidad real es <strong>menor</strong> que la que se ve aquí.</p>
+{% endif %}
+
+<!-- ===== Tarjetas resumen ===== -->
+<div class="eres-tarjetas">
+  <div class="eres-tarjeta">
+    <span>Ventas sin IVA</span><strong>{{ pesos(a.ventas) }}</strong>
+    <small>{{ a.n_ventas }} venta{{ '' if a.n_ventas == 1 else 's' }} · ticket promedio {{ pesos(a.ticket_promedio) }}</small>
+  </div>
+  <div class="eres-tarjeta">
+    <span>Utilidad bruta</span><strong>{{ pesos(a.utilidad_bruta) }}</strong>
+    <small>margen {{ '%.1f'|format(a.margen_bruto) }} % sobre las ventas</small>
+  </div>
+  <div class="eres-tarjeta {{ 'negativa' if a.utilidad_neta < 0 else 'positiva' }}">
+    <span>Utilidad neta</span><strong>{{ pesos(a.utilidad_neta) }}</strong>
+    <small>margen {{ '%.1f'|format(a.margen_neto) }} %</small>
+  </div>
+  <div class="eres-tarjeta">
+    <span>Queda en el negocio</span><strong>{{ pesos(a.queda) }}</strong>
+    <small>después de {{ pesos(a.retiros_dueno) }} en retiros del dueño</small>
+  </div>
+</div>
+
+<!-- ===== Tabla del estado de resultados ===== -->
+<div class="eres-tabla-caja">
+<table class="eres-tabla">
+  <thead>
+    <tr><th>Concepto</th><th class="num">{{ per.actual.texto|capitalize }}</th>
+        <th class="num">{{ per.anterior.texto|capitalize }}</th><th class="num">Cambio</th></tr>
+  </thead>
+  <tbody>
+    {% for f in filas %}
+    <tr class="eres-{{ f.tipo }}{% if f.final %} eres-final{% endif %}">
+      <td>
+        {% if f.detalle %}
+          <!-- Tocar una categoría de gasto muestra sus gastos -->
+          <details class="eres-detalle">
+            <summary>{{ f.texto }}</summary>
+            <ul>
+              {% for gd in f.detalle %}
+              <li><span>{{ gd.fecha[8:10] }}/{{ gd.fecha[5:7] }} · {{ gd.descripcion }}</span><span>{{ pesos(gd.monto) }}</span></li>
+              {% endfor %}
+            </ul>
+          </details>
+        {% else %}
+          {{ f.texto }}
+        {% endif %}
+        {% if f.margen_a is defined %}<small class="suave"> · margen {{ '%.1f'|format(f.margen_a) }} %</small>{% endif %}
+      </td>
+      <td class="num">{{ pesos(f.a) }}</td>
+      <td class="num suave">{{ pesos(f.b) }}</td>
+      <td class="num">{{ cambio(f) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<!-- ===== Cómo leerlo ===== -->
+<details class="eres-ayuda">
+  <summary>❓ ¿Cómo se calcula cada línea?</summary>
+  <ul>
+    <li><strong>Ventas sin IVA:</strong> lo vendido en el POS (sin las ventas anuladas), con los descuentos ya restados y sin el IVA, que es de la DIAN.
+      Con IVA fueron {{ pesos(a.total_con_iva) }} (IVA cobrado: {{ pesos(a.iva) }}).</li>
+    <li><strong>Costo de lo vendido:</strong> lo que costó en la compra cada unidad vendida, según el lote del que salió.</li>
+    <li><strong>Gastos:</strong> todo lo registrado en Contabilidad y en el POS, por categoría. Toca una categoría para ver el detalle.
+      Tu sueldo va en la categoría "Sueldo del dueño".</li>
+    <li><strong>Pérdidas:</strong> mercancía que salió sin venderse, al costo: vencidos y averías dados de baja, y faltantes al aplicar un conteo.</li>
+    <li><strong>Retiros del dueño:</strong> retiros de caja menor marcados "Es plata que me llevo como dueño". No son gasto; se restan aparte para ver cuánto queda en el negocio.</li>
+    <li>Si el mes va en curso, se compara con los mismos días del mes anterior.</li>
+  </ul>
+</details>
+{% endblock %}

@@ -85,7 +85,7 @@
           <span class="tag-error">▼ {{ meta[1] }} {{ meta[0] }}</span>
         {% endif %}
       </td>
-      <td>{{ m['motivo'] or '—' }}</td>
+      <td>{{ m['motivo'] or '—' }}{% if m['retiro_dueno'] %} <span class="tag-dueno">👤 dueño</span>{% endif %}</td>
       <td>{{ m['usuario_nombre'] or '—' }}</td>
       <td style="text-align:right"><strong>${{ '{:,.0f}'.format(m['monto']).replace(',', '.') }}</strong></td>
     </tr>
@@ -130,7 +130,13 @@
         <input type="number" step="0.01" name="monto" required autofocus min="0.01">
       </label>
       <label>Motivo *
-        <input type="text" name="motivo" required placeholder="Ej: Pago de servicios">
+        <input type="text" name="motivo" required placeholder="Ej: Consignación en el banco">
+      </label>
+      <!-- Marcado = el dueño se lleva esta plata como ganancia. El estado de
+           resultados la muestra aparte (no es un gasto). -->
+      <label class="check-linea">
+        <input type="checkbox" name="retiro_dueno" value="1">
+        Es plata que me llevo como dueño (retiro de ganancia)
       </label>
       <div class="modal-acciones">
         <button type="button" class="boton secundario" data-cerrar-modal>Cancelar</button>

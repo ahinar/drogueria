@@ -667,6 +667,22 @@ MIGRATIONS = [
         ALTER TABLE venta_lineas ADD COLUMN presentacion_id INTEGER;
         """,
     ),
+    (
+        21,
+        """
+        -- ===== Estado de resultados (R2) =====
+        -- Un retiro de la caja menor puede ser "plata que se lleva el dueño"
+        -- (su ganancia) o solo mover dinero (consignar). Esta marca los separa:
+        -- los retiros del dueño se muestran aparte en el estado de resultados.
+        ALTER TABLE caja_menor_movimientos ADD COLUMN retiro_dueno INTEGER NOT NULL DEFAULT 0;
+
+        -- Categoría de gasto para el sueldo del dueño. Solo se agrega aquí si la
+        -- base ya tenía categorías (en una base nueva la siembra init_db).
+        INSERT OR IGNORE INTO catalogos (tipo, nombre, activo, creado_en)
+        SELECT 'categoria_gasto', 'Sueldo del dueño', 1, datetime('now', 'localtime')
+        WHERE EXISTS (SELECT 1 FROM catalogos WHERE tipo = 'categoria_gasto');
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:
@@ -834,6 +850,7 @@ def init_db(ruta) -> int:
                     "Arriendo",
                     "Servicios públicos",
                     "Nómina",
+                    "Sueldo del dueño",
                     "Papelería y suministros",
                     "Mantenimiento y reparaciones",
                     "Publicidad",

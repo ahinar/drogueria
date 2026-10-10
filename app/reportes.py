@@ -11,11 +11,12 @@ from reportlab.lib.units import cm
 from reportlab.platypus import (Image, Paragraph, SimpleDocTemplate, Spacer,
                                 Table, TableStyle)
 
-from .auth import login_required
+from .auth import login_required, roles_required
 from .configuracion import obtener_config
 from .db import get_db
 from .pdf_utils import encabezado_pdf
 from .temperaturas import _turno_de_hora, turno_de_hh
+from . import utilidades
 
 bp = Blueprint("reportes", __name__, url_prefix="/reportes")
 
@@ -441,3 +442,141 @@ def temperaturas_mensual_pdf():
     nombre = f"temperaturas_{zona['nombre']}_{anio}_{mes:02d}.pdf".replace(" ", "_")
     return send_file(buffer, mimetype="application/pdf", as_attachment=True,
                      download_name=nombre)
+
+# ============================================================
+# R2 · UTILIDADES / ESTADO DE RESULTADOS
+# ============================================================
+# Los cálculos están en app/utilidades.py. Aquí solo se arman las filas
+# de la tabla (las mismas para la pantalla y para el PDF).
+
+def _filas_estado(r):
+    """Filas de la tabla del estado de resultados.
+
+    Cada fila: texto, valor actual, valor anterior, tipo y si "subir es bueno"
+    (para pintar el cambio en verde o rojo: más ventas = bueno, más gastos = malo).
+    tipo: 'linea' (normal), 'resta' (se descuenta), 'total' (resultado), 'info' (solo informativo)
+    """
+    a, b = r["actual"], r["anterior"]
+    filas = [
+        {"texto": "Ventas (sin IVA)", "a": a["ventas"], "b": b["ventas"], "tipo": "linea", "sube_bueno": True},
+        {"texto": "− Costo de lo vendido", "a": a["costo"], "b": b["costo"], "tipo": "resta", "sube_bueno": False},
+        {"texto": "= Utilidad bruta", "a": a["utilidad_bruta"], "b": b["utilidad_bruta"], "tipo": "total",
+         "sube_bueno": True, "margen_a": a["margen_bruto"], "margen_b": b["margen_bruto"]},
+    ]
+    for g_ in r["filas_gastos"]:
+        filas.append({"texto": f"− {g_['categoria']}", "a": g_["actual"], "b": g_["anterior"],
+                      "tipo": "resta", "sube_bueno": False, "detalle": g_["detalle"], "gasto": True})
+    filas.append({"texto": "Total gastos", "a": a["total_gastos"], "b": b["total_gastos"],
+                  "tipo": "subtotal", "sube_bueno": False})
+    filas += [
+        {"texto": "− Pérdidas: vencidos, averías y bajas", "a": a["bajas"], "b": b["bajas"],
+         "tipo": "resta", "sube_bueno": False},
+        {"texto": "− Pérdidas: faltantes del conteo", "a": a["faltantes_conteo"], "b": b["faltantes_conteo"],
+         "tipo": "resta", "sube_bueno": False},
+        {"texto": "= Utilidad neta", "a": a["utilidad_neta"], "b": b["utilidad_neta"], "tipo": "total",
+         "sube_bueno": True, "margen_a": a["margen_neto"], "margen_b": b["margen_neto"], "final": True},
+        {"texto": "Retiros del dueño (no es gasto)", "a": a["retiros_dueno"], "b": b["retiros_dueno"],
+         "tipo": "info", "sube_bueno": None},
+        {"texto": "Queda en el negocio", "a": a["queda"], "b": b["queda"], "tipo": "info", "sube_bueno": True},
+    ]
+    for f in filas:
+        f["cambio"] = utilidades.variacion(f["a"], f["b"])
+    return filas
+
+
+def _leer_periodo():
+    return utilidades.estado_de_resultados(
+        mes=request.args.get("mes"), desde=request.args.get("desde"), hasta=request.args.get("hasta"))
+
+
+@bp.route("/utilidades")
+@login_required
+@roles_required("administrador", "director_tecnico")
+def utilidades_ver():
+    r = _leer_periodo()
+    return render_template("reportes/utilidades.html", r=r, filas=_filas_estado(r),
+                           meses=utilidades.meses_disponibles(),
+                           args=request.args)
+
+
+def _pesos(n):
+    """1234567.8 -> '$1.234.568' ; negativos con signo: '-$5.000'"""
+    texto = f"${abs(n):,.0f}".replace(",", ".")
+    return f"-{texto}" if n < -0.5 else texto
+
+
+@bp.route("/utilidades/pdf")
+@login_required
+@roles_required("administrador", "director_tecnico")
+def utilidades_pdf():
+    """El mismo estado de resultados en PDF (para el contador o el archivo)."""
+    r = _leer_periodo()
+    filas = _filas_estado(r)
+    per = r["periodo"]
+    config = obtener_config()
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.8 * cm, rightMargin=1.8 * cm,
+                            topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+                            title="Estado de resultados",
+                            author=config.get("razon_social") or "Droguería")
+    estilos = getSampleStyleSheet()
+    sub = ParagraphStyle("Sub", parent=estilos["Normal"], fontSize=9, textColor=colors.HexColor("#555555"))
+    celda = ParagraphStyle("Celda", parent=estilos["Normal"], fontSize=9)
+    celda_der = ParagraphStyle("CeldaDer", parent=celda, alignment=2)   # 2 = derecha
+
+    elementos = list(encabezado_pdf(config, "ESTADO DE RESULTADOS"))
+    elementos.append(Spacer(1, 6))
+    elementos.append(Paragraph(
+        f"Período: <b>{per['actual']['texto']}</b> · Comparado con: {per['anterior']['texto']}<br/>"
+        f"Ventas registradas: {r['actual']['n_ventas']} · Generado: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+        sub))
+    elementos.append(Spacer(1, 10))
+
+    data = [[Paragraph("<b>Concepto</b>", celda), Paragraph("<b>Período</b>", celda_der),
+             Paragraph("<b>Anterior</b>", celda_der), Paragraph("<b>Cambio</b>", celda_der)]]
+    estilos_tabla = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#dbe6ef")),
+        ("LINEBELOW", (0, 0), (-1, -1), 0.3, colors.HexColor("#c8d2da")),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]
+    for i, f in enumerate(filas, start=1):
+        texto = f["texto"]
+        if f.get("margen_a") is not None:
+            texto += f"  ({f['margen_a']:.1f} % de las ventas)"
+        negrita = f["tipo"] in ("total", "subtotal")
+        cambio = "—" if f["cambio"] is None else f"{f['cambio']:+.1f} %"
+        fmt = (lambda t: f"<b>{t}</b>") if negrita else (lambda t: t)
+        data.append([Paragraph(fmt(texto), celda), Paragraph(fmt(_pesos(f["a"])), celda_der),
+                     Paragraph(_pesos(f["b"]), celda_der), Paragraph(cambio, celda_der)])
+        if f["tipo"] == "total":
+            estilos_tabla.append(("BACKGROUND", (0, i), (-1, i), colors.HexColor("#eef4f9")))
+        if f["tipo"] == "info":
+            estilos_tabla.append(("TEXTCOLOR", (0, i), (-1, i), colors.HexColor("#555555")))
+    tabla = Table(data, colWidths=[8.2 * cm, 3.0 * cm, 3.0 * cm, 2.2 * cm], repeatRows=1)
+    tabla.setStyle(TableStyle(estilos_tabla))
+    elementos.append(tabla)
+
+    elementos.append(Spacer(1, 10))
+    notas = [
+        f"Ventas con IVA: {_pesos(r['actual']['total_con_iva'])} · IVA cobrado: {_pesos(r['actual']['iva'])} · "
+        f"Descuentos dados: {_pesos(r['actual']['descuentos'])}.",
+        "Costo de lo vendido = costo real de compra de cada lote vendido.",
+        "Los retiros del dueño no son gasto: se muestran solo para saber cuánto queda en el negocio.",
+    ]
+    if r["actual"]["lineas_sin_costo"]:
+        notas.append(f"<b>Atención:</b> {r['actual']['lineas_sin_costo']} línea(s) de venta salieron de lotes "
+                     "con costo $0; la utilidad real es menor que la mostrada.")
+    for n in notas:
+        elementos.append(Paragraph(n, sub))
+
+    pie = config.get("pie_pagina") or ""
+    if pie:
+        elementos.append(Spacer(1, 10))
+        elementos.append(Paragraph(f"<i>{pie}</i>", sub))
+
+    doc.build(elementos)
+    buffer.seek(0)
+    nombre = f"estado_resultados_{per['actual']['desde'].isoformat()}_{per['actual']['hasta'].isoformat()}.pdf"
+    return send_file(buffer, mimetype="application/pdf", as_attachment=True, download_name=nombre)

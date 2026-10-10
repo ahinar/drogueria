@@ -186,6 +186,23 @@ def main():
     con.execute("INSERT INTO caja_menor_movimientos (fecha, tipo, monto, motivo, usuario_nombre, creado_en) "
                 "VALUES (?, 'aporte', 300000, 'Fondo inicial (demo)', 'Fernando (demo)', ?)", (ahora, ahora))
 
+    # ---- 8. Gastos de este mes y del anterior (para ver Reportes → Utilidades) ----
+    # Las ventas no se inventan: haz unas ventas en el POS y mira cómo cambia la utilidad.
+    mes_pasado = (hoy.replace(day=1) - timedelta(days=1)).replace(day=5).isoformat()
+    for categoria, descripcion, monto, fecha in (
+            ("Arriendo", "Arriendo del local", 1200000, hoy.replace(day=1).isoformat()),
+            ("Servicios públicos", "Energía y agua", 185000, hoy.isoformat()),
+            ("Sueldo del dueño", "Sueldo Fernando", 900000, hoy.isoformat()),
+            ("Arriendo", "Arriendo del local", 1200000, mes_pasado),
+            ("Servicios públicos", "Energía y agua", 172000, mes_pasado)):
+        con.execute("INSERT INTO gastos (fecha, categoria_id, descripcion, monto, forma_pago, usuario_nombre, "
+                    "creado_en) VALUES (?,?,?,?, 'transferencia', 'Fernando (demo)', ?)",
+                    (fecha, catalogo("categoria_gasto", categoria), descripcion, monto, ahora))
+    # Un retiro de ganancia del dueño desde la caja menor
+    con.execute("INSERT INTO caja_menor_movimientos (fecha, tipo, monto, motivo, usuario_nombre, retiro_dueno, "
+                "creado_en) VALUES (?, 'retiro', 50000, 'Retiro de ganancia (demo)', 'Fernando (demo)', 1, ?)",
+                (ahora, ahora))
+
     con.commit()
     con.close()
     print(f"Demo creada en {ruta}")

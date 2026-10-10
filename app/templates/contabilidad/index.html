@@ -2,6 +2,8 @@
 {% block titulo %}Contabilidad{% endblock %}
 {% block contenido %}
 <h1>💰 Contabilidad</h1>
+<!-- Atajo al estado de resultados (Reportes → Utilidades) -->
+<p><a class="boton" href="{{ url_for('reportes.utilidades_ver') }}">📈 Ver utilidades del mes (estado de resultados)</a></p>
 <p class="suave">Resumen de gastos y accesos a los módulos contables. Los informes avanzados llegarán en las siguientes fases.</p>
 
 <!-- ===== KPI ===== -->

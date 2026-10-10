@@ -28,11 +28,12 @@
     <span class="etiqueta">Fase 2</span>
   </div>
 
-  <div class="modulo apagado">
+  {% if g.user.rol in ('administrador', 'director_tecnico') %}
+  <a class="modulo" href="{{ url_for('reportes.utilidades_ver') }}">
     <h2>📈 Utilidades</h2>
-    <p>Ganancias por día, semana, mes o rango.</p>
-    <span class="etiqueta">Fase 2</span>
-  </div>
+    <p>Estado de resultados: ventas, costo, gastos, pérdidas y utilidad neta. Mes vs. mes anterior. PDF.</p>
+  </a>
+  {% endif %}
 
   <div class="modulo apagado">
     <h2>🧾 Modo Inspección</h2>

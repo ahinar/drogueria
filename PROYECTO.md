@@ -188,7 +188,7 @@
 - Pantalla principal con layout de 2 columnas.
 - Menú lateral derecho (drawer) con 8 opciones.
 - Movimientos de caja (ingreso / salida) para efectivo, Nequi, Davivienda.
-- **Regla del dinero:** *salida de efectivo* = solo **mover plata** (consignar, pasar a caja menor, cambiar billetes). Todo **pago** (domicilio, insumos, servicios) es un **gasto** (desde el POS o desde Contabilidad; es la misma tabla). *Retiro* de caja menor = sacar plata del fondo (consignar o lo que retira el dueño). La ventana de salida lo explica y tiene un botón directo a "Registrar gasto".
+- **Regla del dinero:** *salida de efectivo* = solo **mover plata** (consignar, pasar a caja menor, cambiar billetes). Todo **pago** (domicilio, insumos, servicios) es un **gasto** (desde el POS o desde Contabilidad; es la misma tabla). *Retiro* de caja menor = sacar plata del fondo (consignar o lo que retira el dueño); si es plata que se lleva el dueño, se marca la casilla "Es plata que me llevo como dueño" (columna `retiro_dueno`) y sale aparte en Utilidades. La ventana de salida lo explica y tiene un botón directo a "Registrar gasto".
 - Cierre de caja como modal con desglose completo.
 - Modal de conteo reutilizable.
 
@@ -209,6 +209,12 @@
 - Índice con tarjetas.
 - Reporte de temperaturas con gráfico y PDF.
 - Plantilla mensual de temperaturas.
+- **R2 Utilidades / Estado de resultados ✅** (`app/utilidades.py`, ruta `/reportes/utilidades`, solo admin y DT; también hay un botón en Contabilidad):
+  - Ventas sin IVA (ventas completadas, con descuento) − **costo real** de cada lote vendido (`lotes_json`) = utilidad bruta y margen.
+  - − Gastos por categoría (al tocar una categoría se ven sus gastos; "Sueldo del dueño" es una categoría más) − pérdidas de inventario en dos líneas: bajas/vencidos/averías y faltantes del conteo (ajustes negativos al costo del lote; los sobrantes no suman porque incluyen el inventario inicial) = **utilidad neta**.
+  - Informativo: retiros del dueño (retiros de caja menor marcados "Es plata que me llevo como dueño") y "Queda en el negocio".
+  - Período: mes (selector de 12 meses) o rango libre. Mes en curso → se compara con los mismos días del mes anterior; mes cerrado → mes anterior completo; rango → rango anterior de igual duración. Cambio en % en verde/rojo según si es bueno o malo.
+  - Aviso si se vendieron unidades de lotes con costo $0. PDF para el contador. En el celular se oculta la columna "Anterior".
 - **Pendientes:** ver el plan del módulo Reportes en la sección 7 (Fase R).
 
 ### 5.13 Bitácora
@@ -259,7 +265,7 @@
 ### Fase 2: ventas y contabilidad 🔄
 - **2.1** POS interno ✅ (caja, carrito, cobro, anulación, cambio de precio, ventana "i", **venta por presentación**).
 - **2.2** Gastos discriminados ✅ (módulo Contabilidad + caja menor).
-- **2.3 / 2.4** Utilidades y estado de resultados → se hacen como **R2** en Reportes (pendiente).
+- **2.3 / 2.4** Utilidades y estado de resultados ✅ → hechos como **R2** en Reportes.
 - **2.5** IVA con prorrateo ⏸ solo si el contador lo pide.
 - **2.6** Flujo de caja ⏸ lo cubren R1 Ventas (por día y forma de pago) + el cierre de caja.
 
@@ -389,6 +395,7 @@ Notas:
 | 18 | conteos y conteo_lineas (toma de inventario) |
 | 19 | limpieza: borra presentaciones_producto; sinónimos en los usos (buscador por síntoma) |
 | 20 | `producto_presentaciones` (venta por unidad / sobre / caja) + `venta_lineas.presentacion_id` |
+| 21 | `caja_menor_movimientos.retiro_dueno` + categoría de gasto "Sueldo del dueño" |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -425,7 +432,8 @@ Notas:
 - **Ajustes tras probar en Codespaces (2026-10-09):** conteo como lista alfabética, botón "Producto encontrado" en vez de "Lote encontrado", buscador fijo arriba; textos de los métodos de pago del cobro visibles (estaban en blanco sobre blanco).
 - **Venta por presentación (2026-10-09):** cada producto puede venderse por unidad, sobre, caja… con su propio precio; el inventario se descuenta en unidades. Ventana "¿Cómo lo vendes?" en el POS, presentaciones en el formulario de productos, código de barras de la caja, margen por presentación en la "i". La demo trae Acetaminofén e Ibuprofeno por tableta, sobre y caja. **158 tests pasan**.
 - **Panel de alertas (2026-10-09):** "Para atender hoy" en el Inicio con 12 tipos de alerta (ver 5.1); arreglado el texto "con stock mínimo definido" de la tarjeta de productos, que salía vacío. **176 tests pasan**.
-- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → utilidades/estado de resultados → reportes → equipos/calibraciones → devoluciones.
+- **R2 Utilidades (2026-10-09):** estado de resultados con costo real por lote, gastos por categoría, pérdidas de inventario, retiros del dueño aparte, comparación con el período anterior y PDF. Casilla "retiro del dueño" en caja menor. Decisiones de Fernando: pérdidas en línea aparte; su sueldo (variable) es gasto en "Sueldo del dueño" y además retira ganancias; registra todos los gastos en Contabilidad; por defecto mes actual vs anterior. **194 tests pasan**.
+- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → ~~utilidades/estado de resultados~~ ✅ → utilidades/estado de resultados → reportes → equipos/calibraciones → devoluciones.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 
 **Sesión anterior:** 2026-10-07. Se completó:

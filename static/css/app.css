@@ -2386,3 +2386,54 @@ body.sidebar-colapsado .sidebar-submenu { display: block; max-height: none; back
 .alerta-mas { margin: 0 0 .5rem; font-size: .85rem; color: #6b7884; }
 .alerta-boton { display: inline-block; margin-bottom: .7rem; }
 @media (max-width: 600px) { .alertas-rejilla { grid-template-columns: 1fr; } }
+
+/* Caja menor: marca de "retiro del dueño" */
+.check-linea { display: flex; align-items: center; gap: .5rem; font-weight: 400; margin: .4rem 0 .8rem; }
+.check-linea input { width: auto; margin: 0; }
+.tag-dueno { display: inline-block; padding: .05rem .5rem; border-radius: 999px; background: #e6eef6; color: #0a4f8a; font-size: .75rem; font-weight: 600; }
+
+/* ===== Reportes · R2 Estado de resultados ===== */
+.eres-cabecera { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: .8rem; }
+.eres-cabecera h1 { margin-bottom: .2rem; }
+.eres-filtros { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem; margin: .8rem 0 1rem; }
+.eres-filtros label { margin: 0; }
+.eres-o { padding-bottom: .55rem; }
+.eres-aviso { padding: .7rem 1rem; border-radius: 8px; background: #fff4d6; color: #7a5300; }
+.eres-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: .8rem; margin-bottom: 1rem; }
+.eres-tarjeta { display: flex; flex-direction: column; gap: .15rem; padding: .9rem 1rem; background: #fff; border: 1px solid #e3e8ee; border-radius: 8px; }
+.eres-tarjeta span { font-size: .85rem; color: #5c6b78; }
+.eres-tarjeta strong { font-size: 1.45rem; color: #1f2a33; }
+.eres-tarjeta small { color: #6b7884; }
+.eres-tarjeta.positiva { border-left: 5px solid #2e7d32; }
+.eres-tarjeta.negativa { border-left: 5px solid #c62828; }
+.eres-tarjeta.negativa strong { color: #b3261e; }
+.eres-tabla-caja { overflow-x: auto; background: #fff; border: 1px solid #e3e8ee; border-radius: 8px; }
+.eres-tabla { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.eres-tabla th, .eres-tabla td { padding: .55rem .8rem; border-bottom: 1px solid #eef1f4; text-align: left; vertical-align: top; }
+.eres-tabla th { background: #f3f6f9; font-size: .85rem; color: #5c6b78; }
+.eres-tabla .num { text-align: right; white-space: nowrap; }
+.eres-resta td:first-child { padding-left: 1.6rem; }
+.eres-total td { background: #eef4f9; font-weight: 700; }
+.eres-subtotal td { font-weight: 600; color: #5c6b78; }
+.eres-final td { font-size: 1.05rem; border-top: 2px solid #0a4f8a; }
+.eres-info td { color: #5c6b78; font-style: italic; }
+.eres-cambio { font-size: .85rem; color: #6b7884; }
+.eres-cambio.bueno { color: #2e7d32; }
+.eres-cambio.malo { color: #b3261e; }
+.eres-detalle summary { cursor: pointer; color: #0a4f8a; }
+.eres-detalle ul { margin: .4rem 0 0; padding: 0; list-style: none; font-size: .85rem; font-weight: 400; }
+.eres-detalle li { display: flex; justify-content: space-between; gap: 1rem; padding: .2rem 0; color: #5c6b78; }
+.eres-ayuda { margin-top: 1rem; }
+.eres-ayuda summary { cursor: pointer; font-weight: 600; }
+.eres-ayuda li { margin: .3rem 0; }
+@media (max-width: 600px) {
+  .eres-tabla { font-size: .85rem; }
+  .eres-tabla th, .eres-tabla td { padding: .45rem .5rem; }
+  .eres-resta td:first-child { padding-left: .9rem; }
+  /* En el celular no cabe todo: se oculta la columna "Anterior" (el cambio en % sí se ve) */
+  .eres-tabla th:nth-child(3), .eres-tabla td:nth-child(3) { display: none; }
+  .eres-detalle li { flex-direction: column; gap: 0; }
+  .eres-tabla th.num { white-space: normal; }          /* el título largo de la fecha baja de línea */
+  .eres-tabla td:first-child { width: 55%; }
+  .eres-cambio { font-size: .75rem; }
+}

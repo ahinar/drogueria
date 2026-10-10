@@ -112,10 +112,16 @@ def retiro():
         flash("Debes indicar el motivo del retiro.", "error")
         return redirect(url_for("caja_menor.index"))
 
+    # ¿Es plata que se lleva el dueño (su ganancia)? Si sí, se marca para
+    # mostrarla aparte en el estado de resultados (Reportes → Utilidades).
+    # Si es solo consignar o mover plata, queda sin marcar.
+    es_dueno = 1 if request.form.get("retiro_dueno") else 0
+
     db = get_db()
     mov_id = registrar_movimiento(db, "retiro", monto, motivo)
+    db.execute("UPDATE caja_menor_movimientos SET retiro_dueno = ? WHERE id = ?", (es_dueno, mov_id))
     db.commit()
     registrar("caja_menor_retiro", "caja_menor_movimientos", mov_id,
-              f"monto={monto} motivo={motivo}")
+              f"monto={monto} motivo={motivo}" + (" retiro_del_dueño" if es_dueno else ""))
     flash(f"Retiro de ${monto:,.0f} registrado.", "ok")
     return redirect(url_for("caja_menor.index"))
