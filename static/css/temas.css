@@ -1,0 +1,79 @@
+/* =====================================================================
+   TEMAS · los colores de cada tema en "variables CSS"
+   ---------------------------------------------------------------------
+   base.html pone el tema del usuario en <html data-tema="...">.
+   app.css y pos_nuevo.css usan estas variables (var(--acento), etc.),
+   así que cambiar un tema es cambiar solo estos valores.
+   Para crear un tema nuevo: copia un bloque, cámbiale el nombre y los
+   colores, y agrégalo en app/apariencia.py (TEMAS).
+   ===================================================================== */
+
+/* Letra del diseño nuevo (archivos locales: funciona sin internet).
+   Licencia: SIL Open Font License, ver static/fonts/IBM-Plex-Sans-LICENSE.txt */
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-style: normal; font-display: swap;
+  src: url("../fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 500; font-style: normal; font-display: swap;
+  src: url("../fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 600; font-style: normal; font-display: swap;
+  src: url("../fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 700; font-style: normal; font-display: swap;
+  src: url("../fonts/ibm-plex-sans-latin-700-normal.woff2") format("woff2"); }
+
+/* ---------- Verde salud (por defecto) ---------- */
+:root, [data-tema="verde"] {
+  --acento: #0F766E;          /* botones, enlace activo, títulos de color */
+  --acento-fuerte: #115E59;   /* al pasar el mouse, textos de color sobre fondo claro */
+  --acento-suave: #E6F3F1;    /* fondos claros con el color del tema */
+  --acento-anillo: #99D5CC;   /* borde de foco (teclado) */
+  --menu-fondo: #0E2A25;      /* menú lateral */
+  --menu-hover: #163A33;
+  --menu-sub: #0B221E;
+  --menu-borde: #1D4A41;
+  --menu-texto: #C9D8D3;
+  --menu-titulo: #6F958B;
+  --fondo: #F4F7F6;           /* fondo de las páginas */
+  --superficie: #FFFFFF;      /* tarjetas, tablas, cajas */
+  --borde: #E2E8E5;
+  --texto: #13201D;
+  --texto-suave: #5B6B66;
+  --letra: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+/* ---------- Azul ---------- */
+[data-tema="azul"] {
+  --acento: #1D4ED8;
+  --acento-fuerte: #1E3A8A;
+  --acento-suave: #E8EEFC;
+  --acento-anillo: #A9C1F5;
+  --menu-fondo: #0F1B33;
+  --menu-hover: #1A2A4A;
+  --menu-sub: #0B1528;
+  --menu-borde: #22345A;
+  --menu-texto: #CBD5E6;
+  --menu-titulo: #7D8DAD;
+  --fondo: #F4F6FA;
+  --superficie: #FFFFFF;
+  --borde: #E1E6EF;
+  --texto: #121A2B;
+  --texto-suave: #586379;
+}
+
+/* ---------- Clásico: los colores de antes del rediseño ---------- */
+[data-tema="clasico"] {
+  --acento: #0a6ebd;
+  --acento-fuerte: #0a4f8a;
+  --acento-suave: #eaf3fb;
+  --acento-anillo: #9cc6ea;
+  --menu-fondo: #12212e;
+  --menu-hover: #1a2f42;
+  --menu-sub: #0d1a25;
+  --menu-borde: #1e2f3d;
+  --menu-texto: #cdd6df;
+  --menu-titulo: #8fa3b3;
+  --fondo: #f4f6f8;
+  --superficie: #ffffff;
+  --borde: #e3e8ec;
+  --texto: #1a2733;
+  --texto-suave: #6b7885;
+  --letra: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}

@@ -1,11 +1,16 @@
 <!doctype html>
-<html lang="es">
+{% from "_iconos.html" import ico %}
+<html lang="es" data-tema="{{ tema_actual }}"{% if tema_actual != 'clasico' %} class="moderno"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Inicio{% endblock %} · Fervifarma</title>
+  <!-- Temas: colores en variables (temas.css), estilos de siempre (app.css, pos_nuevo.css)
+       y el diseño nuevo encima (moderno.css, solo si el tema no es "Clásico") -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/temas.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/pos_nuevo.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/moderno.css') }}">
   {% if config_negocio and config_negocio.logo_ruta %}
     <link rel="icon" href="{{ url_for('static', filename=config_negocio.logo_ruta) }}">
   {% else %}
@@ -42,42 +47,42 @@
     <nav class="sidebar-nav">
       <a class="sidebar-link {% if ep == 'main.inicio' %}activo{% endif %}"
          href="{{ url_for('main.inicio') }}" title="Inicio">
-        <span class="ico">🏠</span><span class="txt">Inicio</span>
+        <span class="ico">{{ ico("inicio", "🏠") }}</span><span class="txt">Inicio</span>
       </a>
 
       <!-- ===== Día a día ===== -->
       <div class="sidebar-seccion">Día a día</div>
       <a class="sidebar-link {% if ep.startswith('pos.') %}activo{% endif %}"
          href="{{ url_for('pos.index') }}" title="Vender (POS)">
-        <span class="ico">🛒</span><span class="txt">Vender (POS)</span>
+        <span class="ico">{{ ico("carrito", "🛒") }}</span><span class="txt">Vender (POS)</span>
       </a>
       <a class="sidebar-link {% if ep.startswith('recepciones.') %}activo{% endif %}"
          href="{{ url_for('recepciones.lista') }}" title="Recepciones">
-        <span class="ico">📦</span><span class="txt">Recepciones</span>
+        <span class="ico">{{ ico("paquete", "📦") }}</span><span class="txt">Recepciones</span>
       </a>
       <a class="sidebar-link {% if ep.startswith('temperaturas.') %}activo{% endif %}"
          href="{{ url_for('temperaturas.inicio') }}" title="Temperaturas">
-        <span class="ico">🌡️</span><span class="txt">Temperaturas</span>
+        <span class="ico">{{ ico("termometro", "🌡️") }}</span><span class="txt">Temperaturas</span>
       </a>
       <a class="sidebar-link {% if ep.startswith('equipos.') %}activo{% endif %}"
          href="{{ url_for('equipos.lista') }}" title="Equipos y calibración">
-        <span class="ico">📏</span><span class="txt">Equipos</span>
+        <span class="ico">{{ ico("medidor", "📏") }}</span><span class="txt">Equipos</span>
       </a>
       <a class="sidebar-link {% if ep.startswith('inventario.') or ep.startswith('conteos.') %}activo{% endif %}"
          href="{{ url_for('inventario.inicio') }}" title="Inventario">
-        <span class="ico">🗃️</span><span class="txt">Inventario</span>
+        <span class="ico">{{ ico("inventario", "🗃️") }}</span><span class="txt">Inventario</span>
       </a>
 
       <!-- ===== Productos ===== -->
       <div class="sidebar-seccion">Productos</div>
       <a class="sidebar-link {% if ep.startswith('productos.') or ep.startswith('importador.') %}activo{% endif %}"
          href="{{ url_for('productos.lista') }}" title="Productos">
-        <span class="ico">💊</span><span class="txt">Productos</span>
+        <span class="ico">{{ ico("pastilla", "💊") }}</span><span class="txt">Productos</span>
       </a>
       {% if jefe %}
       <a class="sidebar-link {% if ep.startswith('proveedores.') %}activo{% endif %}"
          href="{{ url_for('proveedores.lista') }}" title="Proveedores">
-        <span class="ico">🚚</span><span class="txt">Proveedores</span>
+        <span class="ico">{{ ico("camion", "🚚") }}</span><span class="txt">Proveedores</span>
       </a>
       {% endif %}
 
@@ -86,11 +91,11 @@
       <div class="sidebar-seccion">Dinero</div>
       <a class="sidebar-link {% if ep.startswith('contabilidad.') %}activo{% endif %}"
          href="{{ url_for('contabilidad.index') }}" title="Contabilidad">
-        <span class="ico">💰</span><span class="txt">Contabilidad</span>
+        <span class="ico">{{ ico("billetera", "💰") }}</span><span class="txt">Contabilidad</span>
       </a>
       <a class="sidebar-link {% if ep.startswith('caja_menor.') %}activo{% endif %}"
          href="{{ url_for('caja_menor.index') }}" title="Caja menor">
-        <span class="ico">💵</span><span class="txt">Caja menor</span>
+        <span class="ico">{{ ico("billete", "💵") }}</span><span class="txt">Caja menor</span>
       </a>
       {% endif %}
 
@@ -98,7 +103,7 @@
       <div class="sidebar-seccion">Consultas</div>
       <a class="sidebar-link {% if ep.startswith('reportes.') %}activo{% endif %}"
          href="{{ url_for('reportes.index') }}" title="Reportes">
-        <span class="ico">📊</span><span class="txt">Reportes</span>
+        <span class="ico">{{ ico("grafico", "📊") }}</span><span class="txt">Reportes</span>
       </a>
 
       <!-- ===== Administración (desplegable; se abre sola si estás en una de sus páginas) ===== -->
@@ -106,44 +111,48 @@
       {% set en_admin = ep.startswith('catalogos.') or ep.startswith('unidades.') or ep.startswith('admin.') or ep.startswith('configuracion.') %}
       <button type="button" class="sidebar-link sidebar-group {% if en_admin %}abierto{% endif %}"
               data-group="admin" title="Administración">
-        <span class="ico">🗂️</span>
+        <span class="ico">{{ ico("ajustes", "🗂️") }}</span>
         <span class="txt">Administración</span>
-        <span class="chevron">▾</span>
+        <span class="chevron">{{ ico("abajo", "▾") }}</span>
       </button>
       <div class="sidebar-submenu {% if en_admin %}abierto{% endif %}" data-group-content="admin">
         <a class="sidebar-sublink {% if ep.startswith('catalogos.') %}activo{% endif %}"
            href="{{ url_for('catalogos.index') }}" title="Catálogos">
-          <span class="ico">🏷️</span><span class="txt">Catálogos</span>
+          <span class="ico">{{ ico("etiqueta", "🏷️") }}</span><span class="txt">Catálogos</span>
         </a>
         <a class="sidebar-sublink {% if ep.startswith('unidades.') %}activo{% endif %}"
            href="{{ url_for('unidades.lista') }}" title="Unidades de medida">
-          <span class="ico">📏</span><span class="txt">Unidades de medida</span>
+          <span class="ico">{{ ico("regla", "📏") }}</span><span class="txt">Unidades de medida</span>
         </a>
         <a class="sidebar-sublink {% if ep == 'admin.bitacora' %}activo{% endif %}"
            href="{{ url_for('admin.bitacora') }}" title="Bitácora">
-          <span class="ico">📋</span><span class="txt">Bitácora</span>
+          <span class="ico">{{ ico("lista", "📋") }}</span><span class="txt">Bitácora</span>
         </a>
         {% if g.user.rol == 'administrador' %}
         <a class="sidebar-sublink {% if ep.startswith('admin.usuario') %}activo{% endif %}"
            href="{{ url_for('admin.usuarios') }}" title="Usuarios">
-          <span class="ico">👤</span><span class="txt">Usuarios</span>
+          <span class="ico">{{ ico("usuario", "👤") }}</span><span class="txt">Usuarios</span>
         </a>
         <a class="sidebar-sublink {% if ep.startswith('configuracion.') %}activo{% endif %}"
            href="{{ url_for('configuracion.ver') }}" title="Configuración">
-          <span class="ico">⚙️</span><span class="txt">Configuración</span>
+          <span class="ico">{{ ico("engranaje", "⚙️") }}</span><span class="txt">Configuración</span>
         </a>
         <a class="sidebar-sublink {% if ep == 'admin.respaldos' %}activo{% endif %}"
            href="{{ url_for('admin.respaldos') }}" title="Respaldos">
-          <span class="ico">💾</span><span class="txt">Respaldos</span>
+          <span class="ico">{{ ico("disco", "💾") }}</span><span class="txt">Respaldos</span>
         </a>
         {% endif %}
       </div>
       {% endif %}
     </nav>
 
+    <!-- Pie del menú: quién está conectado. Clic = elegir el tema (Apariencia) -->
     <div class="sidebar-footer">
-      <span class="sidebar-user">{{ g.user.nombre }}</span>
-      <span class="sidebar-rol">{{ g.user.rol|rol_nombre }}</span>
+      <a href="{{ url_for('apariencia.apariencia') }}" title="Apariencia: elegir el tema">
+        <span class="iniciales" aria-hidden="true">{{ (g.user.nombre or '?')[:2]|upper }}</span>
+        <span class="txt"><span class="sidebar-user">{{ g.user.nombre }}</span>
+        <span class="sidebar-rol">{{ g.user.rol|rol_nombre }} · tema</span></span>
+      </a>
     </div>
   </aside>
   {% endif %}
@@ -152,12 +161,23 @@
   <div class="main" id="main">
     {% if g.user %}
     <header class="topbar">
-      <button type="button" class="topbar-toggle" id="toggleSidebar" title="Mostrar/ocultar menú">☰</button>
-      <div class="topbar-title">{% block titulo_barra %}{% block titulo_inner %}{% endblock %}{% endblock %}</div>
-      <div class="topbar-right">
+      <button type="button" class="topbar-toggle" id="toggleSidebar" title="Mostrar/ocultar menú"
+              aria-label="Mostrar u ocultar el menú">{{ ico('menu', '☰') }}</button>
+      <!-- Dónde estoy: "Inicio › Nombre de la página" (en el tema Clásico, como antes) -->
+      <div class="topbar-title">
+        <span class="topbar-ruta-clasica">{% block titulo_barra %}{% block titulo_inner %}{% endblock %}{% endblock %}</span>
+        <nav class="topbar-ruta" aria-label="Ruta">
+          {% if request.endpoint == 'main.inicio' %}<span class="actual">Inicio</span>
+          {% else %}<a href="{{ url_for('main.inicio') }}">Inicio</a>{{ ico('derecha') }}<span class="actual">{{ self.titulo() }}</span>{% endif %}
+        </nav>
+      </div>
+      <div class="topbar-right" style="display:flex;align-items:center;gap:.7rem">
+        <!-- Estado de la caja del POS (solo en el diseño nuevo) -->
+        <a class="chip-caja {{ '' if caja_barra else 'cerrada' }}" href="{{ url_for('pos.index') }}">
+          {{ ('Caja #' ~ caja_barra['numero'] ~ ' abierta') if caja_barra else 'Caja cerrada' }}</a>
         <form method="post" action="{{ url_for('auth.logout') }}" class="en-linea">
           <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-          <button type="submit" class="btn-link">Salir</button>
+          <button type="submit" class="btn-link">{{ ico('salir') }}Salir</button>
         </form>
       </div>
     </header>

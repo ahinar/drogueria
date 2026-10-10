@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_iconos.html" import ico %}
 {% block titulo %}Inicio{% endblock %}
 {% block contenido %}
 
@@ -11,7 +12,7 @@
   </div>
   <div class="dashboard-hero-acciones">
     <a class="boton-pos" href="{{ url_for('pos.index') }}">
-      🛒 Comenzar a vender
+      {{ ico('carrito', '🛒') }} Comenzar a vender
     </a>
     <div class="dashboard-hero-badges">
       <span class="badge-verde">🟢 Servidor local activo</span>
@@ -42,7 +43,7 @@
      un botón "Ver todos". Aquí solo se pintan. -->
 <section class="alertas-panel">
   <h2 class="alertas-titulo">
-    🔔 Para atender hoy
+    {{ ico('lista', '🔔') }} Para atender hoy
     {% if alertas %}
       <span class="alertas-resumen">
         {% if alertas_rojas %}<span class="alerta-chip rojo">{{ alertas_rojas }} urgente{{ '' if alertas_rojas == 1 else 's' }}</span>{% endif %}
@@ -59,7 +60,13 @@
     <!-- <details>: se abre y se cierra tocando el título. Las rojas vienen abiertas. -->
     <details class="alerta-tarjeta {{ a.nivel }}" data-clave="{{ a.clave }}" {% if a.nivel == 'rojo' %}open{% endif %}>
       <summary>
-        <span class="alerta-icono">{{ a.icono }}</span>
+        {# Ícono de línea según el tipo de alerta (en el tema Clásico, el emoji de siempre) #}
+        {% set ICONO_ALERTA = {'lotes_vencidos': 'inventario', 'precio_maximo': 'etiqueta', 'invima_vencido': 'lista',
+             'invima_por_vencer': 'lista', 'proveedor_vencido': 'camion', 'proveedor_por_vencer': 'camion',
+             'calibracion_vencida': 'medidor', 'calibracion_por_vencer': 'medidor', 'agotados': 'paquete',
+             'stock_minimo': 'paquete', 'lotes_por_vencer': 'inventario', 'cuarentena': 'paquete',
+             'sin_precio': 'etiqueta', 'caja_vieja': 'billete'} %}
+        <span class="alerta-icono">{{ ico(ICONO_ALERTA.get(a.clave, 'lista'), a.icono) }}</span>
         <span class="alerta-nombre">{{ a.titulo }}</span>
         <span class="alerta-total">{{ a.total }}</span>
       </summary>
@@ -86,7 +93,7 @@
 <div class="tarjetas-kpi">
 
   <div class="kpi-card {% if temperatura.pendientes %}kpi-alerta{% elif temperatura.al_dia %}kpi-ok{% endif %}">
-    <div class="kpi-icono">🌡️</div>
+    <div class="kpi-icono">{{ ico("termometro", "🌡️") }}</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Temperatura hoy</span>
       {% if temperatura.al_dia %}
@@ -103,7 +110,7 @@
   </div>
 
   <div class="kpi-card kpi-ok">
-    <div class="kpi-icono">💊</div>
+    <div class="kpi-icono">{{ ico("pastilla", "💊") }}</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Productos activos</span>
       <strong class="kpi-valor">{{ productos.total }}</strong>
@@ -113,7 +120,7 @@
 
   <a class="kpi-card {% if productos.por_vencer_30 > 0 %}kpi-alerta{% elif productos.por_vencer_90 > 0 %}kpi-pendiente{% else %}kpi-ok{% endif %}"
      href="{{ url_for('inventario.vencimientos') }}" style="text-decoration:none">
-    <div class="kpi-icono">⏳</div>
+    <div class="kpi-icono">{{ ico("inventario", "⏳") }}</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Lotes por vencer</span>
       <strong class="kpi-valor {% if productos.por_vencer_30 > 0 %}kpi-valor-alerta{% endif %}">
@@ -127,7 +134,7 @@
   </a>
 
   <div class="kpi-card {% if ventas.cantidad %}kpi-ok{% else %}kpi-pendiente{% endif %}">
-    <div class="kpi-icono">💰</div>
+    <div class="kpi-icono">{{ ico("billetera", "💰") }}</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Ventas del día</span>
       <strong class="kpi-valor">${{ '{:,.0f}'.format(ventas.total).replace(',', '.') }}</strong>
@@ -143,7 +150,7 @@
 {% macro plata(n) %}{% if n < -0.5 %}-{% endif %}${{ '{:,.0f}'.format(n|abs).replace(',', '.') }}{% endmacro %}
 <div class="tarjetas-kpi resumen-negocio">
   <a class="kpi-card" href="{{ url_for('reportes.ventas_ver') }}" style="text-decoration:none">
-    <div class="kpi-icono">📅</div>
+    <div class="kpi-icono">{{ ico("grafico", "📅") }}</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Ventas de la semana</span>
       <strong class="kpi-valor">{{ plata(resumen.semana.total) }}</strong>
@@ -151,7 +158,7 @@
     </div>
   </a>
   <a class="kpi-card" href="{{ url_for('reportes.ventas_ver') }}" style="text-decoration:none">
-    <div class="kpi-icono">🗓️</div>
+    <div class="kpi-icono">{{ ico("grafico", "🗓️") }}</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Ventas del mes</span>
       <strong class="kpi-valor">{{ plata(resumen.mes.total) }}</strong>
@@ -159,7 +166,7 @@
     </div>
   </a>
   <a class="kpi-card {{ 'kpi-alerta' if resumen.utilidad_mes < 0 else 'kpi-ok' }}" href="{{ url_for('reportes.utilidades_ver') }}" style="text-decoration:none">
-    <div class="kpi-icono">📈</div>
+    <div class="kpi-icono">{{ ico("grafico", "📈") }}</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Utilidad neta del mes</span>
       <strong class="kpi-valor {{ 'kpi-valor-alerta' if resumen.utilidad_mes < 0 }}">{{ plata(resumen.utilidad_mes) }}</strong>
@@ -222,29 +229,6 @@
     {% endif %}
   </div>
 
-</div>
-
-<!-- ============ ACCESOS RÁPIDOS ============ -->
-<h2 class="titulo-seccion">Accesos rápidos</h2>
-<div class="rejilla">
-  <a class="modulo" href="{{ url_for('temperaturas.inicio') }}">
-    <h2>🌡️ Temperaturas</h2>
-    <p>Registro con alarma sonora y visual.</p>
-  </a>
-  <a class="modulo" href="{{ url_for('productos.lista') }}">
-    <h2>💊 Productos</h2>
-    <p>Catálogo con INVIMA, precios e IVA.</p>
-  </a>
-  {% if g.user.rol in ('administrador', 'director_tecnico') %}
-  <a class="modulo" href="{{ url_for('proveedores.lista') }}">
-    <h2>🚚 Proveedores</h2>
-    <p>NIT, contacto y documentación sanitaria.</p>
-  </a>
-  {% endif %}
-  <a class="modulo" href="{{ url_for('reportes.index') }}">
-    <h2>📊 Reportes</h2>
-    <p>Informes con gráficos y PDF para inspección.</p>
-  </a>
 </div>
 
 {% endblock %}

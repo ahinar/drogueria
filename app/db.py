@@ -790,6 +790,15 @@ MIGRATIONS = [
         CREATE INDEX idx_devolucion_lineas_venta ON devolucion_lineas (venta_linea_id);
         """,
     ),
+    (
+        24,
+        """
+        -- ===== Temas (apariencia) =====
+        -- Cada usuario escoge cómo se ve el programa: 'verde' (por defecto),
+        -- 'azul' o 'clasico' (el aspecto que tenía antes del rediseño).
+        ALTER TABLE usuarios ADD COLUMN tema TEXT NOT NULL DEFAULT 'verde';
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

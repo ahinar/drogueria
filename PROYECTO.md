@@ -260,6 +260,15 @@
 - Revisar: faltantes, sobrantes y encontrados (en unidades y a costo) + lista de lotes con existencias sin contar (esos NO se tocan al aplicar).
 - Aplicar (admin/DT): corrige todo de una vez (movimientos `ajuste` en kardex con referencia "Conteo CNT-####"), bitácora, y **Acta PDF** con firmas. Anular: sin cambios en lotes.
 
+## 5.16 Temas y diseño visual
+- **Volver atrás:** la rama de GitHub `antes-del-rediseno` guarda el programa como estaba antes; y dentro del programa el tema **Clásico** lo muestra igual que antes.
+- Cada usuario escoge su tema (clic en su nombre, abajo en el menú → Apariencia): **Verde salud** (por defecto), **Azul** o **Clásico**. Se guarda en `usuarios.tema`.
+- `static/css/temas.css`: colores de cada tema como variables CSS (`--acento`, `--menu-fondo`, `--fondo`, `--texto`…) y la letra IBM Plex Sans (archivos locales en `static/fonts/`, licencia OFL). `app.css` y `pos_nuevo.css` usan esas variables.
+- `static/css/moderno.css`: el diseño nuevo, todo bajo la clase `.moderno` que base.html pone en `<html>` cuando el tema no es Clásico (botones, tablas, tarjetas, formularios, menú, barra superior).
+- Íconos de línea: `templates/_iconos.html`, macro `ico('carrito', '🛒')` (en Clásico se ve el emoji).
+- Barra superior: ☰, ruta "Inicio › página", estado de la caja (abierta/cerrada) y Salir.
+- Inicio: sin "Accesos rápidos" (pedido de Fernando).
+
 ## 6. Sistema de imágenes
 
 ### Formatos aceptados
@@ -361,8 +370,7 @@ Notas:
 - [ ] Registrar los equipos reales y subir sus certificados de calibración.
 
 ### Corto plazo
-- [ ] **Inicio:** quitar la sección "Accesos rápidos" (ya están en el menú lateral).
-- [ ] **Parte visual — que el programa se vea más profesional** (pedido por Fernando, 2026-10-10). Propuesta:
+- [~] **Parte visual — que el programa se vea más profesional** (en curso: temas, letra, íconos del menú, barra superior e Inicio ✅; faltan POS, reportes en pestañas, títulos con emoji en cada pantalla, selector de fechas propio, toasts, tirilla 80 mm) (pedido por Fernando, 2026-10-10). Propuesta:
   1. **Guía de estilo única:** colores de la marca Fervifarma, tipografía Inter (archivo local), tamaños y espacios en variables CSS; una página interna que muestre todos los componentes.
   2. **Unificar componentes repetidos:** un solo estilo de botón, de tabla (hoy hay `.tabla`, `.rep-tabla`, `.sug-tabla`, `.eres-tabla`…), de tarjeta y de formulario.
   3. **Íconos de verdad en vez de emojis** (juego SVG local, por ejemplo Lucide): los emojis se ven distintos en cada Windows.
@@ -432,6 +440,7 @@ Notas:
 | 21 | `caja_menor_movimientos.retiro_dueno` + categoría de gasto "Sueldo del dueño" |
 | 22 | `equipos` rehecha con más tipos y `frecuencia_meses`; tabla `calibraciones` |
 | 23 | `devoluciones` y `devolucion_lineas` (de cliente y a proveedor) |
+| 24 | `usuarios.tema` (verde, azul o clásico) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -473,6 +482,7 @@ Notas:
 - **Equipos y limpieza (2026-10-09):** módulo de equipos y calibraciones con certificado y alertas; todas las confirmaciones usan la ventana del programa (atributo `data-confirmar` en formularios y botones, manejado en base.html; en JS `await window.confirmar(...)`); plata en mensajes con punto de miles (`app/formato.py`, `pesos()`); Contabilidad sin tarjetas "próximamente" (llevan a Reportes). **229 tests pasan**.
 - **Devoluciones (2026-10-09):** de cliente (reingreso al mismo lote o baja, reembolso desde la caja abierta) y a proveedor (con o sin nota crédito, acta PDF); integradas en Utilidades, R1 y R4. **246 tests pasan**.
 - **Resumen y Excel (2026-10-09):** tarjetas de semana, mes y utilidad del mes en el Inicio; descarga en Excel de cualquier reporte. **249 tests pasan**.
+- **Rediseño parte 1 (2026-10-10):** temas por usuario (Verde salud, Azul, Clásico), letra IBM Plex Sans local, íconos de línea, menú y barra superior nuevos, Inicio sin accesos rápidos. Rama `antes-del-rediseno` para volver atrás. **255 tests pasan**.
 - Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → ~~utilidades/estado de resultados~~ ✅ → ~~reportes~~ ✅ → ~~equipos/calibraciones~~ ✅ → ~~devoluciones~~ ✅.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 

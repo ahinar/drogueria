@@ -1,0 +1,189 @@
+/* =====================================================================
+   DISEÑO NUEVO (temas Verde salud y Azul)
+   ---------------------------------------------------------------------
+   Todo está bajo ".moderno": base.html le pone esa clase a <html> cuando
+   el tema NO es "Clásico". Así el tema Clásico se ve exactamente como
+   antes, y si el diseño nuevo no gusta basta con escoger "Clásico"
+   (o borrar este archivo).
+   Los colores salen de static/css/temas.css (var(--acento), etc.).
+   ===================================================================== */
+
+/* ---------- Base ---------- */
+.moderno body { font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+.moderno h1 { font-size: 1.65rem; font-weight: 600; letter-spacing: -.01em; }
+.moderno h2 { font-weight: 600; }
+.moderno a { color: var(--acento); }
+.moderno a:hover { color: var(--acento-fuerte); }
+.moderno p.suave, .moderno .suave { color: var(--texto-suave); }
+.moderno :focus-visible { outline: 3px solid var(--acento-anillo); outline-offset: 2px; }
+
+/* ---------- Íconos: en el diseño nuevo, dibujos de línea en vez de emojis ---------- */
+.ico-svg { display: none; }
+.moderno .ico-emoji { display: none; }
+.moderno .ico-svg {
+  display: inline-block; width: 20px; height: 20px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  vertical-align: middle;
+}
+
+/* ---------- Menú lateral ---------- */
+.moderno .sidebar { padding: 6px 10px 0; }
+.moderno .sidebar-brand { padding: 14px 8px 16px; border-bottom: 0; gap: 10px; }
+.moderno .sidebar-logo-img { max-height: 40px; border-radius: 8px; background: #fff; padding: 2px; }
+.moderno .sidebar-brand-text { font-size: 1.05rem; letter-spacing: .01em; }
+.moderno .sidebar-link,
+.moderno .sidebar-sublink { border-radius: 8px; padding: .55rem .75rem; font-size: .9rem; color: var(--menu-texto); gap: .75rem; }
+.moderno .sidebar-sublink { padding-left: 2.3rem; }
+.moderno .sidebar-link.activo,
+.moderno .sidebar-sublink.activo { background: var(--acento); font-weight: 500; }
+.moderno .sidebar-link .ico,
+.moderno .sidebar-sublink .ico { width: 20px; display: inline-flex; justify-content: center; }
+.moderno .sidebar-link .chevron .ico-svg { width: 16px; height: 16px; }
+.moderno .sidebar-submenu { background: transparent; }
+.moderno .sidebar-seccion { color: var(--menu-titulo); font-size: .68rem; letter-spacing: .08em; padding: 1rem .75rem .35rem; }
+.moderno .sidebar-footer { border-top: 1px solid var(--menu-borde); margin: 0 -10px; padding: .9rem 1rem; }
+.moderno .sidebar-footer a { color: inherit; text-decoration: none; display: flex; align-items: center; gap: .65rem; }
+.moderno body.sidebar-colapsado .sidebar-link,
+.moderno body.sidebar-colapsado .sidebar-sublink { padding: .6rem 0; }
+.moderno body.sidebar-colapsado .sidebar { width: 72px; }
+.moderno body.sidebar-colapsado .main { margin-left: 72px; }
+.iniciales { display: none; }
+.moderno .iniciales { width: 34px; height: 34px; border-radius: 50%; background: var(--menu-borde); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: .8rem; font-weight: 600; flex: none; }
+
+/* ---------- Barra superior ---------- */
+.moderno .topbar { padding: .7rem 1.6rem; gap: 1rem; border-bottom-color: var(--borde); min-height: 64px; }
+.moderno .topbar-toggle { width: 40px; height: 40px; border: 1px solid var(--borde); border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center; color: var(--texto); background: var(--superficie); }
+.moderno .topbar-toggle:hover { background: var(--fondo); }
+.moderno .topbar-title { font-weight: 500; color: var(--texto-suave); font-size: .9rem; display: flex; align-items: center; gap: .35rem; }
+.moderno .topbar-title a { color: var(--texto-suave); }
+.moderno .topbar-title .actual { color: var(--texto); }
+.moderno .topbar-title .ico-svg { width: 14px; height: 14px; }
+.topbar-ruta-clasica { display: inline; }
+.moderno .topbar-ruta-clasica { display: none; }
+.topbar-ruta { display: none; }
+.moderno .topbar-ruta { display: flex; align-items: center; gap: .35rem; }
+.chip-caja { display: none; }
+.moderno .chip-caja { display: inline-flex; align-items: center; gap: .45rem; padding: .3rem .75rem; border-radius: 999px;
+  font-size: .8rem; font-weight: 500; background: #E8F5EC; color: #166534; text-decoration: none; white-space: nowrap; }
+.moderno .chip-caja.cerrada { background: #EEF2F0; color: var(--texto-suave); }
+.moderno .chip-caja::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #16A34A; }
+.moderno .chip-caja.cerrada::before { background: #9AA8A3; }
+.moderno .topbar .btn-link { display: inline-flex; align-items: center; gap: .4rem; height: 40px; padding: 0 .9rem;
+  border: 1px solid var(--borde); border-radius: 10px; background: var(--superficie); color: var(--texto); font-size: .88rem; }
+.moderno .topbar .btn-link .ico-svg { width: 18px; height: 18px; }
+
+/* ---------- Contenido ---------- */
+.moderno .contenido { padding: 1.6rem 2rem 2.4rem; }
+
+/* ---------- Mensajes (los que aparecen arriba después de guardar) ---------- */
+.moderno .aviso { border-left: 0; border: 1px solid; border-radius: 10px; padding: .75rem 1rem; font-size: .92rem; }
+.moderno .aviso.ok { background: #E8F5EC; color: #14532D; border-color: #BFE3CB; }
+.moderno .aviso.error { background: #FDECEA; color: #8C1D18; border-color: #F5C2BD; }
+
+/* ---------- Botones ---------- */
+.moderno .boton,
+.moderno button { border-radius: 10px; padding: .55rem 1rem; font-size: .9rem; font-weight: 500; line-height: 1.25; }
+.moderno .boton:hover,
+.moderno button:hover { opacity: 1; filter: brightness(.94); }
+.moderno .boton.secundario,
+.moderno button.secundario { background: var(--superficie); color: var(--texto); border: 1px solid var(--borde); }
+.moderno .boton.secundario:hover,
+.moderno button.secundario:hover { background: var(--fondo); filter: none; }
+.moderno .boton.peligro,
+.moderno button.peligro { background: #B42318; }
+.moderno button:disabled,
+.moderno .boton:disabled { background: #E5EAE8; color: #8A9792; filter: none; }
+
+/* ---------- Formularios ---------- */
+.moderno .formulario { border-color: var(--borde); border-radius: 12px; padding: 1.4rem 1.6rem; }
+.moderno .formulario fieldset { border-color: var(--borde); border-radius: 10px; }
+.moderno .formulario legend { color: var(--acento-fuerte); }
+.moderno .formulario label { color: var(--texto); }
+.moderno input[type="text"], .moderno input[type="number"], .moderno input[type="date"],
+.moderno input[type="email"], .moderno input[type="password"], .moderno input[type="search"],
+.moderno select, .moderno textarea {
+  border: 1px solid #CBD5D1; border-radius: 8px; font-family: inherit; color: var(--texto);
+}
+.moderno .formulario input[type="text"], .moderno .formulario input[type="number"], .moderno .formulario input[type="date"],
+.moderno .formulario input[type="email"], .moderno .formulario input[type="password"], .moderno .formulario select,
+.moderno .formulario textarea { padding: .55rem .65rem; }
+.moderno input:focus, .moderno select:focus, .moderno textarea:focus { outline: none; border-color: var(--acento);
+  box-shadow: 0 0 0 3px var(--acento-suave); }
+
+/* ---------- Tablas (todas las del programa) ---------- */
+.moderno .tabla, .moderno .tabla-compacta { background: var(--superficie); border-radius: 12px; border: 1px solid var(--borde); overflow: hidden; }
+.moderno .tabla th, .moderno .rep-tabla th, .moderno .sug-tabla th, .moderno .eres-tabla th, .moderno .tabla-compacta th {
+  background: #F9FBFA; color: var(--texto-suave); font-size: .76rem; font-weight: 600; letter-spacing: .02em; text-transform: none; }
+.moderno .tabla td, .moderno .rep-tabla td, .moderno .sug-tabla td, .moderno .eres-tabla td { border-bottom-color: #EEF2F0; }
+.moderno .tabla tbody tr:hover, .moderno .rep-tabla tbody tr:hover { background: #FAFCFB; }
+
+/* ---------- Tarjetas ---------- */
+.moderno .modulo, .moderno .panel, .moderno .kpi-card, .moderno .rep-caja, .moderno .eres-tarjeta,
+.moderno .sug-proveedor, .moderno .eres-tabla-caja, .moderno .alerta-tarjeta, .moderno .rep-grafico, .moderno .rep-menu {
+  border-color: var(--borde); border-radius: 12px; }
+.moderno .modulo h2, .moderno .panel-titulo { color: var(--texto); }
+.moderno .modulo p { color: var(--texto-suave); }
+.moderno .panel-titulo { border-bottom-color: var(--borde); font-size: 1.02rem; }
+.moderno a.modulo:hover { transform: none; border-color: var(--acento-anillo); box-shadow: 0 4px 14px rgba(15, 40, 35, .07); }
+
+/* KPI: sin borde de color a un lado; el estado se ve en el número */
+.moderno .kpi-card { padding: 1.1rem 1.2rem; gap: 1rem; }
+.moderno .kpi-card.kpi-ok, .moderno .kpi-card.kpi-pendiente { border-left: 1px solid var(--borde); opacity: 1; }
+.moderno .kpi-card.kpi-alerta { border: 1px solid #F5C2BD; border-left: 1px solid #F5C2BD; background: #FFF8F7; }
+.moderno .kpi-icono { width: 44px; height: 44px; border-radius: 12px; background: var(--acento-suave); color: var(--acento-fuerte);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 1.3rem; }
+.moderno .kpi-alerta .kpi-icono { background: #FDECEA; color: #B42318; }
+.moderno .kpi-titulo { text-transform: none; letter-spacing: 0; font-size: .82rem; color: var(--texto-suave); }
+.moderno .kpi-valor { font-size: 1.55rem; font-weight: 600; color: var(--texto); }
+.moderno .kpi-detalle { color: var(--texto-suave); }
+
+/* Panel de alertas del Inicio */
+.moderno .alerta-tarjeta { border-left-width: 1px; }
+.moderno .alerta-tarjeta.rojo { border-color: #F5C2BD; }
+.moderno .alerta-tarjeta.rojo summary .alerta-icono { color: #B42318; }
+
+/* Saludo del Inicio: sin el bloque de color, más sobrio */
+.moderno .dashboard-hero { background: transparent; color: var(--texto); padding: .2rem 0 .4rem; }
+.moderno .dashboard-hero-saludo { color: var(--texto-suave); opacity: 1; }
+.moderno .dashboard-hero-nombre { color: var(--texto); }
+.moderno .dashboard-hero-fecha { color: var(--texto-suave); opacity: 1; }
+.moderno .dashboard-hero .badge-verde, .moderno .dashboard-hero .badge-azul { display: none; }
+
+/* Pestañas y filtros redondeados (reportes, sugerido, conteo) */
+.moderno .rep-menu a.activo, .moderno .sug-pestanas button.activa { background: var(--acento); border-color: var(--acento); }
+
+/* ---------- Página "Apariencia" ---------- */
+.temas-lista { display: flex; flex-direction: column; gap: .7rem; max-width: 640px; }
+.tema-opcion { display: flex; align-items: center; gap: 1rem; padding: .9rem 1rem; border: 2px solid #E2E8E5; border-radius: 12px;
+  background: #fff; cursor: pointer; }
+.tema-opcion.elegido { border-color: var(--acento); background: var(--acento-suave); }
+.tema-opcion input { width: auto; margin: 0; }
+.tema-muestra { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid #E2E8E5; flex: none; }
+.tema-muestra span { width: 22px; height: 40px; }
+.tema-texto { display: flex; flex-direction: column; gap: .15rem; }
+.tema-texto small { color: #5B6B66; }
+
+/* Botón grande "Comenzar a vender" del Inicio */
+.moderno .boton-pos { background: var(--acento); box-shadow: 0 2px 8px rgba(15, 40, 35, .15); border-radius: 12px; font-weight: 600; }
+.moderno .boton-pos:hover { background: var(--acento-fuerte); transform: none; box-shadow: 0 4px 12px rgba(15, 40, 35, .18); }
+.moderno .boton-pos .ico-svg { width: 20px; height: 20px; }
+/* Fecha: "Sábado, 10 de octubre de 2026" (solo la primera letra en mayúscula) */
+.moderno .dashboard-hero-fecha { text-transform: none; }
+.moderno .dashboard-hero-fecha::first-letter { text-transform: uppercase; }
+.moderno .alertas-titulo .ico-svg { color: var(--acento); }
+.moderno .alerta-icono { display: inline-flex; color: var(--texto-suave); }
+.moderno .alerta-tarjeta.rojo .alerta-icono { color: #B42318; }
+.moderno .alerta-tarjeta.amarillo .alerta-icono { color: #92400E; }
+
+/* Los enlaces con forma de botón conservan su color de letra
+   (si no, la regla ".moderno a" los pinta del color del tema y no se leen) */
+.moderno a.boton, .moderno a.boton:hover, .moderno a.boton-pos { color: #fff; text-decoration: none; }
+.moderno a.boton.secundario, .moderno a.boton.secundario:hover { color: var(--texto); }
+/* Listas desplegables: que el texto no se corte */
+.moderno select { line-height: 1.3; min-height: 38px; height: auto; padding-top: .45rem; padding-bottom: .45rem; }
+.moderno a.boton-chico, .moderno a.boton-chico:hover { color: #fff; text-decoration: none; }
+.moderno .boton-chico { border-radius: 8px; }
+.moderno .boton-chico.sec, .moderno .boton.sec, .moderno button.sec { background: var(--superficie); color: var(--texto); border: 1px solid var(--borde); }
+.moderno a.boton-chico.sec, .moderno a.boton.sec { color: var(--texto); }

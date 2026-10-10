@@ -12,7 +12,7 @@
 .modulo[data-modal]:hover > .modulo {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, .08);
-  border-color: #0a6ebd;
+  border-color: var(--acento);
 }
 
 /* =========================================================
@@ -63,7 +63,7 @@
 #modal-gasto input:focus,
 #modal-gasto select:focus {
   outline: none;
-  border-color: #0a6ebd;
+  border-color: var(--acento);
   box-shadow: 0 0 0 2px rgba(10, 110, 189, .12);
 }
 
@@ -112,12 +112,12 @@
   position: absolute; top: .35rem; right: .35rem; z-index: 2;
   width: 1.55rem; height: 1.55rem; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  border: 1px solid #0a4f8a; border-radius: 50%;
-  background: #fff; color: #0a4f8a;
+  border: 1px solid var(--acento-fuerte); border-radius: 50%;
+  background: #fff; color: var(--acento-fuerte);
   font: italic 700 .85rem/1 Georgia, serif;
   cursor: pointer;
 }
-.pos-card-info-btn:hover { background: #0a4f8a; color: #fff; }
+.pos-card-info-btn:hover { background: var(--acento-fuerte); color: #fff; }
 
 /* Etiqueta "precio editado" bajo el nombre en el carrito */
 .pos-item-badge-precio {
@@ -171,7 +171,7 @@
 .info-insignias:empty { display: none; }
 .info-insignia {
   padding: .1rem .6rem; border-radius: 999px;
-  background: #fff; color: #0a4f8a; font-size: .78rem; font-weight: 600;
+  background: #fff; color: var(--acento-fuerte); font-size: .78rem; font-weight: 600;
 }
 .info-insignia-roja { color: #a11d1d; }
 
@@ -219,7 +219,7 @@
   width: 100%; padding: .35rem .5rem; border: 0; border-bottom: 1px solid #c8d2da;
   border-radius: 0; background: transparent; font-size: .92rem;
 }
-.editar-fila input[type="text"]:focus, .editar-fila select:focus { outline: none; border-bottom-color: #0a4f8a; }
+.editar-fila input[type="text"]:focus, .editar-fila select:focus { outline: none; border-bottom-color: var(--acento-fuerte); }
 .editar-fila-check label { margin-right: 1rem; font-weight: normal; }
 .editar-fila-alta { align-items: start; }
 .editar-iva { display: flex; align-items: center; gap: .4rem; }
@@ -277,7 +277,7 @@
   box-shadow: none; background: transparent;
 }
 #modal-editar-producto .editar-fila input[type="text"]:focus,
-#modal-editar-producto .editar-fila select:focus { border-bottom-color: #0a6ebd; box-shadow: none; }
+#modal-editar-producto .editar-fila select:focus { border-bottom-color: var(--acento); box-shadow: none; }
 #modal-editar-producto .editar-iva input { width: 4rem; }
 #modal-editar-producto .editar-foto-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -307,7 +307,7 @@
 /* ---------- Usos / síntomas ---------- */
 /* Línea "🩺 Gripe · Fiebre" en la tarjeta cuando se buscó por síntoma */
 .pos-card-usos {
-  margin: .1rem 0; font-size: .7rem; color: #0a4f8a;
+  margin: .1rem 0; font-size: .7rem; color: var(--acento-fuerte);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* Principio activo y "sirve para" en la franja amarilla de la ventana "i" */
@@ -336,7 +336,7 @@
 .pos-pago-metodo {
   color: #1f2a33; font-size: 1rem; padding: .75rem .5rem;
 }
-.pos-pago-metodo.activo { color: #0a4f8a; }
+.pos-pago-metodo.activo { color: var(--acento-fuerte); }
 .pos-pago-rapidos button { color: #1f2a33; font-weight: 600; }
 .pos-pago-rapidos button:hover { background: #e8f1fb; border-color: #9ec5ea; }
 
@@ -361,18 +361,18 @@
   width: 100%; padding: .8rem 1rem; text-align: left; cursor: pointer;
   border: 2px solid #d5dee6; border-radius: .5rem; background: #fff; color: #1f2a33;
 }
-.pres-opcion:hover, .pres-opcion:focus { border-color: #0a4f8a; background: #f0f6fc; outline: none; }
+.pres-opcion:hover, .pres-opcion:focus { border-color: var(--acento-fuerte); background: var(--acento-suave); outline: none; }
 .pres-opcion:disabled { opacity: .45; cursor: not-allowed; }
 .pres-tecla {
   width: 1.8rem; height: 1.8rem; border-radius: 50%; display: grid; place-items: center;
-  background: #e6eef6; color: #0a4f8a; font-weight: 700;
+  background: var(--acento-suave); color: var(--acento-fuerte); font-weight: 700;
 }
 .pres-nombre { font-weight: 700; font-size: 1rem; }
 .pres-detalle { display: block; font-size: .8rem; color: #5c6b78; font-weight: 400; }
-.pres-precio { font-weight: 700; font-size: 1.05rem; color: #0a4f8a; }
+.pres-precio { font-weight: 700; font-size: 1.05rem; color: var(--acento-fuerte); }
 
 /* En la tarjeta del POS: "📦 También: Sobre x 10 · Caja x 100" */
-.pos-card-pres { font-size: .68rem; color: #0a4f8a; font-weight: 600; line-height: 1.2; }
+.pos-card-pres { font-size: .68rem; color: var(--acento-fuerte); font-weight: 600; line-height: 1.2; }
 
 /* En la "i": tabla de presentaciones */
 .info-pres { margin-top: .6rem; }

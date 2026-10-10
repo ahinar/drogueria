@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block titulo %}Apariencia{% endblock %}
+{% block contenido %}
+{#
+  Elegir el tema del programa (solo cambia para el usuario conectado).
+  Los colores de cada tema están en static/css/temas.css
+#}
+<h1>Apariencia</h1>
+<p class="suave">Escoge cómo se ve el programa. Solo cambia para ti; cada usuario elige el suyo.</p>
+<form method="post" class="temas-lista">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  {% for clave, (nombre, descripcion, colores) in temas.items() %}
+  <label class="tema-opcion {{ 'elegido' if clave == actual }}">
+    <input type="radio" name="tema" value="{{ clave }}" {% if clave == actual %}checked{% endif %} onchange="this.form.submit()">
+    <span class="tema-muestra" aria-hidden="true">
+      {% for c in colores %}<span style="background: {{ c }}"></span>{% endfor %}
+    </span>
+    <span class="tema-texto"><strong>{{ nombre }}{% if clave == actual %} · en uso{% endif %}</strong><small>{{ descripcion }}</small></span>
+  </label>
+  {% endfor %}
+  <noscript><button type="submit">Guardar</button></noscript>
+</form>
+{% endblock %}

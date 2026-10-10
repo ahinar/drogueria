@@ -43,7 +43,7 @@ def create_app(test_config=None):
     base_datos.init_db(app.config["DB_PATH"])
     base_datos.init_app(app)
 
-    from . import (admin, auth, caja_menor, catalogos, configuracion,
+    from . import (admin, apariencia, auth, caja_menor, catalogos, configuracion,
                    contabilidad, conteos, devoluciones, equipos, importador, inventario, main, pos, productos,
                    proveedores, recepciones, reportes, temperaturas, unidades)
 
@@ -66,6 +66,7 @@ def create_app(test_config=None):
     app.register_blueprint(conteos.bp)   # toma de inventario (conteo físico)
     app.register_blueprint(equipos.bp)   # equipos y calibraciones
     app.register_blueprint(devoluciones.bp)   # devoluciones de cliente y a proveedor
+    app.register_blueprint(apariencia.bp)     # tema (colores) de cada usuario
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
 
@@ -104,5 +105,13 @@ def create_app(test_config=None):
             return {"config_negocio": _obtener_config()}
         except Exception:
             return {"config_negocio": {}}
+
+    @app.context_processor
+    def _apariencia_global():
+        """Tema del usuario y caja abierta: los usa la barra superior de base.html."""
+        from flask import g as _g
+        usuario = _g.get("user")
+        return {"tema_actual": apariencia.tema_de(usuario),
+                "caja_barra": apariencia.caja_abierta_actual() if usuario else None}
 
     return app
