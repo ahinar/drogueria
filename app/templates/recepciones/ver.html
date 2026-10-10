@@ -82,8 +82,13 @@
       </td>
       <td>{{ l['lote'] or '—' }}</td>
       <td>{{ l['vencimiento'] or '—' }}</td>
-      <td>{{ '%.2f'|format(l['cantidad_recibida']) }}</td>
-      <td>${{ '%.2f'|format(l['costo_unitario']) }}</td>
+      {# Si llegó por caja/sobre: "3 Caja x 100 = 300" y el costo de la caja y de cada unidad #}
+      <td>{% if l['factor'] and l['factor'] != 1 %}{{ '%g' % (l['cantidad_recibida'] / l['factor']) }} {{ l['presentacion'] }}<br>
+            <small class="suave">= {{ '%g' % l['cantidad_recibida'] }} {{ l['unidad_nombre'] or 'unidades' }}</small>
+          {% else %}{{ '%g' % l['cantidad_recibida'] }} {{ l['unidad_nombre'] or '' }}{% endif %}</td>
+      <td>{% if l['factor'] and l['factor'] != 1 %}{{ (l['costo_unitario'] * l['factor'])|pesos }} c/{{ l['presentacion'] }}<br>
+            <small class="suave">{{ l['costo_unitario']|pesos }} c/u</small>
+          {% else %}{{ l['costo_unitario']|pesos }}{% endif %}</td>
       <td>{% if l['temperatura_ingreso'] is not none %}{{ l['temperatura_ingreso'] }} °C{% else %}—{% endif %}</td>
       <td>{{ empaques.get(l['estado_empaque'], l['estado_empaque']) }}</td>
       <td>

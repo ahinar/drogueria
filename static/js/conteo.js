@@ -120,7 +120,7 @@
     return '<div class="cnt-fila' + (primera ? '' : ' cnt-mismo') + '" data-producto="' + p.id + '">' +
       '<div class="cnt-prod">' + (primera
         ? '<strong>' + esc(p.nombre) + (p.concentracion ? ' ' + esc(p.concentracion) : '') + '</strong>' +
-          '<span class="suave"> ' + esc(p.codigo) + '</span>'
+          '<span class="suave"> ' + esc(p.codigo) + ' · se cuenta en ' + esc(p.unidad || 'unidades') + '</span>'
         : '') + '</div>' +
       '<div class="cnt-lote"><span class="cnt-etq">Lote </span>' + esc(l.lote || 'Sin lote') + etiqueta + '</div>' +
       '<div class="cnt-vence' + (vencido ? ' conteo-vencido' : '') + '"><span class="cnt-etq">Vence </span>' +

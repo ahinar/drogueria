@@ -20,7 +20,7 @@ COLUMNAS = [
     ("codigo", "Código interno *", "P00001"),
     ("codigo_barras", "Código de barras", "7701234567890"),
     ("nombre", "Nombre *", "Acetaminofén 500 mg"),
-    ("descripcion", "Descripción", "Caja x 100 tabletas"),
+    ("descripcion", "Descripción", "Tabletas"),
     ("grupo", "Grupo", "Acetaminofén 500 mg"),
     ("concentracion", "Concentración", "500 mg"),
     ("principio", "Principio activo", "Acetaminofén"),
@@ -28,9 +28,15 @@ COLUMNAS = [
     ("forma_farmaceutica", "Forma farmacéutica", "Tableta"),
     ("registro_sanitario", "Registro INVIMA", "INVIMA-2024M-12345"),
     ("registro_vence", "Vence INVIMA (AAAA-MM-DD)", "2027-12-31"),
-    ("precio_compra", "Precio compra", "500"),
-    ("precio_venta", "Precio venta *", "800"),
-    ("precio_maximo", "Precio máximo", ""),
+    # ---- UNIDADES ----
+    # El inventario se cuenta en la "Unidad de inventario" (la más pequeña que
+    # se vende: Tableta, Cápsula, Frasco). Los precios y el costo de estas
+    # columnas son de 1 unidad de inventario. Sobre y caja van en
+    # "Presentación 2" y "Presentación 3" (cuántas trae y su precio).
+    ("unidad_inventario", "Unidad de inventario", "Tableta"),
+    ("precio_compra", "Costo de 1 unidad", "120"),
+    ("precio_venta", "Precio de 1 unidad *", "200"),
+    ("precio_maximo", "Precio máximo de 1 unidad", ""),
     ("iva_tipo", "IVA tipo (gravado/excluido/exento)", "gravado"),
     ("iva_tarifa", "IVA tarifa %", "19"),
     ("stock_minimo", "Stock mínimo", "5"),
@@ -40,7 +46,16 @@ COLUMNAS = [
     ("maneja_vencimiento", "¿Maneja vencimiento? (SI/NO)", "SI"),
     ("categorias", "Categorías (separadas por coma)", "Analgésicos"),
     ("observaciones", "Observaciones", ""),
+    ("pres2", "Presentación 2", "Sobre x 10"),
+    ("pres2_trae", "Presentación 2 trae", "10"),
+    ("pres2_precio", "Presentación 2 precio", "1800"),
+    ("pres3", "Presentación 3", "Caja x 100"),
+    ("pres3_trae", "Presentación 3 trae", "100"),
+    ("pres3_precio", "Presentación 3 precio", "15000"),
+    ("vender_como", "El POS lo vende como", "Sobre x 10"),
 ]
+# Las presentaciones extra que acepta el archivo (2 y 3)
+PRESENTACIONES_EXTRA = ("pres2", "pres3")
 ENCABEZADOS = [c[1] for c in COLUMNAS]
 
 
@@ -121,9 +136,11 @@ def _mapear_columnas(encabezados):
             "forma_farmaceutica": ["forma farmaceutica", "forma", "presentacion"],
             "registro_sanitario": ["registro", "invima", "registro invima", "rs"],
             "registro_vence": ["vence registro", "vence rs", "vencimiento rs"],
-            "precio_compra": ["precio costo", "costo", "precio de compra"],
+            "precio_compra": ["precio compra", "precio costo", "costo", "precio de compra"],
             "precio_venta": ["precio venta", "precio", "precio de venta", "pvp"],
             "precio_maximo": ["precio maximo", "pvp maximo", "precio regulado"],
+            "unidad_inventario": ["unidad", "unidad de venta", "se vende por", "unidad minima"],
+            "vender_como": ["vender como", "vender por defecto", "presentacion por defecto"],
             "iva_tipo": ["iva", "tipo iva"],
             "iva_tarifa": ["tarifa iva", "iva pct", "porcentaje iva"],
             "stock_minimo": ["minimo", "stock min", "minimo stock"],
@@ -155,10 +172,16 @@ def _bool(valor):
 
 
 def _num(valor, defecto=0.0):
+    """'1.800' -> 1800 (punto de miles) ; '2,5' -> 2.5 ; '$ 15.000' -> 15000 ; vacío -> defecto."""
+    import re
     if valor is None or valor == "":
         return defecto
+    t = str(valor).replace("$", "").replace(" ", "").strip()
+    # Los puntos se quitan solo cuando son de miles (grupos de 3 cifras): 1.800 / 15.000
+    if re.fullmatch(r"\d{1,3}(\.\d{3})+(,\d+)?", t):
+        t = t.replace(".", "")
     try:
-        return float(str(valor).replace(",", ".").replace("$", "").replace(" ", ""))
+        return float(t.replace(",", "."))
     except (ValueError, TypeError):
         return defecto
 
@@ -185,6 +208,26 @@ def _obtener_id_catalogo(db, tipo, nombre, cache):
     return cur.lastrowid
 
 
+def _unidad_id(db, nombre, cache):
+    """Id de la unidad de medida por su nombre (Tableta, Sobre x 10...). Si no
+    existe, se crea. Si el nombre trae "x 10", esa es su cantidad."""
+    import re
+    nombre = " ".join(str(nombre or "").split())
+    if not nombre:
+        return None
+    clave = ("unidad", nombre.lower())
+    if clave in cache:
+        return cache[clave]
+    fila = db.execute("SELECT id FROM unidades_medida WHERE nombre = ? COLLATE NOCASE LIMIT 1", (nombre,)).fetchone()
+    if fila is None:
+        m = re.search(r"x\s*(\d+(?:[.,]\d+)?)\s*$", nombre, re.I)
+        cantidad = float(m.group(1).replace(",", ".")) if m else 1
+        fila = {"id": db.execute("INSERT INTO unidades_medida (nombre, cantidad, referencia_id, activo, creado_en) "
+                                 "VALUES (?, ?, NULL, 1, ?)", (nombre, cantidad, ahora())).lastrowid}
+    cache[clave] = fila["id"]
+    return fila["id"]
+
+
 def _unidad_por_defecto(db):
     fila = db.execute(
         "SELECT id FROM unidades_medida WHERE nombre = 'Unidad' LIMIT 1"
@@ -205,13 +248,22 @@ def _validar_fila(fila, mapa):
         iva_tipo = "gravado"
     if _bool(fila.get(mapa.get("control_especial", ""))) and not fila.get(mapa.get("registro_sanitario", "")):
         errores.append("Control especial requiere Registro INVIMA")
+    # Presentaciones 2 y 3: si tienen nombre, deben traer más de 1 unidad y tener precio
+    for p in PRESENTACIONES_EXTRA:
+        nombre_p = (fila.get(mapa.get(p, ""), "") or "").strip()
+        if not nombre_p:
+            continue
+        if _num(fila.get(mapa.get(p + "_trae", "")), 0) <= 1:
+            errores.append(f"{nombre_p}: '¿cuántas trae?' debe ser mayor que 1")
+        if _num(fila.get(mapa.get(p + "_precio", "")), 0) <= 0:
+            errores.append(f"{nombre_p}: falta el precio")
     return errores
 
 
 @bp.route("/")
 @roles_required("administrador", "director_tecnico")
 def inicio():
-    return render_template("importador/inicio.html")
+    return render_template("importador/inicio.html", columnas=COLUMNAS)
 
 
 @bp.route("/plantilla")
@@ -225,12 +277,8 @@ def plantilla():
         escritor = csv.writer(buffer)
         escritor.writerow(ENCABEZADOS)
         # Fila de ejemplo
-        escritor.writerow([
-            "P00001", "7701234567890", "Acetaminofén 500 mg", "Caja x 100 tabletas",
-            "Acetaminofén 500 mg", "500 mg", "Acetaminofén", "Genfar", "Tableta",
-            "INVIMA-2024M-12345", "2027-12-31", "500", "800", "", "gravado", "19",
-            "5", "NO", "NO", "NO", "SI", "Analgésicos", ""
-        ])
+        # Fila de ejemplo: sale de la 3.ª parte de cada columna en COLUMNAS
+        escritor.writerow([ejemplo for _c, _e, ejemplo in COLUMNAS])
         data = buffer.getvalue().encode("utf-8-sig")
         return send_file(
             io.BytesIO(data), mimetype="text/csv",
@@ -242,12 +290,14 @@ def plantilla():
     hoja = wb.active
     hoja.title = "Productos"
     hoja.append(ENCABEZADOS)
-    hoja.append([
-        "P00001", "7701234567890", "Acetaminofén 500 mg", "Caja x 100 tabletas",
-        "Acetaminofén 500 mg", "500 mg", "Acetaminofén", "Genfar", "Tableta",
-        "INVIMA-2024M-12345", "2027-12-31", 500, 800, None, "gravado", 19,
-        5, "NO", "NO", "NO", "SI", "Analgésicos", ""
-    ])
+    # Fila de ejemplo (los números van como números, para que Excel no los marque)
+    def _como_numero(texto):
+        try:
+            # los códigos de barras (8 cifras o más) se dejan como texto
+            return int(texto) if str(texto).isdigit() and len(str(texto)) < 8 else texto
+        except ValueError:
+            return texto
+    hoja.append([_como_numero(ejemplo) or None for _c, _e, ejemplo in COLUMNAS])
     # Ajustar ancho de columnas
     for i, enc in enumerate(ENCABEZADOS, 1):
         letra = hoja.cell(row=1, column=i).column_letter
@@ -449,11 +499,25 @@ def confirmar():
                  precio_compra, precio_venta, precio_maximo,
                  iva_tipo, iva_tarifa, stock_minimo,
                  requiere_formula, cadena_frio, control_especial, maneja_v,
-                 unidad_default,
+                 _unidad_id(db, fila.get(mapa.get("unidad_inventario", ""), ""), cache_cat) or unidad_default,
                  (fila.get(mapa.get("observaciones", ""), "") or "").strip() or None,
                  ahora()),
             )
             pid = cur.lastrowid
+
+            # Presentaciones (Sobre x 10, Caja x 100) y cuál vende el POS por defecto
+            vender_como = (fila.get(mapa.get("vender_como", ""), "") or "").strip().lower()
+            for p in PRESENTACIONES_EXTRA:
+                nombre_p = (fila.get(mapa.get(p, ""), "") or "").strip()
+                if not nombre_p:
+                    continue
+                uid = _unidad_id(db, nombre_p, cache_cat)
+                db.execute("INSERT INTO producto_presentaciones (producto_id, unidad_id, factor, precio_venta, "
+                           "creado_en) VALUES (?,?,?,?,?)",
+                           (pid, uid, _num(fila.get(mapa.get(p + "_trae", "")), 0),
+                            _num(fila.get(mapa.get(p + "_precio", "")), 0), ahora()))
+                if vender_como and vender_como == nombre_p.lower():
+                    db.execute("UPDATE productos SET venta_defecto_unidad_id = ? WHERE id = ?", (uid, pid))
 
             # Categorías
             cats = (fila.get(mapa.get("categorias", ""), "") or "").strip()

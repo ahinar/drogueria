@@ -201,6 +201,16 @@
 - Cierre de caja como modal con desglose completo.
 - Modal de conteo reutilizable.
 
+### 5.2b Unidades: inventario vs. venta ✅ (2026-10-10)
+Problema que lo originó: el acetaminofén tenía 308 **tabletas**; al cambiar "Se vende por" a Sobre x 10 el programa leyó **308 sobres** y vender 2 sobres dejó 306 (debían quedar 288). Se investigó cómo lo hacen los POS de droguería y Odoo: inventario en la unidad más pequeña, presentaciones con factor, compras en otra unidad convertida, y la unidad no se cambia si ya hay movimientos.
+- **Unidad de inventario** (antes "Se vende por"; columna `productos.unidad_venta_id`): la más pequeña que se vende (tableta, cápsula, frasco). Las existencias, el precio normal y el costo son de 1 unidad de inventario. **Queda bloqueada** cuando el producto ya tiene lotes, movimientos o ventas (el servidor también lo impide). Aviso si se escoge una unidad "grande" (Caja x 100).
+- **"El POS lo vende por defecto como"** (`productos.venta_defecto_unidad_id`): tableta, sobre o caja. Al tocar la tarjeta en el POS se agrega esa presentación directo; la tarjeta muestra su precio ("Sobre x 10 · $1.800"), el stock en la unidad de inventario ("Stock: 288 Tableta") y "📦 Otras: …", que se puede tocar para escoger otra.
+- **Asistente "Cambiar unidad de inventario"** (`/productos/<id>/cambiar-unidad`, `app/unidad_inventario.py`): (1) *solo corregir el nombre* (los números ya eran de la unidad nueva) o (2) *convertir* con factor N (1 unidad vieja = N nuevas): cantidades × N en lotes, kardex, conteos, recepciones, devoluciones y factor de las ventas; costos ÷ N; presentaciones × N; la unidad vieja queda como presentación con su precio y como venta por defecto. Bitácora `producto_unidad_cambiada`.
+- **Recepciones por caja/sobre:** cada línea tiene **"viene en"** (presentaciones del producto); cantidad y costo se escriben como en la factura (3 cajas a $25.000) y se guardan en unidades (300 tabletas a $250); `recepcion_lineas.presentacion` y `factor` para mostrarlo. Escanear el código de barras de la caja deja la línea en "Caja". El detalle muestra "3 Caja x 100 = 300 Tableta".
+- **Importador:** columnas nuevas **Unidad de inventario**, **Costo/Precio de 1 unidad**, **Presentación 2 / 3** (nombre, cuántas trae, precio) y **El POS lo vende como**. Unidades que no existen se crean ("Blíster x 12" → cantidad 12). Los números aceptan punto de miles (1.800). La plantilla y la ayuda salen de la misma lista de columnas.
+- Conteo físico y kardex dicen en qué unidad se cuenta ("se cuenta en Tableta").
+- Pruebas: `tests/test_unidades.py` (incluye el caso de Fernando).
+
 ### 5.9c Venta libre y otros ingresos ✅
 - **Venta libre** (botón "Venta libre" debajo del carrito o menú del POS): cobrar algo que **no está en el inventario** (inyectología, toma de presión…). Ventana propia con: qué se vende, precio de cada uno (con IVA), cantidad, IVA (sin IVA / 19 % / 5 %) y **costo opcional** (para que Utilidades calcule bien la ganancia). Entra al carrito como una línea más (se puede cambiar cantidad, % y precio sin pedir motivo, porque no hay precio guardado con qué comparar) y **no descuenta inventario**. Se guarda en `venta_lineas` con `es_libre = 1`, `producto_id` vacío, código `LIBRE` y `costo_libre`; queda en la bitácora (`venta_libre`). Sale en el comprobante. **No se puede devolver** (si se cobró mal, se anula la venta). No aparece en Top productos ni en Sugerido.
 - **Otros ingresos**: plata que entra y **no es venta** (comisión de recargas, arriendo de un espacio, reciclaje, reintegros, intereses). Tabla `otros_ingresos` (espejo de `gastos`), categorías en Administración → Catálogos → "Categorías de otros ingresos".
@@ -469,6 +479,7 @@ Notas:
 | 24 | `usuarios.tema` (verde, azul o clásico) |
 | 25 | `venta_lineas` reconstruida: `producto_id` opcional + `es_libre`, `costo_libre` (venta libre); tabla `otros_ingresos`; categorías `categoria_ingreso` (se siembran en init_db) |
 | 26 | Cartera: tabla `clientes` (cupo), `ventas.cliente_id`, tabla `cartera_abonos` |
+| 27 | `productos.venta_defecto_unidad_id`; `recepcion_lineas.presentacion` y `factor` (recibir por caja/sobre) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 

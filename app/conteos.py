@@ -227,7 +227,9 @@ def api_buscar(conteo_id):
 
     # ---- 1. Productos activos dentro del alcance que coinciden con lo buscado ----
     sql = ("SELECT p.id, p.codigo, p.codigo_barras, p.nombre, p.concentracion, "
-           "p.maneja_vencimiento, p.precio_compra FROM productos p WHERE p.activo = 1"
+           "p.maneja_vencimiento, p.precio_compra, "
+           "(SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre "
+           "FROM productos p WHERE p.activo = 1"
            + _filtro_alcance(conteo))
     params = []
     # Si lo buscado es exactamente un código de barras, mostramos solo ese producto
@@ -296,6 +298,8 @@ def api_buscar(conteo_id):
         resultado.append({
             "id": p["id"], "codigo": p["codigo"], "codigo_barras": p["codigo_barras"],
             "nombre": p["nombre"], "concentracion": p["concentracion"],
+            # Se cuenta en la unidad de inventario (ej: tabletas sueltas, no cajas)
+            "unidad": p["unidad_nombre"] or "unidades",
             "maneja_vencimiento": bool(p["maneja_vencimiento"]),
             "costo_sugerido": _costo_sugerido(p),
             "lotes": filas,

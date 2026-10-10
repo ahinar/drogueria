@@ -70,6 +70,8 @@ def _contexto_formulario(producto=None):
         "codigo_sugerido": _siguiente_codigo() if not producto else None,
         # Otras formas de vender el producto (sobre, caja...). Ver app/presentaciones.py
         "presentaciones": pres.filas_para_formulario(producto["id"] if producto else None),
+        # Si ya tiene existencias o movimientos, la unidad de inventario queda bloqueada
+        "unidad_bloqueada": pres.tiene_historia(get_db(), producto["id"]) if producto else False,
         "producto": producto,
     }
 
@@ -178,6 +180,8 @@ def _leer_formulario():
         "categorias": [int(x) for x in request.form.getlist("categorias") if x.isdigit()],
         "usos": [int(x) for x in request.form.getlist("usos") if x.isdigit()],
         "presentaciones": pres.leer_del_formulario(request.form),
+        # En qué presentación lo vende el POS al tocar la tarjeta (vacío = unidad de inventario)
+        "venta_defecto_unidad_id": cat("venta_defecto_unidad_id"),
     }
 
 
@@ -192,7 +196,23 @@ def _validar(datos, producto_id=None):
     if datos["precio_venta"] < 0 or datos["precio_compra"] < 0:
         errores.append("Los precios no pueden ser negativos.")
     if not datos["unidad_venta_id"]:
-        errores.append("Debes seleccionar la unidad de venta.")
+        errores.append("Debes seleccionar la unidad de inventario.")
+    # La unidad de inventario NO se cambia desde aquí si el producto ya tiene
+    # existencias o movimientos: los números quedarían mal (ver presentaciones.tiene_historia)
+    if producto_id:
+        db = get_db()
+        actual = db.execute("SELECT unidad_venta_id FROM productos WHERE id = ?", (producto_id,)).fetchone()
+        if actual and actual["unidad_venta_id"] and datos["unidad_venta_id"] != actual["unidad_venta_id"] \
+                and pres.tiene_historia(db, producto_id):
+            errores.append("La unidad de inventario no se puede cambiar aquí porque el producto ya tiene "
+                           "existencias o movimientos. Usa el botón 'Cambiar unidad de inventario', "
+                           "que convierte las cantidades.")
+    # La presentación por defecto debe ser una de las del producto
+    if datos["venta_defecto_unidad_id"]:
+        if datos["venta_defecto_unidad_id"] == datos["unidad_venta_id"]:
+            datos["venta_defecto_unidad_id"] = None          # es la unidad de inventario
+        elif datos["venta_defecto_unidad_id"] not in {f["unidad_id"] for f in datos["presentaciones"]}:
+            errores.append("'El POS lo vende como' debe ser la unidad de inventario o una de las presentaciones.")
     if datos["control_especial"] and not datos["registro_sanitario"]:
         errores.append("Un producto de control especial debe tener registro sanitario INVIMA.")
     if datos["control_especial"] or datos["cadena_frio"]:
@@ -241,6 +261,8 @@ def nuevo():
                      datos["maneja_vencimiento"], datos["observaciones"], ahora()),
                 )
                 pid = cur.lastrowid
+                db.execute("UPDATE productos SET venta_defecto_unidad_id = ? WHERE id = ?",
+                           (datos["venta_defecto_unidad_id"], pid))
                 _guardar_relaciones(db, pid, datos["categorias"], datos["usos"])
                 texto_pres = pres.guardar(db, pid, datos["presentaciones"], ahora())
 
@@ -294,6 +316,8 @@ def editar(prod_id):
                      datos["requiere_formula"], datos["cadena_frio"], datos["control_especial"],
                      datos["maneja_vencimiento"], datos["observaciones"], ahora(), prod_id),
                 )
+                db.execute("UPDATE productos SET venta_defecto_unidad_id = ? WHERE id = ?",
+                           (datos["venta_defecto_unidad_id"], prod_id))
                 _guardar_relaciones(db, prod_id, datos["categorias"], datos["usos"])
                 texto_pres = pres.guardar(db, prod_id, datos["presentaciones"], ahora())
 
@@ -340,3 +364,45 @@ def activar(prod_id):
               "productos", prod_id)
     flash("Producto activado." if nuevo_estado else "Producto desactivado.", "ok")
     return redirect(url_for("productos.lista"))
+
+# ============================================================
+# CAMBIAR LA UNIDAD DE INVENTARIO (asistente que convierte todo)
+# Ver app/unidad_inventario.py para la explicación completa.
+# ============================================================
+@bp.route("/<int:prod_id>/cambiar-unidad", methods=["GET", "POST"])
+@login_required
+@roles_required("administrador", "director_tecnico")
+def cambiar_unidad(prod_id):
+    from . import unidad_inventario
+    producto = _obtener(prod_id)
+    db = get_db()
+
+    def numero(nombre):
+        texto = (request.form.get(nombre) or "").strip().replace(",", ".")
+        try:
+            return float(texto) if texto else None
+        except ValueError:
+            return -1
+
+    if request.method == "POST":
+        modo = request.form.get("modo")
+        factor = 1.0 if modo == "corregir" else numero("factor")
+        unidad_id = request.form.get("unidad_id", type=int)
+        try:
+            texto = unidad_inventario.cambiar(db, producto, unidad_id, factor,
+                                              numero("precio") if modo == "convertir" else None,
+                                              numero("maximo") if modo == "convertir" else None)
+        except unidad_inventario.UnidadError as e:
+            flash(str(e), "error")
+        else:
+            registrar("producto_unidad_cambiada", "productos", prod_id, texto)
+            flash("Unidad de inventario cambiada. Revisa la ficha (precios y presentaciones).", "ok")
+            return redirect(url_for("productos.editar", prod_id=prod_id))
+
+    unidad_actual = db.execute("SELECT * FROM unidades_medida WHERE id = ?",
+                               (producto["unidad_venta_id"],)).fetchone()
+    existencias = db.execute("SELECT COALESCE(SUM(cantidad_disponible), 0) FROM lotes WHERE producto_id = ?",
+                             (prod_id,)).fetchone()[0]
+    return render_template("productos/cambiar_unidad.html", producto=producto, unidad_actual=unidad_actual,
+                           existencias=existencias, unidades=_unidades(),
+                           presentaciones=pres.filas_para_formulario(prod_id))

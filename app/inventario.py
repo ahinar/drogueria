@@ -353,7 +353,9 @@ def kardex_buscar():
 @login_required
 def kardex(producto_id):
     db = get_db()
-    producto = db.execute("SELECT * FROM productos WHERE id = ?", (producto_id,)).fetchone()
+    producto = db.execute(
+        "SELECT p.*, (SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre "
+        "FROM productos p WHERE p.id = ?", (producto_id,)).fetchone()
     if producto is None:
         abort(404)
 

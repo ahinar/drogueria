@@ -21,7 +21,7 @@
   <div class="rece-info-campo">
     <span class="rece-label">Stock total</span>
     <strong style="font-size:1.3rem">{{ '%.0f'|format(total_lotes['total']) }}</strong>
-    <small>unidades base</small>
+    <small>{{ producto['unidad_nombre'] or 'unidades' }} (unidad de inventario)</small>
   </div>
 </div>
 

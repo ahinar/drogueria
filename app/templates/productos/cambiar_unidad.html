@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{# ASISTENTE: cambiar la unidad de inventario de un producto que ya tiene movimientos.
+   La lógica está en app/unidad_inventario.py #}
+{% block titulo %}Cambiar unidad de inventario{% endblock %}
+{% block contenido %}
+{% set actual = unidad_actual['nombre'] if unidad_actual else 'sin unidad' %}
+<h1>Cambiar unidad de inventario</h1>
+<p><strong>{{ producto['nombre'] }}</strong> se cuenta hoy en <strong>{{ actual }}</strong>.
+  Existencias: <strong>{{ '%g' % existencias }} {{ actual }}</strong>
+  · precio de 1 {{ actual }}: {{ producto['precio_venta']|pesos }}.</p>
+{% if presentaciones %}<p class="suave">Presentaciones: {% for p in presentaciones %}{{ p['unidad_nombre'] }} (trae {{ '%g' % p['factor'] }}){{ ', ' if not loop.last }}{% endfor %}.</p>{% endif %}
+
+<form method="post" class="formulario" style="max-width:760px" id="form-unidad"
+      data-confirmar="¿Cambiar la unidad de inventario? Esto modifica las cantidades guardadas del producto.">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <fieldset>
+    <legend>1. ¿Cuál debe ser la unidad de inventario?</legend>
+    <label>Unidad nueva
+      <select name="unidad_id" id="unidad-nueva" required>
+        <option value="">— Seleccionar —</option>
+        {% for u in unidades if u['id'] != producto['unidad_venta_id'] %}
+        <option value="{{ u['id'] }}">{{ u['nombre'] }}</option>
+        {% endfor %}
+      </select>
+      <small class="suave">Debe ser la más pequeña que vendes (Tableta, Cápsula, Frasco…).</small>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>2. ¿Qué pasó?</legend>
+    <label class="opcion-radio">
+      <input type="radio" name="modo" value="corregir" checked>
+      <span><strong>Solo estaba mal el nombre.</strong> Las {{ '%g' % existencias }} que dice el sistema
+        en realidad son de la unidad nueva (ej. eran tabletas aunque decía "sobre"). No se cambia ningún número.</span>
+    </label>
+    <label class="opcion-radio">
+      <input type="radio" name="modo" value="convertir">
+      <span><strong>Convertir.</strong> Las existencias de verdad están en {{ actual }} y hay que pasarlas a la unidad nueva
+        (ej. 3 cajas de 100 = 300 tabletas). Se convierten lotes, kardex, ventas, recepciones y conteos.</span>
+    </label>
+
+    <div id="bloque-convertir" hidden>
+      <label>¿Cuántas <span class="nombre-nueva">unidad nueva</span> trae 1 {{ actual }}?
+        <input type="text" inputmode="decimal" name="factor" id="factor" placeholder="Ej: 100">
+      </label>
+      <div class="grid-2">
+        <label>Precio de 1 <span class="nombre-nueva">unidad nueva</span>
+          <input type="text" inputmode="decimal" name="precio" id="precio" placeholder="Se calcula solo">
+        </label>
+        <label>Precio máximo de 1 <span class="nombre-nueva">unidad nueva</span>
+          <input type="text" inputmode="decimal" name="maximo" id="maximo" placeholder="Opcional">
+        </label>
+      </div>
+      <p class="sug-aviso" id="resumen-conversion" hidden></p>
+      <p class="suave">"{{ actual }}" quedará como una presentación más, con su precio de hoy ({{ producto['precio_venta']|pesos }}),
+        y si el POS no tenía otra presentación por defecto, la seguirá vendiendo así.</p>
+    </div>
+  </fieldset>
+
+  <div class="acciones">
+    <button type="submit">Cambiar unidad</button>
+    <a class="boton secundario" href="{{ url_for('productos.editar', prod_id=producto['id']) }}">Cancelar</a>
+  </div>
+</form>
+
+<script>
+// Muestra la parte de "Convertir" solo si se escoge esa opción, y calcula
+// el resumen: "300 Caja x 100 → 30.000 Tableta; precio $250 → $3".
+(function () {
+  const form = document.getElementById('form-unidad');
+  const bloque = document.getElementById('bloque-convertir');
+  const selNueva = document.getElementById('unidad-nueva');
+  const factor = document.getElementById('factor');
+  const precio = document.getElementById('precio');
+  const resumen = document.getElementById('resumen-conversion');
+  const existencias = {{ existencias|tojson }};
+  const precioViejo = {{ (producto['precio_venta'] or 0)|tojson }};
+  const actual = {{ actual|tojson }};
+
+  function nombreNueva() {
+    const o = selNueva.options[selNueva.selectedIndex];
+    return o && o.value ? o.textContent.trim() : 'unidad nueva';
+  }
+  function pintar() {
+    const convertir = form.modo.value === 'convertir';
+    bloque.hidden = !convertir;
+    factor.required = convertir;
+    document.querySelectorAll('.nombre-nueva').forEach((s) => { s.textContent = nombreNueva(); });
+    const n = parseFloat((factor.value || '').replace(',', '.'));
+    if (convertir && n >= 1) {
+      precio.placeholder = 'Sugerido: $' + Math.round(precioViejo / n).toLocaleString('es-CO');
+      resumen.textContent = existencias.toLocaleString('es-CO') + ' ' + actual + ' → ' +
+        (existencias * n).toLocaleString('es-CO') + ' ' + nombreNueva() + '.';
+      resumen.hidden = false;
+    } else {
+      resumen.textContent = '';
+      resumen.hidden = true;
+    }
+  }
+  form.addEventListener('change', pintar);
+  form.addEventListener('input', pintar);
+  pintar();
+})();
+</script>
+{% endblock %}

@@ -934,6 +934,26 @@ MIGRATIONS = [
         CREATE INDEX idx_abonos_cliente ON cartera_abonos (cliente_id);
         """,
     ),
+    (
+        27,
+        """
+        -- ===== Unidades: inventario vs venta =====
+        -- El inventario SIEMPRE se cuenta en la "unidad de inventario" del
+        -- producto (productos.unidad_venta_id; el nombre de la columna es viejo:
+        -- antes decía "Se vende por"). Esa unidad queda fija cuando ya hay
+        -- existencias: cambiarla exige el asistente que convierte todo.
+        --
+        -- venta_defecto_unidad_id: en qué presentación lo vende el POS al tocar
+        -- la tarjeta (ej: Sobre x 10). Vacío = la unidad de inventario.
+        ALTER TABLE productos ADD COLUMN venta_defecto_unidad_id INTEGER;
+
+        -- Recepciones: el proveedor factura por caja o sobre. La cantidad y el
+        -- costo se siguen guardando en UNIDADES de inventario (como siempre);
+        -- aquí se anota en qué presentación llegó, para mostrarlo igual que en la factura.
+        ALTER TABLE recepcion_lineas ADD COLUMN presentacion TEXT;          -- ej: 'Caja x 100'
+        ALTER TABLE recepcion_lineas ADD COLUMN factor REAL NOT NULL DEFAULT 1;
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

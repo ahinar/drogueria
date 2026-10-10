@@ -18,6 +18,7 @@ from .audit import registrar
 from .auth import login_required, roles_required
 from .configuracion import obtener_config
 from .db import ahora, get_db
+from . import presentaciones as pres
 
 bp = Blueprint("recepciones", __name__, url_prefix="/recepciones")
 
@@ -145,6 +146,7 @@ def _lineas_previas_formulario():
     empaques = request.form.getlist("linea_empaque")
     resultados = request.form.getlist("linea_resultado")
     motivos = request.form.getlist("linea_motivo")
+    presentaciones = request.form.getlist("linea_presentacion")
 
     db = get_db()
     lineas = []
@@ -180,6 +182,8 @@ def _lineas_previas_formulario():
             "estado_empaque": v(empaques, i) or "bueno",
             "resultado": v(resultados, i) or "aceptado",
             "motivo_rechazo": v(motivos, i),
+            "presentacion_id": int(v(presentaciones, i)) if v(presentaciones, i).isdigit() else 0,
+            "presentaciones": _presentaciones_simples(int(pid)),
         })
     return lineas
 
@@ -196,6 +200,8 @@ def _leer_lineas_formulario():
     resultados = request.form.getlist("linea_resultado")
     motivos = request.form.getlist("linea_motivo")
     obs_lineas = request.form.getlist("linea_observaciones")
+    # "Viene en": id de la presentación (0 = unidad de inventario, otro = sobre, caja...)
+    presentaciones = request.form.getlist("linea_presentacion")
 
     lineas, errores = [], []
     for i, pid in enumerate(prod_ids):
@@ -245,13 +251,25 @@ def _leer_lineas_formulario():
             except ValueError:
                 errores.append(f"{nombre}: la fecha de vencimiento no es válida.")
 
+        # ---- PRESENTACIÓN EN QUE LLEGÓ (ej: 3 Caja x 100 a $25.000 c/u) ----
+        # Se guarda TODO en unidades de inventario: 3 cajas x 100 = 300 tabletas
+        # y el costo por tableta = $25.000 / 100 = $250. Así el resto del
+        # programa (lotes, kardex, utilidades) sigue igual.
+        pres_txt = v(presentaciones, i)
+        presentacion = pres.presentacion_para_vender(int(pid), int(pres_txt)) if pres_txt.isdigit() else None
+        if presentacion is None:
+            presentacion = {"nombre": None, "factor": 1}
+        factor = float(presentacion["factor"] or 1)
+
         lineas.append({
             "producto_id": int(pid),
             "lote": v(lotes, i).strip() or None,
             "vencimiento": v(vencimientos, i).strip() or None,
-            "cantidad_facturada": cr,
-            "cantidad_recibida": cr,
-            "costo_unitario": co,
+            "cantidad_facturada": round(cr * factor, 4),
+            "cantidad_recibida": round(cr * factor, 4),
+            "costo_unitario": co / factor,
+            "presentacion": presentacion["nombre"] if factor != 1 else None,
+            "factor": factor,
             "temperatura_ingreso": t_ing,
             "estado_empaque": v(empaques, i) or "bueno",
             "resultado": v(resultados, i) or "aceptado",
@@ -335,12 +353,12 @@ def nueva():
                     db.execute(
                         "INSERT INTO recepcion_lineas (recepcion_id, producto_id, lote, vencimiento, "
                         "cantidad_facturada, cantidad_recibida, costo_unitario, estado_empaque, "
-                        "resultado, motivo_rechazo, observaciones, temperatura_ingreso) "
-                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                        "resultado, motivo_rechazo, observaciones, temperatura_ingreso, presentacion, factor) "
+                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         (rec_id, l["producto_id"], l["lote"], l["vencimiento"],
                          l["cantidad_facturada"], l["cantidad_recibida"], l["costo_unitario"],
                          l["estado_empaque"], l["resultado"], l["motivo_rechazo"],
-                         l["observaciones"], l["temperatura_ingreso"]),
+                         l["observaciones"], l["temperatura_ingreso"], l["presentacion"], l["factor"]),
                     )
                 db.commit()
 
@@ -479,8 +497,16 @@ def rechazar(rec_id):
 
 # ---------- Búsqueda de productos para autocompletado ----------
 
+def _presentaciones_simples(producto_id):
+    """[{id, nombre, factor}] para el selector "Viene en" de cada línea."""
+    return [{"id": o["id"], "nombre": o["nombre"], "factor": o["factor"]}
+            for o in pres.presentaciones_de([producto_id]).get(producto_id, [])]
+
+
 def _fila_a_dict(f):
     return {
+        # En qué puede llegar (Tableta, Sobre x 10, Caja x 100): ver "Viene en"
+        "presentaciones": _presentaciones_simples(f["id"]),
         "id": f["id"],
         "codigo": f["codigo"],
         "nombre": f["nombre"],
@@ -543,13 +569,22 @@ def api_buscar_barras():
     codigo = (request.args.get("codigo") or "").strip()
     if not codigo:
         return jsonify({"ok": False, "error": "Código vacío."})
-    fila = get_db().execute(
+    db = get_db()
+    fila = db.execute(
         _SELECT_BUSQUEDA + "WHERE p.activo = 1 AND p.codigo_barras = ? LIMIT 1",
         (codigo,),
     ).fetchone()
+    presentacion_id = 0
+    if fila is None:
+        # ¿Es el código de una CAJA o un SOBRE? Entonces la línea queda en esa presentación
+        pp = db.execute("SELECT id, producto_id FROM producto_presentaciones WHERE codigo_barras = ? LIMIT 1",
+                        (codigo,)).fetchone()
+        if pp:
+            presentacion_id = pp["id"]
+            fila = db.execute(_SELECT_BUSQUEDA + "WHERE p.activo = 1 AND p.id = ?", (pp["producto_id"],)).fetchone()
     if fila is None:
         return jsonify({"ok": False, "error": "Producto no encontrado."})
-    return jsonify({"ok": True, "producto": _fila_a_dict(fila)})
+    return jsonify({"ok": True, "producto": _fila_a_dict(fila), "presentacion_id": presentacion_id})
 
 
 # ---------- Alta rápida de producto desde recepción ----------
@@ -585,7 +620,7 @@ def api_crear_producto():
     if not laboratorio_id or not laboratorio_id.isdigit():
         return jsonify({"ok": False, "error": "El laboratorio es obligatorio."}), 400
     if not unidad_venta_id or not unidad_venta_id.isdigit():
-        return jsonify({"ok": False, "error": "Debes elegir la unidad de venta."}), 400
+        return jsonify({"ok": False, "error": "Debes elegir la unidad de inventario."}), 400
 
     dup = _producto_duplicado(nombre, int(laboratorio_id), concentracion)
     if dup:

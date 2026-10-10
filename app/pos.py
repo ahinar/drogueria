@@ -572,7 +572,7 @@ def api_productos():
     sql = (
         "SELECT p.id, p.codigo, p.codigo_barras, p.nombre, p.concentracion, "
         "p.precio_venta, p.iva_tipo, p.iva_tarifa, p.requiere_formula, "
-        "p.control_especial, p.imagen, "
+        "p.control_especial, p.imagen, p.venta_defecto_unidad_id, "
         "COALESCE((SELECT SUM(l.cantidad_disponible) FROM lotes l "
         f"          WHERE l.producto_id = p.id AND {SQL_LOTE_VENDIBLE}), 0) AS stock "
         "FROM productos p WHERE p.activo = 1"
@@ -618,6 +618,9 @@ def api_productos():
         "imagen": f["imagen"], "stock": f["stock"],
         "usos": usos.get(f["id"], []),     # para mostrar "Sirve para: ..." en la tarjeta
         "presentaciones": presentaciones.get(f["id"], []),
+        # La que agrega el POS al tocar la tarjeta (0 = unidad de inventario)
+        "presentacion_defecto": pres.id_por_defecto(presentaciones.get(f["id"], []),
+                                                    f["venta_defecto_unidad_id"]),
     } for f in filas]
 
     # ¿Se escaneó un código de barras exacto? Puede ser el del producto o el de

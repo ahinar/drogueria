@@ -311,12 +311,18 @@
           '<div class="pos-card-nombre">' + esc(p.nombre) + esc(etiquetas) + '</div>' +
           '<div class="pos-card-codigo">' + esc(p.concentracion || p.codigo) + '</div>' +
           sirvePara +
+          // Otras presentaciones: el chip se puede tocar para escoger (data-elegir)
           (p.presentaciones && p.presentaciones.length > 1
-            ? '<div class="pos-card-pres">📦 También: ' +
-              esc(p.presentaciones.slice(1).map((x) => x.nombre).join(' · ')) + '</div>'
+            ? '<div class="pos-card-pres" data-elegir="' + p.id + '" title="Tocar para escoger cómo venderlo">📦 ' +
+              (defectoDe(p).id ? 'Otras: ' : 'También: ') +
+              esc(p.presentaciones.filter((x) => x.id !== defectoDe(p).id).map((x) => x.nombre).join(' · ')) + '</div>'
             : '') +
-          '<div class="pos-card-stock">' + (agotado ? 'Agotado' : 'Stock: ' + (+p.stock.toFixed(2))) + '</div>' +
-          '<div class="pos-card-precio">' + peso(p.precio) + '</div>' +
+          // Stock SIEMPRE en la unidad de inventario (ej: "288 Tableta")
+          '<div class="pos-card-stock">' + (agotado ? 'Agotado' : 'Stock: ' + (+p.stock.toFixed(2)) +
+            (p.presentaciones && p.presentaciones[0] ? ' ' + esc(p.presentaciones[0].nombre) : '')) + '</div>' +
+          // Precio de lo que se vende al tocar (ej: "Sobre x 10 · $2.000")
+          '<div class="pos-card-precio">' + (defectoDe(p).id ? '<small>' + esc(defectoDe(p).nombre) + '</small> ' : '') +
+            peso(defectoDe(p).precio) + '</div>' +
         '</div></div>';
     }).join('');
   }
@@ -326,6 +332,13 @@
   // ---------------------------------------------------------------
   // presentacionId: 0 = unidad principal; otro número = sobre, caja...
   // Si no se indica y el producto tiene varias presentaciones, se pregunta.
+  // La presentación que se vende al tocar la tarjeta (ficha: "El POS lo vende por defecto como")
+  function defectoDe(prod) {
+    const opciones = prod.presentaciones || [];
+    return opciones.find((x) => x.id === prod.presentacion_defecto) ||
+      opciones[0] || { id: 0, nombre: '', factor: 1, precio: prod.precio };
+  }
+
   function agregar(prod, presentacionId) {
     if (prod.control_especial) {
       aviso('Medicamento de control especial: aún no se puede vender desde el POS.');
@@ -337,8 +350,11 @@
       ? prod.presentaciones
       : [{ id: 0, nombre: '', factor: 1, precio: prod.precio }];
     if (presentacionId == null) {
-      if (opciones.length > 1) { elegirPresentacion(prod); return; }
-      presentacionId = opciones[0].id;
+      // Si la ficha dice "vender por defecto como Sobre x 10", se agrega directo.
+      // Si no, y hay varias presentaciones, se pregunta "¿Cómo lo vendes?".
+      if (prod.presentacion_defecto) presentacionId = prod.presentacion_defecto;
+      else if (opciones.length > 1) { elegirPresentacion(prod); return; }
+      else presentacionId = opciones[0].id;
     }
     const pres = opciones.find((x) => x.id === presentacionId) || opciones[0];
 
@@ -1373,7 +1389,7 @@
       x.producto_id === prod.id ? suma + x.cantidad * x.factor : suma, 0);
     $('pres-opciones').innerHTML = prod.presentaciones.map((x, i) => {
       const alcanza = prod.stock - enCarrito >= x.factor - 1e-9;
-      const trae = x.factor === 1 ? 'unidad principal' : 'trae ' + (+x.factor.toFixed(2));
+      const trae = x.factor === 1 ? 'unidad de inventario' : 'trae ' + (+x.factor.toFixed(2));
       return '<button type="button" class="pres-opcion" data-pres="' + x.id + '"' + (alcanza ? '' : ' disabled') + '>' +
         '<span class="pres-tecla">' + (i + 1) + '</span>' +
         '<span><span class="pres-nombre">' + esc(x.nombre) + '</span>' +
@@ -1430,7 +1446,15 @@
     const tarjeta = e.target.closest('.pos-card');
     if (!tarjeta) return;
     const prod = productosMostrados.find((p) => p.id === +tarjeta.dataset.id);
-    if (prod) agregar(prod);
+    if (!prod) return;
+    // Tocar "📦 Otras: ..." abre "¿Cómo lo vendes?" para escoger otra presentación
+    if (e.target.closest('[data-elegir]') && prod.presentaciones.length > 1) {
+      if (prod.control_especial) agregar(prod);        // muestra el aviso de siempre
+      else if (prod.stock <= 0) aviso('Producto agotado.');
+      else elegirPresentacion(prod);
+    } else {
+      agregar(prod);
+    }
     // Si se abrió "¿Cómo lo vendes?", el foco se queda en sus botones (teclas 1, 2, 3)
     if (!modalPres || modalPres.classList.contains('modal-oculto')) inputBusqueda.focus();
   });

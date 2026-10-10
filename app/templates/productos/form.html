@@ -143,7 +143,7 @@
       <legend>Precios</legend>
 
       <div class="grid-3-compact">
-        <label>Costo (opcional)
+        <label><span id="etiqueta-costo">Costo (opcional)</span>
           <input type="number" step="0.01" name="precio_compra" id="precio_compra"
             value="{{ producto['precio_compra'] if producto else 0 }}">
         </label>
@@ -160,13 +160,17 @@
         <label>Precio sugerido (solo referencia)
           <input type="number" step="0.01" id="precio_sugerido" readonly class="ganancia">
         </label>
-        <label>Precio de venta final *
+        <label><span id="etiqueta-precio">Precio de venta final</span> *
           <input type="number" step="0.01" name="precio_venta" id="precio_venta" required
             value="{{ producto['precio_venta'] if producto else 0 }}">
         </label>
-        <label>Se vende por
+        {# UNIDAD DE INVENTARIO: en ella se cuentan las existencias (la más pequeña
+           que se vende: tableta, cápsula, frasco...). Si el producto ya tiene
+           existencias o movimientos queda BLOQUEADA: cambiarla sin convertir
+           haría que 308 tabletas se leyeran como 308 sobres. #}
+        <label>Unidad de inventario *
           <div class="campo-con-boton">
-            <select name="unidad_venta_id" id="unidad_venta_id" required>
+            <select {% if unidad_bloqueada %}disabled{% else %}name="unidad_venta_id"{% endif %} id="unidad_venta_id" required>
               <option value="">— Seleccionar —</option>
               {% for u in unidades %}
               <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}" {% if producto and
@@ -175,12 +179,26 @@
               </option>
               {% endfor %}
             </select>
+            {% if unidad_bloqueada %}
+              {# un select desactivado no se envía: el valor viaja en este campo oculto #}
+              <input type="hidden" name="unidad_venta_id" value="{{ producto['unidad_venta_id'] }}">
+            {% else %}
             <button type="button" class="btn-mas" data-tipo="unidad" data-select="unidad_venta_id"
               title="Crear nueva unidad de medida">+</button>
+            {% endif %}
           </div>
+          {% if unidad_bloqueada %}
+          <small class="suave">Bloqueada porque ya tiene existencias o movimientos.
+            <a href="{{ url_for('productos.cambiar_unidad', prod_id=producto['id']) }}">Cambiar unidad de inventario…</a></small>
+          {% else %}
+          <small class="suave">La más pequeña que vendes (tableta, cápsula, frasco). Sobres y cajas van abajo, en "Presentaciones".</small>
+          {% endif %}
         </label>
       </div>
 
+      <p class="aviso error" id="aviso-unidad-grande" hidden style="margin:.4rem 0">
+        Ojo: la unidad de inventario debería ser la más pequeña que vendes (ej. Tableta).
+        Si también vendes por sobre o por caja, deja aquí la tableta y agrega el sobre y la caja abajo, en "Presentaciones".</p>
       <p class="suave" id="equivalencia" style="margin-left:.2rem"></p>
 
       <div class="grid-3-compact">
@@ -210,15 +228,15 @@
     </fieldset>
 
     <!-- ===== OTRAS PRESENTACIONES (sobre, caja...) =====
-         El inventario se cuenta en la unidad de "Se vende por". Aquí se agregan
+         El inventario se cuenta en la "Unidad de inventario". Aquí se agregan
          otras formas de vender el mismo producto, cada una con su precio.
          Cada fila manda 5 campos con el mismo nombre (pres_...); el servidor
          los lee en orden (ver app/presentaciones.py, leer_del_formulario). -->
     <fieldset>
-      <legend>Otras presentaciones (opcional)</legend>
-      <p class="suave pres-ayuda">Ejemplo: si el producto se vende por <strong>Tableta</strong>,
-        aquí puedes agregar <strong>Sobre x 10</strong> (trae 10) y <strong>Caja x 100</strong> (trae 100),
-        cada una con su precio. El inventario siempre se descuenta en la unidad principal.</p>
+      <legend>Presentaciones (sobre, caja…)</legend>
+      <p class="suave pres-ayuda">Ejemplo: si la unidad de inventario es <strong>Tableta</strong>,
+        aquí agregas <strong>Sobre x 10</strong> (trae 10) y <strong>Caja x 100</strong> (trae 100),
+        cada una con su precio. Al vender un sobre, el inventario baja 10 tabletas.</p>
       <div id="pres-filas" class="pres-filas">
         {% for f in presentaciones %}
         <div class="pres-fila">
@@ -248,6 +266,15 @@
         {% endfor %}
       </div>
       <button type="button" class="boton secundario" id="pres-agregar"><span class="ico-emoji">➕</span> Agregar presentación</button>
+
+      {# En qué presentación lo agrega el POS al tocar la tarjeta. Las opciones las
+         arma el JS con la unidad de inventario + las presentaciones de arriba. #}
+      <label style="margin-top:1rem;max-width:420px">El POS lo vende por defecto como
+        <select name="venta_defecto_unidad_id" id="venta_defecto" data-actual="{{ producto['venta_defecto_unidad_id'] or '' if producto else '' }}">
+          <option value="">La unidad de inventario</option>
+        </select>
+        <small class="suave">Al tocar el producto en el POS se agrega esta presentación. Las demás siguen disponibles.</small>
+      </label>
 
       <!-- Molde vacío: el JS lo copia cada vez que se toca "Agregar presentación" -->
       <template id="pres-molde">
@@ -465,6 +492,17 @@
     pc.addEventListener('input', calcGanancia);
     pv.addEventListener('input', function () { calcGanancia(); calcEquivalencia(); });
     unidadSel.addEventListener('change', calcEquivalencia);
+    // "Precio de 1 Tableta": que quede claro de qué unidad es el precio
+    function etiquetaPrecio() {
+      const opt = unidadSel.options[unidadSel.selectedIndex];
+      document.getElementById('etiqueta-precio').textContent = opt && opt.value
+        ? 'Precio de 1 ' + opt.textContent.trim().split(' (')[0] : 'Precio de venta final';
+      // El costo también es de 1 unidad de inventario (no el de la caja)
+      document.getElementById('etiqueta-costo').textContent = opt && opt.value
+        ? 'Costo de 1 ' + opt.textContent.trim().split(' (')[0] + ' (opcional)' : 'Costo (opcional)';
+    }
+    unidadSel.addEventListener('change', etiquetaPrecio);
+    etiquetaPrecio();
     calcGanancia();
     calcEquivalencia();
 
@@ -512,6 +550,39 @@
       presFilas.lastElementChild.querySelector('select').focus();
     });
     presFilas.querySelectorAll('.pres-fila').forEach(equivalePres);
+
+    // === "El POS lo vende como": unidad de inventario + presentaciones de arriba ===
+    // Se vuelve a armar cada vez que cambian las filas, para que siempre
+    // muestre las presentaciones que hay en pantalla (aunque no se hayan guardado).
+    const selDefecto = document.getElementById('venta_defecto');
+    function nombreUnidad(select) {
+      const opt = select.options[select.selectedIndex];
+      return opt && opt.value ? opt.textContent.trim().split(' (')[0] : '';
+    }
+    function armarDefecto() {
+      const elegido = selDefecto.value || selDefecto.dataset.actual || '';
+      const base = nombreUnidad(unidadSel);
+      let html = '<option value="">' + (base ? base + ' (unidad de inventario)' : 'La unidad de inventario') + '</option>';
+      presFilas.querySelectorAll('.pres-fila').forEach(function (fila) {
+        const sel = fila.querySelector('.pres-unidad');
+        if (sel.value) html += '<option value="' + sel.value + '">' + nombreUnidad(sel) + '</option>';
+      });
+      selDefecto.innerHTML = html;
+      selDefecto.value = [...selDefecto.options].some(function (o) { return o.value === elegido; }) ? elegido : '';
+      selDefecto.dataset.actual = selDefecto.value;
+    }
+    selDefecto.addEventListener('change', function () { selDefecto.dataset.actual = selDefecto.value; });
+    presFilas.addEventListener('change', armarDefecto);
+    presFilas.addEventListener('click', function () { setTimeout(armarDefecto, 0); });   // al quitar una fila
+    unidadSel.addEventListener('change', armarDefecto);
+    armarDefecto();
+
+    // === Aviso si escogen una unidad "grande" (Caja x 100) como unidad de inventario ===
+    function avisoUnidadGrande() {
+      document.getElementById('aviso-unidad-grande').hidden = !(cantidadDe(unidadSel) > 1);
+    }
+    unidadSel.addEventListener('change', avisoUnidadGrande);
+    avisoUnidadGrande();
 
     // === Calcular sugerido (÷ 1 − margen) ===
     document.getElementById('btn-calcular').addEventListener('click', function () {

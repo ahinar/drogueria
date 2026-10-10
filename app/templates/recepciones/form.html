@@ -60,8 +60,8 @@
             <th style="width:26%">Producto</th>
             <th style="width:10%">Lote</th>
             <th style="width:10%">Vence</th>
-            <th style="width:9%">Cant. Rec.</th>
-            <th style="width:9%">Costo</th>
+            <th style="width:11%">Cantidad · viene en</th>
+            <th style="width:9%">Costo de cada una</th>
             <th style="width:10%">Temp. ingreso °C</th>
             <th style="width:9%">Empaque</th>
             <th style="width:10%">Resultado</th>
@@ -93,7 +93,12 @@
               </td>
               <td><input type="text" name="linea_lote" value="{{ lp.lote }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
               <td><input type="date" name="linea_vencimiento" value="{{ lp.vencimiento }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
-              <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="{{ lp.cantidad_recibida }}" required></td>
+              <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="{{ lp.cantidad_recibida }}" required>
+                {# "Viene en": Tableta, Sobre x 10, Caja x 100 (ver recepciones._leer_lineas_formulario) #}
+                <select name="linea_presentacion" class="linea-pres" aria-label="Viene en">
+                  {% for o in lp.presentaciones %}<option value="{{ o.id }}" data-factor="{{ o.factor }}" {% if o.id == lp.presentacion_id %}selected{% endif %}>{{ o.nombre }}</option>{% endfor %}
+                </select>
+                <small class="linea-equivale suave"></small></td>
               <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="{{ lp.costo_unitario }}" required></td>
               <td><input type="number" step="0.1" name="linea_temperatura_ingreso"
                          class="input-temp-ingreso"
@@ -128,7 +133,9 @@
             </td>
             <td><input type="text" name="linea_lote"></td>
             <td><input type="date" name="linea_vencimiento"></td>
-            <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="0" required></td>
+            <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="0" required>
+              <select name="linea_presentacion" class="linea-pres" aria-label="Viene en"><option value="0" data-factor="1">—</option></select>
+              <small class="linea-equivale suave"></small></td>
             <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="0" required></td>
             <td><input type="number" step="0.1" name="linea_temperatura_ingreso"
                        class="input-temp-ingreso" style="display:none"></td>
@@ -158,7 +165,7 @@
           <strong id="total-lineas">0</strong>
         </div>
         <div class="total-linea">
-          <span>Unidades recibidas:</span>
+          <span>Unidades de inventario recibidas:</span>
           <strong id="total-unidades">0</strong>
         </div>
         <div class="total-linea total-grande">
@@ -241,7 +248,7 @@
         <label>Precio de venta
           <input type="number" step="0.01" id="np-precio" value="0">
         </label>
-        <label>Unidad de venta *
+        <label>Unidad de inventario (la más pequeña: tableta, frasco…) *
           <select id="np-unidad">
             {% for u in unidades %}
               <option value="{{ u['id'] }}" {% if u['nombre'] == 'Unidad' %}selected{% endif %}>
@@ -279,16 +286,6 @@
     <div class="modal-footer">
       <button type="button" id="np-cancelar" class="boton secundario">Cancelar</button>
       <button type="button" id="np-guardar" class="boton">Guardar</button>
-    </div>
-  </div>
-</div> 
-   </fieldset>
-
-    <p id="np-error" class="aviso error" style="display:none"></p>
-
-    <div class="modal-acciones">
-      <button type="button" id="np-cancelar" class="boton secundario">Cancelar</button>
-      <button type="button" id="np-guardar" class="boton">Crear y agregar</button>
     </div>
   </div>
 </div>
@@ -353,7 +350,43 @@
     }
   }
 
-  function seleccionarProducto(wrap, p) {
+  // ---- "VIENE EN": en qué presentación llegó (Tableta, Sobre x 10, Caja x 100) ----
+  // La cantidad y el costo se escriben como en la factura (3 cajas a $25.000);
+  // el servidor los pasa a unidades de inventario (300 tabletas a $250).
+  function llenarPresentaciones(tr, p, presentacionId) {
+    const sel = tr.querySelector('.linea-pres');
+    if (!sel) return;
+    const lista = (p.presentaciones && p.presentaciones.length)
+      ? p.presentaciones : [{ id: 0, nombre: p.unidad || 'Unidad', factor: 1 }];
+    sel.innerHTML = lista.map(function (o) {
+      return '<option value="' + o.id + '" data-factor="' + o.factor + '">' + escaparHTML(o.nombre) + '</option>';
+    }).join('');
+    sel.value = String(presentacionId || 0);
+    if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+    sel.dataset.base = lista[0].nombre;          // nombre de la unidad de inventario
+    equivalenciaLinea(tr);
+  }
+  // Debajo de la cantidad: "= 300 Tableta · $250 c/u"
+  function equivalenciaLinea(tr) {
+    const sel = tr.querySelector('.linea-pres');
+    const nota = tr.querySelector('.linea-equivale');
+    if (!sel || !nota) return;
+    const opt = sel.options[sel.selectedIndex];
+    const factor = opt ? parseFloat(opt.dataset.factor) || 1 : 1;
+    const cant = parseFloat(tr.querySelector('input[name="linea_cantidad_recibida"]').value) || 0;
+    const costo = parseFloat(tr.querySelector('input[name="linea_costo"]').value) || 0;
+    nota.textContent = factor > 1 && cant > 0
+      ? '= ' + (+(cant * factor).toFixed(2)) + ' ' + (sel.dataset.base || 'unidades') +
+        (costo > 0 ? ' · $' + Math.round(costo / factor).toLocaleString('es-CO') + ' c/u' : '')
+      : '';
+  }
+  function factorLinea(tr) {
+    const sel = tr.querySelector('.linea-pres');
+    const opt = sel && sel.options[sel.selectedIndex];
+    return opt ? parseFloat(opt.dataset.factor) || 1 : 1;
+  }
+
+  function seleccionarProducto(wrap, p, presentacionId) {
     const input = wrap.querySelector('.buscar-producto');
     const hidden = wrap.querySelector('.linea-producto-id');
     input.value = p.codigo + ' · ' + p.nombre + (p.concentracion ? ' ' + p.concentracion : '')
@@ -367,7 +400,7 @@
     actualizarHint(wrap);
     ocultarPanel();
     const tr = wrap.closest('tr');
-    if (tr) ajustarRequeridos(tr);
+    if (tr) { ajustarRequeridos(tr); llenarPresentaciones(tr, p, presentacionId); }
   }
 
   function ocultarPanel() {
@@ -409,7 +442,9 @@
              + ' data-rs-vence="' + escaparHTML(p.registro_vence) + '"'
              + ' data-vence="' + (p.maneja_vencimiento ? '1' : '0') + '"'
              + ' data-frio="' + (p.cadena_frio ? '1' : '0') + '"'
-             + ' data-control="' + (p.control_especial ? '1' : '0') + '">'
+             + ' data-control="' + (p.control_especial ? '1' : '0') + '"'
+             // presentaciones codificadas (así un nombre con comillas no rompe el HTML)
+             + ' data-pres="' + encodeURIComponent(JSON.stringify(p.presentaciones || [])) + '">'
              + '<div class="resultado-codigo">' + escaparHTML(p.codigo) + '</div>'
              + '<div class="resultado-info">'
              +   '<div class="resultado-nombre">' + escaparHTML(nombreCompleto + lab) + '</div>'
@@ -440,7 +475,8 @@
       const json = await resp.json();
       if (json.ok && json.producto) {
         const wrap = input.closest('.buscar-producto-wrap');
-        seleccionarProducto(wrap, json.producto);
+        // Si escanearon el código de la CAJA, la línea queda "viene en Caja"
+        seleccionarProducto(wrap, json.producto, json.presentacion_id);
         const tr = wrap.closest('tr');
         tr.querySelector('input[name="linea_cantidad_recibida"]').focus();
       } else {
@@ -514,6 +550,7 @@
       maneja_vencimiento: item.dataset.vence === '1' ? 1 : 0,
       cadena_frio: item.dataset.frio === '1' ? 1 : 0,
       control_especial: item.dataset.control === '1' ? 1 : 0,
+      presentaciones: JSON.parse(decodeURIComponent(item.dataset.pres || '%5B%5D')),
     };
     seleccionarProducto(wrap, p);
     const tr = wrap.closest('tr');
@@ -538,6 +575,11 @@
       i.required = false;
     });
     nueva.querySelectorAll('select').forEach(function (s) { s.selectedIndex = 0; });
+    // "Viene en" vuelve a quedar vacío hasta escoger el producto
+    const selPres = nueva.querySelector('.linea-pres');
+    if (selPres) selPres.innerHTML = '<option value="0" data-factor="1">—</option>';
+    const eq = nueva.querySelector('.linea-equivale');
+    if (eq) eq.textContent = '';
     const hint = nueva.querySelector('.hint-rs');
     if (hint) { hint.textContent = 'RS: —'; hint.classList.remove('sin-rs'); }
     const temp = nueva.querySelector('.input-temp-ingreso');
@@ -698,7 +740,7 @@
       npError.style.display = 'block';
     } finally {
       npGuardar.disabled = false;
-      npGuardar.textContent = 'Crear y agregar';
+      npGuardar.textContent = 'Guardar';
     }
   });
 
@@ -712,8 +754,8 @@
       if (!hidden || !hidden.value) return;
       const cant = parseFloat(tr.querySelector('input[name="linea_cantidad_recibida"]').value) || 0;
       const costo = parseFloat(tr.querySelector('input[name="linea_costo"]').value) || 0;
-      unidades += cant;
-      valor += cant * costo;
+      unidades += cant * factorLinea(tr);     // en unidades de inventario (3 cajas x 100 = 300)
+      valor += cant * costo;                  // el costo es por presentación (por caja)
       lineas += 1;
     });
     document.getElementById('total-lineas').textContent = lineas;
@@ -727,7 +769,22 @@
   body.addEventListener('input', function (e) {
     if (e.target.name === 'linea_cantidad_recibida' || e.target.name === 'linea_costo') {
       recalcularTotales();
+      equivalenciaLinea(e.target.closest('tr'));
     }
+  });
+
+  // Al cambiar "Viene en" (Tableta / Caja x 100): recalcular totales y la equivalencia
+  body.addEventListener('change', function (e) {
+    if (e.target.classList.contains('linea-pres')) {
+      recalcularTotales();
+      equivalenciaLinea(e.target.closest('tr'));
+    }
+  });
+  // Filas que vienen ya llenas (cuando el servidor devolvió un error)
+  body.querySelectorAll('tr.linea').forEach(function (tr) {
+    const sel = tr.querySelector('.linea-pres');
+    if (sel && sel.options.length) sel.dataset.base = sel.options[0].textContent;
+    equivalenciaLinea(tr);
   });
 
   // Recalcular al agregar/quitar líneas

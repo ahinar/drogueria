@@ -2,7 +2,7 @@
 
 IDEA PRINCIPAL (para aprender):
     El inventario de un producto SIEMPRE se cuenta en su "unidad principal"
-    (la que se elige en "Se vende por" al crear el producto). Esa unidad
+    (campo "Unidad de inventario" de la ficha; columna unidad_venta_id). Esa unidad
     principal usa el precio normal del producto (productos.precio_venta).
 
     Además, el producto puede tener OTRAS presentaciones, guardadas en la
@@ -25,6 +25,7 @@ def _principal(fila):
     """Arma la presentación principal a partir de una fila de productos."""
     return {
         "id": PRINCIPAL,
+        "unidad_id": fila["unidad_venta_id"],
         "nombre": fila["unidad_nombre"] or "Unidad",
         "factor": 1,
         "precio": float(fila["precio_venta"] or 0),
@@ -46,7 +47,7 @@ def presentaciones_de(producto_ids):
 
     # 1. La unidad principal de cada producto (siempre existe)
     for f in db.execute(
-            "SELECT p.id, p.precio_venta, p.precio_maximo, p.codigo_barras, "
+            "SELECT p.id, p.precio_venta, p.precio_maximo, p.codigo_barras, p.unidad_venta_id, "
             "       u.nombre AS unidad_nombre "
             "FROM productos p LEFT JOIN unidades_medida u ON u.id = p.unidad_venta_id "
             f"WHERE p.id IN ({marcas})", list(producto_ids)):
@@ -60,6 +61,7 @@ def presentaciones_de(producto_ids):
             list(producto_ids)):
         resultado.setdefault(f["producto_id"], []).append({
             "id": f["id"],
+            "unidad_id": f["unidad_id"],
             "nombre": f["nombre"],
             "factor": f["factor"],
             "precio": float(f["precio_venta"] or 0),
@@ -198,3 +200,28 @@ def guardar(db, producto_id, filas, ahora_txt):
     nombres = {u["id"]: u["nombre"] for u in db.execute("SELECT id, nombre FROM unidades_medida")}
     return " presentaciones=" + ", ".join(
         f"{nombres.get(f['unidad_id'], '?')} x{f['factor']:g} {pesos(f['precio'])}" for f in filas)
+
+
+def tiene_historia(db, producto_id):
+    """True si el producto ya tiene lotes, movimientos o ventas.
+
+    En ese caso su UNIDAD DE INVENTARIO no se puede cambiar desde la ficha:
+    los números guardados (308 tabletas...) están en esa unidad, y cambiarle
+    el nombre sin convertir haría que 308 tabletas se lean como 308 sobres.
+    Para cambiarla está el asistente "Cambiar unidad de inventario"
+    (app/unidad_inventario.py), que convierte todo.
+    """
+    if not producto_id:
+        return False
+    for tabla in ("lotes", "movimientos_inventario", "venta_lineas"):
+        if db.execute(f"SELECT 1 FROM {tabla} WHERE producto_id = ? LIMIT 1", (producto_id,)).fetchone():
+            return True
+    return False
+
+
+def id_por_defecto(opciones, venta_defecto_unidad_id):
+    """Cuál de las presentaciones vende el POS al tocar la tarjeta (su id; 0 = unidad de inventario)."""
+    for o in opciones:
+        if venta_defecto_unidad_id and o["unidad_id"] == venta_defecto_unidad_id:
+            return o["id"]
+    return PRINCIPAL

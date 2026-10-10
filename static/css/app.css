@@ -2698,3 +2698,9 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 .credito-sin-cupo { color: #b3261e; font-weight: 600; }
 /* "hidden" debe ganarle a los display:flex/block de arriba (lista, tarjeta y buscador) */
 #pago-credito[hidden], #pago-credito [hidden] { display: none !important; }
+
+/* Opciones con radio + explicación larga (asistente de unidad de inventario) */
+.opcion-radio { display: flex !important; gap: .6rem; align-items: flex-start; padding: .7rem .8rem; margin-bottom: .5rem;
+  border: 1px solid var(--borde, #d8e0e6); border-radius: .5rem; font-weight: 400 !important; cursor: pointer; }
+.opcion-radio input { width: auto !important; margin-top: .2rem; }
+.opcion-radio:has(input:checked) { border-color: var(--acento); background: var(--acento-suave, #e8f1fa); }

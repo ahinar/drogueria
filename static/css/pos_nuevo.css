@@ -395,3 +395,6 @@
 .pos-venta-nueva { flex: none; width: 36px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px dashed var(--acento) !important;
   background: #fff !important; color: var(--acento) !important; font-size: 1.2rem; font-weight: 700; line-height: 1; padding: 0; }
 .pos-venta-nueva:hover { background: var(--acento-suave) !important; }
+/* "📦 Otras: Tableta · Caja x 100" se puede tocar para escoger otra presentación */
+.pos-card-pres[data-elegir] { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 2px; }
+.pos-card-precio small { font-size: .7rem; font-weight: 600; color: var(--texto-suave, #5b6b79); }
