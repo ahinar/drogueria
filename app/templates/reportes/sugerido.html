@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block titulo %}Sugerido de compra{% endblock %}
+{% block contenido %}
+{#
+  R6 · SUGERIDO DE COMPRA
+  d = lo que calcula app/sugerido.py. Las cantidades del pedido se pueden
+  cambiar aquí mismo antes de enviar o imprimir (static/js/sugerido.js).
+#}
+{% macro pesos(n) %}${{ '{:,.0f}'.format(n).replace(',', '.') }}{% endmacro %}
+{% macro cant(n) %}{{ ('%g' % (n|round(1))).replace('.', ',') }}{% endmacro %}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}nunca{% endif %}{% endmacro %}
+
+<div class="sug-cabecera no-imprimir">
+  <div>
+    <h1>🛒 Sugerido de compra</h1>
+    <p class="suave">Qué pedir y cuánto, según lo que se vendió en los últimos {{ d.dias_historial }} días y el stock mínimo.</p>
+  </div>
+  <form method="get" class="sug-filtros">
+    <label>Pedir para
+      <select name="cobertura" onchange="this.form.submit()">
+        {% for n in (7, 15, 30, 45) %}<option value="{{ n }}" {% if d.cobertura == n %}selected{% endif %}>{{ n }} días</option>{% endfor %}
+      </select>
+    </label>
+    <label>Sin rotación
+      <select name="rotacion" onchange="this.form.submit()">
+        {% for n in (60, 90) %}<option value="{{ n }}" {% if d.dias_sin_rotacion == n %}selected{% endif %}>{{ n }} días</option>{% endfor %}
+      </select>
+    </label>
+  </form>
+</div>
+
+{% if not d.hay_ventas %}
+<p class="sug-aviso no-imprimir">ℹ️ Todavía no hay ventas registradas: por ahora el sugerido se guía solo por el
+  <strong>stock mínimo</strong> de cada producto. Cuando empieces a vender, se calcula con lo que realmente sale.</p>
+{% endif %}
+
+<!-- ===== Pestañas: una por lista ===== -->
+<nav class="sug-pestanas no-imprimir" role="tablist">
+  <button type="button" class="activa" data-pestana="pedido">📦 Pedido <span>{{ d.n_items }}</span></button>
+  <button type="button" data-pestana="agota">⏱️ Se agota en &lt; {{ d.dias_se_agota }} días <span>{{ d.se_agota|length }}</span></button>
+  <button type="button" data-pestana="minimo">📉 Bajo stock mínimo <span>{{ d.bajo_minimo|length }}</span></button>
+  <button type="button" data-pestana="rotacion">🐢 Sin rotación <span>{{ d.sin_rotacion|length }}</span></button>
+</nav>
+
+<!-- ===== 1. PEDIDO POR PROVEEDOR ===== -->
+<section class="sug-panel activo" data-panel="pedido">
+  {% if not d.pedido %}
+    <p class="alertas-ok">✅ No hay nada que pedir: el stock alcanza para {{ d.cobertura }} días y está por encima del mínimo.</p>
+  {% else %}
+    <p class="suave no-imprimir">Total estimado: <strong>{{ pesos(d.total_pedido) }}</strong> en {{ d.n_items }} producto(s).
+      Puedes cambiar las cantidades antes de enviar el pedido; pon 0 para quitar un producto.</p>
+    {% for grupo in d.pedido %}
+    <!-- Cada proveedor es una tarjeta que se puede imprimir o enviar sola -->
+    <article class="sug-proveedor" data-proveedor="{{ grupo.proveedor }}" data-whatsapp="{{ grupo.whatsapp }}"
+             data-negocio="{{ negocio }}">
+      <header>
+        <div>
+          <h2>{{ grupo.proveedor }}</h2>
+          <p class="suave">{% if grupo.contacto %}{{ grupo.contacto }} · {% endif %}{{ grupo.telefono or 'sin teléfono' }}</p>
+        </div>
+        <div class="sug-acciones no-imprimir">
+          <button type="button" class="boton sug-whatsapp">💬 WhatsApp</button>
+          <button type="button" class="boton secundario sug-imprimir">🖨️ Imprimir</button>
+        </div>
+      </header>
+      <div class="sug-tabla-caja">
+      <table class="sug-tabla">
+        <thead><tr>
+          <th>Producto</th><th class="num">Stock</th><th class="num">Vende/día</th>
+          <th class="num">Alcanza</th><th class="num">Pedir</th><th class="num">Costo</th><th class="num">Subtotal</th>
+        </tr></thead>
+        <tbody>
+          {% for i in grupo['items'] %}
+          <tr data-nombre="{{ i.nombre }}" data-unidad="{{ i.unidad }}" data-costo="{{ i.costo }}">
+            <td>{{ i.nombre }}
+              <small>{{ 'según ventas' if i.motivo == 'ventas' else 'según stock mínimo (' ~ cant(i.minimo) ~ ')' }}{% if i.en_presentacion %} · {{ i.en_presentacion }}{% endif %}</small>
+              <small class="sug-movil">hay {{ cant(i.stock) }}{% if i.dias_alcanza is not none %} · alcanza {{ cant(i.dias_alcanza) }} d{% endif %}</small></td>
+            <td class="num">{{ cant(i.stock) }}</td>
+            <td class="num">{{ cant(i.diaria) if i.diaria else '—' }}</td>
+            <td class="num">{% if i.dias_alcanza is not none %}{{ cant(i.dias_alcanza) }} d{% else %}—{% endif %}</td>
+            <td class="num"><input type="number" min="0" step="1" class="sug-cantidad" value="{{ i.sugerido }}" aria-label="Cantidad a pedir"></td>
+            <td class="num">{{ pesos(i.costo) if i.costo else '—' }}</td>
+            <td class="num sug-subtotal">{{ pesos(i.subtotal) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot><tr><td colspan="6">Total estimado</td><td class="num sug-total">{{ pesos(grupo.total) }}</td></tr></tfoot>
+      </table>
+      </div>
+      {% if not grupo.whatsapp %}<p class="suave sug-nota no-imprimir">Sin celular válido del proveedor: WhatsApp se abrirá para que elijas el contacto.</p>{% endif %}
+    </article>
+    {% endfor %}
+  {% endif %}
+</section>
+
+<!-- ===== 2. SE AGOTA PRONTO ===== -->
+<section class="sug-panel" data-panel="agota">
+  <p class="suave">Al ritmo de venta de los últimos {{ d.dias_historial }} días, se acaban en menos de {{ d.dias_se_agota }} días.</p>
+  {% if d.se_agota %}
+  <div class="sug-tabla-caja"><table class="sug-tabla">
+    <thead><tr><th>Producto</th><th class="num">Stock</th><th class="num">Vende/día</th><th class="num">Alcanza</th><th class="num">Sugerido</th></tr></thead>
+    <tbody>{% for i in d.se_agota %}<tr><td>{{ i.nombre }}</td><td class="num">{{ cant(i.stock) }}</td><td class="num">{{ cant(i.diaria) }}</td>
+      <td class="num"><strong>{{ cant(i.dias_alcanza) }} d</strong></td><td class="num">{{ i.sugerido }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="alertas-ok">✅ Ningún producto se agota esta semana.</p>{% endif %}
+</section>
+
+<!-- ===== 3. BAJO STOCK MÍNIMO ===== -->
+<section class="sug-panel" data-panel="minimo">
+  <p class="suave">Productos con stock mínimo definido que están en o por debajo de él.</p>
+  {% if d.bajo_minimo %}
+  <div class="sug-tabla-caja"><table class="sug-tabla">
+    <thead><tr><th>Producto</th><th class="num">Stock</th><th class="num">Mínimo</th><th class="num">Sugerido</th></tr></thead>
+    <tbody>{% for i in d.bajo_minimo %}<tr><td>{{ i.nombre }}</td><td class="num">{{ cant(i.stock) }}</td>
+      <td class="num">{{ cant(i.minimo) }}</td><td class="num">{{ i.sugerido }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="alertas-ok">✅ Todo está por encima del stock mínimo.</p>{% endif %}
+</section>
+
+<!-- ===== 4. SIN ROTACIÓN ===== -->
+<section class="sug-panel" data-panel="rotacion">
+  <p class="suave">Tienen stock pero no se venden hace más de {{ d.dias_sin_rotacion }} días:
+    <strong>{{ pesos(d.valor_sin_rotacion) }}</strong> quietos en la estantería (al costo). No los vuelvas a pedir;
+    considera promoción o devolución al proveedor antes de que venzan.</p>
+  {% if d.sin_rotacion %}
+  <div class="sug-tabla-caja"><table class="sug-tabla">
+    <thead><tr><th>Producto</th><th class="num">Stock</th><th class="num">Valor al costo</th><th class="num">Última venta</th></tr></thead>
+    <tbody>{% for i in d.sin_rotacion %}<tr><td>{{ i.nombre }}</td><td class="num">{{ cant(i.stock) }}</td>
+      <td class="num">{{ pesos(i.valor_stock) }}</td><td class="num">{{ fecha(i.ultima_venta) }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="alertas-ok">✅ Todo lo que tienes se está vendiendo.</p>{% endif %}
+</section>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='js/sugerido.js') }}"></script>
+{% endblock %}

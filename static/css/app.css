@@ -2437,3 +2437,61 @@ body.sidebar-colapsado .sidebar-submenu { display: block; max-height: none; back
   .eres-tabla td:first-child { width: 55%; }
   .eres-cambio { font-size: .75rem; }
 }
+
+/* ===== Reportes · R6 Sugerido de compra ===== */
+.sug-cabecera { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .8rem; align-items: flex-end; }
+.sug-cabecera h1 { margin-bottom: .2rem; }
+.sug-filtros { display: flex; gap: .6rem; flex-wrap: wrap; }
+.sug-filtros label { margin: 0; }
+.sug-aviso { padding: .7rem 1rem; border-radius: 8px; background: #e6eef6; color: #0a4f8a; }
+.sug-pestanas { display: flex; flex-wrap: wrap; gap: .4rem; margin: 1rem 0 .8rem; }
+/* Color de letra explícito: el estilo global de los botones pone texto blanco */
+.sug-pestanas button { padding: .5rem .8rem; border: 1px solid #d5dee6; border-radius: 999px; background: #fff; color: #1f2a33; cursor: pointer; font-size: .9rem; }
+.sug-pestanas button span { margin-left: .3rem; padding: 0 .45rem; border-radius: 999px; background: #eef2f6; font-weight: 700; }
+.sug-pestanas button.activa { background: #0a4f8a; border-color: #0a4f8a; color: #fff; }
+.sug-pestanas button.activa span { background: rgba(255,255,255,.25); }
+.sug-panel { display: none; }
+.sug-panel.activo { display: block; }
+.sug-proveedor { background: #fff; border: 1px solid #e3e8ee; border-radius: 8px; padding: .8rem 1rem; margin-bottom: 1rem; }
+.sug-proveedor header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .6rem; align-items: flex-start; margin-bottom: .5rem; }
+.sug-proveedor h2 { margin: 0; font-size: 1.05rem; }
+.sug-proveedor header p { margin: .1rem 0 0; }
+.sug-acciones { display: flex; gap: .4rem; }
+.sug-tabla-caja { overflow-x: auto; }
+.sug-tabla { width: 100%; border-collapse: collapse; font-size: .92rem; background: #fff; }
+.sug-tabla th, .sug-tabla td { padding: .45rem .6rem; border-bottom: 1px solid #eef1f4; text-align: left; vertical-align: top; }
+.sug-tabla th { background: #f3f6f9; font-size: .82rem; color: #5c6b78; }
+.sug-tabla .num { text-align: right; white-space: nowrap; }
+.sug-tabla td small { display: block; color: #6b7884; font-size: .78rem; }
+.sug-tabla tfoot td { font-weight: 700; border-top: 2px solid #d5dee6; }
+.sug-cantidad { width: 5rem; text-align: right; padding: .3rem .4rem; }
+.sug-quitado td { color: #9aa6b1; text-decoration: line-through; }
+.sug-quitado td:nth-child(5) { text-decoration: none; }
+.sug-nota { margin: .4rem 0 0; font-size: .82rem; }
+@media (max-width: 600px) {
+  /* En el celular se ocultan "Vende/día" y "Costo" del pedido para que quepa */
+  .sug-proveedor .sug-tabla th:nth-child(3), .sug-proveedor .sug-tabla td:nth-child(3),
+  .sug-proveedor .sug-tabla th:nth-child(6), .sug-proveedor .sug-tabla td:nth-child(6) { display: none; }
+  .sug-cantidad { width: 3.8rem; }
+  /* También "Stock" y "Alcanza": esos datos se ven debajo del nombre (sug-movil) */
+  .sug-proveedor .sug-tabla th:nth-child(2), .sug-proveedor .sug-tabla td:nth-child(2),
+  .sug-proveedor .sug-tabla th:nth-child(4), .sug-proveedor .sug-tabla td:nth-child(4) { display: none; }
+  .sug-movil { display: block !important; }
+}
+.sug-movil { display: none; }
+
+/* Imprimir el pedido de UN proveedor: se oculta todo lo demás */
+@media print {
+  .sidebar, .topbar, .no-imprimir, #alarma-temp { display: none !important; }
+  .main { transition: none !important; }
+  body.imprimiendo-pedido .sug-proveedor:not(.a-imprimir) { display: none !important; }
+  .sug-panel { display: none !important; }
+  .sug-panel[data-panel="pedido"] { display: block !important; }
+  .sug-proveedor { border: 0; padding: 0; }
+  .sug-cantidad { border: 0; width: auto; }
+  .main { margin-left: 0 !important; }
+  body { display: block !important; background: #fff !important; }
+  .sug-quitado { display: none; }                 /* lo que quedó en 0 no se pide */
+  .sug-tabla td small { display: none; }
+  .contenido { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+}

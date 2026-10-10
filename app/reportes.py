@@ -580,3 +580,29 @@ def utilidades_pdf():
     buffer.seek(0)
     nombre = f"estado_resultados_{per['actual']['desde'].isoformat()}_{per['actual']['hasta'].isoformat()}.pdf"
     return send_file(buffer, mimetype="application/pdf", as_attachment=True, download_name=nombre)
+
+
+# ============================================================
+# R6 · SUGERIDO DE COMPRA
+# ============================================================
+# Los cálculos están en app/sugerido.py. La pantalla deja cambiar la
+# cantidad de cada producto antes de enviar el pedido por WhatsApp o imprimirlo
+# (eso lo hace static/js/sugerido.js, sin guardar nada en la base).
+
+def _entero(nombre, permitidos, defecto):
+    """Lee un número de la dirección (?cobertura=15) solo si está en la lista permitida."""
+    valor = request.args.get(nombre, type=int)
+    return valor if valor in permitidos else defecto
+
+
+@bp.route("/sugerido")
+@login_required
+@roles_required("administrador", "director_tecnico")
+def sugerido_ver():
+    from . import sugerido
+    datos = sugerido.calcular(cobertura=_entero("cobertura", (7, 15, 30, 45), 15),
+                              dias_sin_rotacion=_entero("rotacion", (60, 90), 60))
+    for grupo in datos["pedido"]:
+        grupo["whatsapp"] = sugerido.telefono_whatsapp(grupo["telefono"])
+    return render_template("reportes/sugerido.html", d=datos,
+                           negocio=obtener_config().get("nombre_comercial") or "la droguería")

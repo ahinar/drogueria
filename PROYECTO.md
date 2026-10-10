@@ -215,6 +215,7 @@
   - Informativo: retiros del dueño (retiros de caja menor marcados "Es plata que me llevo como dueño") y "Queda en el negocio".
   - Período: mes (selector de 12 meses) o rango libre. Mes en curso → se compara con los mismos días del mes anterior; mes cerrado → mes anterior completo; rango → rango anterior de igual duración. Cambio en % en verde/rojo según si es bueno o malo.
   - Aviso si se vendieron unidades de lotes con costo $0. PDF para el contador. En el celular se oculta la columna "Anterior".
+- **R6 Sugerido de compra ✅** (`app/sugerido.py`, ruta `/reportes/sugerido`, admin y DT): por producto, stock vendible, venta diaria (unidades vendidas en 30 días ÷ 30, cajas cuentan cantidad × factor), días que alcanza y sugerido = max(venta diaria × cobertura, stock mínimo) − stock. Sin ventas → solo stock mínimo. Proveedor y costo de la última recepción aprobada. Cobertura 7/15/30/45 días. Pestañas: **Pedido** por proveedor (cantidades editables, total estimado, botón **WhatsApp** con el pedido escrito —wa.me con el celular del proveedor si es un celular colombiano válido— e **Imprimir** solo ese proveedor), **Se agota en < 7 días**, **Bajo stock mínimo**, **Sin rotación** 60/90 días con el valor quieto al costo. El pedido no se guarda en la base.
 - **Pendientes:** ver el plan del módulo Reportes en la sección 7 (Fase R).
 
 ### 5.13 Bitácora
@@ -281,11 +282,11 @@ Se juntaron los reportes que repetían el mismo cálculo con otro período
 | # | Reporte | Qué muestra | Reemplaza a | Quién lo ve |
 |---|---|---|---|---|
 | R1 | **Ventas** | Ventas por día, semana, mes o año; comparación con el período anterior; desglose por forma de pago y por vendedor | Ventas de la semana, Ventas anuales, Ingresos por día, Ingresos por usuario | Admin y DT |
-| R2 | **Utilidades y estado de resultados** | Ventas − costo de lo vendido (costo real del lote) − gastos, por día o por período; estado de resultados simplificado | Ganancia de la semana, Utilidades (Fase 2.3 y 2.4) | Admin y DT |
+| R2 ✅ | **Utilidades y estado de resultados** | Ventas − costo de lo vendido (costo real del lote) − gastos, por día o por período; estado de resultados simplificado | Ganancia de la semana, Utilidades (Fase 2.3 y 2.4) | Admin y DT |
 | R3 | **Top productos** | Los más vendidos por unidades y por dinero (top 5, 10 o 20) | Top 5 productos | Admin y DT |
 | R4 | **Ventas vs compras** | Comparativo mensual: lo vendido vs lo comprado (recepciones aprobadas) | — | Admin y DT |
 | R5 | **Gastos** | Gastos del período por categoría | Gastos administrativos | Admin y DT |
-| R6 | **Sugerido de compra** | Qué pedir y cuánto, por proveedor: venta diaria promedio (30 días), días que alcanza el stock, cantidad para cubrir N días. Listas: **bajo stock mínimo**, **se agota en < 7 días**, **sin rotación** (60/90 días). Pedido para imprimir o enviar por WhatsApp | — | Admin y DT |
+| R6 ✅ | **Sugerido de compra** | Qué pedir y cuánto, por proveedor: venta diaria promedio (30 días), días que alcanza el stock, cantidad para cubrir N días. Listas: **bajo stock mínimo**, **se agota en < 7 días**, **sin rotación** (60/90 días). Pedido para imprimir o enviar por WhatsApp | — | Admin y DT |
 | R7 | **Recepciones** | Recepciones por proveedor y período, rechazos y motivos | — | Todos |
 | R8 | **Vencimientos** | Semáforo en PDF para inspección | — | Todos |
 | — | Temperaturas | Ya existe (gráfico, PDF y plantilla mensual) | — | Todos |
