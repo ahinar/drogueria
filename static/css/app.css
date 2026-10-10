@@ -2744,9 +2744,10 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 /* Lista de productos: casillas y barra de acciones sobre varios */
 .tabla-productos .col-marca { width: 2rem; text-align: center; }
 .tabla-productos .col-marca input { width: 1.05rem; height: 1.05rem; cursor: pointer; }
-.barra-masiva { position: fixed; bottom: 1rem; right: 1.5rem; max-width: calc(100vw - 3rem); z-index: 900; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
-  margin-top: .8rem; padding: .7rem 1rem; background: var(--superficie, #fff); border: 1px solid var(--borde, #cfdcd7);
+.barra-masiva { position: static; flex: 0 1 auto; margin: 0 auto; z-index: 900; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+  padding: .7rem 1rem; background: var(--superficie, #fff); border: 1px solid var(--borde, #cfdcd7);
   border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
 .barra-masiva[hidden] { display: none !important; }
 .barra-masiva select { max-width: 320px; }
-.tabla-productos { margin-bottom: 5rem; }   /* que la barra no tape las últimas filas */
+/* Al bajar por la lista, la barra flota arriba a la derecha */
+.barra-masiva.flotante { position: fixed; top: 4.6rem; right: 1.5rem; max-width: calc(100vw - 3rem); margin: 0; }

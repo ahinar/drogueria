@@ -3,6 +3,35 @@
 {% block contenido %}
 <div class="lista-header">
   <h1>Productos</h1>
+  {% if vista != 'grid' and g.user['rol'] in ('administrador', 'director_tecnico') %}
+  <!-- ===== BARRA DE ACCIONES (aparece al marcar productos) =====
+       Va arriba, en el espacio libre del encabezado (como Odoo). Si bajas por
+       la lista, se queda flotando arriba para que siempre se vea. -->
+  <form id="form-masivo" method="post" action="{{ url_for('productos.masivo') }}" class="barra-masiva" hidden>
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="volver" value="{{ request.full_path }}">
+    <strong id="masivo-cuantos">0 marcados</strong>
+    <select name="accion" id="masivo-accion" aria-label="Qué hacer">
+      <option value="">— ¿Qué hacer con ellos? —</option>
+      {% for clave, texto in acciones.items() %}<option value="{{ clave }}">{{ texto }}</option>{% endfor %}
+    </select>
+    {# Segundo paso, según la acción: categoría, laboratorio o IVA #}
+    <select name="valor" id="masivo-categoria" class="masivo-valor" data-para="categoria" hidden disabled>
+      {% for c in categorias %}<option value="{{ c['id'] }}">{{ c['nombre'] }}</option>{% endfor %}
+    </select>
+    <select name="valor" id="masivo-laboratorio" class="masivo-valor" data-para="laboratorio" hidden disabled>
+      {% for l in laboratorios %}<option value="{{ l['id'] }}">{{ l['nombre'] }}</option>{% endfor %}
+    </select>
+    <select name="valor" id="masivo-iva" class="masivo-valor" data-para="iva" hidden disabled>
+      <option value="excluido">Excluido</option>
+      <option value="exento">Exento</option>
+      <option value="gravado:19">Gravado 19 %</option>
+      <option value="gravado:5">Gravado 5 %</option>
+    </select>
+    <button type="submit" class="boton">Aplicar</button>
+    <button type="button" class="boton secundario" id="masivo-limpiar">Quitar marcas</button>
+  </form>
+  {% endif %}
   <div class="vista-toggle">
     <a class="vista-btn {% if vista == 'grid' %}activo{% endif %}"
        href="{{ url_for('productos.lista', q=q, filtro=filtro, vista='grid') }}"
@@ -142,31 +171,6 @@
   </table>
 
   {% if g.user['rol'] in ('administrador', 'director_tecnico') %}
-  <!-- ===== BARRA DE ACCIONES (aparece al marcar productos) ===== -->
-  <form id="form-masivo" method="post" action="{{ url_for('productos.masivo') }}" class="barra-masiva" hidden>
-    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <input type="hidden" name="volver" value="{{ request.full_path }}">
-    <strong id="masivo-cuantos">0 marcados</strong>
-    <select name="accion" id="masivo-accion" aria-label="Qué hacer">
-      <option value="">— ¿Qué hacer con ellos? —</option>
-      {% for clave, texto in acciones.items() %}<option value="{{ clave }}">{{ texto }}</option>{% endfor %}
-    </select>
-    {# Segundo paso, según la acción: categoría, laboratorio o IVA #}
-    <select name="valor" id="masivo-categoria" class="masivo-valor" data-para="categoria" hidden disabled>
-      {% for c in categorias %}<option value="{{ c['id'] }}">{{ c['nombre'] }}</option>{% endfor %}
-    </select>
-    <select name="valor" id="masivo-laboratorio" class="masivo-valor" data-para="laboratorio" hidden disabled>
-      {% for l in laboratorios %}<option value="{{ l['id'] }}">{{ l['nombre'] }}</option>{% endfor %}
-    </select>
-    <select name="valor" id="masivo-iva" class="masivo-valor" data-para="iva" hidden disabled>
-      <option value="excluido">Excluido</option>
-      <option value="exento">Exento</option>
-      <option value="gravado:19">Gravado 19 %</option>
-      <option value="gravado:5">Gravado 5 %</option>
-    </select>
-    <button type="submit" class="boton">Aplicar</button>
-    <button type="button" class="boton secundario" id="masivo-limpiar">Quitar marcas</button>
-  </form>
   <script>
     // Barra de acciones sobre varios productos (ver productos.masivo en app/productos.py)
     (function () {
@@ -193,6 +197,13 @@
           s.hidden = !usar; s.disabled = !usar;
         });
       });
+      // Si el encabezado ya no se ve (bajaste por la lista), la barra flota arriba
+      const encabezado = document.querySelector('.lista-header');
+      if (window.IntersectionObserver && encabezado) {
+        new IntersectionObserver((entradas) => {
+          barra.classList.toggle('flotante', !entradas[0].isIntersecting);
+        }).observe(encabezado);
+      }
       // Eliminar y desactivar piden confirmación
       barra.addEventListener('submit', async (e) => {
         if (!accion.value) { e.preventDefault(); window.avisar('Escoge qué hacer con los productos marcados.', 'error'); return; }
