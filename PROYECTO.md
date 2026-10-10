@@ -386,7 +386,7 @@ Notas:
 - [ ] Registrar los equipos reales y subir sus certificados de calibración.
 
 ### Corto plazo
-- [~] **Parte visual — que el programa se vea más profesional** (temas, letra, íconos, barra superior, Inicio, POS con carrito a la derecha, reportes en pestañas, toasts, fechas dd/mm/aaaa, ventanas propias en vez de prompt, tirilla 80 mm ✅; queda: unificar estilos de tablas y PDF con el mismo encabezado) (pedido por Fernando, 2026-10-10). Propuesta:
+- [~] **Parte visual — que el programa se vea más profesional** (temas, letra, íconos, barra superior, Inicio, POS con carrito y teclado a la izquierda, reportes en pestañas, toasts, fechas dd/mm/aaaa, ventanas propias en vez de prompt, tirilla 80 mm ✅; queda: unificar estilos de tablas y PDF con el mismo encabezado) (pedido por Fernando, 2026-10-10). Propuesta:
   1. **Guía de estilo única:** colores de la marca Fervifarma, tipografía Inter (archivo local), tamaños y espacios en variables CSS; una página interna que muestre todos los componentes.
   2. **Unificar componentes repetidos:** un solo estilo de botón, de tabla (hoy hay `.tabla`, `.rep-tabla`, `.sug-tabla`, `.eres-tabla`…), de tarjeta y de formulario.
   3. **Íconos de verdad en vez de emojis** (juego SVG local, por ejemplo Lucide): los emojis se ven distintos en cada Windows.
