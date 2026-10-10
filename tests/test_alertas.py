@@ -146,3 +146,15 @@ class TestAlertasPorRol(BaseAlertas):
     def test_jefe_va_a_editar_el_producto(self):
         self.sql("UPDATE productos SET precio_maximo = 900 WHERE id = 1")
         self.assertIn("/productos/1/editar", self.inicio())
+
+
+class TestResumenInicio(BaseAlertas):
+    def test_jefe_ve_resumen_y_auxiliar_no(self):
+        self.lote(1, "L1", FUTURO, 100)
+        self.abrir_caja()
+        self.cobrar([{"producto_id": 1, "cantidad": 3}])
+        html = self.inicio()
+        self.assertIn("Ventas del mes", html)
+        self.assertIn("Utilidad neta del mes", html)
+        self.assertIn("$3.000", html)
+        self.assertNotIn("Ventas del mes", self.inicio(self.auxiliar()))

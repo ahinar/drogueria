@@ -2549,3 +2549,7 @@ body.sidebar-colapsado .sidebar-submenu { display: block; max-height: none; back
 .equipo-inactivo td { opacity: .55; }
 .equipo-calibrar summary { cursor: pointer; padding: .2rem 0; }
 .equipo-calibrar form { margin-top: .8rem; }
+
+/* Botón "Excel" arriba a la derecha de cada reporte */
+.rep-herramientas { float: right; margin-left: .6rem; }
+@media (max-width: 600px) { .rep-herramientas { float: none; margin: 0 0 .6rem; } }

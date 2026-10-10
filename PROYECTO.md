@@ -238,7 +238,8 @@
 - **R7 Recepciones ✅** `/reportes/recepciones` (todos): por proveedor (recepciones, aprobadas, rechazadas, en cuarentena, productos rechazados y %, valor aprobado) y lista de productos rechazados con motivo.
 - **R8 Vencimientos ✅** `/reportes/vencimientos` (todos) + PDF con firma del DT; usa `inventario.agrupar_vencimientos()`, la misma agrupación de Inventario → Vencimientos.
 - Arreglado: `temperaturas.html` cargaba Chart.js dos veces.
-- **Pendiente de la Fase R:** números del "Resumen" en el Inicio (ventas de hoy/semana/mes, utilidad del mes); descarga en Excel.
+- **📥 Excel ✅** en todos los reportes (botón arriba a la derecha): `static/js/excel.js` lee las tablas que se ven y `/reportes/excel` arma un .xlsx con una hoja por tabla, convirtiendo "$1.234" y "45,0 %" en números (códigos de barras y códigos con 0 adelante quedan como texto).
+- **Resumen en el Inicio ✅** (solo admin y DT): ventas de la semana (desde el lunes), del mes y utilidad neta del mes con su margen; cada tarjeta lleva a su reporte.
 
 ### 5.13 Bitácora
 - Registro inmutable de todas las acciones.
@@ -292,7 +293,7 @@
 - **2.5** IVA con prorrateo ⏸ solo si el contador lo pide.
 - **2.6** Flujo de caja ⏸ lo cubren R1 Ventas (por día y forma de pago) + el cierre de caja.
 
-### Fase R: módulo Reportes ✅ (falta Resumen en Inicio y Excel)
+### Fase R: módulo Reportes ✅
 Idea (tomada de DATA FARMAC): una pantalla con la lista de reportes a un lado y el
 reporte elegido al otro, con **selector de período** (día, semana, mes, año o
 fechas), gráfico (Chart.js local), tabla y descarga en PDF/Excel.
@@ -360,8 +361,6 @@ Notas:
 - [ ] Registrar los equipos reales y subir sus certificados de calibración.
 
 ### Corto plazo
-- [ ] Resumen en el Inicio: ventas de hoy, semana y mes; utilidad del mes.
-- [ ] Descarga en Excel de los reportes.
 - [ ] Venta libre en el POS y registro de otros ingresos (entran como filtros de R1).
 - [ ] (Idea) Cotizaciones y deudas/fiados.
 - [ ] (⏸ solo si el contador lo pide) Reporte de IVA con prorrateo (Art. 490 ET).
@@ -460,6 +459,7 @@ Notas:
 - **Reportes (2026-10-09):** R6 Sugerido de compra (pedido por proveedor con WhatsApp e imprimir) y R1, R3, R4, R5, R7, R8 con menú común de reportes. **215 tests pasan**.
 - **Equipos y limpieza (2026-10-09):** módulo de equipos y calibraciones con certificado y alertas; todas las confirmaciones usan la ventana del programa (atributo `data-confirmar` en formularios y botones, manejado en base.html; en JS `await window.confirmar(...)`); plata en mensajes con punto de miles (`app/formato.py`, `pesos()`); Contabilidad sin tarjetas "próximamente" (llevan a Reportes). **229 tests pasan**.
 - **Devoluciones (2026-10-09):** de cliente (reingreso al mismo lote o baja, reembolso desde la caja abierta) y a proveedor (con o sin nota crédito, acta PDF); integradas en Utilidades, R1 y R4. **246 tests pasan**.
+- **Resumen y Excel (2026-10-09):** tarjetas de semana, mes y utilidad del mes en el Inicio; descarga en Excel de cualquier reporte. **249 tests pasan**.
 - Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → ~~utilidades/estado de resultados~~ ✅ → ~~reportes~~ ✅ → ~~equipos/calibraciones~~ ✅ → ~~devoluciones~~ ✅.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 

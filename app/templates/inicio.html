@@ -130,12 +130,44 @@
     <div class="kpi-icono">💰</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Ventas del día</span>
-      <strong class="kpi-valor">${{ '{:,.0f}'.format(ventas.total) }}</strong>
+      <strong class="kpi-valor">${{ '{:,.0f}'.format(ventas.total).replace(',', '.') }}</strong>
       <span class="kpi-detalle">{{ ventas.cantidad }} venta{{ '' if ventas.cantidad == 1 else 's' }} hoy</span>
     </div>
   </div>
 
 </div>
+
+{% if resumen %}
+<!-- ============ RESUMEN DEL NEGOCIO (solo administrador y DT) ============
+     Semana y mes en ventas, y la utilidad neta del mes (estado de resultados). -->
+{% macro plata(n) %}{% if n < -0.5 %}-{% endif %}${{ '{:,.0f}'.format(n|abs).replace(',', '.') }}{% endmacro %}
+<div class="tarjetas-kpi resumen-negocio">
+  <a class="kpi-card" href="{{ url_for('reportes.ventas_ver') }}" style="text-decoration:none">
+    <div class="kpi-icono">📅</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Ventas de la semana</span>
+      <strong class="kpi-valor">{{ plata(resumen.semana.total) }}</strong>
+      <span class="kpi-detalle">{{ resumen.semana.n }} venta(s) desde el lunes</span>
+    </div>
+  </a>
+  <a class="kpi-card" href="{{ url_for('reportes.ventas_ver') }}" style="text-decoration:none">
+    <div class="kpi-icono">🗓️</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Ventas del mes</span>
+      <strong class="kpi-valor">{{ plata(resumen.mes.total) }}</strong>
+      <span class="kpi-detalle">{{ resumen.mes.n }} venta(s)</span>
+    </div>
+  </a>
+  <a class="kpi-card {{ 'kpi-alerta' if resumen.utilidad_mes < 0 else 'kpi-ok' }}" href="{{ url_for('reportes.utilidades_ver') }}" style="text-decoration:none">
+    <div class="kpi-icono">📈</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Utilidad neta del mes</span>
+      <strong class="kpi-valor {{ 'kpi-valor-alerta' if resumen.utilidad_mes < 0 }}">{{ plata(resumen.utilidad_mes) }}</strong>
+      <span class="kpi-detalle">margen {{ '%.1f'|format(resumen.margen_mes) }} % · ver estado de resultados</span>
+    </div>
+  </a>
+</div>
+{% endif %}
 
 <!-- ============ DETALLE EN 2 COLUMNAS ============ -->
 <div class="dashboard-grid">

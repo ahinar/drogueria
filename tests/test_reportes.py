@@ -163,3 +163,33 @@ class TestMenuReportes(BaseReportes):
                     "/reportes/ventas-vs-compras", "/reportes/gastos", "/reportes/sugerido",
                     "/reportes/recepciones", "/reportes/vencimientos", "/reportes/temperaturas"):
             self.assertEqual(self.c.get(url).status_code, 200, url)
+
+
+class TestExcel(BaseReportes):
+    def test_convierte_numeros_y_arma_el_archivo(self):
+        import io
+        import json
+        from openpyxl import load_workbook
+        from app.reportes import _a_numero
+        self.assertEqual(_a_numero("$1.234.567"), 1234567)
+        self.assertEqual(_a_numero("-$5.000"), -5000)
+        self.assertEqual(_a_numero("45,5 %"), 45.5)
+        self.assertEqual(_a_numero("2,5"), 2.5)
+        self.assertEqual(_a_numero("12"), 12)
+        self.assertEqual(_a_numero("Vie 09/10"), "Vie 09/10")
+        self.assertEqual(_a_numero("7700000000011"), "7700000000011")   # código de barras: texto
+        self.assertEqual(_a_numero("0123"), "0123")
+        datos = {"titulo": "Ventas", "tablas": [
+            {"titulo": "Por forma de pago", "encabezados": ["Forma", "Total"], "filas": [["Efectivo", "$2.000"]]},
+            {"titulo": "Por forma de pago", "encabezados": ["A"], "filas": [["x"]]}]}
+        r = self.post(self.c, "/reportes/excel", {"datos": json.dumps(datos)})
+        self.assertEqual(r.status_code, 200)
+        libro = load_workbook(io.BytesIO(r.data))
+        self.assertEqual(libro.sheetnames, ["Por forma de pago", "Por forma de pago 2"])
+        self.assertEqual(libro.active["B2"].value, 2000)
+        self.assertEqual(self.post(self.c, "/reportes/excel", {"datos": "{}"}).status_code, 400)
+
+    def test_el_boton_esta_en_los_reportes(self):
+        self.assertIn('id="exportar-excel"', self.c.get("/reportes/gastos").get_data(as_text=True))
+        self.assertIn("excel.js", self.c.get("/reportes/sugerido").get_data(as_text=True))
+        self.assertIn("sugerido.js", self.c.get("/reportes/sugerido").get_data(as_text=True))

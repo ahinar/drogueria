@@ -769,3 +769,85 @@ def vencimientos_pdf():
     buffer.seek(0)
     return send_file(buffer, mimetype="application/pdf", as_attachment=True,
                      download_name=f"vencimientos_{datetime.now().strftime('%Y%m%d')}.pdf")
+
+
+# ============================================================
+# DESCARGA EN EXCEL (sirve para cualquier reporte)
+# ============================================================
+# El navegador (static/js/excel.js) lee las tablas que se ven en el reporte
+# y las manda aquí. Este código arma un archivo .xlsx con una hoja por tabla
+# y convierte los textos como "$1.234.567" o "45,0 %" en números de verdad,
+# para que en Excel se puedan sumar y ordenar.
+
+import re as _re
+
+_PESOS = _re.compile(r"^(-?)\$([\d.]+)$")
+_NUMERO = _re.compile(r"^-?\d{1,3}(\.\d{3})*(,\d+)?$|^-?\d+(,\d+)?$")
+
+
+def _a_numero(texto):
+    """'$1.234' -> 1234 ; '-$500' -> -500 ; '45,0 %' -> 45.0 ; '2,5' -> 2.5 ; otro texto -> igual."""
+    t = (texto or "").strip()
+    m = _PESOS.match(t)
+    if m:
+        return -int(m.group(2).replace(".", "")) if m.group(1) else int(m.group(2).replace(".", ""))
+    sin_pct = t[:-1].strip() if t.endswith("%") else t
+    # Códigos de barras y códigos con ceros a la izquierda se dejan como texto
+    if sin_pct.isdigit() and (len(sin_pct) >= 8 or (len(sin_pct) > 1 and sin_pct.startswith("0"))):
+        return t
+    if _NUMERO.match(sin_pct):
+        valor = float(sin_pct.replace(".", "").replace(",", "."))
+        return int(valor) if valor.is_integer() and "," not in sin_pct else valor
+    return t
+
+
+@bp.route("/excel", methods=["POST"])
+@login_required
+def excel():
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    import json as _json
+    try:
+        datos = _json.loads(request.form.get("datos") or "{}")
+    except ValueError:
+        datos = {}
+    tablas = datos.get("tablas") or []
+    if not tablas:
+        return {"ok": False, "error": "No hay tablas para exportar."}, 400
+
+    libro = Workbook()
+    libro.remove(libro.active)
+    usados = set()
+    for i, t in enumerate(tablas[:20], start=1):
+        # Nombre de hoja: máximo 31 letras y sin caracteres prohibidos por Excel
+        nombre = _re.sub(r"[\[\]:*?/\\]", "", str(t.get("titulo") or f"Tabla {i}"))[:28].strip() or f"Tabla {i}"
+        base, n = nombre, 2
+        while nombre in usados:
+            nombre, n = f"{base[:25]} {n}", n + 1
+        usados.add(nombre)
+        hoja = libro.create_sheet(nombre)
+        encabezados = [str(x) for x in (t.get("encabezados") or [])][:50]
+        if encabezados:
+            hoja.append(encabezados)
+            for celda in hoja[1]:
+                celda.font = Font(bold=True)
+                celda.fill = PatternFill("solid", fgColor="DBE6EF")
+        for fila in (t.get("filas") or [])[:5000]:
+            hoja.append([_a_numero(str(x)) for x in fila[:50]])
+        # Columnas un poco más anchas según el contenido
+        for columna in hoja.columns:
+            largo = max((len(str(c.value or "")) for c in columna), default=8)
+            hoja.column_dimensions[columna[0].column_letter].width = min(max(10, largo + 2), 60)
+        for celda in hoja.iter_rows(min_row=2):
+            for c in celda:
+                if isinstance(c.value, (int, float)) and abs(c.value) >= 1000:
+                    c.number_format = "#,##0"
+
+    buffer = BytesIO()
+    libro.save(buffer)
+    buffer.seek(0)
+    titulo = _re.sub(r"[^\w\- ]", "", str(datos.get("titulo") or "reporte")).strip().replace(" ", "_") or "reporte"
+    return send_file(buffer, as_attachment=True,
+                     download_name=f"{titulo}_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

@@ -117,6 +117,28 @@ def _ventas_hoy(db):
         return {"cantidad": 0, "total": 0, "disponible": False}
 
 
+def _resumen_negocio(db):
+    """Números del negocio para el Inicio (solo los ve el administrador / DT).
+
+    Ventas (con IVA, sin anuladas) de la semana (desde el lunes) y del mes,
+    y la utilidad neta del mes según el estado de resultados (app/utilidades.py).
+    """
+    from . import utilidades
+    hoy = date.today()
+    lunes = hoy - timedelta(days=hoy.weekday())
+    inicio_mes = hoy.replace(day=1)
+
+    def vendido(desde):
+        fila = db.execute(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(total), 0) AS total FROM ventas "
+            "WHERE estado = 'completada' AND fecha >= ?", (desde.isoformat(),)).fetchone()
+        return {"n": fila["n"], "total": fila["total"]}
+
+    mes = utilidades.calcular(inicio_mes, hoy)
+    return {"semana": vendido(lunes), "mes": vendido(inicio_mes),
+            "utilidad_mes": mes["utilidad_neta"], "margen_mes": mes["margen_neto"]}
+
+
 @bp.route("/")
 @login_required
 def inicio():
@@ -127,6 +149,8 @@ def inicio():
     ventas = _ventas_hoy(db)
     # Panel "¿Qué hay que atender hoy?" (toda la lógica está en app/alertas.py)
     alertas = calcular_alertas(g.user["rol"])
+    # Resumen de plata: solo para administrador y director técnico
+    resumen = _resumen_negocio(db) if g.user["rol"] in ("administrador", "director_tecnico") else None
 
     # Últimos productos creados
     ultimos_productos = db.execute(
@@ -148,6 +172,7 @@ def inicio():
         "productos": productos,
         "ventas": ventas,
         "alertas": alertas,
+        "resumen": resumen,
         "alertas_rojas": sum(1 for a in alertas if a["nivel"] == "rojo"),
         "ultimos_productos": ultimos_productos,
         "ultimas_temperaturas": ultimas_temperaturas,
