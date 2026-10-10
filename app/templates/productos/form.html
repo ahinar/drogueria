@@ -148,6 +148,21 @@
        El servidor traduce estos campos en app/productos.py -> _traducir_venta(). #}
     <fieldset>
       <legend>Venta y precios</legend>
+      {# Producto viejo que se cuenta en "Sello x 10" en vez de unidades: así no
+         se puede vender suelto. Con existencias hay que CONVERTIR (30 sellos =
+         300 unidades); el botón usa el asistente "Cambiar unidad de inventario". #}
+      {% if base_grande and unidad_bloqueada %}
+      <div class="aviso aviso-base-grande">
+        <p style="margin:0 0 .4rem">Este producto se cuenta en <strong>{{ base_grande.nombre }}</strong>, no en unidades.
+          Por eso no puede venderse suelto. Pásalo a unidades: lo que hay se multiplica por {{ '%g' % base_grande.cantidad }}
+          (ej. 30 {{ base_grande.nombre }} = {{ '%g' % (30 * base_grande.cantidad) }} unidades) y se sigue vendiendo por {{ base_grande.nombre }}
+          al mismo precio.</p>
+        <button type="submit" form="form-pasar-unidades" class="boton">Pasar el inventario a unidades</button>
+      </div>
+      {% elif base_grande %}
+      <p class="aviso" style="margin:.2rem 0 .6rem">Este producto se contaba en <strong>{{ base_grande.nombre }}</strong>.
+        Al guardar se contará en <strong>Unidad</strong>, para poder venderlo suelto.</p>
+      {% endif %}
       {# Como en Odoo (captura de Fernando): "Precio de venta $4.000 por SELLO X 10".
          El costo va por la MISMA unidad de venta (lo que cuesta el sello, no la pasta). #}
       <div class="precio-por">
@@ -190,6 +205,23 @@
       </div>
       <small class="suave">El POS vende por esta unidad al tocar el producto. ¿No está "SELLO X 7"? Créala con el <strong>+</strong>.</small>
 
+      {# ---- 2. ¿Se vende suelto? Solo tiene sentido si la unidad de venta trae más de 1 ---- #}
+      <div id="bloque-suelto" class="bloque-suelto">
+        <input type="hidden" name="vende_suelto_en_form" value="1">
+        <label class="check-linea" style="margin:.3rem 0 .2rem">
+          <input type="checkbox" name="vende_suelto" id="vende_suelto" value="1"
+                 {% if not producto or producto['vende_suelto'] %}checked{% endif %}>
+          ¿Se vende suelto? (por <span class="nombre-unidad-min">unidad</span>)
+        </label>
+        <small class="suave" id="suelto-no-aplica">Escoge primero una unidad de venta que traiga varias (ej. SELLO X 10).
+          Si se vende por Unidad o Frasco, no hace falta.</small>
+        <label id="campo-precio-suelto" style="max-width:320px">Precio de 1 <span class="nombre-unidad-min">unidad</span> suelta
+          <input type="text" inputmode="decimal" name="precio_venta" id="precio_venta"
+            value="{{ '%g' % producto['precio_venta'] if producto and venta['factor'] > 1 else '' }}">
+          <small class="suave" id="ayuda-precio-suelto"></small>
+        </label>
+      </div>
+
       <div class="grid-3-compact" style="margin-top:.6rem">
         <label>Margen deseado (%)
           <input type="number" step="0.1" id="margen" value="30">
@@ -216,20 +248,6 @@
       {# El código de barras propio del sello (si tenía) viaja escondido para no perderlo #}
       <input type="hidden" name="venta_barras" value="{{ venta['barras'] }}">
 
-      {# ---- 2. ¿Se vende suelto? Solo tiene sentido si la unidad de venta trae más de 1 ---- #}
-      <div id="bloque-suelto" class="bloque-suelto">
-        <input type="hidden" name="vende_suelto_en_form" value="1">
-        <label class="check-linea" style="margin:.3rem 0 .2rem">
-          <input type="checkbox" name="vende_suelto" id="vende_suelto" value="1"
-                 {% if not producto or producto['vende_suelto'] %}checked{% endif %}>
-          ¿Se vende suelto? (por <span class="nombre-unidad-min">unidad</span>)
-        </label>
-        <label id="campo-precio-suelto" style="max-width:320px">Precio de 1 <span class="nombre-unidad-min">unidad</span> suelta
-          <input type="text" inputmode="decimal" name="precio_venta" id="precio_venta"
-            value="{{ '%g' % producto['precio_venta'] if producto and venta['factor'] > 1 else '' }}">
-          <small class="suave" id="ayuda-precio-suelto"></small>
-        </label>
-      </div>
 
       <p class="aviso" id="resumen-venta" style="margin:.6rem 0" hidden></p>
 
@@ -428,6 +446,26 @@
   </div>
 </form>
 
+{# Formulario aparte (no puede ir dentro del otro): pasar el inventario a unidades.
+   Va al asistente productos.cambiar_unidad en modo "convertir". #}
+{% if producto and base_grande and unidad_bloqueada %}
+<form id="form-pasar-unidades" method="post" action="{{ url_for('productos.cambiar_unidad', prod_id=producto['id']) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="modo" value="convertir">
+  <input type="hidden" name="unidad_id" value="{{ unidad_basica_id }}">
+  <input type="hidden" name="factor" value="{{ '%g' % base_grande.cantidad }}">
+  <input type="hidden" name="precio" value="{{ (producto['precio_venta'] / base_grande.cantidad)|round(2) }}">
+</form>
+<script>
+  // Preguntar antes de convertir (cambia las cantidades guardadas)
+  document.getElementById('form-pasar-unidades').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const ok = await window.confirmar('¿Pasar el inventario de este producto a unidades? Las cantidades se multiplican por {{ '%g' % base_grande.cantidad }}.');
+    if (ok) this.submit();
+  });
+</script>
+{% endif %}
+
 <!-- ============ MODAL CREAR CATÁLOGO/UNIDAD ============ -->
 <div id="modal-crear" class="modal-oculto">
   <div class="modal-caja">
@@ -590,9 +628,13 @@
       inpTrae.required = conPresentacion;
 
       // ¿Se vende suelto? solo si la unidad de venta trae más de 1
-      document.getElementById('bloque-suelto').hidden = !(conPresentacion && factor > 1);
+      // "¿Se vende suelto?" siempre se ve; solo se puede marcar si la unidad
+      // de venta trae varias (SELLO X 10). Con Unidad o Frasco queda apagada.
+      const aplica = conPresentacion && factor > 1;
+      chkSuelto.disabled = !aplica;
+      document.getElementById('suelto-no-aplica').hidden = aplica;
       const suelto = chkSuelto.checked;
-      document.getElementById('campo-precio-suelto').hidden = !suelto;
+      document.getElementById('campo-precio-suelto').hidden = !(aplica && suelto);
       if (factor > 1 && precio > 0 && !sueltoManual) pv.value = Math.round(precio / factor);
       document.getElementById('ayuda-precio-suelto').textContent = factor > 1 && precio > 0
         ? 'Calculado: ' + pesos(precio) + ' ÷ ' + factor + ' = ' + pesos(precio / factor) + '. Puedes cambiarlo.' : '';
@@ -678,6 +720,15 @@
       presFilas.appendChild(presMolde.content.cloneNode(true));
       presFilas.lastElementChild.querySelector('select').focus();
     });
+
+    // Producto sin movimientos que se contaba en "Sello x 10": pasa a contarse
+    // en "Unidad" (la mínima), así se puede vender suelto. Con movimientos no se
+    // toca aquí: para eso está el botón "Pasar el inventario a unidades".
+    const idBasica = '{{ unidad_basica_id or '' }}';
+    if (!unidadSel.disabled && idBasica && cantidadDe(unidadSel) > 1) {
+      unidadSel.value = idBasica;
+      selVenta.dispatchEvent(new Event('change'));     // recalcula "cuántas trae"
+    }
 
     actualizar();
 

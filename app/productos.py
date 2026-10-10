@@ -89,11 +89,29 @@ def _venta_de(producto):
             "barras": fila["codigo_barras"] or ""}
 
 
+def _base_grande(producto):
+    """Si el inventario de este producto se cuenta en una unidad que trae
+    varias (ej. "Sello x 10"), devuelve {nombre, cantidad}; si no, None.
+    Pasa con productos creados antes de que la unidad mínima fuera "Unidad".
+    """
+    if not producto or not producto["unidad_venta_id"]:
+        return None
+    u = get_db().execute("SELECT nombre, cantidad FROM unidades_medida WHERE id = ?",
+                         (producto["unidad_venta_id"],)).fetchone()
+    if u is None:
+        return None
+    cantidad = pres.cantidad_efectiva(u["nombre"], u["cantidad"])
+    return {"nombre": u["nombre"], "cantidad": cantidad} if cantidad > 1 else None
+
+
 def _contexto_formulario(producto=None):
     venta = _venta_de(producto)
     return {
         "venta": venta,
         "unidad_basica_id": _id_unidad_basica(),
+        # ¿El inventario se cuenta en algo que trae varias (ej. Sello x 10)? Entonces
+        # no se puede vender suelto: hay que pasarlo a unidades (ver form.html)
+        "base_grande": _base_grande(producto),
         "formas": cat_opciones("forma_farmaceutica"),
         "principios": cat_opciones("principio"),
         "laboratorios": cat_opciones("laboratorio"),
@@ -284,6 +302,12 @@ def _traducir_venta(datos):
     costo = num("venta_costo") or 0
     maximo = num("venta_maximo")
     base = datos["unidad_venta_id"]
+    # Si se cuenta en algo que trae varias (ej. Sello x 10) y el producto aún no
+    # tiene movimientos, se pasa a contar en "Unidad" (así se puede vender suelto)
+    if base and _cantidad_unidad(base) > 1 and _id_unidad_basica():
+        pid = request.view_args.get("prod_id") if request.view_args else None
+        if not pid or not pres.tiene_historia(get_db(), pid):
+            base = datos["unidad_venta_id"] = _id_unidad_basica()
     # Las otras presentaciones no pueden repetir la de venta (esa ya va arriba)
     datos["presentaciones"] = [f for f in datos["presentaciones"] if f["unidad_id"] != venta_uid]
     # ¿Cuántas unidades trae? Lo escrito en "Trae" (ej. un sello x 7), o lo que

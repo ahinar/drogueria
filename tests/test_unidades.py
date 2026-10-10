@@ -529,3 +529,36 @@ class TestUnidadConCantidadMal(TestFichaPorUnidadDeVenta):
         con.close()
         p = self.crear(venta_unidad_id=str(uid), venta_trae="", venta_precio="2400")
         self.assertEqual((p["venta_defecto_unidad_id"], p["precio_venta"]), (uid, 200))
+
+
+class TestProductoContadoEnSellos(TestFichaPorUnidadDeVenta):
+    """El acetaminofén de Fernando quedó contándose en 'Sello x 10': no salía 'se vende suelto'."""
+    def preparar(self):
+        con = self.db()
+        con.execute("UPDATE productos SET unidad_venta_id = ?, precio_venta = 1600, venta_defecto_unidad_id = NULL "
+                    "WHERE id = 1", (self.sello,))
+        con.commit()
+        con.close()
+
+    def test_con_existencias_ofrece_pasar_a_unidades(self):
+        self.preparar()
+        self.lote(1, "L1", FUTURO, 30)                     # 30 sellos
+        html = self.c.get("/productos/1/editar").get_data(as_text=True)
+        self.assertIn('id="form-pasar-unidades"', html)
+        self.post(self.c, "/productos/1/cambiar-unidad", {"modo": "convertir", "unidad_id": str(self.unidad),
+                                                          "factor": "10", "precio": "160"})
+        p = self.uno("SELECT * FROM productos WHERE id = 1")
+        self.assertEqual((p["unidad_venta_id"], p["venta_defecto_unidad_id"], p["precio_venta"]),
+                         (self.unidad, self.sello, 160))
+        self.assertEqual(self.stock(1), 300)
+        self.assertNotIn('id="form-pasar-unidades"', self.c.get("/productos/1/editar").get_data(as_text=True))
+
+    def test_sin_movimientos_se_pasa_solo_al_guardar(self):
+        self.preparar()
+        self.post(self.c, "/productos/1/editar", {
+            "codigo": "P00001", "nombre": "Acetaminofén", "iva_tipo": "excluido",
+            "venta_unidad_id": str(self.sello), "venta_precio": "1600", "venta_trae": "10",
+            "vende_suelto_en_form": "1", "vende_suelto": "1", "unidad_venta_id": str(self.sello)})
+        p = self.uno("SELECT * FROM productos WHERE id = 1")
+        self.assertEqual((p["unidad_venta_id"], p["venta_defecto_unidad_id"], p["precio_venta"], p["vende_suelto"]),
+                         (self.unidad, self.sello, 160, 1))
