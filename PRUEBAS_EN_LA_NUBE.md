@@ -49,12 +49,20 @@ El enlace es **privado**: solo funciona con tu cuenta de GitHub.
 ## Si algo falla
 
 - Abre la terminal del Codespace y escribe `cat /tmp/fervifarma.log` para ver los mensajes del programa.
-- Para volver a prender el programa: `bash .devcontainer/arrancar.sh`
-- Para empezar la demo desde cero: borra el Codespace y crea uno nuevo.
+- **Para actualizar el programa** (después de que Claude sube cambios a GitHub):
+  `git pull && bash .devcontainer/reiniciar.sh`
+- **Para empezar la demo desde cero** (borra los datos de prueba y crea unos nuevos):
+  `bash .devcontainer/reiniciar.sh nueva`
+- Para solo volver a prender el programa: `bash .devcontainer/reiniciar.sh`
+- No borres `db/demo.db` a mano con el programa prendido: usa `reiniciar.sh nueva`, que lo
+  apaga primero y borra también sus archivos temporales (`demo.db-wal` y `demo.db-shm`).
 
 ## Cómo funciona por dentro (para aprender)
 
 - `.devcontainer/devcontainer.json` le dice a GitHub qué computador preparar (Python 3.12),
   qué instalar (`requirements.txt`), en qué hora trabajar (Colombia) y qué puerto mostrar (5000).
-- `.devcontainer/arrancar.sh` crea la demo y prende el servidor cada vez que el Codespace arranca.
+- `.devcontainer/arrancar.sh` crea la demo y prende el servidor cada vez que el Codespace arranca;
+  espera a que el programa conteste y, si no contesta, muestra el error.
+- `.devcontainer/reiniciar.sh` apaga el programa, espera a que se cierre de verdad, y lo vuelve a prender
+  (con `nueva`, además crea la demo de cero).
 - `scripts/crear_demo.py` llena la base de demostración. Por seguridad, se niega a escribir en la base real.
