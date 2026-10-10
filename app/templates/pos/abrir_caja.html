@@ -34,13 +34,13 @@
         <input type="number" step="1" name="efectivo_inicial" id="efectivo_inicial"
                value="0" required autofocus style="flex:1">
         <button type="button" class="boton secundario" id="btn-contar-apertura" style="white-space:nowrap">
-          🧮 Contar
+          <span class="ico-emoji">🧮</span> Contar
         </button>
       </div>
     </label>
 
     <div id="aviso-sobregiro" style="display:none;background:#fff4e5;border-left:4px solid #e68b1c;padding:.7rem .9rem;border-radius:.3rem;margin-top:.6rem">
-      <strong>⚠ Saldo insuficiente en caja menor</strong>
+      <strong><span class="ico-emoji">⚠</span> Saldo insuficiente en caja menor</strong>
       <p class="suave" style="margin:.3rem 0 .5rem">El efectivo inicial supera el saldo disponible. Si continúas, la caja menor quedará en negativo.</p>
       <label class="switch-linea">
         <input type="checkbox" id="chk-sobregiro">

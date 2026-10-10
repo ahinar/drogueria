@@ -9,8 +9,8 @@
     <p class="suave">De clientes (sale de una venta) y a proveedores (vencidos, averías, errores de pedido).</p>
   </div>
   <div class="sug-acciones">
-    <a class="boton" href="{{ url_for('devoluciones.cliente') }}">👤 Devolución de cliente</a>
-    <a class="boton secundario" href="{{ url_for('devoluciones.proveedor') }}">🚚 Devolver a proveedor</a>
+    <a class="boton" href="{{ url_for('devoluciones.cliente') }}"><span class="ico-emoji">👤</span> Devolución de cliente</a>
+    <a class="boton secundario" href="{{ url_for('devoluciones.proveedor') }}"><span class="ico-emoji">🚚</span> Devolver a proveedor</a>
   </div>
 </div>
 {% if not devoluciones %}

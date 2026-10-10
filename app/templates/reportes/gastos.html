@@ -20,7 +20,7 @@
 {% else %}
 <div class="rep-dos">
   <div class="rep-caja">
-    <h2>📂 Por categoría</h2>
+    <h2><span class="ico-emoji">📂</span> Por categoría</h2>
     <table class="rep-tabla">
       <thead><tr><th>Categoría</th><th class="num">Período</th><th class="num">Anterior</th><th class="num">Cambio</th></tr></thead>
       <tbody>{% for c in d.categorias %}<tr><td>{{ c.categoria }}<small>{{ c.n }} gasto(s) · {{ pct(c.pct) }}</small>
@@ -31,7 +31,7 @@
     </table>
   </div>
   <div class="rep-caja">
-    <h2>💳 Por forma de pago</h2>
+    <h2><span class="ico-emoji">💳</span> Por forma de pago</h2>
     <table class="rep-tabla">
       <thead><tr><th>Forma</th><th class="num">Gastos</th><th class="num">Total</th></tr></thead>
       <tbody>{% for f in d.por_pago %}<tr><td>{{ f.nombre }}</td><td class="num">{{ f.n }}</td><td class="num">{{ pesos(f.total) }}</td></tr>{% endfor %}</tbody>
@@ -40,7 +40,7 @@
 </div>
 
 <div class="rep-caja">
-  <h2>🧾 Detalle</h2>
+  <h2><span class="ico-emoji">🧾</span> Detalle</h2>
   <table class="rep-tabla">
     <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th class="num">Monto</th></tr></thead>
     <tbody>{% for g_ in d.detalle %}<tr><td>{{ fecha(g_.fecha) }}</td>

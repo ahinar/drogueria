@@ -30,7 +30,7 @@
     <h1><span class="ico-emoji">📈</span> Utilidades · Estado de resultados</h1>
     <p class="suave"><strong>{{ per.actual.texto|capitalize }}</strong> comparado con {{ per.anterior.texto }}</p>
   </div>
-  <a class="boton" href="{{ url_for('reportes.utilidades_pdf', **args) }}">📄 Descargar PDF</a>
+  <a class="boton" href="{{ url_for('reportes.utilidades_pdf', **args) }}"><span class="ico-emoji">📄</span> Descargar PDF</a>
 </div>
 
 <!-- ===== Elegir período: un mes, o un rango libre de fechas ===== -->
@@ -110,7 +110,7 @@
 
 <!-- ===== Cómo leerlo ===== -->
 <details class="eres-ayuda">
-  <summary>❓ ¿Cómo se calcula cada línea?</summary>
+  <summary><span class="ico-emoji">❓</span> ¿Cómo se calcula cada línea?</summary>
   <ul>
     <li><strong>Ventas sin IVA:</strong> lo vendido en el POS (sin las ventas anuladas), con los descuentos ya restados y sin el IVA, que es de la DIAN.
       Con IVA fueron {{ pesos(a.total_con_iva) }} (IVA cobrado: {{ pesos(a.iva) }}).</li>

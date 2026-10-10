@@ -23,7 +23,7 @@
     {% if conteo['estado'] == 'abierto' %}
       <a class="boton secundario" href="{{ url_for('conteos.contar', conteo_id=conteo['id']) }}">← Seguir contando</a>
     {% endif %}
-    <a class="boton secundario" href="{{ url_for('conteos.acta', conteo_id=conteo['id']) }}">📄 Acta PDF</a>
+    <a class="boton secundario" href="{{ url_for('conteos.acta', conteo_id=conteo['id']) }}"><span class="ico-emoji">📄</span> Acta PDF</a>
   </div>
 </div>
 
@@ -62,7 +62,7 @@
   </tbody>
 </table>
 {% else %}
-  <p class="suave">{% if resumen.contados %}✅ Todo lo contado coincide con el sistema.{% else %}Todavía no se ha contado nada.{% endif %}</p>
+  <p class="suave">{% if resumen.contados %}<span class="ico-emoji">✅</span> Todo lo contado coincide con el sistema.{% else %}Todavía no se ha contado nada.{% endif %}</p>
 {% endif %}
 
 <!-- ===== Lotes con existencias que nadie contó ===== -->

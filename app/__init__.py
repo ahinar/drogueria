@@ -69,6 +69,13 @@ def create_app(test_config=None):
     app.register_blueprint(apariencia.bp)     # tema (colores) de cada usuario
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
+    # {{ 12345 | pesos }} → "$12.345" (formato colombiano, ver app/formato.py)
+    from .formato import pesos as _pesos
+    app.jinja_env.filters["pesos"] = _pesos
+    # {{ "2026-10-10 07:15:00" | fecha_hora }} → "10/10/2026 07:15"
+    app.jinja_env.filters["fecha_hora"] = lambda t: (
+        f"{t[8:10]}/{t[5:7]}/{t[0:4]}" + (f" {t[11:16]}" if len(t or "") >= 16 else "")
+    ) if t and len(t) >= 10 else (t or "")
 
     @app.errorhandler(400)
     def error_400(_e):

@@ -16,5 +16,5 @@
   <label>Desde <input type="date" name="desde" value="{{ args.get('desde', '') if per.modo == 'rango' else '' }}"></label>
   <label>Hasta <input type="date" name="hasta" value="{{ args.get('hasta', '') if per.modo == 'rango' else '' }}"></label>
   <button type="submit" class="boton secundario">Ver</button>
-  <button type="button" class="boton secundario" onclick="window.print()">🖨️ Imprimir</button>
+  <button type="button" class="boton secundario" onclick="window.print()"><span class="ico-emoji">🖨️</span> Imprimir</button>
 </form>

@@ -32,24 +32,24 @@
 <!-- ===== Acciones ===== -->
 <div class="rejilla" style="margin-bottom:1.5rem">
   <a class="modulo" href="{{ url_for('contabilidad.gastos_lista') }}">
-    <h2>💸 Gastos</h2>
+    <h2><span class="ico-emoji">💸</span> Gastos</h2>
     <p>Registro, filtros y anulación de gastos operativos.</p>
   </a>
   <a class="modulo" href="{{ url_for('contabilidad.gastos_nuevo') }}">
-    <h2>➕ Nuevo gasto</h2>
+    <h2><span class="ico-emoji">➕</span> Nuevo gasto</h2>
     <p>Registrar un gasto con categoría, monto y comprobante.</p>
   </a>
   <!-- Los informes de plata viven en Reportes (un solo lugar para cada cosa) -->
   <a class="modulo" href="{{ url_for('reportes.utilidades_ver') }}">
-    <h2>📈 Utilidades</h2>
+    <h2><span class="ico-emoji">📈</span> Utilidades</h2>
     <p>Estado de resultados: ventas, costo, gastos, pérdidas y utilidad neta.</p>
   </a>
   <a class="modulo" href="{{ url_for('reportes.gastos_ver') }}">
-    <h2>💸 Reporte de gastos</h2>
+    <h2><span class="ico-emoji">💸</span> Reporte de gastos</h2>
     <p>Por categoría y forma de pago, comparado con el período anterior.</p>
   </a>
   <a class="modulo" href="{{ url_for('reportes.ventas_ver') }}">
-    <h2>🛒 Ventas y flujo</h2>
+    <h2><span class="ico-emoji">🛒</span> Ventas y flujo</h2>
     <p>Ventas por día y por forma de pago (efectivo, Nequi, Davivienda, tarjeta).</p>
   </a>
 </div>

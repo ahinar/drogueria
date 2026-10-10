@@ -64,7 +64,7 @@
       enlace.click();
       enlace.remove();
     } catch (e) {
-      alert('No se pudo crear el Excel: ' + e.message);
+      window.avisar('No se pudo crear el Excel: ' + e.message, 'error');
     } finally {
       boton.disabled = false;
     }

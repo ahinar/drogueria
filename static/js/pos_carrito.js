@@ -622,7 +622,9 @@
   // Opción B: cualquiera puede cambiar un precio, pero SIEMPRE con un motivo.
   // Recorre el carrito y, por cada precio cambiado que aún no tenga motivo,
   // lo pregunta. Devuelve false si el cajero cancela (entonces no se cobra).
-  function pedirMotivosDePrecio() {
+  // "async" = la función puede esperar (await) a que el cajero responda
+  // en la ventana del programa. Por eso quien la llama usa "await".
+  async function pedirMotivosDePrecio() {
     for (const it of carrito) {
       if (!cambioDePrecio(it)) { it.motivo_precio = null; continue; }
       if (!(it.precio > 0)) {
@@ -631,28 +633,32 @@
       }
       // Si ya dio un motivo para ESTE mismo precio, no se lo volvemos a pedir.
       if (it.motivo_precio && it.motivo_precio_valor === it.precio) continue;
-      const motivo = prompt(
-        'Cambiaste el precio de "' + it.nombre + '"\n' +
-        'de ' + peso(it.precio_original) + ' a ' + peso(it.precio) + '.\n\n' +
-        'Motivo del cambio (obligatorio):', '');
-      if (motivo === null || motivo.trim().length < 3) {
+      // Ventana propia (ui.js) en vez de prompt() del navegador
+      const datos = await window.pedirDatos({
+        titulo: 'Motivo del cambio de precio',
+        texto: '"' + it.nombre + '": de ' + peso(it.precio_original) + ' a ' + peso(it.precio) + '.',
+        campos: [{ nombre: 'motivo', etiqueta: 'Motivo (obligatorio)', minimo: 3, maximo: 200,
+                   placeholder: 'Ej: descuento a cliente frecuente' }],
+        textoAceptar: 'Continuar',
+      });
+      if (datos === null) {
         aviso('Sin motivo no se puede cambiar un precio.');
         return false;
       }
-      it.motivo_precio = motivo.trim();
+      it.motivo_precio = datos.motivo;
       it.motivo_precio_valor = it.precio;   // recordamos para qué precio fue el motivo
     }
     guardarCarrito();
     return true;
   }
 
-  function abrirPago() {
+  async function abrirPago() {
     if (carrito.some((i) => !(i.cantidad > 0))) {
       aviso('Hay un producto con cantidad 0. Corrígelo o quítalo.');
       return;
     }
     if (!carrito.length) return;
-    if (!pedirMotivosDePrecio()) return;
+    if (!(await pedirMotivosDePrecio())) return;
     $('pago-total').textContent = peso(totalVenta());
     $('pago-form').style.display = '';
     $('pago-exito').style.display = 'none';
@@ -751,16 +757,32 @@
   // ---------------------------------------------------------------
   // 8. CLIENTE, NOTA, MENÚ LATERAL Y GASTO
   // ---------------------------------------------------------------
-  function pedirCliente() {
-    const nombre = prompt('Nombre del cliente (vacío = Consumidor final):', cliente.nombre);
-    if (nombre === null) return;
-    const doc = prompt('Documento del cliente (opcional):', cliente.documento);
-    cliente = { nombre: nombre.trim(), documento: (doc || '').trim() };
+  // Ventanas propias (window.pedirDatos, en static/js/ui.js) en vez de
+  // prompt(): se ven como el resto del programa y piden todo de una vez.
+  async function pedirCliente() {
+    const datos = await window.pedirDatos({
+      titulo: 'Cliente de esta venta',
+      texto: 'Déjalo vacío para "Consumidor final".',
+      campos: [
+        { nombre: 'nombre', etiqueta: 'Nombre', valor: cliente.nombre, placeholder: 'Consumidor final', maximo: 120 },
+        { nombre: 'documento', etiqueta: 'Documento (opcional)', valor: cliente.documento, placeholder: 'Cédula o NIT', maximo: 30 },
+      ],
+    });
+    if (datos === null) return;           // canceló: no cambia nada
+    cliente = { nombre: datos.nombre, documento: datos.documento };
+    guardarCarrito();                     // queda guardado aunque se vaya la luz
     aviso(cliente.nombre ? 'Cliente: ' + cliente.nombre : 'Consumidor final');
   }
-  function pedirNota() {
-    const texto = prompt('Nota de la venta:', nota);
-    if (texto !== null) nota = texto.trim();
+  async function pedirNota() {
+    const datos = await window.pedirDatos({
+      titulo: 'Nota de la venta',
+      campos: [{ nombre: 'nota', etiqueta: 'Nota', tipo: 'area', valor: nota, maximo: 300,
+                 placeholder: 'Ej: domicilio a la calle 5' }],
+    });
+    if (datos === null) return;
+    nota = datos.nota;
+    guardarCarrito();
+    aviso(nota ? 'Nota guardada' : 'Nota borrada');
   }
   $('btn-cliente').addEventListener('click', pedirCliente);
   $('btn-nota').addEventListener('click', pedirNota);

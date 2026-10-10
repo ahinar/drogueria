@@ -15,7 +15,7 @@
       {{ ico('carrito', '🛒') }} Comenzar a vender
     </a>
     <div class="dashboard-hero-badges">
-      <span class="badge-verde">🟢 Servidor local activo</span>
+      <span class="badge-verde"><span class="ico-emoji">🟢</span> Servidor local activo</span>
       <span class="badge-azul">📅 {{ g.user.rol|rol_nombre }}</span>
     </div>
   </div>
@@ -53,7 +53,7 @@
   </h2>
 
   {% if not alertas %}
-    <p class="alertas-ok">✅ Todo en orden: no hay vencimientos, precios fuera del máximo ni productos agotados.</p>
+    <p class="alertas-ok"><span class="ico-emoji">✅</span> Todo en orden: no hay vencimientos, precios fuera del máximo ni productos agotados.</p>
   {% else %}
   <div class="alertas-rejilla">
     {% for a in alertas %}
@@ -180,7 +180,7 @@
 <div class="dashboard-grid">
 
   <div class="panel">
-    <h2 class="panel-titulo">🌡️ Últimas lecturas de temperatura</h2>
+    <h2 class="panel-titulo"><span class="ico-emoji">🌡️</span> Últimas lecturas de temperatura</h2>
     {% if ultimas_temperaturas %}
       <table class="tabla-compacta">
         <thead>
@@ -208,7 +208,7 @@
   </div>
 
   <div class="panel">
-    <h2 class="panel-titulo">💊 Últimos productos agregados</h2>
+    <h2 class="panel-titulo"><span class="ico-emoji">💊</span> Últimos productos agregados</h2>
     {% if ultimos_productos %}
       <table class="tabla-compacta">
         <thead>

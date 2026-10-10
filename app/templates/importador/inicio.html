@@ -8,8 +8,8 @@
   <h2 class="panel-titulo">Paso 1 · Descarga la plantilla</h2>
   <p class="suave">Usa la plantilla para asegurar que las columnas tengan el nombre correcto. También puedes usar tu propio archivo si los encabezados coinciden.</p>
   <div class="acciones">
-    <a class="boton" href="{{ url_for('importador.plantilla', formato='xlsx') }}">📄 Plantilla Excel (.xlsx)</a>
-    <a class="boton secundario" href="{{ url_for('importador.plantilla', formato='csv') }}">📄 Plantilla CSV</a>
+    <a class="boton" href="{{ url_for('importador.plantilla', formato='xlsx') }}"><span class="ico-emoji">📄</span> Plantilla Excel (.xlsx)</a>
+    <a class="boton secundario" href="{{ url_for('importador.plantilla', formato='csv') }}"><span class="ico-emoji">📄</span> Plantilla CSV</a>
   </div>
 </div>
 
@@ -29,7 +29,7 @@
 </div>
 
 <div class="panel" style="margin-top:1rem;background:#f9fbfc">
-  <h2 class="panel-titulo">📌 Columnas reconocidas</h2>
+  <h2 class="panel-titulo"><span class="ico-emoji">📌</span> Columnas reconocidas</h2>
   <p class="suave">El sistema reconoce los siguientes encabezados. Los que tengan <b>*</b> son obligatorios.</p>
   <ul class="suave">
     <li><b>Código interno *</b></li>

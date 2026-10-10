@@ -14,7 +14,7 @@
   <label>Número de la venta
     <input type="text" name="venta" value="{{ buscado }}" placeholder="V-0012 o 12" autofocus required>
   </label>
-  <button type="submit" class="boton">🔍 Buscar</button>
+  <button type="submit" class="boton"><span class="ico-emoji">🔍</span> Buscar</button>
 </form>
 
 {% if venta %}
@@ -23,7 +23,7 @@
   <p class="suave" style="margin-top:0">{{ venta.cliente_nombre }} · pagó {{ pesos(venta.total) }} en {{ venta.forma_pago }} · vendió {{ venta.usuario_nombre }}</p>
 
   {% if not caja %}
-    <p class="eres-aviso">⚠️ No hay caja abierta. Abre la caja en el POS: la plata de la devolución sale de ahí.</p>
+    <p class="eres-aviso"><span class="ico-emoji">⚠️</span> No hay caja abierta. Abre la caja en el POS: la plata de la devolución sale de ahí.</p>
   {% endif %}
 
   <form method="post" class="dev-form" data-confirmar="¿Registrar la devolución? Se le devolverá la plata al cliente y no se puede deshacer.">

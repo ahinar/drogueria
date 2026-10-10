@@ -17,7 +17,7 @@
   </div>
   {% if jefe %}
   <div class="sug-acciones">
-    <a class="boton secundario" href="{{ url_for('equipos.editar', equipo_id=equipo.id) }}">✏️ Editar</a>
+    <a class="boton secundario" href="{{ url_for('equipos.editar', equipo_id=equipo.id) }}"><span class="ico-emoji">✏️</span> Editar</a>
     <form method="post" action="{{ url_for('equipos.activar', equipo_id=equipo.id) }}"
           {% if equipo.activo %}data-confirmar="¿Dar de baja este equipo? Su historial se conserva."{% endif %}>
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
@@ -37,7 +37,7 @@
 {% if jefe and equipo.activo %}
 <!-- ===== Registrar calibración ===== -->
 <details class="rep-caja equipo-calibrar" {% if equipo.estado != 'al_dia' %}open{% endif %}>
-  <summary><strong>➕ Registrar calibración</strong></summary>
+  <summary><strong><span class="ico-emoji">➕</span> Registrar calibración</strong></summary>
   <form method="post" action="{{ url_for('equipos.calibrar', equipo_id=equipo.id) }}" enctype="multipart/form-data" class="formulario">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
     <div class="grid-3-compact">
@@ -51,14 +51,14 @@
       <label>Certificado (PDF o foto) <input type="file" name="certificado" accept=".pdf,image/*"></label>
     </div>
     <label>Observaciones <textarea name="observaciones" rows="2"></textarea></label>
-    <div class="acciones"><button type="submit">💾 Guardar calibración</button></div>
+    <div class="acciones"><button type="submit"><span class="ico-emoji">💾</span> Guardar calibración</button></div>
   </form>
 </details>
 {% endif %}
 
 <!-- ===== Historial ===== -->
 <div class="rep-caja" style="margin-top:1rem">
-  <h2>🗂️ Historial de calibraciones</h2>
+  <h2><span class="ico-emoji">🗂️</span> Historial de calibraciones</h2>
   {% if historial %}
   <table class="rep-tabla">
     <thead><tr><th>Fecha</th><th>Próxima</th><th>Empresa / certificado</th><th>Resultado</th><th>Archivo</th></tr></thead>
@@ -67,7 +67,7 @@
       <td>{{ c.empresa or '—' }}<small>{% if c.certificado_numero %}N.º {{ c.certificado_numero }} · {% endif %}registró {{ c.usuario_nombre or '—' }}</small>
         {% if c.observaciones %}<small>{{ c.observaciones }}</small>{% endif %}</td>
       <td>{% if c.resultado == 'conforme' %}<span class="equipo-estado verde">Conforme</span>{% else %}<span class="equipo-estado rojo">No conforme</span>{% endif %}</td>
-      <td>{% if c.archivo %}<a href="{{ url_for('static', filename=c.archivo) }}" target="_blank" rel="noopener">📎 Ver</a>{% else %}—{% endif %}</td>
+      <td>{% if c.archivo %}<a href="{{ url_for('static', filename=c.archivo) }}" target="_blank" rel="noopener"><span class="ico-emoji">📎</span> Ver</a>{% else %}—{% endif %}</td>
     </tr>{% endfor %}</tbody>
   </table>
   {% else %}<p class="suave">Sin calibraciones registradas.</p>{% endif %}

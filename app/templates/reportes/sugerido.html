@@ -37,16 +37,16 @@
 
 <!-- ===== Pestañas: una por lista ===== -->
 <nav class="sug-pestanas no-imprimir" role="tablist">
-  <button type="button" class="activa" data-pestana="pedido">📦 Pedido <span>{{ d.n_items }}</span></button>
-  <button type="button" data-pestana="agota">⏱️ Se agota en &lt; {{ d.dias_se_agota }} días <span>{{ d.se_agota|length }}</span></button>
-  <button type="button" data-pestana="minimo">📉 Bajo stock mínimo <span>{{ d.bajo_minimo|length }}</span></button>
-  <button type="button" data-pestana="rotacion">🐢 Sin rotación <span>{{ d.sin_rotacion|length }}</span></button>
+  <button type="button" class="activa" data-pestana="pedido"><span class="ico-emoji">📦</span> Pedido <span>{{ d.n_items }}</span></button>
+  <button type="button" data-pestana="agota"><span class="ico-emoji">⏱️</span> Se agota en &lt; {{ d.dias_se_agota }} días <span>{{ d.se_agota|length }}</span></button>
+  <button type="button" data-pestana="minimo"><span class="ico-emoji">📉</span> Bajo stock mínimo <span>{{ d.bajo_minimo|length }}</span></button>
+  <button type="button" data-pestana="rotacion"><span class="ico-emoji">🐢</span> Sin rotación <span>{{ d.sin_rotacion|length }}</span></button>
 </nav>
 
 <!-- ===== 1. PEDIDO POR PROVEEDOR ===== -->
 <section class="sug-panel activo" data-panel="pedido">
   {% if not d.pedido %}
-    <p class="alertas-ok">✅ No hay nada que pedir: el stock alcanza para {{ d.cobertura }} días y está por encima del mínimo.</p>
+    <p class="alertas-ok"><span class="ico-emoji">✅</span> No hay nada que pedir: el stock alcanza para {{ d.cobertura }} días y está por encima del mínimo.</p>
   {% else %}
     <p class="suave no-imprimir">Total estimado: <strong>{{ pesos(d.total_pedido) }}</strong> en {{ d.n_items }} producto(s).
       Puedes cambiar las cantidades antes de enviar el pedido; pon 0 para quitar un producto.</p>
@@ -60,8 +60,8 @@
           <p class="suave">{% if grupo.contacto %}{{ grupo.contacto }} · {% endif %}{{ grupo.telefono or 'sin teléfono' }}</p>
         </div>
         <div class="sug-acciones no-imprimir">
-          <button type="button" class="boton sug-whatsapp">💬 WhatsApp</button>
-          <button type="button" class="boton secundario sug-imprimir">🖨️ Imprimir</button>
+          <button type="button" class="boton sug-whatsapp"><span class="ico-emoji">💬</span> WhatsApp</button>
+          <button type="button" class="boton secundario sug-imprimir"><span class="ico-emoji">🖨️</span> Imprimir</button>
         </div>
       </header>
       <div class="sug-tabla-caja">
@@ -103,7 +103,7 @@
     <tbody>{% for i in d.se_agota %}<tr><td>{{ i.nombre }}</td><td class="num">{{ cant(i.stock) }}</td><td class="num">{{ cant(i.diaria) }}</td>
       <td class="num"><strong>{{ cant(i.dias_alcanza) }} d</strong></td><td class="num">{{ i.sugerido }}</td></tr>{% endfor %}</tbody>
   </table></div>
-  {% else %}<p class="alertas-ok">✅ Ningún producto se agota esta semana.</p>{% endif %}
+  {% else %}<p class="alertas-ok"><span class="ico-emoji">✅</span> Ningún producto se agota esta semana.</p>{% endif %}
 </section>
 
 <!-- ===== 3. BAJO STOCK MÍNIMO ===== -->
@@ -115,7 +115,7 @@
     <tbody>{% for i in d.bajo_minimo %}<tr><td>{{ i.nombre }}</td><td class="num">{{ cant(i.stock) }}</td>
       <td class="num">{{ cant(i.minimo) }}</td><td class="num">{{ i.sugerido }}</td></tr>{% endfor %}</tbody>
   </table></div>
-  {% else %}<p class="alertas-ok">✅ Todo está por encima del stock mínimo.</p>{% endif %}
+  {% else %}<p class="alertas-ok"><span class="ico-emoji">✅</span> Todo está por encima del stock mínimo.</p>{% endif %}
 </section>
 
 <!-- ===== 4. SIN ROTACIÓN ===== -->
@@ -129,7 +129,7 @@
     <tbody>{% for i in d.sin_rotacion %}<tr><td>{{ i.nombre }}</td><td class="num">{{ cant(i.stock) }}</td>
       <td class="num">{{ pesos(i.valor_stock) }}</td><td class="num">{{ fecha(i.ultima_venta) }}</td></tr>{% endfor %}</tbody>
   </table></div>
-  {% else %}<p class="alertas-ok">✅ Todo lo que tienes se está vendiendo.</p>{% endif %}
+  {% else %}<p class="alertas-ok"><span class="ico-emoji">✅</span> Todo lo que tienes se está vendiendo.</p>{% endif %}
 </section>
 {% endblock %}
 

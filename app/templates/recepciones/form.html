@@ -88,7 +88,7 @@
                   <button type="button" class="btn-mas btn-nuevo-producto" title="Crear producto nuevo">+</button>
                 </div>
                 <small class="hint-rs {% if not lp.registro_sanitario %}sin-rs{% endif %}">
-                  {% if lp.registro_sanitario %}RS: {{ lp.registro_sanitario }}{% else %}⚠ SIN registro INVIMA{% endif %}
+                  {% if lp.registro_sanitario %}RS: {{ lp.registro_sanitario }}{% else %}<span class="ico-emoji">⚠</span> SIN registro INVIMA{% endif %}
                 </small>
               </td>
               <td><input type="text" name="linea_lote" value="{{ lp.lote }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
@@ -178,7 +178,7 @@
   </section>
 
   <div class="acciones acciones-form">
-    <button type="submit">💾 Guardar recepción</button>
+    <button type="submit"><span class="ico-emoji">💾</span> Guardar recepción</button>
     <a class="boton secundario" href="{{ url_for('recepciones.lista') }}">Cancelar</a>
   </div>
 </form>
@@ -550,7 +550,7 @@
   body.addEventListener('click', function (e) {
     if (e.target.classList.contains('btn-quitar-linea')) {
       if (body.querySelectorAll('tr.linea').length === 1) {
-        alert('Debes dejar al menos una línea.');
+        window.avisar('Debes dejar al menos una línea.', 'error');
         return;
       }
       e.target.closest('tr').remove();
@@ -609,8 +609,14 @@
   });
 
   npNuevoLab.addEventListener('click', async function () {
-    const nombre = prompt('Nombre del laboratorio:');
-    if (!nombre || !nombre.trim()) return;
+    // Ventana propia del programa (static/js/ui.js) en vez de prompt()
+    const resp0 = await window.pedirDatos({
+      titulo: 'Nuevo laboratorio',
+      campos: [{ nombre: 'nombre', etiqueta: 'Nombre del laboratorio', minimo: 2, maximo: 120 }],
+      textoAceptar: 'Crear',
+    });
+    if (!resp0) return;
+    const nombre = resp0.nombre;
     const datos = new FormData();
     datos.append('nombre', nombre.trim());
     datos.append('_csrf', csrfToken);
@@ -619,7 +625,7 @@
         method: 'POST', body: datos, credentials: 'same-origin',
       });
       const json = await resp.json();
-      if (!json.ok) { alert('Error: ' + (json.error || 'no se pudo crear.')); return; }
+      if (!json.ok) { window.avisar('Error: ' + (json.error || 'no se pudo crear.'), 'error'); return; }
       let op = npLaboratorio.querySelector('option[value="' + json.id + '"]');
       if (!op) {
         op = document.createElement('option');
@@ -629,7 +635,7 @@
       }
       npLaboratorio.value = json.id;
     } catch (e) {
-      alert('Error de conexión: ' + e.message);
+      window.avisar('Error de conexión: ' + e.message, 'error');
     }
   });
 

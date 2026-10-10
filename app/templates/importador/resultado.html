@@ -36,7 +36,7 @@
 
 {% if errores %}
 <div class="panel">
-  <h2 class="panel-titulo">⚠ Errores detectados</h2>
+  <h2 class="panel-titulo"><span class="ico-emoji">⚠</span> Errores detectados</h2>
   <ul class="suave">
     {% for e in errores[:50] %}<li>{{ e }}</li>{% endfor %}
     {% if errores|length > 50 %}<li>… y {{ errores|length - 50 }} más</li>{% endif %}
@@ -44,7 +44,7 @@
   <form method="post" action="{{ url_for('importador.reporte_errores') }}">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
     <input type="hidden" name="errores" value="{{ errores|join('\n') }}">
-    <button type="submit" class="boton secundario">📄 Descargar reporte</button>
+    <button type="submit" class="boton secundario"><span class="ico-emoji">📄</span> Descargar reporte</button>
   </form>
 </div>
 {% endif %}

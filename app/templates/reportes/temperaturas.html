@@ -14,9 +14,9 @@
   <label>Hasta <input type="date" name="hasta" value="{{ filtros.hasta }}"></label>
   <label><input type="checkbox" name="fuera" value="1" {% if filtros.fuera %}checked{% endif %}> Solo fuera de rango</label>
   <button type="submit">Filtrar</button>
-  <a class="boton" href="{{ url_for('reportes.temperaturas_pdf', **request.args) }}">📄 Descargar PDF</a>
+  <a class="boton" href="{{ url_for('reportes.temperaturas_pdf', **request.args) }}"><span class="ico-emoji">📄</span> Descargar PDF</a>
   <a class="boton secundario" href="{{ url_for('reportes.temperaturas_mensual_form') }}">
-  📅 Plantilla mensual
+  <span class="ico-emoji">📅</span> Plantilla mensual
 </a>
 </form>
 

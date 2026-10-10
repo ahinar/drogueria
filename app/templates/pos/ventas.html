@@ -19,7 +19,7 @@
       <td>{{ v['cliente_nombre'] }}</td>
       <td>{{ v['forma_pago'] }}</td>
       <td>${{ '{:,.0f}'.format(v['total']) }}</td>
-      <td>{% if v['estado'] == 'anulada' %}<span title="{{ v['motivo_anulacion'] }}">❌ Anulada</span>{% else %}✅{% endif %}</td>
+      <td>{% if v['estado'] == 'anulada' %}<span title="{{ v['motivo_anulacion'] }}"><span class="ico-emoji">❌</span> Anulada</span>{% else %}✅{% endif %}</td>
       <td>
         {% if v['estado'] == 'completada' and caja and caja['estado'] == 'abierta' and g.user['rol'] in ('administrador', 'director_tecnico') %}
         <form method="post" action="{{ url_for('pos.anular_venta', venta_id=v['id']) }}" style="display:flex;gap:.3rem">

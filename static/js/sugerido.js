@@ -52,7 +52,7 @@
         const cantidad = parseInt(fila.querySelector('.sug-cantidad').value, 10) || 0;
         if (cantidad > 0) lineas.push('• ' + cantidad + ' ' + fila.dataset.unidad + ' - ' + fila.dataset.nombre);
       });
-      if (!lineas.length) { alert('Todas las cantidades están en 0: no hay nada que pedir.'); return; }
+      if (!lineas.length) { window.avisar('Todas las cantidades están en 0: no hay nada que pedir.', 'error'); return; }
       const texto = 'Buenos días, ' + tarjeta.dataset.proveedor + '. Pedido de ' + tarjeta.dataset.negocio + ':\n' +
         lineas.join('\n') + '\nGracias.';
       // wa.me/<número>?text=... abre el chat de ese número; sin número, WhatsApp deja elegir el contacto

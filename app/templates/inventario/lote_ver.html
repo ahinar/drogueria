@@ -6,7 +6,7 @@
 <div class="rece-acciones">
   <a class="boton secundario" href="{{ url_for('inventario.lotes') }}">← Volver</a>
   <a class="boton secundario" href="{{ url_for('inventario.kardex', producto_id=lote['producto_id']) }}">
-    📋 Ver kardex del producto
+    <span class="ico-emoji">📋</span> Ver kardex del producto
   </a>
 </div>
 
@@ -56,19 +56,19 @@
     {% if lote['estado'] == 'bloqueado' %}
       <form method="post" action="{{ url_for('inventario.lote_desbloquear', lote_id=lote['id']) }}" style="display:inline">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-        <button type="submit" class="boton">🔓 Desbloquear</button>
+        <button type="submit" class="boton"><span class="ico-emoji">🔓</span> Desbloquear</button>
       </form>
     {% elif lote['estado'] == 'cuarentena' %}
       <form method="post" action="{{ url_for('inventario.lote_liberar', lote_id=lote['id']) }}" style="display:inline">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-        <button type="submit" class="boton">✅ Liberar de cuarentena</button>
+        <button type="submit" class="boton"><span class="ico-emoji">✅</span> Liberar de cuarentena</button>
       </form>
     {% elif lote['estado'] == 'disponible' %}
       <form method="post" action="{{ url_for('inventario.lote_bloquear', lote_id=lote['id']) }}"
             class="form-inline" style="display:inline-block">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
         <input type="text" name="motivo" placeholder="Motivo del bloqueo" required>
-        <button type="submit" class="boton peligro">🚫 Bloquear</button>
+        <button type="submit" class="boton peligro"><span class="ico-emoji">🚫</span> Bloquear</button>
       </form>
     {% endif %}
 
@@ -79,10 +79,10 @@
         <input type="number" step="0.01" name="cantidad" value="{{ lote['cantidad_disponible'] }}" required style="width:120px;display:inline-block">
       </label>
       <input type="text" name="motivo" placeholder="Motivo del ajuste (conteo físico, merma, etc.)" required style="width:340px;display:inline-block">
-      <button type="submit" class="boton secundario">📝 Ajustar</button>
+      <button type="submit" class="boton secundario"><span class="ico-emoji">📝</span> Ajustar</button>
     </form>
     <!-- Vencido, averiado o error de pedido: se devuelve al proveedor con acta -->
-    <p style="margin-top:.7rem"><a class="boton secundario" href="{{ url_for('devoluciones.proveedor', lote=lote['id']) }}">🚚 Devolver al proveedor</a></p>
+    <p style="margin-top:.7rem"><a class="boton secundario" href="{{ url_for('devoluciones.proveedor', lote=lote['id']) }}"><span class="ico-emoji">🚚</span> Devolver al proveedor</a></p>
   </div>
 </div>
 {% endif %}

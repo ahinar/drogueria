@@ -10,40 +10,40 @@
 <div class="rejilla">
   {% if jefe %}
   <a class="modulo" href="{{ url_for('reportes.ventas_ver') }}">
-    <h2>🛒 Ventas</h2>
+    <h2><span class="ico-emoji">🛒</span> Ventas</h2>
     <p>Por día (gráfico), forma de pago, vendedor y hora. Comparado con el período anterior.</p>
   </a>
   <a class="modulo" href="{{ url_for('reportes.utilidades_ver') }}">
-    <h2>📈 Utilidades</h2>
+    <h2><span class="ico-emoji">📈</span> Utilidades</h2>
     <p>Estado de resultados: ventas, costo, gastos, pérdidas y utilidad neta. PDF.</p>
   </a>
   <a class="modulo" href="{{ url_for('reportes.top_ver') }}">
-    <h2>🏆 Top productos</h2>
+    <h2><span class="ico-emoji">🏆</span> Top productos</h2>
     <p>Los más vendidos por dinero, unidades o utilidad. Top 5, 10 o 20.</p>
   </a>
   <a class="modulo" href="{{ url_for('reportes.ventas_compras_ver') }}">
-    <h2>⚖️ Ventas vs compras</h2>
+    <h2><span class="ico-emoji">⚖️</span> Ventas vs compras</h2>
     <p>Lo vendido contra lo comprado, mes a mes (12 meses).</p>
   </a>
   <a class="modulo" href="{{ url_for('reportes.gastos_ver') }}">
-    <h2>💸 Gastos</h2>
+    <h2><span class="ico-emoji">💸</span> Gastos</h2>
     <p>Por categoría y forma de pago, con el detalle y la comparación.</p>
   </a>
   <a class="modulo" href="{{ url_for('reportes.sugerido_ver') }}">
-    <h2>📦 Sugerido de compra</h2>
+    <h2><span class="ico-emoji">📦</span> Sugerido de compra</h2>
     <p>Qué pedir y cuánto por proveedor. WhatsApp o imprimir.</p>
   </a>
   {% endif %}
   <a class="modulo" href="{{ url_for('reportes.recepciones_ver') }}">
-    <h2>🚚 Recepciones</h2>
+    <h2><span class="ico-emoji">🚚</span> Recepciones</h2>
     <p>Recepciones por proveedor, rechazos y motivos.</p>
   </a>
   <a class="modulo" href="{{ url_for('reportes.vencimientos_ver') }}">
-    <h2>⏳ Vencimientos</h2>
+    <h2><span class="ico-emoji">⏳</span> Vencimientos</h2>
     <p>Semáforo de vencimientos. PDF para inspección.</p>
   </a>
   <a class="modulo" href="{{ url_for('reportes.temperaturas') }}">
-    <h2>🌡️ Temperaturas</h2>
+    <h2><span class="ico-emoji">🌡️</span> Temperaturas</h2>
     <p>Historial con gráfico. PDF y plantilla mensual.</p>
   </a>
 </div>

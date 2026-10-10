@@ -22,13 +22,13 @@
 <div class="rejilla" style="margin-bottom:1.5rem">
   <button type="button" class="modulo" data-modal="aporte" style="text-align:left;background:none;border:none;cursor:pointer;padding:0">
     <div class="modulo" style="margin:0">
-      <h2>➕ Registrar aporte</h2>
+      <h2><span class="ico-emoji">➕</span> Registrar aporte</h2>
       <p>Agregar dinero a la caja menor (del dueño, banco, etc.).</p>
     </div>
   </button>
   <button type="button" class="modulo" data-modal="retiro" style="text-align:left;background:none;border:none;cursor:pointer;padding:0">
     <div class="modulo" style="margin:0">
-      <h2>➖ Registrar retiro</h2>
+      <h2><span class="ico-emoji">➖</span> Registrar retiro</h2>
       <p>Sacar dinero del fondo: consignar o lo que retira el dueño. Para <strong>pagar algo</strong>, registra un gasto en Contabilidad.</p>
     </div>
   </button>
@@ -85,7 +85,7 @@
           <span class="tag-error">▼ {{ meta[1] }} {{ meta[0] }}</span>
         {% endif %}
       </td>
-      <td>{{ m['motivo'] or '—' }}{% if m['retiro_dueno'] %} <span class="tag-dueno">👤 dueño</span>{% endif %}</td>
+      <td>{{ m['motivo'] or '—' }}{% if m['retiro_dueno'] %} <span class="tag-dueno"><span class="ico-emoji">👤</span> dueño</span>{% endif %}</td>
       <td>{{ m['usuario_nombre'] or '—' }}</td>
       <td style="text-align:right"><strong>${{ '{:,.0f}'.format(m['monto']).replace(',', '.') }}</strong></td>
     </tr>
@@ -103,7 +103,7 @@
 <!-- Modal aporte -->
 <div id="modal-cm-aporte" class="modal-oculto">
   <div class="modal-caja">
-    <h2>➕ Aporte a caja menor</h2>
+    <h2><span class="ico-emoji">➕</span> Aporte a caja menor</h2>
     <form method="post" action="{{ url_for('caja_menor.aporte') }}">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <label>Monto *
@@ -114,7 +114,7 @@
       </label>
       <div class="modal-acciones">
         <button type="button" class="boton secundario" data-cerrar-modal>Cancelar</button>
-        <button type="submit" class="boton">💾 Registrar aporte</button>
+        <button type="submit" class="boton"><span class="ico-emoji">💾</span> Registrar aporte</button>
       </div>
     </form>
   </div>
@@ -123,7 +123,7 @@
 <!-- Modal retiro -->
 <div id="modal-cm-retiro" class="modal-oculto">
   <div class="modal-caja">
-    <h2>➖ Retiro de caja menor</h2>
+    <h2><span class="ico-emoji">➖</span> Retiro de caja menor</h2>
     <form method="post" action="{{ url_for('caja_menor.retiro') }}">
       <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
       <label>Monto *
@@ -140,7 +140,7 @@
       </label>
       <div class="modal-acciones">
         <button type="button" class="boton secundario" data-cerrar-modal>Cancelar</button>
-        <button type="submit" class="boton peligro">💾 Registrar retiro</button>
+        <button type="submit" class="boton peligro"><span class="ico-emoji">💾</span> Registrar retiro</button>
       </div>
     </form>
   </div>

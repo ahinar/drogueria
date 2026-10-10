@@ -30,7 +30,7 @@
 
 <div class="rep-dos">
   <div class="rep-caja">
-    <h2>💳 Por forma de pago</h2>
+    <h2><span class="ico-emoji">💳</span> Por forma de pago</h2>
     <table class="rep-tabla">
       <thead><tr><th>Forma</th><th class="num">Ventas</th><th class="num">Total</th><th class="num">%</th></tr></thead>
       <tbody>{% for f in d.por_pago %}<tr><td>{{ f.nombre }}<div class="rep-barra" style="width:{{ f.pct }}%"></div></td>
@@ -38,7 +38,7 @@
     </table>
   </div>
   <div class="rep-caja">
-    <h2>👤 Por vendedor</h2>
+    <h2><span class="ico-emoji">👤</span> Por vendedor</h2>
     <table class="rep-tabla">
       <thead><tr><th>Vendedor</th><th class="num">Ventas</th><th class="num">Total</th><th class="num">%</th></tr></thead>
       <tbody>{% for f in d.por_vendedor %}<tr><td>{{ f.nombre }}<div class="rep-barra" style="width:{{ f.pct }}%"></div></td>
@@ -49,7 +49,7 @@
 
 <div class="rep-dos">
   <div class="rep-caja">
-    <h2>🕘 Por hora del día</h2>
+    <h2><span class="ico-emoji">🕘</span> Por hora del día</h2>
     <p class="suave" style="margin-top:0">Sirve para saber a qué horas se necesita más gente en el mostrador.</p>
     {% set mayor = d.por_hora|map(attribute='total')|max if d.por_hora else 1 %}
     <table class="rep-tabla">
@@ -60,7 +60,7 @@
     </table>
   </div>
   <div class="rep-caja">
-    <h2>📅 Día por día</h2>
+    <h2><span class="ico-emoji">📅</span> Día por día</h2>
     <table class="rep-tabla">
       <thead><tr><th>Día</th><th class="num">Ventas</th><th class="num">Total</th></tr></thead>
       <tbody>{% for f in d.por_dia|reverse %}<tr><td>{{ f.etiqueta }}</td><td class="num">{{ f.n }}</td>

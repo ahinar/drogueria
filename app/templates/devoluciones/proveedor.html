@@ -12,7 +12,7 @@
 
 <form method="get" class="eres-filtros">
   <label>Buscar producto o lote <input type="search" name="q" value="{{ q }}" placeholder="Nombre, código, lote o código de barras"></label>
-  <button type="submit" class="boton secundario">🔍 Buscar</button>
+  <button type="submit" class="boton secundario"><span class="ico-emoji">🔍</span> Buscar</button>
   {% if q or lote_id %}<a class="boton secundario" href="{{ url_for('devoluciones.proveedor') }}">Ver vencidos y por vencer</a>{% endif %}
 </form>
 {% if not q and not lote_id %}<p class="suave">Mostrando lotes <strong>vencidos y que vencen en 90 días</strong>. Busca otro producto si lo necesitas.</p>{% endif %}
@@ -53,7 +53,7 @@
   <label class="check-linea"><input type="checkbox" name="con_credito" value="1" checked>
     El proveedor reconoce el valor (nota crédito o cambio). Si no lo marcas, se registra como <strong>pérdida</strong>.</label>
   <label>N.º de nota crédito (opcional) <input type="text" name="nota_credito"></label>
-  <div class="acciones"><button type="submit">🚚 Registrar devolución</button></div>
+  <div class="acciones"><button type="submit"><span class="ico-emoji">🚚</span> Registrar devolución</button></div>
 </form>
 {% endif %}
 {% endblock %}

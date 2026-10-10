@@ -203,3 +203,17 @@
 .moderno .rep-menu a:hover { border-color: var(--acento-anillo); background: var(--superficie); }
 .moderno .rep-menu a.activo { color: #fff; }
 .moderno .rep-menu-titulo { display: none !important; }
+
+/* ---- Barra superior en el celular: que todo quepa sin correr la pantalla ----
+   Solo la página actual (sin "Inicio ›"), la caja como un puntico de color
+   y "Salir" solo con el ícono. */
+@media (max-width: 600px) {
+  .moderno .topbar { padding: .5rem .8rem; gap: .5rem; min-height: 56px; }
+  .moderno .topbar-title { min-width: 0; flex: 1; }
+  .moderno .topbar-ruta a, .moderno .topbar-ruta > .ico-svg { display: none; }
+  .moderno .topbar-ruta .actual { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+  .moderno .topbar-right { gap: .4rem !important; flex-shrink: 0; }
+  .moderno .chip-caja { font-size: 0; padding: .55rem; gap: 0; }
+  .moderno .topbar .btn-link { font-size: 0; padding: 0 .6rem; gap: 0; }
+  .moderno .toasts { top: 60px; }
+}

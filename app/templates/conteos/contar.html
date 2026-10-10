@@ -21,14 +21,14 @@
   <div><span class="suave">Valor diferencia</span><strong id="r-valor">${{ '{:,.0f}'.format(resumen.valor_diferencia).replace(',', '.') }}</strong></div>
 </div>
 
-<p class="conteo-ayuda">💡 Escribe la cantidad <strong>apenas termines de contar cada lote</strong> y presiona Enter.
+<p class="conteo-ayuda"><span class="ico-emoji">💡</span> Escribe la cantidad <strong>apenas termines de contar cada lote</strong> y presiona Enter.
   Si se vende mientras cuentas, el programa respeta esas ventas.</p>
 
 <!-- ===== Buscador: nombre, código o lector de código de barras ===== -->
 <div class="conteo-buscador">
   <input type="search" id="conteo-buscar" placeholder="🔍 Buscar producto o escanear código de barras…" autofocus autocomplete="off">
   <!-- Para mercancía que está en la estantería pero no en el sistema -->
-  <button type="button" class="boton" id="btn-producto-encontrado">➕ Producto encontrado</button>
+  <button type="button" class="boton" id="btn-producto-encontrado"><span class="ico-emoji">➕</span> Producto encontrado</button>
   <div class="conteo-filtros" id="conteo-filtros">
     <button type="button" data-filtro="todos" class="activo">Todos</button>
     <button type="button" data-filtro="pendientes">Pendientes</button>
@@ -61,7 +61,7 @@
 <div id="modal-producto-encontrado" class="modal-oculto">
   <div class="modal-caja cnt-modal">
     <div class="info-barra">
-      <h2>➕ Producto encontrado</h2>
+      <h2><span class="ico-emoji">➕</span> Producto encontrado</h2>
       <button type="button" class="info-cerrar" id="pe-cerrar" aria-label="Cerrar">✕</button>
     </div>
     <form id="form-producto-encontrado" class="cnt-modal-cuerpo" autocomplete="off">

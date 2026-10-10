@@ -31,18 +31,18 @@
   {% endif %}
 {% endmacro %}
 
-<h2 class="titulo-seccion" style="color:#8c1d18">⚫ Vencidos ({{ grupos.vencidos|length }})</h2>
+<h2 class="titulo-seccion" style="color:#8c1d18"><span class="ico-emoji">⚫</span> Vencidos ({{ grupos.vencidos|length }})</h2>
 {{ tabla_lotes(grupos.vencidos, "No hay lotes vencidos. ¡Excelente!") }}
 
-<h2 class="titulo-seccion" style="color:#b3261e">🔴 Vencen en menos de 30 días ({{ grupos.rojo|length }})</h2>
+<h2 class="titulo-seccion" style="color:#b3261e"><span class="ico-emoji">🔴</span> Vencen en menos de 30 días ({{ grupos.rojo|length }})</h2>
 {{ tabla_lotes(grupos.rojo, "No hay lotes en este rango.") }}
 
-<h2 class="titulo-seccion" style="color:#a67c00">🟡 Vencen en 30 a 90 días ({{ grupos.amarillo|length }})</h2>
+<h2 class="titulo-seccion" style="color:#a67c00"><span class="ico-emoji">🟡</span> Vencen en 30 a 90 días ({{ grupos.amarillo|length }})</h2>
 {{ tabla_lotes(grupos.amarillo, "No hay lotes en este rango.") }}
 
-<h2 class="titulo-seccion" style="color:#0d6b3d">🟢 Vencen en más de 90 días ({{ grupos.verde|length }})</h2>
+<h2 class="titulo-seccion" style="color:#0d6b3d"><span class="ico-emoji">🟢</span> Vencen en más de 90 días ({{ grupos.verde|length }})</h2>
 {{ tabla_lotes(grupos.verde, "No hay lotes en este rango.") }}
 
-<h2 class="titulo-seccion" style="color:#7a8794">⚪ Sin fecha de vencimiento ({{ grupos.sin|length }})</h2>
+<h2 class="titulo-seccion" style="color:#7a8794"><span class="ico-emoji">⚪</span> Sin fecha de vencimiento ({{ grupos.sin|length }})</h2>
 {{ tabla_lotes(grupos.sin, "No hay lotes sin vencimiento.") }}
 {% endblock %}

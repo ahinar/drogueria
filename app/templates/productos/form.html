@@ -11,10 +11,10 @@
   <input type="password" name="fake_pass" style="display:none" tabindex="-1" autocomplete="off">
 
   <nav class="tabs" role="tablist">
-    <button type="button" class="tab activo" data-tab="general">📋 General</button>
-    <button type="button" class="tab" data-tab="inventario">🗃️ Inventario y alertas</button>
-    <button type="button" class="tab" data-tab="clasificacion">🏷️ Categorías y usos</button>
-    <button type="button" class="tab" data-tab="notas">📝 Notas</button>
+    <button type="button" class="tab activo" data-tab="general"><span class="ico-emoji">📋</span> General</button>
+    <button type="button" class="tab" data-tab="inventario"><span class="ico-emoji">🗃️</span> Inventario y alertas</button>
+    <button type="button" class="tab" data-tab="clasificacion"><span class="ico-emoji">🏷️</span> Categorías y usos</button>
+    <button type="button" class="tab" data-tab="notas"><span class="ico-emoji">📝</span> Notas</button>
   </nav>
 
   <!-- ============ GENERAL ============ -->
@@ -58,7 +58,7 @@
         </div>
         {% if producto and producto['imagen'] %}
         <button type="button" id="btn-eliminar-imagen" class="boton-chico peligro" style="margin-top:.4rem;width:100%">
-          🗑️ Eliminar
+          <span class="ico-emoji">🗑️</span> Eliminar
         </button>
         {% endif %}
       </div>
@@ -247,7 +247,7 @@
         </div>
         {% endfor %}
       </div>
-      <button type="button" class="boton secundario" id="pres-agregar">➕ Agregar presentación</button>
+      <button type="button" class="boton secundario" id="pres-agregar"><span class="ico-emoji">➕</span> Agregar presentación</button>
 
       <!-- Molde vacío: el JS lo copia cada vez que se toca "Agregar presentación" -->
       <template id="pres-molde">
@@ -348,7 +348,7 @@
   </section>
 
   <div class="acciones acciones-form">
-    <button type="submit">💾 Guardar</button>
+    <button type="submit"><span class="ico-emoji">💾</span> Guardar</button>
     <a class="boton secundario" href="{{ url_for('productos.lista') }}">Cancelar</a>
   </div>
 </form>
@@ -517,8 +517,8 @@
     document.getElementById('btn-calcular').addEventListener('click', function () {
       const compra = parseFloat(pc.value) || 0;
       const m = parseFloat(document.getElementById('margen').value) || 0;
-      if (compra <= 0) { alert('Primero ingresa el costo.'); return; }
-      if (m >= 100) { alert('El margen debe ser menor a 100%.'); return; }
+      if (compra <= 0) { window.avisar('Primero ingresa el costo.', 'error'); return; }
+      if (m >= 100) { window.avisar('El margen debe ser menor a 100%.', 'error'); return; }
       const sugerido = compra / (1 - m / 100);
       psug.value = sugerido.toFixed(2);
       pv.value = sugerido.toFixed(2);

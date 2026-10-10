@@ -8,10 +8,10 @@
       <div class="pos-pago-total" id="pago-total">$0</div>
 
       <div class="pos-pago-metodos" id="pago-metodos">
-        <button type="button" class="pos-pago-metodo activo" data-forma="efectivo">💵 Efectivo</button>
-        <button type="button" class="pos-pago-metodo" data-forma="nequi">📱 Nequi</button>
-        <button type="button" class="pos-pago-metodo" data-forma="davivienda">🏦 Davivienda</button>
-        <button type="button" class="pos-pago-metodo" data-forma="tarjeta">💳 Tarjeta</button>
+        <button type="button" class="pos-pago-metodo activo" data-forma="efectivo"><span class="ico-emoji">💵</span> Efectivo</button>
+        <button type="button" class="pos-pago-metodo" data-forma="nequi"><span class="ico-emoji">📱</span> Nequi</button>
+        <button type="button" class="pos-pago-metodo" data-forma="davivienda"><span class="ico-emoji">🏦</span> Davivienda</button>
+        <button type="button" class="pos-pago-metodo" data-forma="tarjeta"><span class="ico-emoji">💳</span> Tarjeta</button>
       </div>
 
       <!-- Solo se ve cuando paga en efectivo -->
@@ -34,17 +34,17 @@
 
       <div class="modal-acciones">
         <button type="button" class="boton secundario" id="pago-cancelar">Cancelar</button>
-        <button type="button" class="boton" id="pago-confirmar">✅ Confirmar venta</button>
+        <button type="button" class="boton" id="pago-confirmar"><span class="ico-emoji">✅</span> Confirmar venta</button>
       </div>
     </div>
 
     <!-- Vista 2: la venta quedó registrada -->
     <div id="pago-exito" style="display:none">
-      <h2>✅ Venta registrada</h2>
+      <h2><span class="ico-emoji">✅</span> Venta registrada</h2>
       <p class="pos-pago-total" id="exito-consecutivo"></p>
       <p class="pos-pago-cambio" id="exito-cambio-linea">Entregar de cambio: <strong id="exito-cambio">$0</strong></p>
       <div class="modal-acciones">
-        <a class="boton secundario" id="exito-comprobante" href="#" target="_blank" rel="noopener">🖨️ Ver comprobante</a>
+        <a class="boton secundario" id="exito-comprobante" href="#" target="_blank" rel="noopener"><span class="ico-emoji">🖨️</span> Ver comprobante</a>
         <button type="button" class="boton" id="exito-nueva">Nueva venta</button>
       </div>
     </div>

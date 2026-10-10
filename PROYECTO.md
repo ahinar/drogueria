@@ -263,12 +263,19 @@
 
 ## 5.16 Temas y diseño visual
 - **Volver atrás:** la rama de GitHub `antes-del-rediseno` guarda el programa como estaba antes; y dentro del programa el tema **Clásico** lo muestra igual que antes.
-- Cada usuario escoge su tema (clic en su nombre, abajo en el menú → Apariencia): **Verde salud** (por defecto), **Azul** o **Clásico**. Se guarda en `usuarios.tema`.
+- Cada usuario escoge su tema (menú → Mi cuenta → **Apariencia (temas)**; en computador también tocando su nombre abajo en el menú): **Verde salud** (por defecto), **Azul** o **Clásico**. Se guarda en `usuarios.tema`.
 - `static/css/temas.css`: colores de cada tema como variables CSS (`--acento`, `--menu-fondo`, `--fondo`, `--texto`…) y la letra IBM Plex Sans (archivos locales en `static/fonts/`, licencia OFL). `app.css` y `pos_nuevo.css` usan esas variables.
 - `static/css/moderno.css`: el diseño nuevo, todo bajo la clase `.moderno` que base.html pone en `<html>` cuando el tema no es Clásico (botones, tablas, tarjetas, formularios, menú, barra superior).
 - Íconos de línea: `templates/_iconos.html`, macro `ico('carrito', '🛒')` (en Clásico se ve el emoji).
 - Barra superior: ☰, ruta "Inicio › página", estado de la caja (abierta/cerrada) y Salir.
 - Inicio: sin "Accesos rápidos" (pedido de Fernando).
+- **Piezas comunes (`static/js/ui.js`, rediseño parte 4):**
+  - Mensajes tipo **toast** (arriba a la derecha; los buenos se van solos en 5 s, los de error se quedan hasta tocar ×). Desde JS: `window.avisar('texto', 'ok'|'error')`. En Clásico siguen como franjas.
+  - **Ventana para pedir datos** `await window.pedirDatos({...})` en vez de `prompt()`: Cliente, Nota y motivo de cambio de precio del POS, nuevo laboratorio en Recepciones. Ya no queda ningún `prompt()` ni `alert()` (hay una prueba que lo vigila).
+  - **Fechas dd/mm/aaaa** con calendario propio en español (lunes primero, « » cambia de año) en todo `<input type="date">`; al servidor le sigue llegando aaaa-mm-dd. Las "/" se ponen solas al escribir; año de 2 cifras → 20xx; revisa fechas imposibles (31/02) y mínimos/máximos.
+- **Comprobante en tirilla de 80 mm** (`pos/comprobante.html`): logo, datos del negocio, fecha dd/mm/aaaa, pesos con punto de miles, nota de la venta, "Documento interno · no es factura". Filtros de plantilla nuevos: `pesos` y `fecha_hora`.
+- Emojis decorativos de botones y títulos: envueltos en `<span class="ico-emoji">` → se ocultan en el diseño nuevo y se ven en Clásico.
+- En el celular la barra superior se compacta (solo el nombre de la página, la caja como un punto de color y Salir con ícono).
 
 ## 6. Sistema de imágenes
 
@@ -371,7 +378,7 @@ Notas:
 - [ ] Registrar los equipos reales y subir sus certificados de calibración.
 
 ### Corto plazo
-- [~] **Parte visual — que el programa se vea más profesional** (en curso: temas, letra, íconos del menú, barra superior, Inicio, POS con carrito a la derecha, reportes en pestañas y títulos sin emoji ✅; faltan selector de fechas propio, mensajes tipo toast, ventanas propias para Cliente/Nota del POS (hoy usan prompt del navegador), tirilla 80 mm) (pedido por Fernando, 2026-10-10). Propuesta:
+- [~] **Parte visual — que el programa se vea más profesional** (temas, letra, íconos, barra superior, Inicio, POS con carrito a la derecha, reportes en pestañas, toasts, fechas dd/mm/aaaa, ventanas propias en vez de prompt, tirilla 80 mm ✅; queda: unificar estilos de tablas y PDF con el mismo encabezado) (pedido por Fernando, 2026-10-10). Propuesta:
   1. **Guía de estilo única:** colores de la marca Fervifarma, tipografía Inter (archivo local), tamaños y espacios en variables CSS; una página interna que muestre todos los componentes.
   2. **Unificar componentes repetidos:** un solo estilo de botón, de tabla (hoy hay `.tabla`, `.rep-tabla`, `.sug-tabla`, `.eres-tabla`…), de tarjeta y de formulario.
   3. **Íconos de verdad en vez de emojis** (juego SVG local, por ejemplo Lucide): los emojis se ven distintos en cada Windows.

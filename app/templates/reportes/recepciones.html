@@ -18,7 +18,7 @@
   <p class="rep-vacio">No hay recepciones en este período.</p>
 {% else %}
 <div class="rep-caja">
-  <h2>🏢 Por proveedor</h2>
+  <h2><span class="ico-emoji">🏢</span> Por proveedor</h2>
   <table class="rep-tabla">
     <thead><tr><th>Proveedor</th><th class="num">Recepciones</th><th class="num">Aprobadas</th><th class="num">Rechazadas</th>
       <th class="num">En cuarentena</th><th class="num">Productos rechazados</th><th class="num">Valor aprobado</th></tr></thead>
@@ -30,7 +30,7 @@
 </div>
 
 <div class="rep-caja" style="margin-top:1rem">
-  <h2>❌ Productos rechazados</h2>
+  <h2><span class="ico-emoji">❌</span> Productos rechazados</h2>
   {% if d.rechazos %}
   <table class="rep-tabla">
     <thead><tr><th>Fecha</th><th>Recepción</th><th>Producto</th><th>Empaque</th><th>Motivo</th></tr></thead>

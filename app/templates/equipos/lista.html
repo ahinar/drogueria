@@ -13,11 +13,11 @@
     <p class="suave">Termohigrómetros, neveras y demás equipos de medición, con su certificado de calibración.
       La Secretaría de Salud pide que estén calibrados.</p>
   </div>
-  {% if jefe %}<a class="boton" href="{{ url_for('equipos.nuevo') }}">➕ Nuevo equipo</a>{% endif %}
+  {% if jefe %}<a class="boton" href="{{ url_for('equipos.nuevo') }}"><span class="ico-emoji">➕</span> Nuevo equipo</a>{% endif %}
 </div>
 
 {% if sin_equipo %}
-<p class="eres-aviso">⚠️ Zonas de temperatura sin equipo asignado:
+<p class="eres-aviso"><span class="ico-emoji">⚠️</span> Zonas de temperatura sin equipo asignado:
   <strong>{{ sin_equipo|map(attribute='nombre')|join(', ') }}</strong>.
   Asigna el termohigrómetro de cada zona para saber con qué equipo se tomó cada lectura.</p>
 {% endif %}

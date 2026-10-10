@@ -9,14 +9,14 @@
     <h1><span class="ico-emoji">⏳</span> Semáforo de vencimientos</h1>
     <p class="suave">Lotes con existencias a hoy. Descárgalo en PDF para la visita de la Secretaría de Salud.</p>
   </div>
-  <a class="boton no-imprimir" href="{{ url_for('reportes.vencimientos_pdf') }}">📄 Descargar PDF</a>
+  <a class="boton no-imprimir" href="{{ url_for('reportes.vencimientos_pdf') }}"><span class="ico-emoji">📄</span> Descargar PDF</a>
 </div>
 
 <div class="rep-tarjetas">
-  <div class="eres-tarjeta negativa"><span>⛔ Vencidos</span><strong>{{ grupos.vencidos|length }}</strong><small>retirar de la venta</small></div>
-  <div class="eres-tarjeta"><span>🔴 Rojo</span><strong>{{ grupos.rojo|length }}</strong><small>30 días o menos</small></div>
-  <div class="eres-tarjeta"><span>🟡 Amarillo</span><strong>{{ grupos.amarillo|length }}</strong><small>31 a 90 días</small></div>
-  <div class="eres-tarjeta positiva"><span>🟢 Verde</span><strong>{{ grupos.verde|length }}</strong><small>más de 90 días</small></div>
+  <div class="eres-tarjeta negativa"><span><span class="ico-emoji">⛔</span> Vencidos</span><strong>{{ grupos.vencidos|length }}</strong><small>retirar de la venta</small></div>
+  <div class="eres-tarjeta"><span><span class="ico-emoji">🔴</span> Rojo</span><strong>{{ grupos.rojo|length }}</strong><small>30 días o menos</small></div>
+  <div class="eres-tarjeta"><span><span class="ico-emoji">🟡</span> Amarillo</span><strong>{{ grupos.amarillo|length }}</strong><small>31 a 90 días</small></div>
+  <div class="eres-tarjeta positiva"><span><span class="ico-emoji">🟢</span> Verde</span><strong>{{ grupos.verde|length }}</strong><small>más de 90 días</small></div>
 </div>
 
 {% for clave, titulo in (('vencidos', '⛔ Vencidos'), ('rojo', '🔴 Vencen en 30 días o menos'), ('amarillo', '🟡 Vencen en 31 a 90 días')) %}

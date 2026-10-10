@@ -194,11 +194,19 @@
     {% endif %}
 
     <main class="contenido">
+      {# Mensajes del servidor ("Guardado", "Error: ..."). Con el diseño nuevo
+         flotan arriba a la derecha como "toast" y los buenos se van solos
+         (ver static/js/ui.js). Los de error se quedan hasta tocar la ×. #}
+      <div class="toasts" id="toasts" aria-live="polite">
       {% with mensajes = get_flashed_messages(with_categories=true) %}
         {% for categoria, mensaje in mensajes %}
-          <div class="aviso {{ categoria }}">{{ mensaje }}</div>
+          <div class="aviso toast {{ categoria }}" role="{{ 'alert' if categoria == 'error' else 'status' }}">
+            <span class="toast-txt">{{ mensaje }}</span>
+            <button type="button" class="toast-cerrar" aria-label="Cerrar mensaje">×</button>
+          </div>
         {% endfor %}
       {% endwith %}
+      </div>
       {% block contenido %}{% endblock %}
     </main>
   </div>
@@ -206,15 +214,17 @@
   <!-- ============ ALARMA GLOBAL DE TEMPERATURA ============ -->
   <div id="alarma-temp" class="alarma-oculta" role="alert" aria-live="assertive">
     <div class="alarma-caja">
-      <h2>⏰ REGISTRO DE TEMPERATURA PENDIENTE</h2>
+      <h2><span class="ico-emoji">⏰</span> REGISTRO DE TEMPERATURA PENDIENTE</h2>
       <ul id="alarma-lista"></ul>
       <div class="alarma-acciones">
-        <button type="button" id="alarma-silenciar">🔇 Silenciar sonido</button>
-        <button type="button" id="alarma-cerrar">⏰ Aplazar 10 minutos</button>
+        <button type="button" id="alarma-silenciar"><span class="ico-emoji">🔇</span> Silenciar sonido</button>
+        <button type="button" id="alarma-cerrar"><span class="ico-emoji">⏰</span> Aplazar 10 minutos</button>
       </div>
     </div>
   </div>
   <script src="{{ url_for('static', filename='js/alarma.js') }}"></script>
+  {# ui.js: mensajes toast, ventana para pedir datos y fechas dd/mm/aaaa #}
+  <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
 
   <script>
   (function () {

@@ -13,7 +13,7 @@
         {{ ('con nota crédito' ~ (' N.º ' ~ d.nota_credito if d.nota_credito else '')) if d.con_credito else 'sin nota crédito: se registró como pérdida' }}{% endif %}</p>
     <p><strong>Motivo:</strong> {{ d.motivo }}</p>
   </div>
-  <a class="boton" href="{{ url_for('devoluciones.acta', dev_id=d.id) }}">📄 Acta PDF</a>
+  <a class="boton" href="{{ url_for('devoluciones.acta', dev_id=d.id) }}"><span class="ico-emoji">📄</span> Acta PDF</a>
 </div>
 <div class="rep-caja">
 <table class="rep-tabla">
