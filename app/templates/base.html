@@ -17,6 +17,20 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
   {% endif %}
 
+  {# Va en el <head> (no en ui.js) porque los scripts de cada página lo usan
+     apenas cargan, antes de que llegue ui.js al final de la página. #}
+  <script>
+  // Cuántas unidades trae una unidad de medida: su cantidad, o si quedó en 1,
+  // lo que diga el nombre ("CAJA X 12" -> 12). Igual que presentaciones.cantidad_efectiva
+  window.cantidadDeUnidad = function (nombre, cantidad) {
+    cantidad = parseFloat(cantidad) || 1;
+    if (cantidad <= 1) {
+      const m = String(nombre || '').match(/x\s*(\d+(?:[.,]\d+)?)\s*$/i);
+      if (m) return parseFloat(m[1].replace(',', '.'));
+    }
+    return cantidad;
+  };
+  </script>
 </head>
 <body class="layout">
 

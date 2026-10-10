@@ -233,6 +233,21 @@ def id_por_defecto(opciones, venta_defecto_unidad_id):
     return PRINCIPAL
 
 
+def cantidad_efectiva(nombre, cantidad):
+    """Cuántas unidades trae una unidad de medida.
+
+    Normalmente es su "cantidad" (SELLO X 10 = 10). Pero si alguien la creó
+    sin escribirla (quedó en 1), se lee del nombre: "CAJA X 12" -> 12.
+    """
+    import re
+    cantidad = float(cantidad or 1)
+    if cantidad <= 1:
+        m = re.search(r"x\s*(\d+(?:[.,]\d+)?)\s*$", str(nombre or ""), re.I)
+        if m:
+            return float(m.group(1).replace(",", "."))
+    return cantidad
+
+
 def _numero_corto(n):
     """295.0 -> '295' ; 2.5 -> '2,5'"""
     return f"{n:g}".replace(".", ",")

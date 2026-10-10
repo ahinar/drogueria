@@ -209,12 +209,12 @@ def _presentacion_por_unidad(producto_id, unidad_id):
                         (producto_id, unidad_id)).fetchone()
     if propia:
         return {"nombre": u["nombre"], "factor": float(propia["factor"])}
-    base = db.execute("SELECT um.id, um.cantidad FROM productos p JOIN unidades_medida um "
+    base = db.execute("SELECT um.id, um.nombre, um.cantidad FROM productos p JOIN unidades_medida um "
                       "ON um.id = p.unidad_venta_id WHERE p.id = ?", (producto_id,)).fetchone()
     if base and base["id"] == unidad_id:
         return {"nombre": u["nombre"], "factor": 1.0}
-    cant_base = float(base["cantidad"] or 1) if base else 1.0
-    return {"nombre": u["nombre"], "factor": round(float(u["cantidad"] or 1) / cant_base, 4)}
+    cant_base = pres.cantidad_efectiva(base["nombre"], base["cantidad"]) if base else 1.0
+    return {"nombre": u["nombre"], "factor": round(pres.cantidad_efectiva(u["nombre"], u["cantidad"]) / cant_base, 4)}
 
 
 def _leer_lineas_formulario():

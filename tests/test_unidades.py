@@ -514,3 +514,18 @@ class TestRecepcionCualquierUnidad(BaseUnidades):
         self.assertFalse(j["ok"])
         j = self.post(self.c, "/recepciones/api/crear-unidad", {"nombre": "Caja grande", "cantidad": "24"}).get_json()
         self.assertEqual(j["cantidad"], 24)
+
+
+class TestUnidadConCantidadMal(TestFichaPorUnidadDeVenta):
+    """Una unidad 'SELLO X 12' creada con cantidad 1: el número se lee del nombre."""
+    def test_se_lee_del_nombre(self):
+        from app.presentaciones import cantidad_efectiva
+        self.assertEqual([cantidad_efectiva("CAJA X 12", 1), cantidad_efectiva("Sobre x 10", 10),
+                          cantidad_efectiva("Frasco", 1)], [12, 10, 1])
+        con = self.db()
+        uid = con.execute("INSERT INTO unidades_medida (nombre, cantidad, activo, creado_en) "
+                          "VALUES ('SELLO X 12', 1, 1, ?) RETURNING id", (FECHA,)).fetchone()[0]
+        con.commit()
+        con.close()
+        p = self.crear(venta_unidad_id=str(uid), venta_trae="", venta_precio="2400")
+        self.assertEqual((p["venta_defecto_unidad_id"], p["precio_venta"]), (uid, 200))

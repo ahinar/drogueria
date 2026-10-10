@@ -21,6 +21,7 @@
    Eso se llama IIFE: una función que se ejecuta sola enseguida. Sirve
    para que las variables de aquí no choquen con las de otros archivos.
    ===================================================================== */
+
 (function () {
   'use strict';   // modo estricto: JavaScript avisa de más errores
 

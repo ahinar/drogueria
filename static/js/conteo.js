@@ -424,7 +424,7 @@
   // "por SELLO X 10": cuántas trae sale del nombre; si no lo dice, se pregunta
   function ajustarUnidadCP(sugerir) {
     const opt = cpUnidad.options[cpUnidad.selectedIndex];
-    const cantidad = opt ? (parseFloat(opt.dataset.cantidad) || 1) : 1;
+    const cantidad = opt ? window.cantidadDeUnidad(opt.textContent.trim(), opt.dataset.cantidad) : 1;
     const esUnidad = opt && opt.textContent.trim().toLowerCase() === 'unidad';
     if (sugerir) cpTrae.value = cantidad > 1 ? cantidad : '';
     $('cp-campo-trae').hidden = esUnidad || cantidad > 1;

@@ -277,8 +277,9 @@ def _venta_de_fila(db, fila, mapa, cache, unidad_basica):
     venta_uid = _unidad_id(db, fila.get(mapa["unidad_venta"], ""), cache)
     trae = _num(fila.get(mapa.get("venta_trae", "")), 0)
     if trae <= 1:
-        fila_u = db.execute("SELECT cantidad FROM unidades_medida WHERE id = ?", (venta_uid,)).fetchone()
-        trae = float(fila_u["cantidad"] or 1) if fila_u and venta_uid != unidad_basica else 1
+        from .presentaciones import cantidad_efectiva
+        fila_u = db.execute("SELECT nombre, cantidad FROM unidades_medida WHERE id = ?", (venta_uid,)).fetchone()
+        trae = cantidad_efectiva(fila_u["nombre"], fila_u["cantidad"]) if fila_u and venta_uid != unidad_basica else 1
     factor = trae if trae > 1 and unidad_basica else 1
     precio = _num(fila.get(mapa.get("venta_precio", "")), 0)
     costo = _num(fila.get(mapa.get("venta_costo", "")), 0)

@@ -540,7 +540,7 @@
     function pesos(n) { return '$' + Math.round(n).toLocaleString('es-CO'); }
     function cantidadDe(select) {
       const opt = select.options[select.selectedIndex];
-      return opt && opt.value ? (parseFloat(opt.dataset.cantidad) || 1) : 0;
+      return opt && opt.value ? window.cantidadDeUnidad(opt.textContent.trim(), opt.dataset.cantidad) : 0;
     }
     function nombreUnidad(select) {
       const opt = select.options[select.selectedIndex];

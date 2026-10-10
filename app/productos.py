@@ -258,8 +258,8 @@ def _leer_formulario():
 
 
 def _cantidad_unidad(uid):
-    fila = get_db().execute("SELECT cantidad FROM unidades_medida WHERE id = ?", (uid,)).fetchone()
-    return float(fila["cantidad"] or 1) if fila else 1.0
+    fila = get_db().execute("SELECT nombre, cantidad FROM unidades_medida WHERE id = ?", (uid,)).fetchone()
+    return pres.cantidad_efectiva(fila["nombre"], fila["cantidad"]) if fila else 1.0
 
 
 def _traducir_venta(datos):

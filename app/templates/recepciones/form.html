@@ -395,10 +395,11 @@
     const grupo = document.createElement('optgroup');
     grupo.label = 'Otras unidades';
     UNIDADES.forEach(function (u) {
-      if (u.cantidad <= 1 || propias.includes(u.nombre.toLowerCase())) return;
+      const cant = window.cantidadDeUnidad(u.nombre, u.cantidad);    // "CAJA X 12" -> 12
+      if (cant <= 1 || propias.includes(u.nombre.toLowerCase())) return;
       const o = document.createElement('option');
       o.value = 'u' + u.id;
-      o.dataset.factor = u.cantidad;
+      o.dataset.factor = cant;
       o.textContent = u.nombre;
       grupo.appendChild(o);
     });
@@ -710,7 +711,7 @@
   // Unidad de venta que trae varias (Sello x 10): pedir cuántas trae y si se vende suelto
   function npAjustarVenta(sugerir) {
     const opt = npUnidad.options[npUnidad.selectedIndex];
-    const cantidad = opt ? (parseFloat(opt.dataset.cantidad) || 1) : 1;
+    const cantidad = opt ? window.cantidadDeUnidad(opt.textContent.trim(), opt.dataset.cantidad) : 1;
     const nombre = opt ? opt.textContent.trim() : '';
     const esUnidad = nombre.toLowerCase() === 'unidad';
     if (sugerir) npTrae.value = cantidad > 1 ? cantidad : '';
