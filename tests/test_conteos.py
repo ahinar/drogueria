@@ -11,6 +11,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_fase2_ventas import BaseVentas, FUTURO, PASADO
 
 
+from datetime import date as _d, timedelta as _td
+FUTURO_C = (_d.today() + _td(days=400)).isoformat()
+
+
 class BaseConteo(BaseVentas):
     def crear_conteo(self, cliente=None, **datos):
         return self.post(cliente or self.c, "/inventario/conteos/nuevo", datos)
@@ -201,9 +205,29 @@ class TestBuscarRevisarYActa(BaseConteo):
         con.execute("INSERT INTO productos_categorias (producto_id, catalogo_id) VALUES (2, ?)", (cat,))
         con.commit()
         con.close()
+        self.lote(1, "A1", FUTURO_C, 5)
+        self.lote(2, "B1", FUTURO_C, 5)
         self.crear_conteo(categoria_id=str(cat))
         j = self.c.get("/inventario/conteos/1/api/buscar").get_json()
         self.assertEqual([p["id"] for p in j["productos"]], [2])
+
+    def test_en_cero_solo_aparece_al_buscar(self):
+        """Sin buscar, la lista muestra lo que hay; buscando, aparece aunque esté en 0."""
+        self.lote(1, "A1", FUTURO_C, 5)
+        self.crear_conteo()
+        j = self.c.get("/inventario/conteos/1/api/buscar").get_json()
+        self.assertEqual([p["id"] for p in j["productos"]], [1])
+        nombre = self.uno("SELECT nombre FROM productos WHERE id = 2")["nombre"]
+        j = self.c.get("/inventario/conteos/1/api/buscar?q=" + nombre.split()[0]).get_json()
+        self.assertIn(2, [p["id"] for p in j["productos"]])
+
+    def test_lote_agotado_se_reutiliza(self):
+        self.lote(1, "VIEJO", FUTURO_C, 0)
+        self.crear_conteo()
+        r = self.post(self.c, "/inventario/conteos/1/api/contar", {
+            "producto_id": "1", "lote": "viejo", "vencimiento": FUTURO_C, "cantidad": "3", "costo": "100"}).get_json()
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["lote_id"], self.uno("SELECT id FROM lotes WHERE lote = 'VIEJO'")["id"])
 
     def test_paginas(self):
         self.crear_conteo()

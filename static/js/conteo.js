@@ -92,12 +92,12 @@
       pintarResumen(json.resumen);
       botonMas.hidden = !json.hay_mas;
       // Lector de código de barras: si encontró el producto exacto, va directo
-      // a su primera casilla sin contar; si no tiene lotes, abre "Producto encontrado".
+      // a su primera casilla sin contar (si está en 0, a la línea nueva: lote o cantidad)
       if (json.exacto && productos.length === 1) {
-        const casilla = lista.querySelector('input.conteo-cantidad:not([data-contado])') ||
+        const casilla = lista.querySelector('.cnt-fila-nueva input:not([type=hidden])') ||
+                        lista.querySelector('input.conteo-cantidad:not([data-contado])') ||
                         lista.querySelector('input.conteo-cantidad');
         if (casilla) { casilla.focus(); casilla.select(); }
-        else abrirEncontrado(productos[0]);
       }
     } catch (e) {
       lista.innerHTML = '<p class="conteo-error">Error de conexión: ' + esc(e.message) + '</p>';
@@ -199,26 +199,66 @@
     '</div>';
   }
 
-  // Producto sin ningún lote en el sistema: una fila con botón para ingresarlo
-  function filaSinLotes(p) {
-    return '<div class="cnt-fila cnt-sin-lotes" data-producto="' + p.id + '">' +
-      '<div class="cnt-prod"><strong>' + esc(p.nombre) + (p.concentracion ? ' ' + esc(p.concentracion) : '') +
-        '</strong><span class="suave"> ' + esc(p.codigo) + '</span></div>' +
-      '<div class="cnt-sin-lotes-texto suave">Sin lotes en el sistema</div>' +
-      '<div class="cnt-sin-lotes-accion"><button type="button" class="conteo-ingresar" data-ingresar="' + p.id +
-        '">➕ Ingresar</button></div>' +
+  // LÍNEA NUEVA, en la misma lista (como Odoo): un lote que apareció en la
+  // estantería y no está en el sistema, o un producto que estaba en 0.
+  //   - Si el producto maneja vencimiento: casillas Lote, Vence y Contado.
+  //   - Si no (cepillos, biberones): "Sin lote" y solo Contado.
+  //   - Si el producto no tiene costo conocido, también pide el costo de 1 unidad.
+  // Al guardar se manda producto + lote + vencimiento + cantidad (Caso B del servidor:
+  // si ese lote ya existió, por ejemplo agotado, se cuenta sobre el mismo lote).
+  function filaNuevoLote(p, primera, aviso0) {
+    const pideLote = p.maneja_vencimiento;
+    const pideCosto = !(p.costo_sugerido > 0);
+    const caja = casillasContado(p, { lote_id: null, linea: null })
+      .replace('<div class="cnt-contado', '<div data-nuevo="1" class="cnt-contado');
+    return '<div class="cnt-fila cnt-fila-nueva' + (primera ? '' : ' cnt-mismo') + '" data-producto="' + p.id + '">' +
+      '<div class="cnt-prod">' + (primera
+        ? '<strong>' + esc(p.nombre) + (p.concentracion ? ' ' + esc(p.concentracion) : '') + '</strong>' +
+          '<span class="suave"> ' + esc(p.codigo) + '</span>' +
+          (aviso0 ? '<br><span class="conteo-tag conteo-tag-cero">⚠ Está en 0 en el sistema</span>' : '')
+        : '') +
+        (pideCosto ? '<label class="cnt-costo-nuevo">Costo de 1 ' + esc((p.unidad || 'unidad').toLowerCase()) +
+          ' <input type="text" inputmode="decimal" class="nl-costo" placeholder="$"></label>' : '') + '</div>' +
+      '<div class="cnt-lote">' + (pideLote
+        ? '<input type="text" class="nl-lote" placeholder="Lote" maxlength="40" aria-label="Lote nuevo">'
+        : '<span class="suave">Sin lote</span>') + '</div>' +
+      '<div class="cnt-vence">' + (pideLote
+        ? '<input type="date" class="nl-vence" aria-label="Vence">' : '—') + '</div>' +
+      '<div class="cnt-sistema num"><span class="cnt-etq">Sistema </span><b>0</b></div>' +
+      caja +
+      '<div class="cnt-dif"></div>' +
+      '<div class="cnt-quitar"><button type="button" class="conteo-quitar-nueva" title="Quitar esta línea">✕</button></div>' +
     '</div>';
   }
 
-  function pintar() {
-    if (!productos.length) {
+  // Botón debajo de los lotes de un producto que maneja vencimiento
+  function filaAgregarLote(p) {
+    return '<div class="cnt-agregar" data-producto="' + p.id + '">' +
+      '<button type="button" class="conteo-agregar-lote" data-agregar="' + p.id + '">+ Agregar lote</button></div>';
+  }
+
+  // Lista vacía: si se buscó algo que no existe, ofrecer crearlo
+  function pintarVacio() {
+    const q = buscador.value.trim();
+    if (!q) {
       lista.innerHTML = '<p class="suave conteo-vacio">No hay productos para mostrar con ese filtro.</p>';
       return;
     }
+    lista.innerHTML = '<div class="conteo-vacio">' +
+      '<p>No hay ningún producto "<strong>' + esc(q) + '</strong>".</p>' +
+      '<button type="button" class="boton" id="btn-crear-producto">+ Crear producto "' + esc(q) + '"</button></div>';
+  }
+
+  function pintar() {
+    if (!productos.length) { pintarVacio(); return; }
     // Los productos ya llegan en orden alfabético desde el servidor
-    lista.innerHTML = productos.map((p) => p.lotes.length
-      ? p.lotes.map((l, i) => filaLote(p, l, i === 0)).join('')
-      : filaSinLotes(p)).join('');
+    lista.innerHTML = productos.map((p) => {
+      let html = p.lotes.length
+        ? p.lotes.map((l, i) => filaLote(p, l, i === 0)).join('')
+        : filaNuevoLote(p, true, true);          // en 0: una línea lista para contar
+      if (p.maneja_vencimiento) html += filaAgregarLote(p);
+      return html;
+    }).join('');
   }
 
   // ---------------------------------------------------------------
@@ -240,8 +280,23 @@
     if (caja.dataset.guardado !== undefined && +caja.dataset.guardado === total) return;
     const datos = new FormData();
     datos.append('cantidad', String(total));
+    const filaN = input.closest('.cnt-fila');
     if (caja.dataset.lote) datos.append('lote_id', caja.dataset.lote);
     else if (caja.dataset.linea) datos.append('linea_id', caja.dataset.linea);   // lote encontrado ya anotado
+    else if (caja.dataset.nuevo) {
+      // Línea nueva: producto + lote + vencimiento (+ costo si lo pidió)
+      const loteI = filaN.querySelector('.nl-lote');
+      const venceI = filaN.querySelector('.nl-vence');
+      const costoI = filaN.querySelector('.nl-costo');
+      if (loteI && (!loteI.value.trim() || !venceI.value)) {
+        aviso('Escribe el lote y la fecha de vencimiento.', true);
+        (loteI.value.trim() ? filaN.querySelector('.cnt-vence input:not([type=hidden])') : loteI).focus();
+        return;
+      }
+      datos.append('producto_id', filaN.dataset.producto);
+      if (loteI) { datos.append('lote', loteI.value.trim()); datos.append('vencimiento', venceI.value); }
+      if (costoI && costoI.value.trim()) datos.append('costo', costoI.value.trim());
+    }
     const casillas = caja.querySelectorAll('input');
     casillas.forEach((i) => i.classList.add('guardando'));
     // Se marca como guardado ANTES de enviar: así, si Enter y "salir de la
@@ -258,6 +313,22 @@
       }
       casillas.forEach((i) => { i.classList.remove('con-error'); i.dataset.contado = '1'; });
       caja.dataset.linea = json.linea.id;
+      if (json.lote_id) caja.dataset.lote = json.lote_id;         // era un lote que ya existía
+      // ¿Ese lote ya estaba anotado en otra línea de la pantalla? Se deja solo una
+      const otra = [...lista.querySelectorAll('.cnt-contado[data-linea="' + json.linea.id + '"]')].find((c) => c !== caja);
+      if (caja.dataset.nuevo && otra) {
+        filaN.remove();
+        const filaOtra = otra.closest('.cnt-fila');
+        const pOtro = productos.find((x) => x.id === +filaOtra.dataset.producto);
+        filaOtra.querySelector('.cnt-dif').innerHTML = etiquetaDiferencia(json.linea, pOtro);
+        aviso('Ese lote ya estaba anotado: se actualizó la cantidad.');
+        buscar(false);
+        return;
+      }
+      if (caja.dataset.nuevo) {
+        // Ya guardado: el lote y la fecha quedan fijos (para cambiarlos, ✕ y otra vez)
+        filaN.querySelectorAll('.nl-lote, .nl-costo, .cnt-vence input, .cnt-vence button').forEach((i) => { i.disabled = true; });
+      }
       // Se actualiza la fila: sistema al contar, diferencia y botón de quitar
       const fila = input.closest('.cnt-fila');
       const p = productos.find((x) => x.id === +fila.dataset.producto);
@@ -276,6 +347,14 @@
 
   // Enter = guardar y pasar a la siguiente casilla
   lista.addEventListener('keydown', (e) => {
+    // Línea nueva: Enter en Lote -> Vence -> Contado (sin guardar todavía)
+    if (e.key === 'Enter' && !e.target.classList.contains('conteo-cantidad') && e.target.closest('.cnt-fila-nueva')) {
+      e.preventDefault();
+      const campos = [...e.target.closest('.cnt-fila-nueva').querySelectorAll('input:not([type=hidden]):not([disabled])')];
+      const sig = campos[campos.indexOf(e.target) + 1];
+      if (sig) { sig.focus(); if (sig.select) sig.select(); }
+      return;
+    }
     if (e.key !== 'Enter' || !e.target.classList.contains('conteo-cantidad')) return;
     e.preventDefault();
     const casillas = [...lista.querySelectorAll('input.conteo-cantidad')];
@@ -295,11 +374,26 @@
 
   // Quitar lo contado / ingresar un producto sin lotes
   lista.addEventListener('click', async (e) => {
-    const ingresar = e.target.closest('[data-ingresar]');
-    if (ingresar) {
-      abrirEncontrado(productos.find((p) => p.id === +ingresar.dataset.ingresar));
+    const agregar = e.target.closest('[data-agregar]');
+    if (agregar) {
+      // Se agrega una línea nueva justo encima del botón y se va a la casilla Lote
+      const p = productos.find((x) => x.id === +agregar.dataset.agregar);
+      agregar.closest('.cnt-agregar').insertAdjacentHTML('beforebegin', filaNuevoLote(p, false, false));
+      const nueva = agregar.closest('.cnt-agregar').previousElementSibling;
+      const primero = nueva.querySelector('input:not([type=hidden])');
+      if (primero) primero.focus();
       return;
     }
+    const quitarNueva = e.target.closest('.conteo-quitar-nueva');
+    if (quitarNueva) {
+      const fila = quitarNueva.closest('.cnt-fila');
+      // Si es la única línea de un producto en 0, no se quita (para poder contarlo)
+      const esUnica = !fila.classList.contains('cnt-mismo');
+      if (esUnica) { fila.querySelectorAll('input:not([type=hidden])').forEach((i) => { i.value = ''; }); return; }
+      fila.remove();
+      return;
+    }
+    if (e.target.closest('#btn-crear-producto')) { abrirCrearProducto(buscador.value.trim()); return; }
     const quitar = e.target.closest('.conteo-quitar');
     if (quitar) {
       if (!(await window.confirmar('¿Borrar lo contado de este lote?'))) return;
@@ -313,110 +407,84 @@
   });
 
   // ---------------------------------------------------------------
-  // 5. VENTANA "PRODUCTO ENCONTRADO"
+  // 5. VENTANA "CREAR PRODUCTO" (lo encontrado no existe en el sistema)
   // ---------------------------------------------------------------
-  const modal = $('modal-producto-encontrado');
-  const peBuscar = $('pe-buscar');
-  const peSugerencias = $('pe-sugerencias');
-  const peElegido = $('pe-elegido');
-  const peError = $('pe-error');
-  let peProducto = null;          // producto elegido
-  let peResultados = [];          // sugerencias que se están mostrando
-  let peEspera = null;
+  // Usa la misma dirección que la recepción (/recepciones/api/crear-producto).
+  // Si lo buscado parece un código de barras (solo números), se pone ahí;
+  // si no, se usa como nombre. Al guardar, la lista busca el producto nuevo
+  // y queda su línea lista para escribir lote, vencimiento y cantidad.
+  const modalCP = $('modal-crear-producto');
+  const cpUnidad = $('cp-unidad');
+  const cpTrae = $('cp-trae');
 
-  function mostrarError(texto) {
-    peError.textContent = texto;
-    peError.hidden = !texto;
+  function mostrarErrorCP(texto) {
+    $('cp-error').textContent = texto;
+    $('cp-error').hidden = !texto;
   }
-
-  // Abre la ventana. Si viene un producto (botón "Ingresar" o lector), queda elegido.
-  function abrirEncontrado(producto) {
-    $('form-producto-encontrado').reset();
-    mostrarError('');
-    peSugerencias.innerHTML = '';
-    elegir(producto || null);
-    modal.classList.remove('modal-oculto');
-    (producto ? $('pe-lote') : peBuscar).focus();
+  // "por SELLO X 10": cuántas trae sale del nombre; si no lo dice, se pregunta
+  function ajustarUnidadCP(sugerir) {
+    const opt = cpUnidad.options[cpUnidad.selectedIndex];
+    const cantidad = opt ? (parseFloat(opt.dataset.cantidad) || 1) : 1;
+    const esUnidad = opt && opt.textContent.trim().toLowerCase() === 'unidad';
+    if (sugerir) cpTrae.value = cantidad > 1 ? cantidad : '';
+    $('cp-campo-trae').hidden = esUnidad || cantidad > 1;
+    const trae = parseFloat((cpTrae.value || '').replace(',', '.')) || 0;
+    $('cp-campo-suelto').hidden = !(trae > 1);
+    const t = ($('cp-precio').value || '').trim();
+    const precio = parseFloat((/^\d{1,3}(\.\d{3})+$/.test(t) ? t.replace(/\./g, '') : t).replace(',', '.')) || 0;
+    $('cp-precio-suelto').textContent = trae > 1 && precio > 0 ? '(1 unidad = ' + peso(precio / trae) + ')' : '';
   }
+  cpUnidad.addEventListener('change', () => ajustarUnidadCP(true));
+  cpTrae.addEventListener('input', () => ajustarUnidadCP(false));
+  $('cp-precio').addEventListener('input', () => ajustarUnidadCP(false));
 
-  function cerrarEncontrado() {
-    modal.classList.add('modal-oculto');
+  function abrirCrearProducto(texto) {
+    $('form-crear-producto').reset();
+    mostrarErrorCP('');
+    const esCodigo = /^\d{6,}$/.test(texto);
+    $('cp-barras').value = esCodigo ? texto : '';
+    $('cp-nombre').value = esCodigo ? '' : texto.toUpperCase();
+    ajustarUnidadCP(true);
+    modalCP.classList.remove('modal-oculto');
+    $('cp-nombre').focus();
+  }
+  function cerrarCrearProducto() {
+    modalCP.classList.add('modal-oculto');
     buscador.focus();
   }
 
-  // Deja un producto elegido y ajusta qué campos son obligatorios
-  function elegir(p) {
-    peProducto = p;
-    $('pe-producto-id').value = p ? p.id : '';
-    peBuscar.hidden = !!p;
-    peSugerencias.innerHTML = '';
-    peElegido.hidden = !p;
-    if (p) {
-      peElegido.innerHTML = '<strong>' + esc(p.nombre) + (p.concentracion ? ' ' + esc(p.concentracion) : '') +
-        '</strong> <span class="suave">' + esc(p.codigo) + '</span>' +
-        ' <button type="button" class="conteo-cambiar" id="pe-cambiar">Cambiar</button>';
-      $('pe-cambiar').addEventListener('click', () => { elegir(null); peBuscar.value = ''; peBuscar.focus(); });
-      // Costo sugerido: el de la última compra o el de la ficha del producto
-      if (p.costo_sugerido > 0) $('pe-costo').value = Math.round(p.costo_sugerido);
-    }
-    // Si el producto maneja lotes, lote y vencimiento son obligatorios
-    const obligatorio = !!(p && p.maneja_vencimiento);
-    $('pe-lote-etiqueta').textContent = obligatorio ? 'Lote *' : 'Lote (opcional)';
-    $('pe-vence-etiqueta').textContent = obligatorio ? 'Vence *' : 'Vence (opcional)';
-  }
-
-  // Sugerencias mientras se escribe el nombre del producto
-  async function sugerir() {
-    const q = peBuscar.value.trim();
-    if (q.length < 2) { peSugerencias.innerHTML = ''; return; }
-    const json = await pedirJSON(URL_BUSCAR + '?q=' + encodeURIComponent(q) + '&filtro=todos');
-    peResultados = json.productos.slice(0, 8);
-    if (json.exacto && peResultados.length === 1) { elegir(peResultados[0]); $('pe-lote').focus(); return; }
-    peSugerencias.innerHTML = peResultados.length
-      ? peResultados.map((p) => '<button type="button" data-elegir="' + p.id + '">' + esc(p.nombre) +
-          (p.concentracion ? ' ' + esc(p.concentracion) : '') + ' <span class="suave">' + esc(p.codigo) +
-          '</span></button>').join('')
-      : '<p class="suave">No se encontró. Si es un producto nuevo, créalo primero en Productos.</p>';
-  }
-
-  peBuscar.addEventListener('input', () => { clearTimeout(peEspera); peEspera = setTimeout(sugerir, 250); });
-  peBuscar.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); clearTimeout(peEspera); sugerir(); }
-  });
-  peSugerencias.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-elegir]');
-    if (b) { elegir(peResultados.find((p) => p.id === +b.dataset.elegir)); $('pe-lote').focus(); }
-  });
-
-  async function guardarEncontrado() {
-    mostrarError('');
-    if (!peProducto) { mostrarError('Primero elige el producto.'); peBuscar.focus(); return; }
-    const datos = new FormData($('form-producto-encontrado'));
-    $('pe-guardar').disabled = true;
+  async function guardarProducto() {
+    mostrarErrorCP('');
+    const form = $('form-crear-producto');
+    if (!$('cp-nombre').value.trim()) { mostrarErrorCP('Escribe el nombre.'); return; }
+    if (!$('cp-laboratorio').value) { mostrarErrorCP('Escoge el laboratorio.'); return; }
+    if (!$('cp-precio').value.trim()) { mostrarErrorCP('Escribe el precio de venta.'); return; }
+    const datos = new FormData(form);
+    datos.append('_csrf', csrf());
+    $('cp-guardar').disabled = true;
     try {
-      const json = await enviarConteo(datos);
-      if (!json.ok) { mostrarError(json.error || 'No se pudo guardar.'); return; }
-      aviso('Guardado: ' + peProducto.nombre);
-      cerrarEncontrado();
-      buscar(false);                             // la lista se vuelve a dibujar con el lote nuevo
+      const json = await pedirJSON('/recepciones/api/crear-producto', { method: 'POST', body: datos });
+      if (!json.ok) { mostrarErrorCP(json.error || 'No se pudo crear.'); return; }
+      aviso('Producto creado: ' + json.nombre);
+      modalCP.classList.add('modal-oculto');
+      // Se busca por su código para que quede solo él en la lista, listo para contar
+      buscador.value = json.codigo;
+      await buscar(false);
+      const casilla = lista.querySelector('.cnt-fila-nueva input:not([type=hidden])');
+      if (casilla) casilla.focus();
     } catch (e) {
-      mostrarError('Error de conexión: ' + e.message);
+      mostrarErrorCP('Error de conexión: ' + e.message);
     } finally {
-      $('pe-guardar').disabled = false;
+      $('cp-guardar').disabled = false;
     }
   }
 
-  $('btn-producto-encontrado').addEventListener('click', () => abrirEncontrado(null));
-  $('pe-guardar').addEventListener('click', guardarEncontrado);
-  $('pe-cancelar').addEventListener('click', cerrarEncontrado);
-  $('pe-cerrar').addEventListener('click', cerrarEncontrado);
-  modal.addEventListener('click', (e) => { if (e.target === modal) cerrarEncontrado(); });
-  // Enter en los campos del lote = Guardar
-  $('form-producto-encontrado').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && e.target !== peBuscar) { e.preventDefault(); guardarEncontrado(); }
-  });
+  $('cp-guardar').addEventListener('click', guardarProducto);
+  $('cp-cancelar').addEventListener('click', cerrarCrearProducto);
+  $('cp-cerrar').addEventListener('click', cerrarCrearProducto);
+  modalCP.addEventListener('click', (e) => { if (e.target === modalCP) cerrarCrearProducto(); });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !modal.classList.contains('modal-oculto')) cerrarEncontrado();
+    if (e.key === 'Escape' && !modalCP.classList.contains('modal-oculto')) cerrarCrearProducto();
   });
 
   // ---------------------------------------------------------------

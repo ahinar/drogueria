@@ -22,13 +22,12 @@
 </div>
 
 <p class="conteo-ayuda"><span class="ico-emoji">💡</span> Escribe la cantidad <strong>apenas termines de contar cada lote</strong> y presiona Enter.
-  Si se vende mientras cuentas, el programa respeta esas ventas.</p>
+  ¿Encontraste un lote que no está? Toca <strong>+ Agregar lote</strong> debajo del producto.
+  ¿Un producto en 0 o que no existe? <strong>Búscalo</strong> arriba (nombre o lector de código de barras).</p>
 
 <!-- ===== Buscador: nombre, código o lector de código de barras ===== -->
 <div class="conteo-buscador">
   <input type="search" id="conteo-buscar" placeholder="🔍 Buscar producto o escanear código de barras…" autofocus autocomplete="off">
-  <!-- Para mercancía que está en la estantería pero no en el sistema -->
-  <button type="button" class="boton" id="btn-producto-encontrado"><span class="ico-emoji">➕</span> Producto encontrado</button>
   <div class="conteo-filtros" id="conteo-filtros">
     <button type="button" data-filtro="todos" class="activo">Todos</button>
     <button type="button" data-filtro="pendientes">Pendientes</button>
@@ -53,42 +52,57 @@
 
 {% block modales %}
 <!-- =====================================================================
-     VENTANA "PRODUCTO ENCONTRADO"
-     Para registrar mercancía que está en la estantería y no en el sistema
-     (así se carga el inventario inicial). Si el lote ya existe, se cuenta
-     sobre el lote existente.
+     VENTANA "CREAR PRODUCTO"
+     Cuando en la estantería aparece algo que NO existe en el sistema.
+     Pide lo mismo que la ficha: unidad de venta y su precio (como Odoo),
+     y los datos de la recepción técnica (laboratorio, INVIMA).
+     Usa la misma dirección que la recepción: /recepciones/api/crear-producto
+     Al guardar, el producto queda en la lista listo para contarlo.
      ===================================================================== -->
-<div id="modal-producto-encontrado" class="modal-oculto">
+<div id="modal-crear-producto" class="modal-oculto">
   <div class="modal-caja cnt-modal">
     <div class="info-barra">
-      <h2><span class="ico-emoji">➕</span> Producto encontrado</h2>
-      <button type="button" class="info-cerrar" id="pe-cerrar" aria-label="Cerrar">✕</button>
+      <h2><span class="ico-emoji">➕</span> Crear producto</h2>
+      <button type="button" class="info-cerrar" id="cp-cerrar" aria-label="Cerrar">✕</button>
     </div>
-    <form id="form-producto-encontrado" class="cnt-modal-cuerpo" autocomplete="off">
-      <!-- 1. Elegir el producto (buscador con sugerencias) -->
-      <label>Producto *
-        <input type="search" id="pe-buscar" placeholder="Nombre, código o escanear…">
-      </label>
-      <div id="pe-sugerencias" class="cnt-sugerencias"></div>
-      <div id="pe-elegido" class="cnt-elegido" hidden></div>
-      <input type="hidden" name="producto_id" id="pe-producto-id">
-
-      <!-- 2. Datos del lote -->
+    <form id="form-crear-producto" class="cnt-modal-cuerpo" autocomplete="off">
+      <label>Nombre *
+        <input type="text" name="nombre" id="cp-nombre" required></label>
       <div class="cnt-modal-grid">
-        <label><span id="pe-lote-etiqueta">Lote</span>
-          <input type="text" name="lote" id="pe-lote" maxlength="40"></label>
-        <label><span id="pe-vence-etiqueta">Vence</span>
-          <input type="date" name="vencimiento" id="pe-vence"></label>
-        <label>Costo unitario *
-          <input type="text" inputmode="decimal" name="costo" id="pe-costo" required></label>
-        <label>Cantidad contada *
-          <input type="text" inputmode="decimal" name="cantidad" id="pe-cantidad" required></label>
+        <label>Código de barras
+          <input type="text" name="codigo_barras" id="cp-barras"></label>
+        <label>Laboratorio *
+          <select name="laboratorio_id" id="cp-laboratorio" required>
+            <option value="">— Seleccionar —</option>
+            {% for l in laboratorios %}<option value="{{ l['id'] }}">{{ l['nombre'] }}</option>{% endfor %}
+          </select></label>
+        <label>Concentración
+          <input type="text" name="concentracion" placeholder="Ej: 500 mg"></label>
+        <label>Registro INVIMA
+          <input type="text" name="registro_sanitario"></label>
       </div>
-      <p id="pe-error" class="editar-error" hidden></p>
+      {# Como la ficha: "Precio de venta $ [ ] por [SELLO X 10]" #}
+      <div class="cnt-modal-grid">
+        <label>Precio de venta *
+          <input type="text" inputmode="decimal" name="precio_venta" id="cp-precio" required placeholder="Ej: 4.000"></label>
+        <label>por (unidad de venta) *
+          <select name="venta_unidad_id" id="cp-unidad">
+            {% for u in unidades %}<option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}" {% if u['nombre'] == 'Unidad' %}selected{% endif %}>{{ u['nombre'] }}</option>{% endfor %}
+          </select></label>
+        <label>Costo (por esa unidad)
+          <input type="text" inputmode="decimal" name="venta_costo" id="cp-costo" placeholder="Ej: 2.500"></label>
+        <label id="cp-campo-trae" hidden>¿Cuántas unidades trae?
+          <input type="text" inputmode="decimal" name="venta_trae" id="cp-trae"></label>
+      </div>
+      <label class="check-linea" id="cp-campo-suelto" hidden>
+        <input type="checkbox" name="vende_suelto" value="1" checked> ¿Se vende suelto? <small class="suave" id="cp-precio-suelto"></small></label>
+      <label class="check-linea">
+        <input type="checkbox" name="maneja_vencimiento" value="1" checked> Maneja lote y vencimiento</label>
+      <p id="cp-error" class="editar-error" hidden></p>
     </form>
     <div class="info-pie">
-      <button type="button" class="boton" id="pe-guardar">Guardar</button>
-      <button type="button" class="boton secundario" id="pe-cancelar">Cancelar</button>
+      <button type="button" class="boton" id="cp-guardar">Guardar</button>
+      <button type="button" class="boton secundario" id="cp-cancelar">Cancelar</button>
     </div>
   </div>
 </div>

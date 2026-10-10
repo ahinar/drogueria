@@ -703,6 +703,14 @@ def api_crear_producto():
     precio = _num((request.form.get("precio_venta") or "").strip(), 0.0)
     vende_suelto = 1 if (factor <= 1 or request.form.get("vende_suelto")) else 0
     precio_unidad = round(precio / factor, 2) if factor > 1 else precio   # $4.000 ÷ 10 = $400
+    # Costo de la unidad de venta (el del sello): se guarda el de 1 unidad
+    costo_unidad = round(_num((request.form.get("venta_costo") or "").strip(), 0.0) / factor, 4)
+    codigo_barras = (request.form.get("codigo_barras") or "").strip() or None
+    if codigo_barras and get_db().execute(
+            "SELECT 1 FROM productos WHERE codigo_barras = ? UNION ALL "
+            "SELECT 1 FROM producto_presentaciones WHERE codigo_barras = ?",
+            (codigo_barras, codigo_barras)).fetchone():
+        return jsonify({"ok": False, "error": f"El código de barras {codigo_barras} ya lo tiene otro producto."}), 400
 
     maneja_venc = 1 if request.form.get("maneja_vencimiento") else 0
     requiere_formula = 1 if request.form.get("requiere_formula") else 0
@@ -728,7 +736,8 @@ def api_crear_producto():
              maneja_venc, requiere_formula, cadena_frio, control_especial, ahora()),
         )
         nuevo_id = cur.lastrowid
-        db.execute("UPDATE productos SET vende_suelto = ? WHERE id = ?", (vende_suelto, nuevo_id))
+        db.execute("UPDATE productos SET vende_suelto = ?, precio_compra = ?, codigo_barras = ? WHERE id = ?",
+                   (vende_suelto, costo_unidad, codigo_barras, nuevo_id))
         if factor > 1:
             # La unidad de venta (Sello x 10) queda como presentación y se vende por defecto
             db.execute("INSERT INTO producto_presentaciones (producto_id, unidad_id, factor, precio_venta, "

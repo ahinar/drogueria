@@ -214,7 +214,14 @@ def contar(conteo_id):
     conteo = _obtener(conteo_id)
     if conteo["estado"] != "abierto":
         return redirect(url_for("conteos.revisar", conteo_id=conteo_id))
-    return render_template("conteos/contar.html", conteo=conteo, resumen=_resumen(conteo))
+    db = get_db()
+    # Para la ventana "Crear producto" (cuando lo encontrado no existe en el sistema)
+    unidades = db.execute("SELECT id, nombre, cantidad FROM unidades_medida WHERE activo = 1 "
+                          "ORDER BY cantidad, nombre").fetchall()
+    laboratorios = db.execute("SELECT id, nombre FROM catalogos WHERE tipo = 'laboratorio' AND activo = 1 "
+                              "ORDER BY nombre").fetchall()
+    return render_template("conteos/contar.html", conteo=conteo, resumen=_resumen(conteo),
+                           unidades=unidades, laboratorios=laboratorios)
 
 
 @bp.route("/<int:conteo_id>/api/buscar")
@@ -299,6 +306,10 @@ def api_buscar(conteo_id):
                 "estado": "nuevo", "sistema_actual": 0, "costo": ln["costo_unitario"],
                 "nuevo": True, "linea": _linea_json(ln),
             })
+        # Sin buscar nada, la lista muestra solo lo que HAY (o ya se contó).
+        # Un producto en 0 aparece cuando se busca por nombre o código.
+        if not q and not filas:
+            continue
         contados = [f for f in filas if f["linea"]]
         pendiente = any(not f["linea"] for f in filas) or not filas
         con_dif = any(f["linea"] and abs(f["linea"]["diferencia"]) > CERO for f in filas)

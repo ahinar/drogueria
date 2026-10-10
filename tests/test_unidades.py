@@ -419,6 +419,24 @@ class TestFichaPorUnidadDeVenta(BaseVentas):
                          (self.unidad, self.sello, 300, 1))
         self.assertEqual([o["factor"] for o in j["presentaciones"]], [1, 10])
 
+    def test_crear_desde_el_conteo_con_codigo_y_costo(self):
+        con = self.db()
+        lab = con.execute("INSERT INTO catalogos (tipo, nombre, activo, creado_en) "
+                          "VALUES ('laboratorio','MK',1,?)", (FECHA,)).lastrowid
+        con.commit()
+        con.close()
+        j = self.post(self.c, "/recepciones/api/crear-producto", {
+            "nombre": "Diclofenaco gel", "laboratorio_id": str(lab), "venta_unidad_id": str(self.unidad),
+            "precio_venta": "12.000", "venta_costo": "8.000", "codigo_barras": "7709999",
+            "maneja_vencimiento": "1"}).get_json()
+        self.assertTrue(j["ok"], j)
+        p = self.uno("SELECT * FROM productos WHERE id = ?", j["id"])
+        self.assertEqual((p["precio_venta"], p["precio_compra"], p["codigo_barras"]), (12000, 8000, "7709999"))
+        j2 = self.post(self.c, "/recepciones/api/crear-producto", {
+            "nombre": "Otro", "laboratorio_id": str(lab), "venta_unidad_id": str(self.unidad),
+            "precio_venta": "1000", "codigo_barras": "7709999"}).get_json()
+        self.assertFalse(j2["ok"])                                   # código repetido
+
     def test_conteo_dice_en_que_se_vende(self):
         p = self.crear()
         self.lote(p["id"], "IB1", FUTURO, 274)
