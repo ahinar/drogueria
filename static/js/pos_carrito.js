@@ -264,6 +264,18 @@
     pintarCarrito();
   }
 
+  // Pregunta con la ventana del programa y, si acepta, quita esa línea del carrito
+  function quitarConConfirmacion(pos) {
+    const it = carrito[pos];
+    if (!it) return;
+    window.confirmar('¿Quitar "' + it.nombre + '" del carrito?', { textoAceptar: 'Quitar' }).then((ok) => {
+      if (!ok) return;
+      carrito.splice(carrito.indexOf(it), 1);
+      seleccionado = -1;
+      pintarCarrito();
+    });
+  }
+
   function seleccionar(pos) {
     seleccionado = pos;
     escribiendo = false;
@@ -361,9 +373,11 @@
       return;
     }
     if (tecla === 'borrar-todo') {
-      if (carrito.length && confirm('¿Vaciar el carrito?')) {
-        limpiarCarrito();
-        pintarCarrito();
+      // window.confirmar (base.html) muestra la ventana del programa y responde después
+      if (carrito.length) {
+        window.confirmar('¿Vaciar el carrito?').then((ok) => {
+          if (ok) { limpiarCarrito(); pintarCarrito(); }
+        });
       }
       return;
     }
@@ -447,10 +461,8 @@
         if (it.cantidad > 1) {
           it.cantidad -= 1;
           pintarCarrito();
-        } else if (confirm('¿Quitar "' + it.nombre + '" del carrito?')) {
-          carrito.splice(seleccionado, 1);
-          seleccionado = -1;
-          pintarCarrito();
+        } else {
+          quitarConConfirmacion(seleccionado);
         }
       }
       return;
@@ -460,11 +472,7 @@
     if (key === 'Delete') {
       e.preventDefault();
       const it = carrito[seleccionado];
-      if (it && confirm('¿Quitar "' + it.nombre + '" del carrito?')) {
-        carrito.splice(seleccionado, 1);
-        seleccionado = -1;
-        pintarCarrito();
-      }
+      if (it) quitarConConfirmacion(seleccionado);
       return;
     }
 

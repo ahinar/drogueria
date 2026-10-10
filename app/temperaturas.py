@@ -375,11 +375,13 @@ def registrar_lectura(zona_id):
         observaciones = request.form.get("observaciones", "").strip() or None
 
         db = get_db()
+        # Trazabilidad: qué equipo (termohigrómetro) de esta zona tomó la lectura
+        from .equipos import equipo_de_zona
         cur = db.execute(
-            "INSERT INTO temperatura_registros (zona_id, fecha, programada_para, temperatura, humedad, "
+            "INSERT INTO temperatura_registros (zona_id, equipo_id, fecha, programada_para, temperatura, humedad, "
             "dentro_de_rango, accion_correctiva, observaciones, usuario_id, usuario_nombre, creado_en) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            (zona_id, ahora(), programada, temp, humedad, 1 if en_rango else 0, accion,
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (zona_id, equipo_de_zona(zona_id), ahora(), programada, temp, humedad, 1 if en_rango else 0, accion,
              observaciones, g.user["id"], g.user["nombre"], ahora()),
         )
         db.commit()

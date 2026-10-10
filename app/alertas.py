@@ -185,6 +185,35 @@ def calcular_alertas(rol):
                 url_for("proveedores.lista"), "Ver proveedores")
 
     # ------------------------------------------------------------------
+    # 4b. EQUIPOS: calibración vencida / no conforme (rojo), por vencer o
+    #     sin calibración (amarillo). Ver app/equipos.py
+    # ------------------------------------------------------------------
+    from .equipos import ESTADOS, ULTIMO_RESULTADO, estado_calibracion
+    equipos = []
+    for f in db.execute("SELECT e.id, e.nombre, e.proxima_calibracion, " + ULTIMO_RESULTADO +
+                        " FROM equipos e WHERE e.activo = 1 ORDER BY e.proxima_calibracion").fetchall():
+        estado, _ = estado_calibracion(f["proxima_calibracion"], hoy)
+        if f["ultimo_resultado"] == "no_conforme":
+            estado = "no_conforme"
+        equipos.append((estado, f))
+    item_equipo = lambda par: {
+        "texto": par[1]["nombre"],
+        "detalle": (ESTADOS[par[0]][0] if par[0] in ("no_conforme", "sin") else
+                    f"calibración {_dias_texto(par[1]['proxima_calibracion'], hoy)} "
+                    f"({_fecha(par[1]['proxima_calibracion'])})"),
+        "url": url_for("equipos.ver", equipo_id=par[1]["id"]),
+    }
+    agregar("calibracion_vencida", "rojo", "📏", "Equipo con calibración vencida o no conforme",
+            "Las lecturas de temperatura con un equipo sin calibrar no valen ante la Secretaría. "
+            "Calíbralo o reemplázalo.",
+            [p for p in equipos if p[0] in ("vencida", "no_conforme")], item_equipo,
+            url_for("equipos.lista"), "Ver equipos")
+    agregar("calibracion_por_vencer", "amarillo", "📏", "Calibración de equipos por vencer o sin registrar",
+            "Agenda la calibración con un laboratorio y sube el certificado.",
+            [p for p in equipos if p[0] in ("por_vencer", "sin")], item_equipo,
+            url_for("equipos.lista"), "Ver equipos")
+
+    # ------------------------------------------------------------------
     # 5. STOCK: agotados (rojo) y por debajo del mínimo (amarillo).
     #    Solo productos con "stock mínimo" definido: así un producto que no
     #    se maneja (mínimo 0) no llena el panel de avisos.

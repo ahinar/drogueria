@@ -47,13 +47,11 @@
 </table>
 
 <script>
+// Cada formulario de eliminar pide confirmación con la ventana del programa
+// (base.html se encarga al ver el atributo data-confirmar)
 document.querySelectorAll('.form-eliminar').forEach(function (form) {
-  form.addEventListener('submit', function (e) {
-    const nombre = form.dataset.nombre || 'este registro';
-    if (!confirm('¿Eliminar "' + nombre + '"? Esta acción no se puede deshacer.')) {
-      e.preventDefault();
-    }
-  });
+  const nombre = form.dataset.nombre || 'este registro';
+  form.dataset.confirmar = '¿Eliminar "' + nombre + '"? Esta acción no se puede deshacer.';
 });
 </script>
 {% endblock %}

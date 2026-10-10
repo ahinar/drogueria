@@ -39,11 +39,10 @@
 </table>
 
 <script>
+// Confirmación con la ventana del programa (base.html la muestra al ver data-confirmar)
 document.querySelectorAll('.form-eliminar').forEach(function (form) {
-  form.addEventListener('submit', function (e) {
-    const nombre = form.dataset.nombre || 'esta unidad';
-    if (!confirm('¿Eliminar "' + nombre + '"?')) e.preventDefault();
-  });
+  const nombre = form.dataset.nombre || 'esta unidad';
+  form.dataset.confirmar = '¿Eliminar "' + nombre + '"?';
 });
 </script>
 {% endblock %}

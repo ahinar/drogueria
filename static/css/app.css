@@ -2539,3 +2539,13 @@ body.sidebar-colapsado .sidebar-submenu { display: block; max-height: none; back
   .eres-tarjeta strong { font-size: 1.1rem; }
   .eres-tarjeta small { font-size: .75rem; }
 }
+
+/* ===== Equipos y calibraciones ===== */
+.equipo-estado { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .8rem; font-weight: 600; white-space: nowrap; vertical-align: middle; }
+.equipo-estado.rojo { background: #fde3e1; color: #a1251b; }
+.equipo-estado.amarillo { background: #fff1cc; color: #7a5300; }
+.equipo-estado.verde { background: #e2f2e6; color: #1e6b3a; }
+.equipo-estado.gris { background: #eef2f6; color: #5c6b78; }
+.equipo-inactivo td { opacity: .55; }
+.equipo-calibrar summary { cursor: pointer; padding: .2rem 0; }
+.equipo-calibrar form { margin-top: .8rem; }

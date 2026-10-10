@@ -2,8 +2,6 @@
 {% block titulo %}Contabilidad{% endblock %}
 {% block contenido %}
 <h1>💰 Contabilidad</h1>
-<!-- Atajo al estado de resultados (Reportes → Utilidades) -->
-<p><a class="boton" href="{{ url_for('reportes.utilidades_ver') }}">📈 Ver utilidades del mes (estado de resultados)</a></p>
 <p class="suave">Resumen de gastos y accesos a los módulos contables. Los informes avanzados llegarán en las siguientes fases.</p>
 
 <!-- ===== KPI ===== -->
@@ -41,26 +39,19 @@
     <h2>➕ Nuevo gasto</h2>
     <p>Registrar un gasto con categoría, monto y comprobante.</p>
   </a>
-  <div class="modulo apagado">
+  <!-- Los informes de plata viven en Reportes (un solo lugar para cada cosa) -->
+  <a class="modulo" href="{{ url_for('reportes.utilidades_ver') }}">
     <h2>📈 Utilidades</h2>
-    <p>Bruta y neta por período con desglose por categoría.</p>
-    <span class="etiqueta">C.2</span>
-  </div>
-  <div class="modulo apagado">
-    <h2>📋 Estado de Resultados</h2>
-    <p>Informe detallado con subtotales por categoría.</p>
-    <span class="etiqueta">C.3</span>
-  </div>
-  <div class="modulo apagado">
-    <h2>🧾 IVA</h2>
-    <p>IVA generado vs descontable del período.</p>
-    <span class="etiqueta">C.4</span>
-  </div>
-  <div class="modulo apagado">
-    <h2>💵 Flujo de caja</h2>
-    <p>Ingresos y egresos por día, semana o mes.</p>
-    <span class="etiqueta">C.5</span>
-  </div>
+    <p>Estado de resultados: ventas, costo, gastos, pérdidas y utilidad neta.</p>
+  </a>
+  <a class="modulo" href="{{ url_for('reportes.gastos_ver') }}">
+    <h2>💸 Reporte de gastos</h2>
+    <p>Por categoría y forma de pago, comparado con el período anterior.</p>
+  </a>
+  <a class="modulo" href="{{ url_for('reportes.ventas_ver') }}">
+    <h2>🛒 Ventas y flujo</h2>
+    <p>Ventas por día y por forma de pago (efectivo, Nequi, Davivienda, tarjeta).</p>
+  </a>
 </div>
 
 <!-- ===== Desglose por categoría ===== -->

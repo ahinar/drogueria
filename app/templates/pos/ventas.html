@@ -25,7 +25,7 @@
         <form method="post" action="{{ url_for('pos.anular_venta', venta_id=v['id']) }}" style="display:flex;gap:.3rem">
           <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
           <input type="text" name="motivo" placeholder="Motivo de anulación" required>
-          <button type="submit" class="boton peligro" onclick="return confirm('¿Anular la venta {{ v['consecutivo'] }}? El inventario será devuelto.')">Anular</button>
+          <button type="submit" class="boton peligro" data-confirmar="¿Anular la venta {{ v['consecutivo'] }}? El inventario será devuelto.">Anular</button>
         </form>
         {% endif %}
       </td>

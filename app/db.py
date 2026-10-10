@@ -683,6 +683,60 @@ MIGRATIONS = [
         WHERE EXISTS (SELECT 1 FROM catalogos WHERE tipo = 'categoria_gasto');
         """,
     ),
+    (
+        22,
+        """
+        -- ===== Equipos y calibraciones =====
+        -- 1) La tabla "equipos" (sin uso hasta ahora) solo aceptaba 3 tipos. SQLite no
+        --    deja cambiar esa regla, así que se crea de nuevo con más tipos y con la
+        --    frecuencia de calibración, se copian los datos y se cambia el nombre.
+        CREATE TABLE equipos_nuevo (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'termohigrometro'
+                CHECK (tipo IN ('termohigrometro', 'nevera', 'data_logger', 'termometro',
+                                'balanza', 'tensiometro', 'glucometro', 'otro')),
+            marca TEXT,
+            modelo TEXT,
+            serie TEXT,
+            zona_id INTEGER,                         -- zona de temperatura que mide (si aplica)
+            fecha_calibracion TEXT,                  -- última calibración
+            proxima_calibracion TEXT,                -- cuándo vence
+            frecuencia_meses INTEGER NOT NULL DEFAULT 12,
+            observaciones TEXT,
+            activo INTEGER NOT NULL DEFAULT 1,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT,
+            FOREIGN KEY (zona_id) REFERENCES zonas_temperatura (id)
+        );
+        INSERT INTO equipos_nuevo (id, nombre, tipo, marca, modelo, serie, zona_id, fecha_calibracion,
+                                   proxima_calibracion, observaciones, activo, creado_en)
+            SELECT id, nombre, tipo, marca, modelo, serie, zona_id, fecha_calibracion,
+                   proxima_calibracion, observaciones, activo, creado_en FROM equipos;
+        DROP TABLE equipos;
+        ALTER TABLE equipos_nuevo RENAME TO equipos;
+        CREATE INDEX idx_equipos_zona ON equipos (zona_id);
+
+        -- 2) Historial: cada calibración queda guardada con su certificado
+        CREATE TABLE calibraciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            equipo_id INTEGER NOT NULL,
+            fecha TEXT NOT NULL,                     -- día en que se calibró
+            proxima TEXT NOT NULL,                   -- vence
+            empresa TEXT,                            -- laboratorio que calibró
+            certificado_numero TEXT,
+            resultado TEXT NOT NULL DEFAULT 'conforme'
+                CHECK (resultado IN ('conforme', 'no_conforme')),
+            archivo TEXT,                            -- certificado escaneado (PDF o foto)
+            observaciones TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            FOREIGN KEY (equipo_id) REFERENCES equipos (id)
+        );
+        CREATE INDEX idx_calibraciones_equipo ON calibraciones (equipo_id);
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

@@ -59,6 +59,10 @@
          href="{{ url_for('temperaturas.inicio') }}" title="Temperaturas">
         <span class="ico">🌡️</span><span class="txt">Temperaturas</span>
       </a>
+      <a class="sidebar-link {% if ep.startswith('equipos.') %}activo{% endif %}"
+         href="{{ url_for('equipos.lista') }}" title="Equipos y calibración">
+        <span class="ico">📏</span><span class="txt">Equipos</span>
+      </a>
       <a class="sidebar-link {% if ep.startswith('inventario.') or ep.startswith('conteos.') %}activo{% endif %}"
          href="{{ url_for('inventario.inicio') }}" title="Inventario">
         <span class="ico">🗃️</span><span class="txt">Inventario</span>
@@ -274,6 +278,30 @@
       setTimeout(() => btnAceptar.focus(), 50);
     });
   };
+
+  // ------------------------------------------------------------------
+  // CONFIRMAR ANTES DE ENVIAR UN FORMULARIO, con la ventana del programa
+  // (no con la ventana gris del navegador). Uso en cualquier plantilla:
+  //    <form data-confirmar="¿Anular el conteo?"> ... </form>
+  //    <button type="submit" data-confirmar="¿Eliminar el logo?">
+  // Si la persona acepta, el formulario se envía normalmente.
+  // ------------------------------------------------------------------
+  document.addEventListener('submit', async function (e) {
+    const form = e.target;
+    const boton = e.submitter;            // el botón con el que se envió
+    const mensaje = (boton && boton.dataset.confirmar) || form.dataset.confirmar;
+    if (!mensaje) return;
+    if (form.dataset.confirmado === '1') {  // ya se confirmó: dejar pasar
+      delete form.dataset.confirmado;
+      return;
+    }
+    e.preventDefault();
+    const ok = await window.confirmar(mensaje, { textoAceptar: 'Sí, continuar' });
+    if (!ok) return;
+    form.dataset.confirmado = '1';
+    // requestSubmit(boton) envía también el nombre/valor del botón (ej: _accion=eliminar_logo)
+    if (boton) form.requestSubmit(boton); else form.requestSubmit();
+  }, true);
   </script>
 </body>
 </html>

@@ -11,3 +11,5 @@ pdfs/*.pdf
 *.log
 # Datos de la demo (Codespaces): nunca se suben
 backups/demo/
+# Certificados de calibración y documentos reales: no se suben a GitHub
+static/uploads/certificados/

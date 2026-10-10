@@ -61,7 +61,8 @@
 ### Temperaturas
 - `zonas_temperatura`: nombre, descripción, temp_min, temp_max, controla_humedad, humedad_min, humedad_max, horarios, dias_semana, minutos_tolerancia, activa.
 - `temperatura_registros`: zona_id, equipo_id, fecha, programada_para, temperatura, humedad, dentro_de_rango, accion_correctiva, usuario_id, usuario_nombre.
-- `equipos`: nombre, tipo, marca, modelo, serie, zona_id, fecha_calibracion, proxima_calibracion (sin uso aún).
+- `equipos`: nombre, tipo (termohigrómetro, nevera, data logger, termómetro, balanza, tensiómetro, glucómetro, otro), marca, modelo, serie, zona_id, fecha_calibracion, proxima_calibracion, frecuencia_meses, activo.
+- `calibraciones`: equipo_id, fecha, proxima, empresa, certificado_numero, resultado (conforme / no_conforme), archivo (PDF o foto en `static/uploads/certificados/`, que no se sube a GitHub), usuario.
 
 ### Recepción técnica e inventario
 - `recepciones`: número único (REC-####), fecha, proveedor_id, factura_numero, remision_numero, temperatura_llegada, estado (borrador/cuarentena/aprobada/rechazada), recibido_por, aprobado_por, observaciones, foto_ruta.
@@ -154,6 +155,13 @@
 - Reporte PDF con logo.
 - Plantilla mensual en PDF (una hoja A4).
 - Alarma global con sonido + notificación + pantalla roja.
+
+### 5.6b Equipos y calibraciones ✅
+- Menú Día a día → 📏 Equipos (`app/equipos.py`, ruta `/equipos`). Ver: todos. Crear, editar, dar de baja y registrar calibración: admin y DT.
+- Cada equipo puede asignarse a una zona de temperatura; al registrar una lectura en esa zona se guarda `temperatura_registros.equipo_id` (trazabilidad).
+- Registrar calibración: fecha (no futura), próxima (si se deja, se sugiere con la frecuencia del equipo: 12 meses por defecto), empresa, n.º de certificado, resultado y el certificado en PDF o foto (`guardar_documento` valida que el PDF sea real). El equipo queda con la calibración más reciente.
+- Estado: al día, vence pronto (≤ 30 días), vencida, no conforme (la última calibración salió no conforme) o sin calibración. Aviso en la lista si hay zonas de temperatura sin equipo.
+- Panel de alertas del Inicio: 🔴 calibración vencida o no conforme · 🟡 por vencer o sin calibración.
 
 ### 5.7 Recepción técnica
 - Formulario con cabecera y líneas dinámicas.
@@ -340,34 +348,34 @@ Notas:
 
 ## 8. Pendientes por hacer
 
-### Inmediatos
-- [x] Carrito funcional del POS (agregar producto, cobrar, comprobante).
+### Inmediatos (dependen de Fernando)
 - [ ] Probar el importador con el Excel real (1500+ productos).
-- [ ] Inventario inicial (cargar stock real de la droguería).
-- [ ] Módulo de gastos discriminados.
-- [ ] Reporte de utilidades por período.
+- [ ] Inventario inicial: primer conteo con los productos reales y sus costos.
+- [ ] Registrar los equipos reales y subir sus certificados de calibración.
 
 ### Corto plazo
-- [ ] Estado de Resultados simplificado.
-- [ ] (⏸ solo si el contador lo pide) Reporte de IVA con prorrateo (Art. 490 ET).
-- [ ] Módulo Reportes (Fase R, sección 7): R1 a R8. Venta libre y otros ingresos entran después como filtros de R1.
-- [ ] Venta libre en el POS y registro de otros ingresos.
+- [ ] Devoluciones (de cliente y a proveedor).
+- [ ] Resumen en el Inicio: ventas de hoy, semana y mes; utilidad del mes.
+- [ ] Descarga en Excel de los reportes.
+- [ ] Venta libre en el POS y registro de otros ingresos (entran como filtros de R1).
 - [ ] (Idea) Cotizaciones y deudas/fiados.
-- [ ] Reemplazar todos los `confirm()` nativos por el modal de confirmación.
+- [ ] (⏸ solo si el contador lo pide) Reporte de IVA con prorrateo (Art. 490 ET).
 
 ### Mediano plazo
-- [ ] Devoluciones (a proveedor y de cliente).
-- [ ] Control de precios máximos con alerta.
-- [ ] Módulo de control especial (FNE) con libro oficial.
-- [ ] Gestión documental (POE).
-- [ ] Modo Inspección.
+- [ ] Módulo de control especial (FNE) con libro oficial (hoy el POS bloquea su venta).
+- [ ] Gestión documental (POE con versiones), plan de saneamiento, capacitaciones, farmacovigilancia.
+- [ ] Modo Inspección (paquete para la Secretaría de Salud).
+- [ ] Empaquetado para Windows (ventana propia, instalador, arranque automático).
 
 ### Largo plazo
+- [ ] Facturación electrónica DIAN (según lo que diga el contador).
 - [ ] (⏸ lejano) IA para clasificación automática de productos.
 - [ ] Imágenes automáticas por código de barras.
-- [ ] Facturación electrónica DIAN.
 - [ ] App móvil.
 - [ ] Alertas a Telegram / WhatsApp.
+
+### Hecho (antes estaba en esta lista)
+- [x] Carrito del POS, gastos discriminados, utilidades y estado de resultados, módulo Reportes R1–R8, control de precios máximos con alerta, venta por presentación, panel de alertas, equipos y calibraciones, confirmaciones con la ventana del programa.
 
 ## 9. Pendientes por confirmar (con el usuario y terceros)
 
@@ -405,6 +413,7 @@ Notas:
 | 19 | limpieza: borra presentaciones_producto; sinónimos en los usos (buscador por síntoma) |
 | 20 | `producto_presentaciones` (venta por unidad / sobre / caja) + `venta_lineas.presentacion_id` |
 | 21 | `caja_menor_movimientos.retiro_dueno` + categoría de gasto "Sueldo del dueño" |
+| 22 | `equipos` rehecha con más tipos y `frecuencia_meses`; tabla `calibraciones` |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -443,7 +452,8 @@ Notas:
 - **Panel de alertas (2026-10-09):** "Para atender hoy" en el Inicio con 12 tipos de alerta (ver 5.1); arreglado el texto "con stock mínimo definido" de la tarjeta de productos, que salía vacío. **176 tests pasan**.
 - **R2 Utilidades (2026-10-09):** estado de resultados con costo real por lote, gastos por categoría, pérdidas de inventario, retiros del dueño aparte, comparación con el período anterior y PDF. Casilla "retiro del dueño" en caja menor. Decisiones de Fernando: pérdidas en línea aparte; su sueldo (variable) es gasto en "Sueldo del dueño" y además retira ganancias; registra todos los gastos en Contabilidad; por defecto mes actual vs anterior. **194 tests pasan**.
 - **Reportes (2026-10-09):** R6 Sugerido de compra (pedido por proveedor con WhatsApp e imprimir) y R1, R3, R4, R5, R7, R8 con menú común de reportes. **215 tests pasan**.
-- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → ~~utilidades/estado de resultados~~ ✅ → ~~reportes~~ ✅ → equipos/calibraciones → devoluciones.
+- **Equipos y limpieza (2026-10-09):** módulo de equipos y calibraciones con certificado y alertas; todas las confirmaciones usan la ventana del programa (atributo `data-confirmar` en formularios y botones, manejado en base.html; en JS `await window.confirmar(...)`); plata en mensajes con punto de miles (`app/formato.py`, `pesos()`); Contabilidad sin tarjetas "próximamente" (llevan a Reportes). **229 tests pasan**.
+- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → ~~utilidades/estado de resultados~~ ✅ → ~~reportes~~ ✅ → ~~equipos/calibraciones~~ ✅ → devoluciones.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 
 **Sesión anterior:** 2026-10-07. Se completó:

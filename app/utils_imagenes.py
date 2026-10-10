@@ -124,3 +124,35 @@ def eliminar_imagen(ruta_relativa):
         ruta_fisica.unlink(missing_ok=True)
     except OSError:
         pass
+
+
+def guardar_documento(archivo, subcarpeta, max_bytes=10 * 1024 * 1024):
+    """Guarda un documento: PDF tal cual, o una FOTO (se optimiza con guardar_imagen).
+
+    Sirve para certificados de calibración, conceptos sanitarios, etc.
+    Devuelve (ruta_relativa, error), igual que guardar_imagen.
+    """
+    if not archivo or not archivo.filename:
+        return None, "No se recibió ningún archivo."
+    if Path(archivo.filename).suffix.lower() != ".pdf":
+        # Una foto del certificado: se trata como imagen (más grande que una foto de producto)
+        return guardar_imagen(archivo, subcarpeta, max_px=2000, max_bytes=max_bytes)
+
+    archivo.seek(0, os.SEEK_END)
+    peso = archivo.tell()
+    archivo.seek(0)
+    if peso > max_bytes:
+        return None, f"El PDF pesa {peso/1024/1024:.1f} MB. Máximo permitido: {max_bytes/1024/1024:.0f} MB."
+    # Un PDF de verdad empieza con "%PDF" (así no se cuela otro tipo de archivo renombrado)
+    if archivo.read(4) != b"%PDF":
+        return None, "El archivo no es un PDF válido."
+    archivo.seek(0)
+
+    carpeta = Path(current_app.static_folder) / "uploads" / subcarpeta
+    carpeta.mkdir(parents=True, exist_ok=True)
+    nombre = f"{uuid.uuid4().hex}.pdf"
+    try:
+        archivo.save(str(carpeta / nombre))
+    except Exception as e:
+        return None, f"No se pudo guardar el PDF: {e}"
+    return f"uploads/{subcarpeta}/{nombre}", None

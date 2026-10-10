@@ -44,7 +44,7 @@ def create_app(test_config=None):
     base_datos.init_app(app)
 
     from . import (admin, auth, caja_menor, catalogos, configuracion,
-                   contabilidad, conteos, importador, inventario, main, pos, productos,
+                   contabilidad, conteos, equipos, importador, inventario, main, pos, productos,
                    proveedores, recepciones, reportes, temperaturas, unidades)
 
     app.register_blueprint(auth.bp)
@@ -64,6 +64,7 @@ def create_app(test_config=None):
     app.register_blueprint(contabilidad.bp)
     app.register_blueprint(caja_menor.bp)
     app.register_blueprint(conteos.bp)   # toma de inventario (conteo físico)
+    app.register_blueprint(equipos.bp)   # equipos y calibraciones
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
 

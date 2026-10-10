@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Nuevo equipo' if nuevo else 'Editar equipo' }}{% endblock %}
+{% block contenido %}
+<h1>{{ '➕ Nuevo equipo' if nuevo else '✏️ Editar equipo' }}</h1>
+{% set e = equipo or {} %}
+<form method="post" class="formulario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <fieldset>
+    <legend>Equipo</legend>
+    <label>Nombre * <input type="text" name="nombre" required maxlength="80" value="{{ e.nombre or '' }}"
+      placeholder="Ej: Termohigrómetro bodega"></label>
+    <label>Tipo
+      <select name="tipo">
+        {% for clave, texto in tipos.items() %}<option value="{{ clave }}" {% if e.tipo == clave %}selected{% endif %}>{{ texto }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Marca <input type="text" name="marca" value="{{ e.marca or '' }}"></label>
+    <label>Modelo <input type="text" name="modelo" value="{{ e.modelo or '' }}"></label>
+    <label>Número de serie <input type="text" name="serie" value="{{ e.serie or '' }}"></label>
+  </fieldset>
+  <fieldset>
+    <legend>Uso y calibración</legend>
+    <!-- Si el equipo mide una zona de temperatura, cada lectura de esa zona queda ligada a este equipo -->
+    <label>Zona de temperatura que mide
+      <select name="zona_id">
+        <option value="">— Ninguna —</option>
+        {% for z in zonas %}<option value="{{ z.id }}" {% if e.zona_id == z.id %}selected{% endif %}>{{ z.nombre }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Calibrar cada (meses)
+      <input type="number" name="frecuencia_meses" min="1" max="60" value="{{ e.frecuencia_meses or 12 }}">
+    </label>
+    <label>Observaciones <textarea name="observaciones" rows="2">{{ e.observaciones or '' }}</textarea></label>
+  </fieldset>
+  <div class="acciones">
+    <button type="submit">Guardar</button>
+    <a class="boton secundario" href="{{ url_for('equipos.lista') if nuevo else url_for('equipos.ver', equipo_id=e.id) }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

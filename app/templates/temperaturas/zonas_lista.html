@@ -66,13 +66,10 @@
 </table>
 
 <script>
+// Confirmación con la ventana del programa (base.html la muestra al ver data-confirmar)
 document.querySelectorAll('.form-eliminar').forEach(function (form) {
-  form.addEventListener('submit', function (e) {
-    const nombre = form.dataset.nombre || 'esta zona';
-    if (!confirm('¿Eliminar la zona "' + nombre + '"? Esta acción no se puede deshacer.')) {
-      e.preventDefault();
-    }
-  });
+  const nombre = form.dataset.nombre || 'esta zona';
+  form.dataset.confirmar = '¿Eliminar la zona "' + nombre + '"? Esta acción no se puede deshacer.';
 });
 </script>
 {% endblock %}

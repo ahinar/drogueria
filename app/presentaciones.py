@@ -15,6 +15,7 @@ IDEA PRINCIPAL (para aprender):
 
     En todo el programa la presentación principal se identifica con id = 0.
 """
+from .formato import pesos
 from .db import get_db
 
 PRINCIPAL = 0   # id que usamos para "la unidad principal del producto"
@@ -196,4 +197,4 @@ def guardar(db, producto_id, filas, ahora_txt):
         return ""
     nombres = {u["id"]: u["nombre"] for u in db.execute("SELECT id, nombre FROM unidades_medida")}
     return " presentaciones=" + ", ".join(
-        f"{nombres.get(f['unidad_id'], '?')} x{f['factor']:g} ${f['precio']:,.0f}" for f in filas)
+        f"{nombres.get(f['unidad_id'], '?')} x{f['factor']:g} {pesos(f['precio'])}" for f in filas)

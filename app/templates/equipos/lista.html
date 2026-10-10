@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Equipos y calibraciones{% endblock %}
+{% block contenido %}
+{#
+  EQUIPOS Y CALIBRACIONES
+  equipos   = lista con su estado (app/equipos.py, _con_estado)
+  sin_equipo = zonas de temperatura activas sin ningún equipo asignado
+#}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+<div class="eres-cabecera">
+  <div>
+    <h1>📏 Equipos y calibraciones</h1>
+    <p class="suave">Termohigrómetros, neveras y demás equipos de medición, con su certificado de calibración.
+      La Secretaría de Salud pide que estén calibrados.</p>
+  </div>
+  {% if jefe %}<a class="boton" href="{{ url_for('equipos.nuevo') }}">➕ Nuevo equipo</a>{% endif %}
+</div>
+
+{% if sin_equipo %}
+<p class="eres-aviso">⚠️ Zonas de temperatura sin equipo asignado:
+  <strong>{{ sin_equipo|map(attribute='nombre')|join(', ') }}</strong>.
+  Asigna el termohigrómetro de cada zona para saber con qué equipo se tomó cada lectura.</p>
+{% endif %}
+
+{% if not equipos %}
+  <p class="rep-vacio">Todavía no hay equipos registrados.{% if jefe %} Empieza por los termohigrómetros de cada zona.{% endif %}</p>
+{% else %}
+<div class="rep-caja">
+<table class="rep-tabla equipos-tabla">
+  <thead><tr><th>Equipo</th><th>Zona</th><th>Última calibración</th><th>Próxima</th><th>Estado</th></tr></thead>
+  <tbody>
+    {% for e in equipos %}
+    <tr class="{{ 'equipo-inactivo' if not e.activo }}">
+      <td><a href="{{ url_for('equipos.ver', equipo_id=e.id) }}"><strong>{{ e.nombre }}</strong></a>
+        <small>{{ e.tipo_texto }}{% if e.marca %} · {{ e.marca }}{% endif %}{% if e.serie %} · serie {{ e.serie }}{% endif %}{% if not e.activo %} · dado de baja{% endif %}</small></td>
+      <td>{{ e.zona_nombre or '—' }}</td>
+      <td>{% if e.fecha_calibracion %}{{ e.fecha_calibracion[8:10] }}/{{ e.fecha_calibracion[5:7] }}/{{ e.fecha_calibracion[0:4] }}{% else %}—{% endif %}</td>
+      <td>{% if e.proxima_calibracion %}{{ e.proxima_calibracion[8:10] }}/{{ e.proxima_calibracion[5:7] }}/{{ e.proxima_calibracion[0:4] }}
+        <small>{% if e.dias < 0 %}venció hace {{ -e.dias }} días{% else %}faltan {{ e.dias }} días{% endif %}</small>{% else %}—{% endif %}</td>
+      <td><span class="equipo-estado {{ e.estado_color }}">{{ e.estado_texto }}</span></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

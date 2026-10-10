@@ -230,7 +230,7 @@
     }
     const quitar = e.target.closest('.conteo-quitar');
     if (quitar) {
-      if (!confirm('¿Borrar lo contado de este lote?')) return;
+      if (!(await window.confirmar('¿Borrar lo contado de este lote?'))) return;
       const datos = new FormData();
       datos.append('linea_id', quitar.dataset.linea);
       datos.append('_csrf', csrf());

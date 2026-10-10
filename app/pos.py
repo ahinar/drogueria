@@ -10,6 +10,7 @@ from .auth import login_required, roles_required
 from .caja_menor import registrar_movimiento as _cm_mov
 from .caja_menor import saldo_actual as _cm_saldo
 from .configuracion import obtener_config
+from .formato import pesos
 from .db import ahora, get_db
 from . import presentaciones as pres
 from .productos import IVA_TIPOS
@@ -186,8 +187,8 @@ def abrir_caja():
         # Aviso si el efectivo inicial supera el saldo de la caja menor
         if total > saldo_cm + 0.01 and not confirmar_sobregiro:
             flash(
-                f"El efectivo inicial (${total:,.0f}) supera el saldo de la caja menor "
-                f"(${saldo_cm:,.0f}). Marca la casilla 'Permitir sobregiro' para continuar.",
+                f"El efectivo inicial ({pesos(total)}) supera el saldo de la caja menor "
+                f"({pesos(saldo_cm)}). Marca la casilla 'Permitir sobregiro' para continuar.",
                 "error"
             )
             return render_template(
@@ -216,7 +217,7 @@ def abrir_caja():
         db.commit()
         registrar("caja_abierta", "cajas", caja_id,
                   f"numero={numero} efectivo_inicial={total} saldo_cm_antes={saldo_cm}")
-        flash(f"Caja {numero} abierta con ${total:,.0f}. ¡A vender!", "ok")
+        flash(f"Caja {numero} abierta con {pesos(total)}. ¡A vender!", "ok")
         return redirect(url_for("pos.index"))
 
     return render_template(
@@ -730,8 +731,8 @@ def api_producto_editar(producto_id):
     if precio_maximo == "error" or (precio_maximo is not None and precio_maximo < 0):
         return _json_error("El precio máximo no es válido.")
     if precio_maximo and precio_venta > precio_maximo + 0.01:
-        return _json_error(f"El precio de venta (${precio_venta:,.0f}) no puede superar "
-                           f"el precio máximo (${precio_maximo:,.0f}).")
+        return _json_error(f"El precio de venta ({pesos(precio_venta)}) no puede superar "
+                           f"el precio máximo ({pesos(precio_maximo)}).")
     if iva_tipo not in IVA_TIPOS:
         return _json_error("Tipo de IVA no válido.")
     if iva_tipo == "gravado":
@@ -906,12 +907,12 @@ def api_cobrar():
                     tope = presentacion["precio_maximo"]
                     if tope > 0 and precio_nuevo > tope + 0.01:
                         raise _VentaError(
-                            f"{nombre}: el precio (${precio_nuevo:,.0f}) supera el precio "
-                            f"máximo permitido (${tope:,.0f}).")
+                            f"{nombre}: el precio ({pesos(precio_nuevo)}) supera el precio "
+                            f"máximo permitido ({pesos(tope)}).")
                     precio = precio_nuevo
                     cambios_precio.append(
-                        f"{prod['codigo']} {nombre}: ${precio_original:,.0f} -> "
-                        f"${precio_nuevo:,.0f} (motivo: {motivo_precio})")
+                        f"{prod['codigo']} {nombre}: {pesos(precio_original)} -> "
+                        f"{pesos(precio_nuevo)} (motivo: {motivo_precio})")
 
             lotes = db.execute(
                 "SELECT l.id, l.lote, l.vencimiento, l.cantidad_disponible FROM lotes l "
@@ -992,8 +993,8 @@ def api_cobrar():
             except ValueError:
                 raise _VentaError("El monto recibido no es válido.")
             if recibido + 1e-9 < sum_total:
-                raise _VentaError(f"El efectivo recibido (${recibido:,.0f}) no alcanza para "
-                                  f"el total (${sum_total:,.0f}).")
+                raise _VentaError(f"El efectivo recibido ({pesos(recibido)}) no alcanza para "
+                                  f"el total ({pesos(sum_total)}).")
             cambio = recibido - sum_total
         else:
             recibido, cambio = float(sum_total), 0.0

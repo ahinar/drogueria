@@ -10,6 +10,7 @@ from flask import (Blueprint, flash, g, redirect, render_template, request,
 
 from .audit import registrar
 from .auth import login_required, roles_required
+from .formato import pesos
 from .db import ahora, get_db
 
 bp = Blueprint("caja_menor", __name__, url_prefix="/caja-menor")
@@ -93,7 +94,7 @@ def aporte():
     db.commit()
     registrar("caja_menor_aporte", "caja_menor_movimientos", mov_id,
               f"monto={monto} motivo={motivo}")
-    flash(f"Aporte de ${monto:,.0f} registrado.", "ok")
+    flash(f"Aporte de {pesos(monto)} registrado.", "ok")
     return redirect(url_for("caja_menor.index"))
 
 @bp.route("/retiro", methods=["POST"])
@@ -123,5 +124,5 @@ def retiro():
     db.commit()
     registrar("caja_menor_retiro", "caja_menor_movimientos", mov_id,
               f"monto={monto} motivo={motivo}" + (" retiro_del_dueño" if es_dueno else ""))
-    flash(f"Retiro de ${monto:,.0f} registrado.", "ok")
+    flash(f"Retiro de {pesos(monto)} registrado.", "ok")
     return redirect(url_for("caja_menor.index"))

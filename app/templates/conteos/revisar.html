@@ -85,13 +85,13 @@
 {% if conteo['estado'] == 'abierto' and g.user.rol in ('administrador', 'director_tecnico') %}
 <div class="conteo-acciones">
   <form method="post" action="{{ url_for('conteos.aplicar', conteo_id=conteo['id']) }}"
-        onsubmit="return confirm('¿Aplicar el conteo? Se corregirán {{ resumen.contados }} lotes y no se puede deshacer.');">
+        data-confirmar="¿Aplicar el conteo? Se corregirán {{ resumen.contados }} lotes y no se puede deshacer.">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
     <button type="submit" class="boton" {% if not resumen.contados %}disabled{% endif %}>✔ Aplicar conteo</button>
     <span class="suave">Corrige el inventario, deja todo en el kardex y cierra el conteo.</span>
   </form>
   <form method="post" action="{{ url_for('conteos.anular', conteo_id=conteo['id']) }}" class="conteo-anular"
-        onsubmit="return confirm('¿Anular el conteo? No se cambiará ningún lote.');">
+        data-confirmar="¿Anular el conteo? No se cambiará ningún lote.">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
     <input type="text" name="motivo" placeholder="Motivo para anular" required minlength="3">
     <button type="submit" class="boton peligro">Anular</button>

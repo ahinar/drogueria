@@ -186,6 +186,20 @@ def main():
     con.execute("INSERT INTO caja_menor_movimientos (fecha, tipo, monto, motivo, usuario_nombre, creado_en) "
                 "VALUES (?, 'aporte', 300000, 'Fondo inicial (demo)', 'Fernando (demo)', ?)", (ahora, ahora))
 
+    # ---- 7b. Equipos con su calibración (Equipos y calibraciones) ----
+    # El de la nevera vence en 20 días, para ver el aviso amarillo en el Inicio.
+    zonas = {f["nombre"]: f["id"] for f in con.execute("SELECT id, nombre FROM zonas_temperatura")}
+    for nombre, tipo, zona, calibrado_hace, vence_en in (
+            ("Termohigrómetro ambiente", "termohigrometro", "Ambiente", 300, 65),
+            ("Termohigrómetro nevera", "termohigrometro", "Nevera", 345, 20)):
+        eq = con.execute(
+            "INSERT INTO equipos (nombre, tipo, marca, zona_id, fecha_calibracion, proxima_calibracion, "
+            "frecuencia_meses, activo, creado_en) VALUES (?,?, 'Marca demo', ?,?,?, 12, 1, ?)",
+            (nombre, tipo, zonas.get(zona), dias(-calibrado_hace), dias(vence_en), ahora)).lastrowid
+        con.execute("INSERT INTO calibraciones (equipo_id, fecha, proxima, empresa, certificado_numero, resultado, "
+                    "usuario_nombre, creado_en) VALUES (?,?,?, 'Laboratorio de metrología (demo)', ?, 'conforme', "
+                    "'Fernando (demo)', ?)", (eq, dias(-calibrado_hace), dias(vence_en), f"CAL-{eq:04d}", ahora))
+
     # ---- 8. Gastos de este mes y del anterior (para ver Reportes → Utilidades) ----
     # Las ventas no se inventan: haz unas ventas en el POS y mira cómo cambia la utilidad.
     mes_pasado = (hoy.replace(day=1) - timedelta(days=1)).replace(day=5).isoformat()
