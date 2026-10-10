@@ -2752,3 +2752,43 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 /* Al bajar por la lista, la barra flota arriba a la derecha */
 .barra-masiva.flotante { position: fixed; top: 4.6rem; right: 1.5rem; max-width: calc(100vw - 3rem); margin: 0; }
 .texto-alerta { color: #8a5a00; }
+
+/* ===== Ficha del producto compacta (que quepa sin barra de desplazamiento) ===== */
+.form-tabs .tab-panel[data-panel="general"] label { margin-bottom: .35rem; }
+.ficha-arriba { display: grid; grid-template-columns: minmax(0, 1fr) 132px; gap: .9rem; align-items: start; }
+.ficha-fila { display: grid; gap: .3rem .8rem; }
+.ficha-fila-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ficha-fila-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ficha-fila-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: end; }
+.ficha-fila-iva { grid-template-columns: 220px 140px; }
+.ficha-foto .imagen-drop { width: 132px; height: 132px; }
+.ficha-foto .imagen-drop img, .ficha-foto .imagen-placeholder { width: 100%; height: 100%; object-fit: contain; font-size: 2.4rem; }
+.ficha-venta, .ficha-tecnica { margin-top: .5rem; padding-top: .3rem; padding-bottom: .5rem; }
+.ficha-venta-cols { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: .6rem 1.4rem; align-items: start; }
+.ficha-venta-cols .bloque-suelto label { margin-bottom: .2rem; }
+.ficha-venta #resumen-venta { background: none; border: 0; padding: 0; margin: .3rem 0 0; font-size: .82rem; }
+.ficha-venta .avanzado-unidad { margin-top: .2rem !important; }
+.ficha-plegable { margin-top: .5rem; border: 1px solid var(--borde, #d8e2de); border-radius: 10px; padding: .4rem .9rem; }
+.ficha-plegable > summary { cursor: pointer; font-weight: 600; color: var(--primario, #1f7a5c); padding: .2rem 0; }
+.ficha-plegable[open] > summary { margin-bottom: .4rem; }
+@media (max-width: 900px) {
+  .ficha-fila-3, .ficha-fila-5, .ficha-venta-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .ficha-arriba { grid-template-columns: 1fr; }
+  .ficha-fila-2, .ficha-fila-3, .ficha-fila-5, .ficha-venta-cols, .ficha-fila-iva { grid-template-columns: 1fr; }
+}
+.ficha-fila-iva { grid-template-columns: minmax(0, 1fr) 110px; margin-top: .4rem; }
+.ficha-margen { margin-top: .5rem; align-items: end; }
+.ficha-fila-iva { grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1fr); }
+.ficha-fila-tec2 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.form-tabs .tab-panel[data-panel="general"] fieldset legend { margin-bottom: 0; }
+@media (max-width: 1100px) { .ficha-fila-tec2 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .ficha-fila-tec2, .ficha-margen { grid-template-columns: 1fr; } }
+.ficha-encabezado h1 { margin: 0 0 .4rem; }
+.ficha-arriba { grid-template-columns: minmax(0, 1fr) 112px; }
+.ficha-foto .imagen-drop { width: 112px; height: 112px; }
+.form-tabs .tab-panel[data-panel="general"] .ficha-venta-cols label.check-linea { margin: .1rem 0 !important; }
+.ficha-margen { grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr); }
+@media (max-width: 1100px) { .ficha-margen { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .ficha-margen { grid-template-columns: 1fr; } }

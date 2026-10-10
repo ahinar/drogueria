@@ -34,10 +34,13 @@
   <!-- ============ GENERAL ============ -->
   <section class="tab-panel activo" data-panel="general">
 
-    <!-- Encabezado con imagen arriba a la derecha -->
-    <div class="form-producto-header">
-      <div class="form-producto-datos">
-        <div class="grid-3-compact">
+    {# FICHA COMPACTA (pedido de Fernando): arriba lo de todos los días (código,
+       nombre, precio, costo). Los datos técnicos y de la recepción técnica
+       (principio activo, laboratorio, forma, concentración, INVIMA) van abajo:
+       se llenan de último. Las "otras presentaciones" van plegadas. #}
+    <div class="ficha-arriba">
+      <div class="ficha-datos">
+        <div class="ficha-fila ficha-fila-3">
           <label>Código interno *
             <input type="text" name="codigo" required autocomplete="off"
               value="{{ producto['codigo'] if producto else codigo_sugerido }}" placeholder="P00001">
@@ -46,18 +49,21 @@
             <input type="text" name="codigo_barras" autocomplete="off"
               value="{{ producto['codigo_barras'] if producto and producto['codigo_barras'] else '' }}">
           </label>
-          <label>Grupo (agrupa el mismo medicamento)
-            <input type="text" name="grupo" autocomplete="off" placeholder="Ej: Acetaminofén 500 mg"
-              value="{{ producto['grupo'] if producto and producto['grupo'] else '' }}">
-          </label>
+      <label>Categoría
+        <select name="categoria_principal" id="sel-categoria-principal">
+          <option value="">— Seleccionar —</option>
+          {% for c in categorias %}
+          <option value="{{ c['id'] }}" {% if c['id'] in categorias_sel %}selected{% endif %}>{{ c['nombre'] }}</option>
+          {% endfor %}
+        </select>
+      </label>
         </div>
-
         <label>Nombre *
           <input type="text" name="nombre" required autocomplete="off" spellcheck="false"
             value="{{ producto['nombre'] if producto else '' }}">
         </label>
       </div>
-
+      <div class="form-producto-imagen ficha-foto">
       <div class="form-producto-imagen">
         <div class="imagen-drop" id="imagen-drop">
           {% if producto and producto['imagen'] %}
@@ -76,81 +82,7 @@
         </button>
         {% endif %}
       </div>
-    </div>
-
-    <div class="grid-3-compact">
-      <label>Categoría
-        <select name="categoria_principal" id="sel-categoria-principal">
-          <option value="">— Seleccionar —</option>
-          {% for c in categorias %}
-          <option value="{{ c['id'] }}" {% if c['id'] in categorias_sel %}selected{% endif %}>{{ c['nombre'] }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Principio activo
-        <div class="campo-con-boton">
-          <select name="principio_id" id="sel-principio">
-            <option value="">— Seleccionar —</option>
-            {% for p in principios %}
-            <option value="{{ p['id'] }}" {% if producto and producto['principio_id']==p['id'] %}selected{% endif %}>{{
-              p['nombre'] }}</option>
-            {% endfor %}
-          </select>
-          <button type="button" class="btn-mas" data-tipo="principio" data-select="sel-principio"
-            title="Crear nuevo principio activo">+</button>
-        </div>
-      </label>
-      <label>Laboratorio
-        <div class="campo-con-boton">
-          <select name="laboratorio_id" id="sel-laboratorio">
-            <option value="">— Seleccionar —</option>
-            {% for l in laboratorios %}
-            <option value="{{ l['id'] }}" {% if producto and producto['laboratorio_id']==l['id'] %}selected{% endif %}>
-              {{ l['nombre'] }}</option>
-            {% endfor %}
-          </select>
-          <button type="button" class="btn-mas" data-tipo="laboratorio" data-select="sel-laboratorio"
-            title="Crear nuevo laboratorio">+</button>
-        </div>
-      </label>
-    </div>
-
-    <div class="grid-3-compact">
-      <label>Forma farmacéutica
-        <div class="campo-con-boton">
-          <select name="forma_farmaceutica_id" id="sel-forma">
-            <option value="">— Seleccionar —</option>
-            {% for f in formas %}
-            <option value="{{ f['id'] }}" {% if producto and producto['forma_farmaceutica_id']==f['id'] %}selected{%
-              endif %}>{{ f['nombre'] }}</option>
-            {% endfor %}
-          </select>
-          <button type="button" class="btn-mas" data-tipo="forma_farmaceutica" data-select="sel-forma"
-            title="Crear nueva forma farmacéutica">+</button>
-        </div>
-      </label>
-      <label>Concentración
-        <input type="text" name="concentracion" list="lista-concentraciones" placeholder="Ej: 500 mg"
-          value="{{ producto['concentracion'] if producto and producto['concentracion'] else '' }}">
-        <datalist id="lista-concentraciones">
-          {% for c in concentraciones %}<option value="{{ c }}">{% endfor %}
-        </datalist>
-      </label>
-      <label>Registro INVIMA
-        <input type="text" name="registro_sanitario"
-          value="{{ producto['registro_sanitario'] if producto and producto['registro_sanitario'] else '' }}">
-      </label>
-    </div>
-
-    <div class="grid-2">
-      <label>Descripción
-        <input type="text" name="descripcion" placeholder="Detalle breve"
-          value="{{ producto['descripcion'] if producto and producto['descripcion'] else '' }}">
-      </label>
-      <label>Vence registro sanitario
-        <input type="date" name="registro_vence"
-          value="{{ producto['registro_vence'] if producto and producto['registro_vence'] else '' }}">
-      </label>
+      </div>
     </div>
 
     {# ================= VENTA Y PRECIOS =================
@@ -160,7 +92,7 @@
        Por dentro el inventario se CUENTA en la unidad mínima (Unidad, Tableta),
        así nunca hay decimales: 27 sellos y 4 unidades = 274 unidades.
        El servidor traduce estos campos en app/productos.py -> _traducir_venta(). #}
-    <fieldset>
+    <fieldset class="ficha-venta">
       <legend>Venta y precios</legend>
       {# Producto viejo que se cuenta en "Sello x 10" en vez de unidades: así no
          se puede vender suelto. Con existencias hay que CONVERTIR (30 sellos =
@@ -177,6 +109,8 @@
       <p class="aviso" style="margin:.2rem 0 .6rem">Este producto se contaba en <strong>{{ base_grande.nombre }}</strong>.
         Al guardar se contará en <strong>Unidad</strong>, para poder venderlo suelto.</p>
       {% endif %}
+      <div class="ficha-venta-cols">
+        <div>
       {# Como lo pidió Fernando: "Precio de venta $4.000 por SELLO X 10".
          El costo va por la MISMA unidad de venta (lo que cuesta el sello, no la pasta). #}
       <div class="precio-por">
@@ -217,8 +151,23 @@
           <span class="precio-por-texto"><span class="nombre-unidad-min">unidades</span></span>
         </div>
       </div>
-      <small class="suave">El POS vende por esta unidad al tocar el producto. ¿No está "SELLO X 7"? Créala con el <strong>+</strong>.</small>
-
+      <div class="ficha-fila ficha-fila-2 ficha-margen">
+        <label>Margen %
+          <input type="number" step="0.1" id="margen" value="30">
+        </label>
+        <label>&nbsp;
+          <button type="button" id="btn-calcular" class="boton secundario" style="width:100%"><span class="ico-emoji">💡</span> Calcular
+            sugerido</button>
+        </label>
+        <label>Precio sugerido
+          <input type="text" id="precio_sugerido" readonly class="ganancia">
+        </label>
+        <label>Ganancia
+          <input type="text" id="ganancia" readonly class="ganancia">
+        </label>
+      </div>
+        </div>
+        <div>
       {# ---- 2. ¿Se vende suelto? Solo tiene sentido si la unidad de venta trae más de 1 ---- #}
       <div id="bloque-suelto" class="bloque-suelto">
         <input type="hidden" name="vende_suelto_en_form" value="1">
@@ -235,37 +184,8 @@
           <small class="suave" id="ayuda-precio-suelto"></small>
         </label>
       </div>
-
-      <div class="grid-3-compact" style="margin-top:.6rem">
-        <label>Margen deseado (%)
-          <input type="number" step="0.1" id="margen" value="30">
-        </label>
-        <label>&nbsp;
-          <button type="button" id="btn-calcular" class="boton secundario" style="width:100%"><span class="ico-emoji">💡</span> Calcular
-            sugerido</button>
-        </label>
-      </div>
-
-      <div class="grid-3-compact">
-        <label>Precio sugerido (solo referencia)
-          <input type="text" id="precio_sugerido" readonly class="ganancia">
-        </label>
-        <label>Ganancia
-          <input type="text" id="ganancia" readonly class="ganancia">
-        </label>
-        <label>Precio máximo regulado
-          <input type="text" inputmode="decimal" name="venta_maximo"
-            value="{{ '%g' % venta['maximo'] if venta['maximo'] != '' else '' }}">
-        </label>
-      </div>
-
-      {# El código de barras propio del sello (si tenía) viaja escondido para no perderlo #}
-      <input type="hidden" name="venta_barras" value="{{ venta['barras'] }}">
-
-
-      <p class="aviso" id="resumen-venta" style="margin:.6rem 0" hidden></p>
-
-      <div class="grid-3-compact">
+          <p class="suave" id="resumen-venta" hidden></p>
+          <div class="ficha-fila ficha-fila-iva">
         <label>Tipo de IVA
           <select name="iva_tipo" id="iva_tipo">
             {% for clave, texto in iva_tipos.items() %}
@@ -278,12 +198,15 @@
           <input type="number" step="0.01" name="iva_tarifa" id="iva_tarifa"
             value="{{ producto['iva_tarifa'] if producto else 19 }}">
         </label>
-      </div>
-
+        <label>Precio máximo regulado
+          <input type="text" inputmode="decimal" name="venta_maximo"
+            value="{{ '%g' % venta['maximo'] if venta['maximo'] != '' else '' }}">
+        </label>
+          </div>
       {# ---- Avanzado: en qué se CUENTA el inventario (casi siempre "Unidad") ----
          Si el producto ya tiene existencias o movimientos queda BLOQUEADA:
          cambiarla sin convertir haría que 308 tabletas se leyeran como 308 sobres. #}
-      <details class="avanzado-unidad" style="margin-top:.6rem">
+      <details class="avanzado-unidad" style="margin-top:.4rem">
         <summary>El inventario se cuenta en: <strong id="nombre-base">Unidad</strong> (cambiar)</summary>
         <label style="max-width:420px;margin-top:.5rem">Unidad mínima (en la que se cuenta) *
           <div class="campo-con-boton">
@@ -313,6 +236,10 @@
         <p class="aviso error" id="aviso-unidad-grande" hidden style="margin:.4rem 0">
           Ojo: aquí va la unidad más pequeña (Unidad, Tableta). El sello o la caja van arriba, en "Unidad de venta".</p>
       </details>
+        </div>
+      </div>
+      {# El código de barras propio del sello (si tenía) viaja escondido para no perderlo #}
+      <input type="hidden" name="venta_barras" value="{{ venta['barras'] }}">
     </fieldset>
 
     <!-- ===== OTRAS PRESENTACIONES (opcional) =====
@@ -321,8 +248,8 @@
          en la recepción se escoge "viene en Caja x 300".
          Cada fila manda 5 campos con el mismo nombre (pres_...); el servidor
          los lee en orden (ver app/presentaciones.py, leer_del_formulario). -->
-    <fieldset>
-      <legend>Otras presentaciones (opcional)</legend>
+    <details class="ficha-plegable">
+      <summary>Otras presentaciones (opcional){% if presentaciones %} · {{ presentaciones|length }}{% endif %}</summary>
       <p class="suave pres-ayuda">Solo si también vendes el producto de otra forma con otro precio.
         Ej: además del <strong>Sello x 10</strong>, la <strong>Caja x 100</strong> completa a $35.000.
         Para recibir cajas del proveedor <strong>no</strong> hace falta agregarlas aquí.</p>
@@ -383,6 +310,77 @@
           <p class="pres-equivale suave"></p>
         </div>
       </template>
+    </details>
+
+    {# ---- Datos técnicos y de la recepción técnica (se llenan de último) ---- #}
+    <fieldset class="ficha-tecnica">
+      <legend>Datos técnicos (recepción técnica)</legend>
+      <div class="ficha-fila ficha-fila-3">
+      <label>Principio activo
+        <div class="campo-con-boton">
+          <select name="principio_id" id="sel-principio">
+            <option value="">— Seleccionar —</option>
+            {% for p in principios %}
+            <option value="{{ p['id'] }}" {% if producto and producto['principio_id']==p['id'] %}selected{% endif %}>{{
+              p['nombre'] }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn-mas" data-tipo="principio" data-select="sel-principio"
+            title="Crear nuevo principio activo">+</button>
+        </div>
+      </label>
+      <label>Laboratorio
+        <div class="campo-con-boton">
+          <select name="laboratorio_id" id="sel-laboratorio">
+            <option value="">— Seleccionar —</option>
+            {% for l in laboratorios %}
+            <option value="{{ l['id'] }}" {% if producto and producto['laboratorio_id']==l['id'] %}selected{% endif %}>
+              {{ l['nombre'] }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn-mas" data-tipo="laboratorio" data-select="sel-laboratorio"
+            title="Crear nuevo laboratorio">+</button>
+        </div>
+      </label>
+      <label>Forma farmacéutica
+        <div class="campo-con-boton">
+          <select name="forma_farmaceutica_id" id="sel-forma">
+            <option value="">— Seleccionar —</option>
+            {% for f in formas %}
+            <option value="{{ f['id'] }}" {% if producto and producto['forma_farmaceutica_id']==f['id'] %}selected{%
+              endif %}>{{ f['nombre'] }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn-mas" data-tipo="forma_farmaceutica" data-select="sel-forma"
+            title="Crear nueva forma farmacéutica">+</button>
+        </div>
+      </label>
+      </div>
+      <div class="ficha-fila ficha-fila-tec2">
+      <label>Concentración
+        <input type="text" name="concentracion" list="lista-concentraciones" placeholder="Ej: 500 mg"
+          value="{{ producto['concentracion'] if producto and producto['concentracion'] else '' }}">
+        <datalist id="lista-concentraciones">
+          {% for c in concentraciones %}<option value="{{ c }}">{% endfor %}
+        </datalist>
+      </label>
+      <label>Registro INVIMA
+        <input type="text" name="registro_sanitario"
+          value="{{ producto['registro_sanitario'] if producto and producto['registro_sanitario'] else '' }}">
+      </label>
+      <label>Vence registro sanitario
+        <input type="date" name="registro_vence"
+          value="{{ producto['registro_vence'] if producto and producto['registro_vence'] else '' }}">
+      </label>
+          <label>Grupo (agrupa el mismo medicamento)
+            <input type="text" name="grupo" autocomplete="off" placeholder="Ej: Acetaminofén 500 mg"
+              value="{{ producto['grupo'] if producto and producto['grupo'] else '' }}">
+          </label>
+      <label>Descripción
+        <input type="text" name="descripcion" placeholder="Detalle breve"
+          value="{{ producto['descripcion'] if producto and producto['descripcion'] else '' }}">
+      </label>
+      </div>
     </fieldset>
   </section>
 
