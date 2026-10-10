@@ -1,10 +1,14 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-tema="verde" class="moderno">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ingresar · Fervifarma</title>
+  {# temas.css define los colores y la letra (variables CSS). Sin el,
+     app.css no sabe de que color pintar los botones y quedan invisibles. #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/temas.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/moderno.css') }}">
   {% if config_negocio and config_negocio.logo_ruta %}
     <link rel="icon" href="{{ url_for('static', filename=config_negocio.logo_ruta) }}">
   {% endif %}

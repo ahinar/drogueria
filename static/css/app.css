@@ -1,3 +1,7 @@
+/* Seguro: si alguna pagina olvida enlazar temas.css, lo traemos aqui.
+   Sin esas variables los botones quedan blancos sobre blanco. */
+@import url("temas.css");
+
 /* =========================================================
    FERVIFARMA · Hoja de estilos principal
    ========================================================= */

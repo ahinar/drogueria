@@ -43,3 +43,17 @@ class TestTemas(BaseFase1):
 
     def test_inicio_sin_accesos_rapidos(self):
         self.assertNotIn("Accesos rápidos", self.c.get("/").get_data(as_text=True))
+
+
+class TestPaginasSueltas(BaseFase1):
+    """El login no usa base.html: si no carga temas.css, el botón 'Entrar'
+    queda blanco sobre blanco (esto le pasó a Fernando en el celular)."""
+
+    def test_login_carga_los_colores_del_tema(self):
+        html = self.app.test_client().get("/login").get_data(as_text=True)
+        self.assertIn("css/temas.css", html)
+        self.assertIn("Entrar", html)
+
+    def test_app_css_trae_los_colores_por_si_acaso(self):
+        css = (Path(__file__).resolve().parent.parent / "static/css/app.css").read_text(encoding="utf-8")
+        self.assertIn('@import url("temas.css")', css)
