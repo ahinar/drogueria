@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block titulo %}{{ 'Editar producto' if producto else 'Nuevo producto' }}{% endblock %}
 {% block contenido %}
-{# Encabezado con las flechas ‹ › para pasar de un producto a otro (como Odoo).
+{# Encabezado con las flechas ‹ › para pasar de un producto a otro.
    Orden alfabético, igual que la lista. Atajos: Alt + ← y Alt + →.
    Si hay cambios sin guardar, pregunta antes de salir. #}
 <div class="ficha-encabezado">
@@ -177,7 +177,7 @@
       <p class="aviso" style="margin:.2rem 0 .6rem">Este producto se contaba en <strong>{{ base_grande.nombre }}</strong>.
         Al guardar se contará en <strong>Unidad</strong>, para poder venderlo suelto.</p>
       {% endif %}
-      {# Como en Odoo (captura de Fernando): "Precio de venta $4.000 por SELLO X 10".
+      {# Como lo pidió Fernando: "Precio de venta $4.000 por SELLO X 10".
          El costo va por la MISMA unidad de venta (lo que cuesta el sello, no la pasta). #}
       <div class="precio-por">
         <label for="venta_precio"><span>Precio de venta *</span></label>

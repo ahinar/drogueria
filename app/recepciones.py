@@ -299,7 +299,7 @@ def _leer_lineas_formulario():
             presentacion = {"nombre": f"Caja x {factor_otro:g}", "factor": factor_otro}
         elif pres_txt.startswith("u") and pres_txt[1:].isdigit():
             # Cualquier unidad de medida (ej. "CAJA X 12"), aunque no esté en la ficha:
-            # así lo pidió Fernando, como en Odoo. Cuántas trae sale de la unidad.
+            # así lo pidió Fernando. Cuántas trae sale de la unidad.
             presentacion = _presentacion_por_unidad(int(pid), int(pres_txt[1:]))
             if presentacion is None:
                 errores.append(f"{nombre}: esa unidad no existe.")

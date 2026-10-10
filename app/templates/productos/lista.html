@@ -5,7 +5,7 @@
   <h1>Productos</h1>
   {% if vista != 'grid' and g.user['rol'] in ('administrador', 'director_tecnico') %}
   <!-- ===== BARRA DE ACCIONES (aparece al marcar productos) =====
-       Va arriba, en el espacio libre del encabezado (como Odoo). Si bajas por
+       Va arriba, en el espacio libre del encabezado. Si bajas por
        la lista, se queda flotando arriba para que siempre se vea. -->
   <form id="form-masivo" method="post" action="{{ url_for('productos.masivo') }}" class="barra-masiva" hidden>
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">

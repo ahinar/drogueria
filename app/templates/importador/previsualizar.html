@@ -29,6 +29,26 @@
   </div>
 </div>
 
+{# Fotos y existencias que vienen con los productos (ver app/carga_inicial.py) #}
+{% if fotos or resumen_lotes or con_cantidad %}
+<div class="panel">
+  <h2 class="panel-titulo">Fotos e inventario inicial</h2>
+  <ul class="suave" style="margin:.3rem 0">
+    {% if fotos %}<li><b>{{ fotos }}</b> producto(s) traen foto: se les pone al importar (si no tienen una).</li>{% endif %}
+    {% if resumen_lotes %}
+      <li><b>{{ resumen_lotes.con_cantidad }}</b> lote(s) con existencias ({{ resumen_lotes.productos }} productos): entran con su lote,
+        vencimiento y cantidad pasada a unidades (22,5 SELLO X 10 = 225).</li>
+      <li>{{ resumen_lotes.en_cero }} lote(s) en 0 no se cargan (ya se vendieron).</li>
+      {% if resumen_lotes.negativos %}<li class="texto-alerta">{{ resumen_lotes.negativos|length }} lote(s) con cantidad
+        <b>negativa</b> no se cargan: {{ resumen_lotes.negativos[:6]|map(attribute='producto')|join(', ') }}{% if resumen_lotes.negativos|length > 6 %}…{% endif %}</li>{% endif %}
+    {% endif %}
+    {% if con_cantidad %}<li><b>{{ con_cantidad }}</b> producto(s) traen "Cantidad a la mano": lo que no esté en un lote entra como "sin lote"
+      {% if not resumen_lotes %}(solo los que no manejan lote; para los demás sube también el archivo de lotes){% endif %}.</li>{% endif %}
+  </ul>
+  <p class="suave" style="margin:0">Cada lote queda en el kardex como "Carga inicial". Si subes los mismos archivos otra vez, no se repite nada.</p>
+</div>
+{% endif %}
+
 <div class="panel">
   <h2 class="panel-titulo">Columnas detectadas</h2>
   <p class="suave">

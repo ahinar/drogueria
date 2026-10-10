@@ -32,8 +32,8 @@ def create_app(test_config=None):
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         PERMANENT_SESSION_LIFETIME=timedelta(hours=config.SESSION_HORAS),
-        # Tamaño máximo de lo que se sube. Alto porque el archivo de fotos de Odoo
-        # puede pesar mucho; cada foto igual se revisa aparte (utils_imagenes.py).
+        # Tamaño máximo de lo que se sube. Alto porque el archivo de productos con
+        # fotos puede pesar mucho; cada foto igual se revisa aparte (utils_imagenes.py).
         MAX_CONTENT_LENGTH=300 * 1024 * 1024,
         UPLOADS_DIR=str(config.UPLOADS_DIR),
     )
@@ -63,12 +63,6 @@ def create_app(test_config=None):
     app.register_blueprint(recepciones.bp)
     app.register_blueprint(inventario.bp)
     app.register_blueprint(importador.bp)
-    # Importar existencias (lotes) desde Odoo: ver app/importador_existencias.py
-    from . import importador_existencias
-    app.register_blueprint(importador_existencias.bp)
-    # Importar fotos de productos desde Odoo: ver app/importador_imagenes.py
-    from . import importador_imagenes
-    app.register_blueprint(importador_imagenes.bp)
     app.register_blueprint(pos.bp)
     app.register_blueprint(contabilidad.bp)
     app.register_blueprint(caja_menor.bp)

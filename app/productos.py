@@ -105,7 +105,7 @@ def _base_grande(producto):
 
 
 def _vecinos(prod_id):
-    """Para las flechas ‹ › de la ficha (como Odoo): el producto anterior y el
+    """Para las flechas ‹ › de la ficha: el producto anterior y el
     siguiente en orden alfabético (el mismo de la lista), y en qué puesto va.
     Devuelve {anterior, siguiente, posicion, total}.
     """

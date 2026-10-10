@@ -13,3 +13,6 @@ pdfs/*.pdf
 backups/demo/
 # Certificados de calibración y documentos reales: no se suben a GitHub
 static/uploads/certificados/
+# Fotos de productos que sube cada droguería: no se suben a GitHub
+static/uploads/productos/*
+!static/uploads/productos/878ee27ef42e4bae95192b442a685465.jpeg

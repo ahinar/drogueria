@@ -93,7 +93,7 @@
               </td>
               <td><input type="text" name="linea_lote" value="{{ lp.lote }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
               <td><input type="date" name="linea_vencimiento" value="{{ lp.vencimiento }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
-              <td><div class="cant-udm">{# cantidad y UdM en la misma línea, como Odoo #}
+              <td><div class="cant-udm">{# cantidad y UdM en la misma línea #}
                 <input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="{{ lp.cantidad_recibida }}" required>
                 {# "Viene en": Tableta, Sobre x 10, Caja x 100 (ver recepciones._leer_lineas_formulario) #}
                 <select name="linea_presentacion" class="linea-pres" aria-label="Unidad en que llegó" data-actual="{{ lp.presentacion_id }}">
@@ -386,7 +386,7 @@
     equivalenciaLinea(tr);
   }
   // ---- COLUMNA UdM: además de las presentaciones del producto, CUALQUIER unidad ----
-  // (como en Odoo: el aceite se vende por Unidad pero llegó en CAJA X 12).
+  // (el aceite se vende por Unidad pero llegó en CAJA X 12).
   // Valor "u<id>" = unidad de medida; el servidor calcula cuántas trae.
   // Al final: "+ Crear unidad…" para una que no existe (ej. CAJA X 300).
   function completarUnidades(sel) {

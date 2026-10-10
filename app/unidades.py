@@ -1,4 +1,4 @@
-"""Unidades de medida (tipo Odoo): Unidad, Sello x 10, Caja x 100, etc."""
+"""Unidades de medida: Unidad, Sello x 10, Caja x 100, etc."""
 import sqlite3
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for

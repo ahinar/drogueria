@@ -199,7 +199,7 @@
     '</div>';
   }
 
-  // LÍNEA NUEVA, en la misma lista (como Odoo): un lote que apareció en la
+  // LÍNEA NUEVA, en la misma lista: un lote que apareció en la
   // estantería y no está en el sistema, o un producto que estaba en 0.
   //   - Si el producto maneja vencimiento: casillas Lote, Vence y Contado.
   //   - Si no (cepillos, biberones): "Sin lote" y solo Contado.

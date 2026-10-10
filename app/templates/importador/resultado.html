@@ -34,6 +34,30 @@
   </div>
 </div>
 
+{% if fotos or fotos_grandes or existencias %}
+<div class="panel">
+  <h2 class="panel-titulo">Fotos e inventario inicial</h2>
+  <ul>
+    {% if fotos %}<li><b>{{ fotos }}</b> foto(s) puestas.</li>{% endif %}
+    {% if fotos_grandes %}<li class="texto-alerta"><b>{{ fotos_grandes }}</b> foto(s) no vinieron porque son muy grandes para Excel.
+      Exporta el mismo archivo de productos en formato <b>CSV</b> y vuelve a subirlo aquí: solo se completan las fotos que faltan
+      (los productos y el inventario no se repiten).</li>{% endif %}
+    {% if fotos_malas %}<li class="texto-alerta">{{ fotos_malas|length }} foto(s) dañadas no se pusieron: {{ fotos_malas[:8]|join(', ') }}</li>{% endif %}
+    {% if existencias %}
+      <li><b>{{ existencias.lotes }}</b> lote(s) cargados al inventario ({{ '{:,.0f}'.format(existencias.unidades).replace(',', '.') }} unidades).</li>
+      {% if existencias.repetidos %}<li>{{ existencias.repetidos }} lote(s) ya estaban: no se repitieron.</li>{% endif %}
+      {% if existencias.sin_lote_pendientes %}<li>{{ existencias.sin_lote_pendientes }} producto(s) que manejan lote tienen existencias
+        pero no se subió el archivo de lotes: cárgalos con el conteo.</li>{% endif %}
+    {% endif %}
+  </ul>
+  {% if existencias and existencias.problemas %}
+  <details><summary class="texto-alerta">{{ existencias.problemas|length }} cantidad(es) que no se cargaron (negativas o de productos que no existen)</summary>
+    <ul class="suave">{% for p in existencias.problemas[:100] %}<li>{{ p }}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+</div>
+{% endif %}
+
 {% if errores %}
 <div class="panel">
   <h2 class="panel-titulo"><span class="ico-emoji">⚠</span> Errores detectados</h2>

@@ -14,6 +14,10 @@ from .db import ahora, get_db
 
 bp = Blueprint("importador", __name__, url_prefix="/productos/importar")
 
+# Una foto escrita como texto (base64) es muy larga: se sube el límite del lector de CSV
+import sys as _sys
+csv.field_size_limit(min(_sys.maxsize, 2 ** 31 - 1))
+
 # ===== Columnas esperadas =====
 # Orden exacto de columnas en la plantilla / archivo.
 COLUMNAS = [
@@ -106,25 +110,29 @@ def _abrir_archivo(nombre_archivo, contenido):
 
 
 # =====================================================================
-# ARCHIVO EXPORTADO DE ODOO (Inventario → Productos → Exportar)
-# Fernando exportó sus productos de Odoo 18. En vez de pedirle que los pase
-# a nuestra plantilla, aquí se "traducen" las columnas de Odoo a las nuestras.
-# Después todo sigue igual que con la plantilla normal.
+# ARCHIVO EXPORTADO DE OTRO PROGRAMA (el que se usaba antes)
+# En vez de pedir que los productos se pasen a nuestra plantilla, aquí se
+# "traducen" sus columnas (Nombre, Código de barras, Precio de venta, Costo,
+# Unidad de medida...) a las nuestras. Después todo sigue igual que con la
+# plantilla normal.
 # =====================================================================
-def _es_odoo(encabezados):
-    """¿El archivo viene de Odoo? (trae 'Unidad de medida' y 'Seguimiento')"""
+def _es_formato_externo(encabezados):
+    """¿El archivo viene del programa anterior? Trae 'Unidad de medida' y
+    'Precio de venta' pero no nuestra columna 'Unidad de venta'."""
     nombres = {str(e).strip().lower() for e in encabezados}
-    return "unidad de medida" in nombres and "seguimiento" in nombres
+    return ("unidad de medida" in nombres and "precio de venta" in nombres
+            and not any(n.startswith("unidad de venta") for n in nombres))
 
 
 def _sin_html(texto):
-    """'<div>TIENE GENERICO</div>' -> 'TIENE GENERICO' (Odoo guarda notas en HTML)."""
+    """'<div>TIENE GENERICO</div>' -> 'TIENE GENERICO' (algunos programas guardan notas en HTML)."""
     import re
     return " ".join(re.sub(r"<[^>]+>", " ", str(texto or "")).split())
 
 
-def _iva_de_odoo(texto):
-    """'0% IVA Exc' -> ('excluido', 0) ; '19% IVA' -> ('gravado', 19) ; '5%' -> ('gravado', 5)."""
+def _iva_de_texto(texto):
+    """'0% IVA Exc' -> ('excluido', 0) ; '19% IVA' -> ('gravado', 19) ; '5%' -> ('gravado', 5).
+    Sin dato -> excluido (la mayoría de los medicamentos)."""
     import re
     t = str(texto or "").lower()
     if "exc" in t:
@@ -137,20 +145,22 @@ def _iva_de_odoo(texto):
     return "excluido", 0
 
 
-def _traducir_odoo(filas, primer_codigo):
-    """Convierte cada fila de Odoo a una fila con los encabezados de NUESTRA plantilla.
+def _traducir_externo(filas, primer_codigo, con_lote=None):
+    """Convierte cada fila del programa anterior a una fila con los encabezados de NUESTRA plantilla.
 
-    - Código interno: Odoo casi nunca lo tiene -> se crean P00001, P00002...
-      (si la "Referencia interna" de Odoo era un código de barras, se usa como tal)
+    - Código interno: casi nunca viene -> se crean P00001, P00002...
+      (si la "Referencia interna" era un código de barras, se usa como tal)
     - "Unidades" -> "Unidad". "SELLO X 10" queda igual (trae 10).
-    - Precio y costo de Odoo son de esa unidad de medida (el sello completo).
-    - Seguimiento "Por lotes" -> maneja lote y vencimiento.
-    - IVA: "0% IVA Exc" -> excluido.
-    - Categoría "All" (la de Odoo por defecto) se ignora.
-    - "Cantidad a la mano" NO se importa aquí: las existencias entran con sus
-      lotes (archivo de existencias de Odoo) o con el conteo.
+    - Precio y costo vienen por esa unidad de medida (el sello completo).
+    - Maneja lote y vencimiento: según la columna "Seguimiento" ("Por lotes");
+      si no viene, según si el producto aparece en el archivo de lotes (con_lote).
+    - IVA: "0% IVA Exc" -> excluido. Sin la columna -> excluido.
+    - Categoría "All" (la de por defecto) se ignora.
+    - La foto ("Imagen...") y la "Cantidad a la mano" se guardan aparte
+      (_imagen, _cantidad) para ponerlas después de crear el producto.
     """
     import re
+    from .carga_inicial import normal
     etiqueta = {campo: et for campo, et, _ in COLUMNAS}
     numero = int(primer_codigo[1:]) if primer_codigo[1:].isdigit() else 1
     resultado = []
@@ -163,22 +173,32 @@ def _traducir_odoo(filas, primer_codigo):
         unidad = (g.get("Unidad de medida") or "").strip()
         if unidad.lower() in ("unidades", "unidad(es)", "unidad", "units"):
             unidad = "Unidad"
-        iva_tipo, iva_tarifa = _iva_de_odoo(g.get("Impuesto de ventas") or g.get("Impuestos de cliente"))
+        iva_tipo, iva_tarifa = _iva_de_texto(g.get("Impuesto de ventas") or g.get("Impuestos de cliente"))
         categoria = (g.get("Categoría del producto") or "").split("/")[-1].strip()
-        notas = [t for t in (_sin_html(g.get("Notas internas")), f"Ref. Odoo: {ref}" if ref else "") if t]
+        nombre = " ".join(str(g.get("Nombre") or "").split())
+        if "Seguimiento" in g:
+            maneja = "lote" in str(g.get("Seguimiento") or "").lower()
+        elif con_lote is not None:
+            maneja = normal(nombre) in con_lote
+        else:
+            maneja = True                               # sin dato: lo más seguro (pide lote en la recepción)
+        notas = [t for t in (_sin_html(g.get("Notas internas")), f"Ref. anterior: {ref}" if ref else "") if t]
+        imagen = next((v for k, v in g.items() if k.lower().startswith("imagen")), "")
         nueva = {
             etiqueta["codigo"]: f"P{numero:05d}",
             etiqueta["codigo_barras"]: barras,
-            etiqueta["nombre"]: " ".join(str(g.get("Nombre") or "").split()),
+            etiqueta["nombre"]: nombre,
             etiqueta["descripcion"]: _sin_html(g.get("Descripción")),
             etiqueta["unidad_venta"]: unidad,
             etiqueta["venta_precio"]: g.get("Precio de venta") or "",
             etiqueta["venta_costo"]: g.get("Costo") or "",
             etiqueta["iva_tipo"]: iva_tipo,
             etiqueta["iva_tarifa"]: iva_tarifa,
-            etiqueta["maneja_vencimiento"]: "SI" if "lote" in str(g.get("Seguimiento") or "").lower() else "NO",
+            etiqueta["maneja_vencimiento"]: "SI" if maneja else "NO",
             etiqueta["categorias"]: "" if categoria.lower() in ("all", "todos", "") else categoria,
             etiqueta["observaciones"]: " · ".join(notas),
+            "_imagen": imagen or "",
+            "_cantidad": g.get("Cantidad a la mano") or "",
         }
         resultado.append({k: ("" if v is None else str(v)) for k, v in nueva.items()})
         numero += 1
@@ -343,7 +363,7 @@ def _unidad_por_defecto(db):
 
 def _ya_existe(db, fila, mapa, codigo):
     """¿El producto ya está? Mismo código interno o mismo código de barras
-    (así, importar el mismo archivo de Odoo dos veces no repite productos)."""
+    (así, importar el mismo archivo dos veces no repite productos)."""
     barras = (fila.get(mapa.get("codigo_barras", ""), "") or "").strip()
     if codigo and db.execute("SELECT 1 FROM productos WHERE LOWER(TRIM(codigo)) = LOWER(TRIM(?))",
                              (codigo,)).fetchone():
@@ -496,12 +516,27 @@ def previsualizar():
         flash("El archivo no tiene filas de datos.", "error")
         return redirect(url_for("importador.inicio"))
 
-    # ¿Viene de Odoo? Se traducen sus columnas a las de nuestra plantilla
-    if _es_odoo(filas[0].keys()):
+    # ¿Subieron también el archivo de LOTES (existencias por lote)? Ver app/carga_inicial.py
+    from . import carga_inicial
+    lotes, resumen_lotes = [], None
+    archivo_lotes = request.files.get("archivo_lotes")
+    if archivo_lotes and archivo_lotes.filename:
+        filas_lotes, error = _abrir_archivo(archivo_lotes.filename, archivo_lotes.read())
+        if not error:
+            lotes, error = carga_inicial.leer_lotes(filas_lotes or [])
+        if error:
+            flash(f"Archivo de lotes: {error}", "error")
+            return redirect(url_for("importador.inicio"))
+        resumen_lotes = carga_inicial.resumen_lotes(lotes)
+
+    # ¿Viene del programa anterior? Se traducen sus columnas a las de nuestra plantilla
+    if _es_formato_externo(filas[0].keys()):
         from .productos import _siguiente_codigo
-        filas = _traducir_odoo(filas, _siguiente_codigo())
-        flash("Archivo de Odoo reconocido: se tradujeron sus columnas (unidad de medida, precio, "
-              "costo, lotes, IVA). Los productos sin código reciben uno nuevo (P00001…).", "ok")
+        con_lote = {carga_inicial.normal(l["producto"]) for l in lotes} if archivo_lotes and archivo_lotes.filename else None
+        filas = _traducir_externo(filas, _siguiente_codigo(), con_lote)
+        flash("Archivo del programa anterior reconocido: se tradujeron sus columnas (unidad de medida, "
+              "precio, costo, foto, lotes). Los productos sin código reciben uno nuevo (P00001…).", "ok")
+    fotos = sum(1 for f in filas if (f.get("_imagen") or "").strip() not in ("", "False", "0"))
 
     # Detectar encabezados disponibles
     encabezados = list(filas[0].keys())
@@ -563,7 +598,8 @@ def previsualizar():
     tmp = tempfile.NamedTemporaryFile(
         mode="w", suffix=".json", delete=False, encoding="utf-8"
     )
-    json.dump({"filas": filas, "mapa": mapa}, tmp, ensure_ascii=False)
+    json.dump({"filas": filas, "mapa": mapa, "lotes": lotes,
+               "lotes_subidos": resumen_lotes is not None}, tmp, ensure_ascii=False)
     tmp.close()
     session["importador_tmp"] = tmp.name
 
@@ -576,8 +612,11 @@ def previsualizar():
         validas=validas,
         duplicadas=duplicadas,
         con_error=con_error,
-        encabezados=encabezados,
+        encabezados=[e for e in encabezados if not e.startswith("_")],
         mapa=mapa,
+        fotos=fotos,
+        resumen_lotes=resumen_lotes,
+        con_cantidad=sum(1 for f in filas if _num(f.get("_cantidad"), 0) > 0),
     )
 
 
@@ -741,6 +780,38 @@ def confirmar():
 
     db.commit()
 
+    # ---- Fotos y existencias (si el archivo las trae). Ver app/carga_inicial.py ----
+    from . import carga_inicial
+    fotos, fotos_malas, fotos_grandes = 0, [], 0
+    buscador = carga_inicial.BuscadorProductos(db)
+    for fila in filas:
+        texto = fila.get("_imagen") or ""
+        if texto.strip() in ("", "False", "0"):
+            continue
+        nombre = (fila.get(mapa.get("nombre", ""), "") or "").strip()
+        pid = buscador.buscar(nombre, (fila.get(mapa.get("codigo_barras", ""), "") or "").strip())
+        if not pid or db.execute("SELECT imagen FROM productos WHERE id = ?", (pid,)).fetchone()["imagen"]:
+            continue                                     # no está, o ya tiene foto
+        ruta, error = carga_inicial.guardar_foto(texto)
+        if ruta:
+            db.execute("UPDATE productos SET imagen = ? WHERE id = ?", (ruta, pid))
+            fotos += 1
+        elif error == "grande":
+            fotos_grandes += 1                           # vino el aviso de Excel en vez de la foto
+        elif error:
+            fotos_malas.append(nombre)
+    cantidades = [{"nombre": (f.get(mapa.get("nombre", ""), "") or "").strip(),
+                   "barras": (f.get(mapa.get("codigo_barras", ""), "") or "").strip(),
+                   "cantidad": _num(f.get("_cantidad"), 0)}
+                  for f in filas if (f.get("_cantidad") or "").strip()]
+    existencias = None
+    if datos.get("lotes") or cantidades:
+        existencias = carga_inicial.cargar_existencias(db, datos.get("lotes") or [], cantidades, g.user,
+                                                       lotes_subidos=datos.get("lotes_subidos", False))
+        registrar("existencias_cargadas", "lotes", None,
+                  f"{existencias['lotes']} lotes, {existencias['unidades']} unidades ({carga_inicial.REFERENCIA})")
+    db.commit()
+
     # Contar catálogos nuevos (los que no estaban en cache al inicio)
     catalogos_creados = len(cache_cat)
 
@@ -756,6 +827,10 @@ def confirmar():
         errores=errores,
         total=importados + omitidos + len(errores),
         catalogos_creados=catalogos_creados,
+        fotos=fotos,
+        fotos_malas=fotos_malas,
+        fotos_grandes=fotos_grandes,
+        existencias=existencias,
     )
 
 
