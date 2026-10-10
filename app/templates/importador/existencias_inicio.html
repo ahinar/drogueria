@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titulo %}Importar existencias{% endblock %}
+{% block contenido %}
+<h1><span class="ico-emoji">📦</span> Importar existencias (lotes) desde Odoo</h1>
+<p class="suave">Carga el inventario inicial de una vez: cada lote con su vencimiento y su cantidad.
+  Primero importa los <a href="{{ url_for('importador.inicio') }}">productos</a>; después, este archivo.</p>
+
+<div class="panel">
+  <h2 class="panel-titulo">Paso 1 · Exporta de Odoo</h2>
+  <ol class="suave">
+    <li>En Odoo: <b>Inventario → Operaciones → Ajustes físicos de inventario</b>.</li>
+    <li>Quita los filtros del buscador, marca la casilla de arriba y toca <b>"Seleccionar todos"</b>.</li>
+    <li><b>⚙ Acciones → Exportar</b> con estos campos: <b>Producto</b>, <b>Número de serie/lote</b>,
+      <b>Fecha de caducidad</b> (dentro de "Número de serie/lote", con la flechita ▸),
+      <b>Cantidad a la mano</b> y <b>Unidad de medida</b>. Formato Excel (.xlsx).</li>
+  </ol>
+</div>
+
+<div class="panel" style="margin-top:1rem">
+  <h2 class="panel-titulo">Paso 2 · Sube el archivo</h2>
+  <form method="post" action="{{ url_for('existencias.previsualizar') }}" enctype="multipart/form-data">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>Archivo (.xlsx o .csv)
+      <input type="file" name="archivo" accept=".xlsx,.csv" required>
+    </label>
+    <ul class="suave">
+      <li>Las cantidades se pasan a <b>unidades</b>: 22,5 SELLO X 10 = 225 unidades.</li>
+      <li>Las cantidades en <b>0 o negativas</b> no se cargan; se listan para que las revises.</li>
+      <li>Si un lote ya está en el programa, <b>no se repite</b>.</li>
+    </ul>
+    <button type="submit" class="boton">Ver previsualización</button>
+  </form>
+</div>
+{% endblock %}

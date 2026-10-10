@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block titulo %}Previsualización de existencias{% endblock %}
+{% block contenido %}
+<h1><span class="ico-emoji">🔍</span> Previsualización de existencias</h1>
+<p class="suave">Todavía no se ha guardado nada. Revisa y confirma abajo.</p>
+
+<div class="tarjetas-kpi" style="margin-bottom:1rem">
+  <div class="kpi-card kpi-ok"><div class="kpi-info">
+    <span class="kpi-titulo">Lotes que entran</span><strong class="kpi-valor">{{ nuevas }}</strong>
+    <span class="kpi-detalle">{{ '{:,.0f}'.format(unidades).replace(',', '.') }} unidades · {{ valor|pesos }}</span></div></div>
+  <div class="kpi-card kpi-pendiente"><div class="kpi-info">
+    <span class="kpi-titulo">Ya estaban (se omiten)</span><strong class="kpi-valor">{{ repetidas }}</strong></div></div>
+  <div class="kpi-card kpi-alerta"><div class="kpi-info">
+    <span class="kpi-titulo">No se cargan</span><strong class="kpi-valor kpi-valor-alerta">{{ problemas|length }}</strong>
+    <span class="kpi-detalle">ver lista abajo</span></div></div>
+</div>
+{% if sin_costo %}<p class="aviso">{{ sin_costo }} lote(s) son de productos <b>sin costo</b> en la ficha: entran con costo $0
+  (las utilidades de esos productos no serán exactas hasta que les pongas el costo).</p>{% endif %}
+
+<form method="post" action="{{ url_for('existencias.confirmar') }}" style="margin:1rem 0">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <button type="submit" class="boton" {% if not nuevas %}disabled{% endif %}><span class="ico-emoji">✅</span> Cargar {{ nuevas }} lote(s) al inventario</button>
+  <a class="boton secundario" href="{{ url_for('existencias.inicio') }}">Cancelar</a>
+</form>
+
+<h2>Lo que entra <small class="suave">(primero los que tienen avisos)</small></h2>
+<table class="tabla">
+  <thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th class="num">Unidades</th><th>Estado / avisos</th></tr></thead>
+  <tbody>
+    {% for l in lineas[:300] %}
+    <tr {% if l.estado != 'ok' %}class="inactivo"{% endif %}>
+      <td>{{ l.nombre }}</td><td>{{ l.lote or 'Sin lote' }}</td>
+      <td>{{ l.vence|fecha_hora if l.vence else '—' }}</td>
+      <td class="num">{{ l.unidades }}</td>
+      <td>{% if l.estado == 'existe' %}<span class="suave">Ya está en el programa</span>{% else %}Entra{% endif %}
+        {% for a in l.avisos %}<br><small class="texto-alerta">⚠ {{ a }}</small>{% endfor %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% if lineas|length > 300 %}<p class="suave">… y {{ lineas|length - 300 }} lote(s) más.</p>{% endif %}
+
+{% if problemas %}
+<h2 style="margin-top:1.5rem">No se cargan ({{ problemas|length }})</h2>
+<table class="tabla">
+  <thead><tr><th>Fila</th><th>Producto</th><th>Motivo</th></tr></thead>
+  <tbody>
+    {% for p in problemas %}<tr><td>{{ p.fila }}</td><td>{{ p.producto }}</td><td>{{ p.motivo }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

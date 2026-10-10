@@ -660,3 +660,51 @@ class TestAccionesMasivas(BaseUnidades):
         html = self.c.get("/productos/?vista=lista").get_data(as_text=True)
         self.assertIn('class="marca-producto"', html)
         self.assertIn('id="form-masivo"', html)
+
+
+class TestImportarExistenciasOdoo(TestImportarDeOdoo):
+    """Inventario → Operaciones → Ajustes físicos de inventario → Exportar (Odoo 18)."""
+    def subir_existencias(self, filas, confirmar=True):
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["Ubicación", "Producto", "Número de serie/lote", "Número de serie/lote/Fecha de caducidad",
+                   "Cantidad a la mano", "Unidad de medida"])
+        for f in filas:
+            ws.append(f)
+        buf = io.BytesIO()
+        wb.save(buf)
+        r = self.post(self.c, "/productos/importar/existencias/previsualizar",
+                      {"archivo": (io.BytesIO(buf.getvalue()), "stock.quant.xlsx")}, content_type="multipart/form-data")
+        if confirmar:
+            self.post(self.c, "/productos/importar/existencias/confirmar")
+        return r
+
+    def test_lotes_unidades_negativos_y_repetidos(self):
+        from datetime import datetime as dt
+        self.importar_odoo([
+            [None, "7700001", "ACETAMINOFEN 500mg LAPROFF", "All", 1600, 1000, "SELLO X 10", "CAJA X 300",
+             "0% IVA Exc", "Por lotes", 0, None],
+            [None, None, "BOCADILLOS", "All", 500, 300, "Unidades", "Unidades", "0% IVA Exc", "Por cantidad", 0, None],
+        ])
+        a = self.uno("SELECT id FROM productos WHERE nombre = 'ACETAMINOFEN 500mg LAPROFF'")["id"]
+        b = self.uno("SELECT id FROM productos WHERE nombre = 'BOCADILLOS'")["id"]
+        filas = [
+            ["WH/Existencias", "[7700001] ACETAMINOFEN 500mg LAPROFF", "AC123", dt(2027, 3, 31, 5, 0), 22.5, "SELLO X 10"],
+            ["WH/Existencias", "ACETAMINOFEN 500mg LAPROFF", "AC124", dt(2027, 8, 1), 3, "SELLO X 10"],
+            ["WH/Existencias", "BOCADILLOS", None, None, -131, "Unidades"],
+            ["WH/Existencias", "PRODUCTO QUE NO EXISTE", None, None, 4, "Unidades"],
+        ]
+        html = self.subir_existencias(filas).get_data(as_text=True)
+        self.assertIn("negativa", html)
+        self.assertIn("No existe en el programa", html)
+        lote = self.uno("SELECT * FROM lotes WHERE producto_id = ? AND lote = 'AC123'", a)
+        self.assertEqual((lote["cantidad_disponible"], lote["vencimiento"], lote["costo_unitario"], lote["estado"]),
+                         (225, "2027-03-31", 100, "disponible"))
+        self.assertEqual(self.stock(a), 255)
+        self.assertEqual(self.stock(b), 0)
+        mov = self.uno("SELECT * FROM movimientos_inventario WHERE lote_id = ?", lote["id"])
+        self.assertEqual((mov["tipo"], mov["cantidad"], mov["referencia"]), ("ajuste", 225, "Carga inicial (Odoo)"))
+        # Subir el mismo archivo otra vez no duplica
+        self.subir_existencias(filas)
+        self.assertEqual(self.stock(a), 255)

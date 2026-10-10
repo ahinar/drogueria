@@ -61,6 +61,9 @@ def create_app(test_config=None):
     app.register_blueprint(recepciones.bp)
     app.register_blueprint(inventario.bp)
     app.register_blueprint(importador.bp)
+    # Importar existencias (lotes) desde Odoo: ver app/importador_existencias.py
+    from . import importador_existencias
+    app.register_blueprint(importador_existencias.bp)
     app.register_blueprint(pos.bp)
     app.register_blueprint(contabilidad.bp)
     app.register_blueprint(caja_menor.bp)

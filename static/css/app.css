@@ -2751,3 +2751,4 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 .barra-masiva select { max-width: 320px; }
 /* Al bajar por la lista, la barra flota arriba a la derecha */
 .barra-masiva.flotante { position: fixed; top: 4.6rem; right: 1.5rem; max-width: calc(100vw - 3rem); margin: 0; }
+.texto-alerta { color: #8a5a00; }
