@@ -14,6 +14,7 @@ GitHub presta un computador en la nube, instala todo y prende el programa con
 
 La demo trae 12 productos con usos/síntomas, 2 proveedores, compras aprobadas,
 un lote por vencer, un lote vencido, una recepción en cuarentena y $300.000 en caja menor.
+Acetaminofén e Ibuprofeno se venden por tableta, sobre x 10 y (el acetaminofén) caja x 100.
 
 ## Pasos (desde el celular)
 

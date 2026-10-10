@@ -7,6 +7,7 @@ from .audit import registrar
 from .auth import login_required, roles_required
 from .catalogos import opciones as cat_opciones
 from .db import ahora, get_db
+from . import presentaciones as pres
 from .utils_imagenes import guardar_imagen, eliminar_imagen
 
 bp = Blueprint("productos", __name__, url_prefix="/productos")
@@ -67,6 +68,8 @@ def _contexto_formulario(producto=None):
         "categorias_sel": _categorias_de(producto["id"]) if producto else [],
         "usos_sel": _usos_de(producto["id"]) if producto else [],
         "codigo_sugerido": _siguiente_codigo() if not producto else None,
+        # Otras formas de vender el producto (sobre, caja...). Ver app/presentaciones.py
+        "presentaciones": pres.filas_para_formulario(producto["id"] if producto else None),
         "producto": producto,
     }
 
@@ -174,10 +177,11 @@ def _leer_formulario():
         "observaciones": request.form.get("observaciones", "").strip() or None,
         "categorias": [int(x) for x in request.form.getlist("categorias") if x.isdigit()],
         "usos": [int(x) for x in request.form.getlist("usos") if x.isdigit()],
+        "presentaciones": pres.leer_del_formulario(request.form),
     }
 
 
-def _validar(datos):
+def _validar(datos, producto_id=None):
     errores = []
     if not datos["codigo"]:
         errores.append("El código interno es obligatorio.")
@@ -193,6 +197,9 @@ def _validar(datos):
         errores.append("Un producto de control especial debe tener registro sanitario INVIMA.")
     if datos["control_especial"] or datos["cadena_frio"]:
         datos["maneja_vencimiento"] = 1
+    # Otras presentaciones (sobre, caja...): factor > 1, precio > 0, sin repetir
+    errores += pres.validar(datos["presentaciones"], datos["unidad_venta_id"],
+                            producto_id, datos["codigo_barras"])
     return errores
 
 
@@ -235,6 +242,7 @@ def nuevo():
                 )
                 pid = cur.lastrowid
                 _guardar_relaciones(db, pid, datos["categorias"], datos["usos"])
+                texto_pres = pres.guardar(db, pid, datos["presentaciones"], ahora())
 
                 # Subir imagen si viene
                 archivo_img = request.files.get("imagen")
@@ -249,7 +257,7 @@ def nuevo():
 
                 db.commit()
                 registrar("producto_creado", "productos", pid,
-                          f"código={datos['codigo']} nombre={datos['nombre']}")
+                          f"código={datos['codigo']} nombre={datos['nombre']}{texto_pres}")
                 flash("Producto creado.", "ok")
                 return redirect(url_for("productos.lista"))
             except sqlite3.IntegrityError:
@@ -266,7 +274,7 @@ def editar(prod_id):
     producto = _obtener(prod_id)
     if request.method == "POST":
         datos = _leer_formulario()
-        errores = _validar(datos)
+        errores = _validar(datos, prod_id)
         if not errores:
             db = get_db()
             try:
@@ -287,6 +295,7 @@ def editar(prod_id):
                      datos["maneja_vencimiento"], datos["observaciones"], ahora(), prod_id),
                 )
                 _guardar_relaciones(db, prod_id, datos["categorias"], datos["usos"])
+                texto_pres = pres.guardar(db, prod_id, datos["presentaciones"], ahora())
 
                 # Manejar imagen
                 accion_img = request.form.get("_imagen_accion", "")
@@ -306,7 +315,8 @@ def editar(prod_id):
                             flash(f"Aviso: no se pudo subir la imagen ({error}).", "error")
 
                 db.commit()
-                registrar("producto_editado", "productos", prod_id, f"código={datos['codigo']}")
+                registrar("producto_editado", "productos", prod_id,
+                          f"código={datos['codigo']}{texto_pres}")
                 flash("Producto actualizado.", "ok")
                 return redirect(url_for("productos.lista"))
             except sqlite3.IntegrityError:

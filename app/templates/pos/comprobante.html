@@ -42,7 +42,7 @@
   <hr>
   <table>
     {% for l in lineas %}
-    <tr><td colspan="2">{{ l['producto_nombre'] }}</td></tr>
+    <tr><td colspan="2">{{ l['producto_nombre'] }}{% if l['factor'] and l['factor'] != 1 %} · {{ l['presentacion'] }}{% endif %}</td></tr>
     <tr>
       <td class="suave">{{ '%g' % l['cantidad'] }} x ${{ '{:,.0f}'.format(l['precio_unitario']) }}{% if l['descuento_linea'] %} (desc. -${{ '{:,.0f}'.format(l['descuento_linea']) }}){% endif %}</td>
       <td class="der">${{ '{:,.0f}'.format(l['total']) }}</td>

@@ -636,6 +636,37 @@ MIGRATIONS = [
         UPDATE catalogos SET descripcion = 'irritación de piel, rasquiña, resequedad, pañalitis' WHERE tipo = 'uso' AND nombre = 'Dermatitis' AND (descripcion IS NULL OR descripcion = '');
         """,
     ),
+    (
+        20,
+        """
+        -- ===== Venta por presentación (unidad / sobre / caja) =====
+        -- El inventario SIEMPRE se cuenta en la unidad principal del producto
+        -- (la de "Se vende por"). Aquí se guardan las OTRAS formas de venderlo,
+        -- cada una con su precio. "factor" = cuántas unidades principales trae.
+        -- Ejemplo: Acetaminofén (unidad principal: Tableta, $200)
+        --          Sobre x 10  -> factor 10,  precio $1.800
+        --          Caja x 100  -> factor 100, precio $15.000
+        CREATE TABLE producto_presentaciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            producto_id INTEGER NOT NULL,
+            unidad_id INTEGER NOT NULL,          -- nombre tomado de unidades_medida
+            factor REAL NOT NULL,                -- unidades principales que contiene (> 1)
+            precio_venta REAL NOT NULL,
+            precio_maximo REAL,                  -- tope regulado de ESTA presentación (opcional)
+            codigo_barras TEXT,                  -- la caja suele tener otro código que la unidad
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT,
+            FOREIGN KEY (producto_id) REFERENCES productos (id),
+            FOREIGN KEY (unidad_id) REFERENCES unidades_medida (id),
+            UNIQUE (producto_id, unidad_id)
+        );
+        CREATE INDEX idx_presentaciones_producto ON producto_presentaciones (producto_id);
+        CREATE INDEX idx_presentaciones_barras ON producto_presentaciones (codigo_barras);
+
+        -- Para saber qué presentación se vendió en cada línea
+        ALTER TABLE venta_lineas ADD COLUMN presentacion_id INTEGER;
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

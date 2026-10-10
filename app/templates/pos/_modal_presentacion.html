@@ -1,0 +1,17 @@
+<!-- =====================================================================
+     VENTANA "¿CÓMO LO VENDES?" (elegir presentación)
+     ---------------------------------------------------------------------
+     Aparece al tocar un producto que se vende de varias formas
+     (ej: Tableta, Sobre x 10, Caja x 100). pos_carrito.js (sección 5b)
+     dibuja un botón por presentación. Atajo: teclas 1, 2, 3...
+     ===================================================================== -->
+<div id="modal-presentacion" class="modal-oculto">
+  <div class="modal-caja" role="dialog" aria-labelledby="pres-titulo">
+    <div class="info-barra">
+      <h2 id="pres-titulo">¿Cómo lo vendes?</h2>
+      <button type="button" class="info-cerrar" id="pres-cerrar" title="Cerrar (Esc)" aria-label="Cerrar">✕</button>
+    </div>
+    <p id="pres-producto" class="pres-producto"></p>
+    <div id="pres-opciones" class="pres-opciones"></div>
+  </div>
+</div>

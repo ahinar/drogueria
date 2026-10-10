@@ -82,8 +82,9 @@ def main():
     # ---- 5. Productos con categoría y usos (para probar el buscador por síntoma) ----
     # (nombre, concentración, código de barras, precio, precio máximo, IVA %, fórmula, categoría, usos, stock mínimo)
     productos = [
-        ("ACETAMINOFEN X 10 TAB", "500 mg", "7700000000011", 1500, 2000, 0, 0, "Analgésicos", ["Dolor", "Fiebre"], 10),
-        ("IBUPROFENO X 10 TAB", "400 mg", "7700000000028", 2500, 3000, 0, 0, "Antiinflamatorios", ["Dolor", "Inflamación"], 10),
+        # Estos dos se venden por TABLETA y además por sobre y caja (ver paso 5b)
+        ("ACETAMINOFEN 500 MG TABLETA", "500 mg", "7700000000011", 200, 250, 0, 0, "Analgésicos", ["Dolor", "Fiebre"], 30),
+        ("IBUPROFENO 400 MG TABLETA", "400 mg", "7700000000028", 300, 350, 0, 0, "Antiinflamatorios", ["Dolor", "Inflamación"], 20),
         ("DOLEX GRIPA X 12 TAB", "", "7700000000035", 9800, 11000, 0, 0, "Antigripales", ["Gripe", "Congestión nasal", "Dolor"], 5),
         ("NOXPIRIN NOCHE SOBRE", "", "7700000000042", 3600, 4000, 0, 0, "Antigripales", ["Gripe", "Tos"], 10),
         ("LORATADINA X 10 TAB", "10 mg", "7700000000059", 2000, 2600, 0, 0, "Antihistamínicos", ["Alergia"], 5),
@@ -95,15 +96,23 @@ def main():
         ("JERINGA 5 ML", "", "7700000000110", 600, 0, 19, 0, "Dispositivos médicos y ayudas", [], 50),
         ("VITAMINA C X 100 TAB", "500 mg", "7700000000127", 15000, 0, 0, 0, "Vitaminas y suplementos", ["Cansancio", "Deficiencia de vitaminas"], 5),
     ]
+    # Unidades de medida para vender por presentación (la "Unidad" ya existe)
+    unidades = {"Unidad": con.execute("SELECT id FROM unidades_medida WHERE nombre = 'Unidad'").fetchone()[0]}
+    for nombre_u, cantidad_u in (("Tableta", 1), ("Sobre x 10", 10), ("Caja x 100", 100)):
+        unidades[nombre_u] = con.execute(
+            "INSERT INTO unidades_medida (nombre, cantidad, activo, creado_en) VALUES (?, ?, 1, ?)",
+            (nombre_u, cantidad_u, ahora)).lastrowid
+
     ids = []
     for i, (nombre, conc, barras, precio, maximo, iva, formula, cat, usos, minimo) in enumerate(productos, start=1):
         cur = con.execute(
             "INSERT INTO productos (codigo, codigo_barras, nombre, concentracion, precio_venta, precio_maximo, "
-            "precio_compra, iva_tipo, iva_tarifa, requiere_formula, maneja_vencimiento, stock_minimo, activo, creado_en) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?)",
+            "precio_compra, iva_tipo, iva_tarifa, requiere_formula, maneja_vencimiento, stock_minimo, "
+            "unidad_venta_id, activo, creado_en) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)",
             (f"P{i:05d}", barras, nombre, conc or None, precio, maximo or None, round(precio * 0.62),
              "gravado" if iva else "excluido", iva, formula, 0 if nombre.startswith("JERINGA") else 1,
-             minimo, ahora))
+             minimo, unidades["Tableta" if "TABLETA" in nombre else "Unidad"], ahora))
         pid = cur.lastrowid
         ids.append(pid)
         if catalogo("categoria", cat):
@@ -114,12 +123,22 @@ def main():
                 con.execute("INSERT INTO productos_usos (producto_id, catalogo_id) VALUES (?, ?)",
                             (pid, catalogo("uso", uso)))
 
+    # ---- 5b. Presentaciones: sobre x 10 y caja x 100 (el inventario va en tabletas) ----
+    # (producto, unidad, cuántas tabletas trae, precio, código de barras de esa presentación)
+    for idx, unidad_nombre, factor, precio, barras in (
+            (0, "Sobre x 10", 10, 1800, "7700000001011"),
+            (0, "Caja x 100", 100, 15000, "7700000002011"),
+            (1, "Sobre x 10", 10, 2800, "7700000001028")):
+        con.execute("INSERT INTO producto_presentaciones (producto_id, unidad_id, factor, precio_venta, "
+                    "codigo_barras, creado_en) VALUES (?,?,?,?,?,?)",
+                    (ids[idx], unidades[unidad_nombre], factor, precio, barras, ahora))
+
     # ---- 6. Compras aprobadas (recepciones) que crean los lotes ----
     # Cada fila: (producto, lote, vence en N días, cantidad, costo, proveedor, compra hace N días)
     compras = [
-        (0, "AC2401", 400, 60, 900, "DISTRIBUIDORA EJEMPLO S.A.S.", 40),
-        (0, "AC2455", 25, 8, 880, "DROGUERÍAS MAYORISTAS DEMO", 70),      # vence pronto
-        (1, "IB1102", 500, 40, 1500, "DISTRIBUIDORA EJEMPLO S.A.S.", 20),
+        (0, "AC2401", 400, 300, 90, "DISTRIBUIDORA EJEMPLO S.A.S.", 40),   # en tabletas
+        (0, "AC2455", 25, 8, 88, "DROGUERÍAS MAYORISTAS DEMO", 70),        # vence pronto
+        (1, "IB1102", 500, 200, 150, "DISTRIBUIDORA EJEMPLO S.A.S.", 20),
         (2, "DG3301", 300, 4, 6100, "DISTRIBUIDORA EJEMPLO S.A.S.", 30),     # bajo stock mínimo
         (3, "NX0901", 200, 30, 2200, "DROGUERÍAS MAYORISTAS DEMO", 15),
         (4, "LO5521", 350, 20, 1100, "DISTRIBUIDORA EJEMPLO S.A.S.", 45),

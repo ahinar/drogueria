@@ -2333,3 +2333,24 @@ body.sidebar-colapsado .sidebar-submenu { display: block; max-height: none; back
   .sidebar-group { display: none; }
   .sidebar-submenu { display: block; max-height: none; background: transparent; }
 }
+
+/* ===== Productos: otras presentaciones (sobre, caja...) ===== */
+.pres-ayuda { margin: 0 0 .6rem; font-size: .9rem; }
+.pres-filas { display: flex; flex-direction: column; gap: .6rem; margin-bottom: .6rem; }
+.pres-fila {
+  display: grid;
+  grid-template-columns: 1.4fr .8fr 1fr 1fr 1.2fr auto;
+  gap: .5rem; align-items: end;
+  padding: .6rem; border: 1px solid #dfe5ea; border-radius: 8px; background: #f8fafb;
+}
+.pres-fila label { margin: 0; }
+.pres-quitar {
+  background: #fff; color: #b3261e; border: 1px solid #e3c4c1;
+  border-radius: 6px; padding: .45rem .6rem; cursor: pointer;
+}
+.pres-equivale { grid-column: 1 / -1; margin: 0; font-size: .85rem; }
+.pres-equivale:empty { display: none; }
+@media (max-width: 760px) {
+  .pres-fila { grid-template-columns: 1fr 1fr; }
+  .pres-fila label:nth-of-type(5), .pres-quitar { grid-column: 1 / -1; }   /* código de barras a lo ancho */
+}

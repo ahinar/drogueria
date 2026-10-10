@@ -208,6 +208,75 @@
         </label>
       </div>
     </fieldset>
+
+    <!-- ===== OTRAS PRESENTACIONES (sobre, caja...) =====
+         El inventario se cuenta en la unidad de "Se vende por". Aquí se agregan
+         otras formas de vender el mismo producto, cada una con su precio.
+         Cada fila manda 5 campos con el mismo nombre (pres_...); el servidor
+         los lee en orden (ver app/presentaciones.py, leer_del_formulario). -->
+    <fieldset>
+      <legend>Otras presentaciones (opcional)</legend>
+      <p class="suave pres-ayuda">Ejemplo: si el producto se vende por <strong>Tableta</strong>,
+        aquí puedes agregar <strong>Sobre x 10</strong> (trae 10) y <strong>Caja x 100</strong> (trae 100),
+        cada una con su precio. El inventario siempre se descuenta en la unidad principal.</p>
+      <div id="pres-filas" class="pres-filas">
+        {% for f in presentaciones %}
+        <div class="pres-fila">
+          <label>Unidad
+            <select name="pres_unidad_id" class="pres-unidad">
+              <option value="">— Elegir —</option>
+              {% for u in unidades %}
+              <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}" {% if f['unidad_id']==u['id'] %}selected{% endif %}>{{ u['nombre'] }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>¿Cuántas trae?
+            <input type="text" inputmode="decimal" name="pres_factor" class="pres-factor" value="{{ '%g' % f['factor'] }}">
+          </label>
+          <label>Precio
+            <input type="text" inputmode="decimal" name="pres_precio" class="pres-precio" value="{{ '%g' % f['precio_venta'] }}">
+          </label>
+          <label>Precio máximo
+            <input type="text" inputmode="decimal" name="pres_maximo" value="{{ '%g' % f['precio_maximo'] if f['precio_maximo'] else '' }}">
+          </label>
+          <label>Código de barras
+            <input type="text" name="pres_barras" value="{{ f['codigo_barras'] or '' }}">
+          </label>
+          <button type="button" class="pres-quitar" title="Quitar esta presentación">🗑</button>
+          <p class="pres-equivale suave"></p>
+        </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="boton secundario" id="pres-agregar">➕ Agregar presentación</button>
+
+      <!-- Molde vacío: el JS lo copia cada vez que se toca "Agregar presentación" -->
+      <template id="pres-molde">
+        <div class="pres-fila">
+          <label>Unidad
+            <select name="pres_unidad_id" class="pres-unidad">
+              <option value="">— Elegir —</option>
+              {% for u in unidades %}
+              <option value="{{ u['id'] }}" data-cantidad="{{ u['cantidad'] }}">{{ u['nombre'] }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>¿Cuántas trae?
+            <input type="text" inputmode="decimal" name="pres_factor" class="pres-factor">
+          </label>
+          <label>Precio
+            <input type="text" inputmode="decimal" name="pres_precio" class="pres-precio">
+          </label>
+          <label>Precio máximo
+            <input type="text" inputmode="decimal" name="pres_maximo">
+          </label>
+          <label>Código de barras
+            <input type="text" name="pres_barras">
+          </label>
+          <button type="button" class="pres-quitar" title="Quitar esta presentación">🗑</button>
+          <p class="pres-equivale suave"></p>
+        </div>
+      </template>
+    </fieldset>
   </section>
 
   <!-- INVENTARIO -->
@@ -398,6 +467,51 @@
     unidadSel.addEventListener('change', calcEquivalencia);
     calcGanancia();
     calcEquivalencia();
+
+    // === Otras presentaciones (sobre, caja...) ===
+    // "¿Cuántas trae?" se sugiere solo: cantidad de la unidad elegida ÷
+    // cantidad de la unidad principal. Ej: Caja x 100 sobre Unidad -> 100.
+    const presFilas = document.getElementById('pres-filas');
+    const presMolde = document.getElementById('pres-molde');
+
+    function cantidadDe(select) {
+      const opt = select.options[select.selectedIndex];
+      return opt && opt.value ? (parseFloat(opt.dataset.cantidad) || 1) : 0;
+    }
+    // Debajo de cada fila: "≈ $180 por Tableta" (para comparar con el precio normal)
+    function equivalePres(fila) {
+      const factor = parseFloat((fila.querySelector('.pres-factor').value || '').replace(',', '.')) || 0;
+      const precio = parseFloat((fila.querySelector('.pres-precio').value || '').replace(',', '.')) || 0;
+      const principal = unidadSel.options[unidadSel.selectedIndex];
+      const nombre = principal && principal.value ? principal.textContent.trim().split(' (')[0] : 'unidad';
+      fila.querySelector('.pres-equivale').textContent = factor > 1 && precio > 0
+        ? '≈ $' + Math.round(precio / factor).toLocaleString('es-CO') + ' por ' + nombre +
+          ' (normal: $' + Math.round(parseFloat(pv.value) || 0).toLocaleString('es-CO') + ')'
+        : '';
+    }
+    presFilas.addEventListener('change', function (e) {
+      const fila = e.target.closest('.pres-fila');
+      if (!fila) return;
+      if (e.target.classList.contains('pres-unidad')) {
+        const factorInput = fila.querySelector('.pres-factor');
+        const base = cantidadDe(unidadSel) || 1;
+        const cant = cantidadDe(e.target);
+        if (cant && !factorInput.value && cant / base > 1) factorInput.value = +(cant / base).toFixed(2);
+      }
+      equivalePres(fila);
+    });
+    presFilas.addEventListener('input', function (e) {
+      const fila = e.target.closest('.pres-fila');
+      if (fila) equivalePres(fila);
+    });
+    presFilas.addEventListener('click', function (e) {
+      if (e.target.classList.contains('pres-quitar')) e.target.closest('.pres-fila').remove();
+    });
+    document.getElementById('pres-agregar').addEventListener('click', function () {
+      presFilas.appendChild(presMolde.content.cloneNode(true));
+      presFilas.lastElementChild.querySelector('select').focus();
+    });
+    presFilas.querySelectorAll('.pres-fila').forEach(equivalePres);
 
     // === Calcular sugerido (÷ 1 − margen) ===
     document.getElementById('btn-calcular').addEventListener('click', function () {

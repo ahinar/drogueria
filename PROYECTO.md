@@ -56,7 +56,7 @@
 - `productos`: código único, código de barras, nombre, descripción, grupo, `principio_id`, `laboratorio_id`, `forma_farmaceutica_id`, `unidad_venta_id`, concentración, registro_sanitario, registro_vence, precio_compra, precio_venta, precio_maximo, IVA (tipo + tarifa), stock_minimo, requiere_formula, cadena_frio, control_especial, maneja_vencimiento, imagen, activo.
 - `productos_categorias`: M:N producto ↔ categorías.
 - `productos_usos`: M:N producto ↔ usos.
-- `presentaciones_producto` (antigua tabla, sin uso actual).
+- `producto_presentaciones`: otras formas de vender un producto (sobre, caja…): `unidad_id` (nombre de unidades_medida), `factor` (cuántas unidades principales trae, > 1), `precio_venta`, `precio_maximo`, `codigo_barras`. Única por (producto, unidad).
 
 ### Temperaturas
 - `zonas_temperatura`: nombre, descripción, temp_min, temp_max, controla_humedad, humedad_min, humedad_max, horarios, dias_semana, minutos_tolerancia, activa.
@@ -124,6 +124,7 @@
 - Autocompletado de concentración.
 - Cálculo de precio sugerido (÷ 1 − margen).
 - Alta rápida desde recepción.
+- **Otras presentaciones** (en la pestaña General, debajo de Precios): filas con unidad, ¿cuántas trae?, precio, precio máximo y código de barras. "¿Cuántas trae?" se sugiere solo con la cantidad de la unidad; debajo muestra "≈ $180 por Tableta (normal: $200)". Valida: factor > 1, precio > 0, precio ≤ su máximo, no repetir la unidad principal ni otra fila, código de barras único (contra productos y otras presentaciones).
 
 ### 5.3 Proveedores
 - CRUD con NIT, razón social, contacto, documentación sanitaria.
@@ -177,6 +178,7 @@
 - **Cambio de precio al vender (Opción B):** cualquier usuario puede cambiarlo con la tecla "Precio", pero al cobrar se pide un **motivo obligatorio**, nunca puede superar el **precio máximo** del producto, y queda en `venta_lineas` (precio_original, motivo_precio) y en la bitácora (`venta_precio_modificado`).
 - **Botón "i"** en cada tarjeta (ventana estilo Odoo): franja amarilla (nombre, precio, a la mano, IVA, insignias), **Inventario** (lotes vendibles FEFO + aviso de lotes en cuarentena/bloqueados/vencidos), **Reabastecimiento** (últimas 4 compras aprobadas + stock mínimo) y **Finanzas** de 1 unidad (precio sin IVA, costo = promedio ponderado de lotes, margen sobre precio sin IVA, precio máximo). Ruta `/pos/api/producto/<id>`.
 - **Editar** (solo admin y DT): ventana encima de la "i" con nombre, código de barras, maneja lotes, precio de venta, precio máximo, IVA, categorías, fórmula/control y foto. Ruta `/pos/api/producto/<id>/editar`; valida precio ≤ máximo, código de barras único, control especial con INVIMA; deja bitácora con los cambios; actualiza el carrito si el producto estaba en él.
+- **Venta por presentación (unidad / sobre / caja):** el inventario SIEMPRE se cuenta en la unidad principal del producto ("Se vende por"), con el precio normal. Si el producto tiene otras presentaciones, la tarjeta dice "📦 También: Sobre x 10 · Caja x 100" y al tocarla sale la ventana **"¿Cómo lo vendes?"** (teclas 1, 2, 3…; las que no alcanzan el stock salen apagadas). Escanear el código de barras de la caja agrega la caja directamente. En el carrito cada presentación es una línea aparte ("📦 Sobre x 10") y todas comparten el stock del producto. El servidor (`api_cobrar`) toma precio y precio máximo **de la presentación**, descuenta `cantidad × factor` unidades por FEFO y guarda en `venta_lineas` presentacion, presentacion_id y factor. La anulación devuelve las unidades (están en `lotes_json`). El comprobante muestra la presentación. La "i" muestra una tabla con precio y margen de cada presentación. Código en `app/presentaciones.py` (id 0 = unidad principal).
 - Mientras haya una ventana abierta, el teclado del POS (Enter = cobrar, números) no actúa.
 - Carrito guardado en el navegador por caja (no se pierde al recargar; se borra al cobrar).
 - Pantalla principal con layout de 2 columnas.
@@ -251,7 +253,7 @@
 - **1.5b** Inventario inicial ✅ (con la Toma de inventario; falta hacerlo con datos reales).
 
 ### Fase 2: ventas y contabilidad 🔄
-- **2.1** POS interno ✅ (caja, carrito, cobro, anulación, cambio de precio, ventana "i").
+- **2.1** POS interno ✅ (caja, carrito, cobro, anulación, cambio de precio, ventana "i", **venta por presentación**).
 - **2.2** Gastos discriminados ✅ (módulo Contabilidad + caja menor).
 - **2.3 / 2.4** Utilidades y estado de resultados → se hacen como **R2** en Reportes (pendiente).
 - **2.5** IVA con prorrateo ⏸ solo si el contador lo pide.
@@ -382,6 +384,7 @@ Notas:
 | 17 | precio_original y motivo_precio en venta_lineas (cambio de precio al vender) |
 | 18 | conteos y conteo_lineas (toma de inventario) |
 | 19 | limpieza: borra presentaciones_producto; sinónimos en los usos (buscador por síntoma) |
+| 20 | `producto_presentaciones` (venta por unidad / sobre / caja) + `venta_lineas.presentacion_id` |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -416,7 +419,8 @@ Notas:
 - Módulo **Toma de inventario** (conteo físico, inventario inicial, vender durante el conteo, acta PDF): **126 tests pasan**.
 - **Limpieza (2026-10-09):** menú por secciones (Día a día, Productos, Dinero, Consultas, Administración) y por rol (el auxiliar ya no ve enlaces que le niegan; el DT ahora ve Contabilidad y Caja menor); usos convertidos en buscador por síntoma; quitado el catálogo Tipos de pago y la tabla presentaciones_producto; aclarada salida de efectivo vs gasto; quitados avisos de "Próximamente" que estorbaban en el menú del POS; reportes reducidos de 15 a 8. **137 tests pasan**.
 - **Ajustes tras probar en Codespaces (2026-10-09):** conteo como lista alfabética, botón "Producto encontrado" en vez de "Lote encontrado", buscador fijo arriba; textos de los métodos de pago del cobro visibles (estaban en blanco sobre blanco).
-- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → venta por presentación → panel de alertas → utilidades/estado de resultados → reportes → equipos/calibraciones → devoluciones.
+- **Venta por presentación (2026-10-09):** cada producto puede venderse por unidad, sobre, caja… con su propio precio; el inventario se descuenta en unidades. Ventana "¿Cómo lo vendes?" en el POS, presentaciones en el formulario de productos, código de barras de la caja, margen por presentación en la "i". La demo trae Acetaminofén e Ibuprofeno por tableta, sobre y caja. **158 tests pasan**.
+- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → panel de alertas → utilidades/estado de resultados → reportes → equipos/calibraciones → devoluciones.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 
 **Sesión anterior:** 2026-10-07. Se completó:

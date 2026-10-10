@@ -4,6 +4,9 @@
 // Controla la pantalla de venta:
 //   1. Buscar productos (por nombre o escaneando el código de barras)
 //   2. Armar el carrito (agregar, cambiar cantidad, descuento, quitar)
+//      Cada producto puede venderse en varias presentaciones (unidad,
+//      sobre, caja...). El inventario se cuenta en la unidad principal:
+//      1 "Caja x 100" descuenta 100 unidades.
 //   3. Ver info detallada de un producto (botón "i")
 //   4. Cambiar el precio al vender (Opción B: todos pueden, queda en bitácora)
 //   5. Cobrar (efectivo, Nequi, Davivienda, tarjeta)
@@ -87,6 +90,11 @@
     const guardado = localStorage.getItem(CLAVE_CARRITO);
     if (guardado) carrito = JSON.parse(guardado) || [];
   } catch (e) { carrito = []; }
+  // Carritos guardados antes de existir las presentaciones: eran todos "unidad principal"
+  carrito.forEach((it) => {
+    if (it.factor == null) { it.factor = 1; it.presentacion_id = 0; it.presentacion = ''; }
+    if (it.stock_base == null) it.stock_base = it.stock;
+  });
 
   // Guarda una copia del carrito en el navegador para no perderlo si se recarga la página.
   // Si el carrito está vacío no guardamos nada (así no quedan restos de ventas ya cobradas).
@@ -123,6 +131,26 @@
   }
 
   // ---------------------------------------------------------------
+  // 3b. ¿CUÁNTAS SE PUEDEN VENDER DE ESTA LÍNEA?
+  // ---------------------------------------------------------------
+  // El inventario (stock_base) está en unidades principales y lo comparten
+  // todas las líneas del mismo producto. Ej: hay 120 tabletas; si ya hay
+  // 1 caja x 100 en el carrito, de sobres x 10 solo caben (120-100)/10 = 2.
+  function topeDe(it) {
+    const otras = carrito.reduce((suma, x) =>
+      (x !== it && x.producto_id === it.producto_id) ? suma + x.cantidad * x.factor : suma, 0);
+    const libres = Math.max(0, it.stock_base - otras);
+    return Math.floor(libres / it.factor * 100 + 1e-9) / 100;   // 2 decimales hacia abajo
+  }
+  function avisoTope(it) {
+    const tope = topeDe(it);
+    aviso(it.factor === 1
+      ? 'Solo hay ' + (+tope.toFixed(2)) + ' disponible(s).'
+      : 'Solo alcanza para ' + (+tope.toFixed(2)) + ' ' + it.presentacion +
+        ' (hay ' + (+it.stock_base.toFixed(2)) + ' unidades).');
+  }
+
+  // ---------------------------------------------------------------
   // 4. BUSCAR PRODUCTOS
   // ---------------------------------------------------------------
   async function buscar(desdeEnter) {
@@ -137,7 +165,8 @@
       pintarProductos();
       if (desdeEnter) {
         if (json.productos.length === 1) {
-          agregar(json.productos[0]);
+          // Si se escaneó el código de una presentación (ej: la caja), se agrega esa.
+          agregar(json.productos[0], json.presentacion_id);
           inputBusqueda.value = '';
           buscar(false);
         } else if (json.productos.length === 0) {
@@ -176,6 +205,10 @@
           '<div class="pos-card-nombre">' + esc(p.nombre) + esc(etiquetas) + '</div>' +
           '<div class="pos-card-codigo">' + esc(p.concentracion || p.codigo) + '</div>' +
           sirvePara +
+          (p.presentaciones && p.presentaciones.length > 1
+            ? '<div class="pos-card-pres">📦 También: ' +
+              esc(p.presentaciones.slice(1).map((x) => x.nombre).join(' · ')) + '</div>'
+            : '') +
           '<div class="pos-card-stock">' + (agotado ? 'Agotado' : 'Stock: ' + (+p.stock.toFixed(2))) + '</div>' +
           '<div class="pos-card-precio">' + peso(p.precio) + '</div>' +
         '</div></div>';
@@ -185,31 +218,45 @@
   // ---------------------------------------------------------------
   // 5. CARRITO
   // ---------------------------------------------------------------
-  function agregar(prod) {
+  // presentacionId: 0 = unidad principal; otro número = sobre, caja...
+  // Si no se indica y el producto tiene varias presentaciones, se pregunta.
+  function agregar(prod, presentacionId) {
     if (prod.control_especial) {
       aviso('Medicamento de control especial: aún no se puede vender desde el POS.');
       return;
     }
     if (prod.stock <= 0) { aviso('Producto agotado.'); return; }
 
-    let pos = carrito.findIndex((i) => i.producto_id === prod.id);
+    const opciones = prod.presentaciones && prod.presentaciones.length
+      ? prod.presentaciones
+      : [{ id: 0, nombre: '', factor: 1, precio: prod.precio }];
+    if (presentacionId == null) {
+      if (opciones.length > 1) { elegirPresentacion(prod); return; }
+      presentacionId = opciones[0].id;
+    }
+    const pres = opciones.find((x) => x.id === presentacionId) || opciones[0];
+
+    // Todas las líneas de este producto conocen el stock más reciente
+    carrito.forEach((x) => { if (x.producto_id === prod.id) x.stock_base = prod.stock; });
+
+    let pos = carrito.findIndex((i) => i.producto_id === prod.id && i.presentacion_id === pres.id);
     if (pos >= 0) {
-      if (carrito[pos].cantidad + 1 > prod.stock) {
-        aviso('Solo hay ' + (+prod.stock.toFixed(2)) + ' disponible(s).');
-      } else {
-        carrito[pos].cantidad += 1;
-        // Actualizar stock real por si cambió
-        carrito[pos].stock = prod.stock;
-      }
+      if (carrito[pos].cantidad + 1 > topeDe(carrito[pos])) avisoTope(carrito[pos]);
+      else carrito[pos].cantidad += 1;
     } else {
-      carrito.push({
+      const nueva = {
         producto_id: prod.id, codigo: prod.codigo, nombre: prod.nombre,
-        concentracion: prod.concentracion, precio: prod.precio,
-        precio_original: prod.precio, motivo_precio: null,
+        concentracion: prod.concentracion, precio: pres.precio,
+        precio_original: pres.precio, motivo_precio: null,
         iva_tipo: prod.iva_tipo, iva_tarifa: prod.iva_tarifa,
         requiere_formula: prod.requiere_formula,
-        stock: prod.stock, cantidad: 1, descuento_pct: 0,
-      });
+        // Presentación: nombre solo se muestra si el producto tiene varias
+        presentacion_id: pres.id, factor: pres.factor,
+        presentacion: opciones.length > 1 ? pres.nombre : '',
+        stock_base: prod.stock, cantidad: 1, descuento_pct: 0,
+      };
+      if (topeDe(nueva) < 1) { avisoTope(nueva); return; }
+      carrito.push(nueva);
       pos = carrito.length - 1;
       if (prod.requiere_formula) aviso('📋 Requiere fórmula médica: verifícala antes de entregar.');
     }
@@ -231,6 +278,7 @@
       contenedorCarrito.innerHTML = carrito.map((it, i) => {
         const l = calcularLinea(it);
         const detalle = [
+          it.presentacion ? '📦 ' + it.presentacion : '',
           it.concentracion,
           peso(it.precio) + ' c/u',
           it.descuento_pct > 0 ? 'desc. ' + it.descuento_pct + '%' : '',
@@ -278,7 +326,7 @@
     const it = carrito[pos];
     const accion = e.target.dataset.a;
     if (accion === 'mas') {
-      if (it.cantidad + 1 > it.stock) aviso('Solo hay ' + (+it.stock.toFixed(2)) + ' disponible(s).');
+      if (it.cantidad + 1 > topeDe(it)) avisoTope(it);
       else it.cantidad += 1;
     } else if (accion === 'menos') {
       if (it.cantidad > 1) it.cantidad -= 1;
@@ -331,9 +379,9 @@
 
     let valor = parseFloat(texto) || 0;
     if (modo === 'cantidad') {
-      if (valor > it.stock) {
-        valor = it.stock; buffer = String(valor);
-        aviso('Solo hay ' + (+it.stock.toFixed(2)) + ' disponible(s).');
+      if (valor > topeDe(it)) {
+        avisoTope(it);
+        valor = topeDe(it); buffer = String(valor);
       }
       it.cantidad = Math.max(1, valor);
     } else if (modo === 'descuento') {
@@ -425,7 +473,7 @@
       e.preventDefault();
       const it = carrito[seleccionado];
       if (it) {
-        if (it.cantidad + 1 > it.stock) aviso('Solo hay ' + (+it.stock.toFixed(2)) + ' disponible(s).');
+        if (it.cantidad + 1 > topeDe(it)) avisoTope(it);
         else { it.cantidad += 1; pintarCarrito(); }
       }
       return;
@@ -528,7 +576,8 @@
     // Por cada producto mandamos solo lo necesario. El precio normal NO se manda:
     // lo pone el servidor. Solo si el cajero lo cambió viajan precio_nuevo y motivo_precio.
     datos.append('carrito', JSON.stringify(carrito.map((i) => {
-      const linea = { producto_id: i.producto_id, cantidad: i.cantidad, descuento_pct: i.descuento_pct };
+      const linea = { producto_id: i.producto_id, presentacion_id: i.presentacion_id || 0,
+                      cantidad: i.cantidad, descuento_pct: i.descuento_pct };
       if (cambioDePrecio(i)) {
         linea.precio_nuevo = i.precio;
         linea.motivo_precio = i.motivo_precio;
@@ -787,6 +836,18 @@
     ];
     if (p.precio_maximo > 0) filas.push(['Precio máximo', peso(p.precio_maximo)]);
     $('info-finanzas').innerHTML = filas.map((f) => '<dt>' + f[0] + '</dt><dd>' + f[1] + '</dd>').join('');
+
+    // Presentaciones (solo si hay más de una): precio, cuánto trae y margen de cada una
+    const presInfo = $('info-presentaciones');
+    if (presInfo) {
+      presInfo.innerHTML = p.presentaciones && p.presentaciones.length > 1
+        ? tabla(['Presentación', 'Trae', 'Precio', 'Margen'], p.presentaciones.map((x) => [
+            esc(x.nombre), cant(x.factor), peso(x.precio),
+            '<span class="' + (x.margen < 0 ? 'info-negativo' : '') + '">' +
+              peso(x.margen) + ' (' + cant(x.margen_pct) + ' %)</span>',
+          ]))
+        : '';
+    }
   }
 
   if (modalInfo) {
@@ -864,8 +925,12 @@
       it.iva_tipo = p.iva_tipo;
       it.iva_tarifa = p.iva_tarifa;
       it.requiere_formula = p.requiere_formula;
-      it.precio_original = p.precio;
-      if (sinCambioManual) it.precio = p.precio;
+      // El modal "Editar" solo cambia el precio de la unidad principal;
+      // las líneas de sobre/caja conservan el suyo.
+      if (!it.presentacion_id) {
+        it.precio_original = p.precio;
+        if (sinCambioManual) it.precio = p.precio;
+      }
       if (p.control_especial) aviso('"' + p.nombre + '" ahora es de control especial: no se podrá cobrar desde el POS.');
       tocado = true;
     });
@@ -926,9 +991,66 @@
   // Escape cierra la ventana de ARRIBA primero (Editar), y luego la "i"
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (modalEditar && !modalEditar.classList.contains('modal-oculto')) { cerrarEditar(); e.stopImmediatePropagation(); }
+    if (modalPres && !modalPres.classList.contains('modal-oculto')) { cerrarPresentacion(); e.stopImmediatePropagation(); }
+    else if (modalEditar && !modalEditar.classList.contains('modal-oculto')) { cerrarEditar(); e.stopImmediatePropagation(); }
     else if (modalInfo && !modalInfo.classList.contains('modal-oculto')) { cerrarInfoProducto(); e.stopImmediatePropagation(); }
   }, true);
+
+  // ---------------------------------------------------------------
+  // 8d. VENTANA "¿CÓMO LO VENDES?" (elegir presentación)
+  // ---------------------------------------------------------------
+  // Un botón por presentación: Tableta $200 · Sobre x 10 $1.800 · Caja x 100 $15.000.
+  // Las que ya no alcanzan con el stock aparecen apagadas.
+  const modalPres = $('modal-presentacion');
+  let productoEligiendo = null;
+
+  function elegirPresentacion(prod) {
+    if (!modalPres) { agregar(prod, 0); return; }
+    productoEligiendo = prod;
+    $('pres-producto').textContent = prod.nombre + (prod.concentracion ? ' ' + prod.concentracion : '') +
+      ' · hay ' + (+prod.stock.toFixed(2)) + ' ' + (prod.presentaciones[0].nombre || 'unidades');
+    // Unidades que ya están en el carrito de este producto (cualquier presentación)
+    const enCarrito = carrito.reduce((suma, x) =>
+      x.producto_id === prod.id ? suma + x.cantidad * x.factor : suma, 0);
+    $('pres-opciones').innerHTML = prod.presentaciones.map((x, i) => {
+      const alcanza = prod.stock - enCarrito >= x.factor - 1e-9;
+      const trae = x.factor === 1 ? 'unidad principal' : 'trae ' + (+x.factor.toFixed(2));
+      return '<button type="button" class="pres-opcion" data-pres="' + x.id + '"' + (alcanza ? '' : ' disabled') + '>' +
+        '<span class="pres-tecla">' + (i + 1) + '</span>' +
+        '<span><span class="pres-nombre">' + esc(x.nombre) + '</span>' +
+        '<span class="pres-detalle">' + trae + (alcanza ? '' : ' · no alcanza el stock') + '</span></span>' +
+        '<span class="pres-precio">' + peso(x.precio) + '</span></button>';
+    }).join('');
+    modalPres.classList.remove('modal-oculto');
+    const primera = modalPres.querySelector('.pres-opcion:not([disabled])');
+    if (primera) primera.focus();
+  }
+
+  function cerrarPresentacion() {
+    if (modalPres) modalPres.classList.add('modal-oculto');
+    productoEligiendo = null;
+    inputBusqueda.focus();
+  }
+
+  if (modalPres) {
+    $('pres-cerrar').addEventListener('click', cerrarPresentacion);
+    modalPres.addEventListener('click', (e) => {
+      if (e.target === modalPres) { cerrarPresentacion(); return; }
+      const boton = e.target.closest('.pres-opcion');
+      if (!boton || boton.disabled || !productoEligiendo) return;
+      const prod = productoEligiendo;
+      cerrarPresentacion();
+      agregar(prod, +boton.dataset.pres);
+    });
+    // Atajo de teclado: 1, 2, 3... eligen la opción de ese número
+    modalPres.addEventListener('keydown', (e) => {
+      if (!/^[1-9]$/.test(e.key)) return;
+      const boton = modalPres.querySelectorAll('.pres-opcion')[+e.key - 1];
+      // stopPropagation: que la misma tecla NO llegue también al teclado del carrito
+      // (si no, el "2" que eligió "Sobre" pondría además cantidad 2)
+      if (boton) { e.preventDefault(); e.stopPropagation(); boton.click(); }
+    });
+  }
 
   // ---------------------------------------------------------------
   // 9. ARRANQUE
@@ -950,7 +1072,8 @@
     if (!tarjeta) return;
     const prod = productosMostrados.find((p) => p.id === +tarjeta.dataset.id);
     if (prod) agregar(prod);
-    inputBusqueda.focus();
+    // Si se abrió "¿Cómo lo vendes?", el foco se queda en sus botones (teclas 1, 2, 3)
+    if (!modalPres || modalPres.classList.contains('modal-oculto')) inputBusqueda.focus();
   });
 
   $('pos-categorias').addEventListener('click', (e) => {

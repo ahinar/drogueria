@@ -231,8 +231,12 @@ def api_buscar(conteo_id):
            + _filtro_alcance(conteo))
     params = []
     # Si lo buscado es exactamente un código de barras, mostramos solo ese producto
-    exacto = db.execute("SELECT id FROM productos WHERE activo = 1 AND codigo_barras = ?",
-                        (q,)).fetchone() if q else None
+    # (también sirve el código de una caja o sobre: producto_presentaciones)
+    exacto = db.execute(
+        "SELECT id FROM productos WHERE activo = 1 AND codigo_barras = ? "
+        "UNION ALL SELECT pp.producto_id FROM producto_presentaciones pp "
+        "JOIN productos p ON p.id = pp.producto_id WHERE p.activo = 1 AND pp.codigo_barras = ? "
+        "LIMIT 1", (q, q)).fetchone() if q else None
     if exacto:
         sql += " AND p.id = ?"
         params.append(exacto["id"])

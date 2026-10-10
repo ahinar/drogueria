@@ -339,3 +339,40 @@
 .pos-pago-metodo.activo { color: #0a4f8a; }
 .pos-pago-rapidos button { color: #1f2a33; font-weight: 600; }
 .pos-pago-rapidos button:hover { background: #e8f1fb; border-color: #9ec5ea; }
+
+/* =====================================================================
+   VENTANA "¿CÓMO LO VENDES?" (unidad / sobre / caja)
+   ===================================================================== */
+#modal-presentacion {
+  position: fixed; inset: 0; z-index: 10020;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem; background: rgba(15, 23, 32, .55);
+}
+#modal-presentacion .modal-caja {
+  width: 100%; max-width: 460px; padding: 0; overflow: hidden;
+  border-radius: .5rem; background: #fff; box-shadow: 0 20px 50px rgba(0, 0, 0, .35);
+}
+.pres-producto { margin: 0; padding: .7rem 1.2rem; background: #fdecc8; color: #1f2a33; font-weight: 600; }
+.pres-opciones { display: flex; flex-direction: column; gap: .5rem; padding: 1rem 1.2rem 1.2rem; }
+/* Un botón grande por presentación. Color de letra explícito: el estilo
+   global "button {color:#fff}" la volvería invisible sobre fondo claro. */
+.pres-opcion {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .8rem;
+  width: 100%; padding: .8rem 1rem; text-align: left; cursor: pointer;
+  border: 2px solid #d5dee6; border-radius: .5rem; background: #fff; color: #1f2a33;
+}
+.pres-opcion:hover, .pres-opcion:focus { border-color: #0a4f8a; background: #f0f6fc; outline: none; }
+.pres-opcion:disabled { opacity: .45; cursor: not-allowed; }
+.pres-tecla {
+  width: 1.8rem; height: 1.8rem; border-radius: 50%; display: grid; place-items: center;
+  background: #e6eef6; color: #0a4f8a; font-weight: 700;
+}
+.pres-nombre { font-weight: 700; font-size: 1rem; }
+.pres-detalle { display: block; font-size: .8rem; color: #5c6b78; font-weight: 400; }
+.pres-precio { font-weight: 700; font-size: 1.05rem; color: #0a4f8a; }
+
+/* En la tarjeta del POS: "📦 También: Sobre x 10 · Caja x 100" */
+.pos-card-pres { font-size: .68rem; color: #0a4f8a; font-weight: 600; line-height: 1.2; }
+
+/* En la "i": tabla de presentaciones */
+.info-pres { margin-top: .6rem; }

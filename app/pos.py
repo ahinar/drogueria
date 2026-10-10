@@ -11,6 +11,7 @@ from .caja_menor import registrar_movimiento as _cm_mov
 from .caja_menor import saldo_actual as _cm_saldo
 from .configuracion import obtener_config
 from .db import ahora, get_db
+from . import presentaciones as pres
 from .productos import IVA_TIPOS
 from .utils_imagenes import eliminar_imagen, guardar_imagen
 
@@ -512,16 +513,19 @@ def api_productos():
     # Así funciona el "buscador por síntoma": si el producto tiene el uso
     # "Gripa" con descripción "resfriado, congestión", escribir "resfriado"
     # lo encuentra.
+    #   (también el código de barras de sus presentaciones: sobre, caja...)
     for palabra in q.split():
         sql += (" AND (p.nombre LIKE ? OR p.codigo LIKE ? OR p.codigo_barras LIKE ? "
                 "OR p.principio_activo LIKE ? "
+                "OR EXISTS (SELECT 1 FROM producto_presentaciones pp WHERE pp.producto_id = p.id "
+                "           AND pp.codigo_barras = ?) "
                 "OR EXISTS (SELECT 1 FROM catalogos pa WHERE pa.id = p.principio_id "
                 "           AND pa.nombre LIKE ?) "
                 "OR EXISTS (SELECT 1 FROM productos_usos pu "
                 "           JOIN catalogos u ON u.id = pu.catalogo_id "
                 "           WHERE pu.producto_id = p.id "
                 "           AND (u.nombre LIKE ? OR u.descripcion LIKE ?)))")
-        params += [f"%{palabra}%"] * 7
+        params += [f"%{palabra}%"] * 4 + [palabra] + [f"%{palabra}%"] * 3
 
     if cat.isdigit():
         sql += " AND p.id IN (SELECT producto_id FROM productos_categorias WHERE catalogo_id = ?)"
@@ -531,6 +535,8 @@ def api_productos():
     filas = get_db().execute(sql, params).fetchall()
 
     usos = _usos_de([f["id"] for f in filas])
+    # Formas de vender cada producto: [unidad principal, sobre, caja...]
+    presentaciones = pres.presentaciones_de([f["id"] for f in filas])
     productos = [{
         "id": f["id"], "codigo": f["codigo"], "codigo_barras": f["codigo_barras"],
         "nombre": f["nombre"], "concentracion": f["concentracion"],
@@ -539,10 +545,20 @@ def api_productos():
         "control_especial": bool(f["control_especial"]),
         "imagen": f["imagen"], "stock": f["stock"],
         "usos": usos.get(f["id"], []),     # para mostrar "Sirve para: ..." en la tarjeta
+        "presentaciones": presentaciones.get(f["id"], []),
     } for f in filas]
 
-    exacto = bool(q) and len(productos) == 1 and productos[0]["codigo_barras"] == q
-    return jsonify({"ok": True, "productos": productos, "exacto": exacto})
+    # ¿Se escaneó un código de barras exacto? Puede ser el del producto o el de
+    # una de sus presentaciones (ej: el código de la CAJA). En ese caso el POS
+    # agrega directamente esa presentación, sin preguntar.
+    exacto, presentacion_id = False, None
+    if q and len(productos) == 1:
+        for opcion in productos[0]["presentaciones"]:
+            if opcion["codigo_barras"] == q:
+                exacto, presentacion_id = True, opcion["id"]
+                break
+    return jsonify({"ok": True, "productos": productos, "exacto": exacto,
+                    "presentacion_id": presentacion_id})
 
 @bp.route("/api/producto/<int:producto_id>")
 @login_required
@@ -621,6 +637,19 @@ def api_producto_info(producto_id):
     principio = db.execute("SELECT nombre FROM catalogos WHERE id = ?",
                            (p["principio_id"],)).fetchone() if p["principio_id"] else None
 
+    # Presentaciones (unidad, sobre, caja...) con el margen de CADA una:
+    # costo de la presentación = costo de 1 unidad x factor
+    lista_pres = []
+    for opcion in pres.presentaciones_de([producto_id]).get(producto_id, []):
+        sin_iva = (opcion["precio"] / (1 + tarifa / 100)
+                   if p["iva_tipo"] == "gravado" and tarifa > 0 else opcion["precio"])
+        costo_pres = costo * opcion["factor"]
+        lista_pres.append({
+            **opcion,
+            "margen": round(sin_iva - costo_pres, 2),
+            "margen_pct": round((sin_iva - costo_pres) / sin_iva * 100, 1) if sin_iva > 0 else 0,
+        })
+
     return jsonify({"ok": True, "producto": {
         "id": p["id"], "codigo": p["codigo"], "codigo_barras": p["codigo_barras"],
         "nombre": p["nombre"], "concentracion": p["concentracion"], "imagen": p["imagen"],
@@ -637,6 +666,7 @@ def api_producto_info(producto_id):
         "usos": _usos_de([producto_id]).get(producto_id, []),
         "principio_activo": (principio["nombre"] if principio else None) or p["principio_activo"],
         "stock": stock,
+        "presentaciones": lista_pres,
         "lotes": [{"lote": l["lote"], "vencimiento": l["vencimiento"],
                    "cantidad": l["cantidad_disponible"]} for l in lotes],
         "otros_lotes": {"cuarentena": otros["cuarentena"] or 0,
@@ -816,6 +846,8 @@ def api_cobrar():
         for item in carrito:
             try:
                 producto_id = int(item.get("producto_id"))
+                # 0 = unidad principal; otro número = sobre, caja... (producto_presentaciones)
+                presentacion_id = int(item.get("presentacion_id") or 0)
                 cantidad = round(float(item.get("cantidad")), 4)
                 desc_pct = float(item.get("descuento_pct") or 0)
             except (TypeError, ValueError, AttributeError):
@@ -834,7 +866,18 @@ def api_cobrar():
             if prod["control_especial"]:
                 raise _VentaError(f"{nombre}: es de control especial y todavía no se puede "
                                   "vender desde el POS (falta el libro de control).")
-            precio = float(prod["precio_venta"] or 0)
+            # ---- PRESENTACIÓN: unidad, sobre, caja... ----
+            # El precio y el precio máximo salen de la presentación elegida.
+            # "factor" dice cuántas unidades del inventario se descuentan por
+            # cada una que se vende (1 caja x 100 -> 100 unidades).
+            presentacion = pres.presentacion_para_vender(producto_id, presentacion_id)
+            if presentacion is None:
+                raise _VentaError(f"{nombre}: esa presentación ya no existe. "
+                                  "Quítalo del carrito y agrégalo de nuevo.")
+            factor = float(presentacion["factor"])
+            if presentacion_id != pres.PRINCIPAL:
+                nombre = f"{nombre} ({presentacion['nombre']})"
+            precio = presentacion["precio"]
             if precio <= 0:
                 raise _VentaError(f"{nombre}: no tiene precio de venta.")
 
@@ -860,7 +903,7 @@ def api_cobrar():
                     if len(motivo_precio) < 3:
                         raise _VentaError(f"{nombre}: indica el motivo del cambio de precio.")
                     # Los medicamentos tienen un precio máximo regulado: nunca se supera.
-                    tope = float(prod["precio_maximo"] or 0)
+                    tope = presentacion["precio_maximo"]
                     if tope > 0 and precio_nuevo > tope + 0.01:
                         raise _VentaError(
                             f"{nombre}: el precio (${precio_nuevo:,.0f}) supera el precio "
@@ -876,12 +919,21 @@ def api_cobrar():
                 "ORDER BY (l.vencimiento IS NULL OR l.vencimiento = ''), l.vencimiento, l.id",
                 (producto_id, hoy),
             ).fetchall()
+            # Unidades del inventario que salen: cantidad vendida x factor.
+            # Si en esta venta hay otra línea del mismo producto (ej: 1 caja y
+            # 5 sueltas), sus unidades YA se restaron de los lotes más abajo
+            # (dentro de esta misma transacción), así que "disponible" ya lo refleja.
+            unidades = round(cantidad * factor, 4)
             disponible = sum(l["cantidad_disponible"] for l in lotes)
-            if cantidad > disponible + 1e-9:
-                raise _VentaError(f"{nombre}: solo hay {_fmt_cant(disponible)} disponible(s) "
-                                  f"y pediste {_fmt_cant(cantidad)}.")
+            if unidades > disponible + 1e-9:
+                if factor == 1:
+                    raise _VentaError(f"{nombre}: solo hay {_fmt_cant(disponible)} disponible(s) "
+                                      f"y pediste {_fmt_cant(cantidad)}.")
+                raise _VentaError(f"{nombre}: pediste {_fmt_cant(cantidad)} = "
+                                  f"{_fmt_cant(unidades)} unidades y solo hay "
+                                  f"{_fmt_cant(max(disponible, 0))}.")
 
-            pendiente = cantidad
+            pendiente = unidades
             asignaciones = []
             for l in lotes:
                 if pendiente <= 1e-9:
@@ -903,11 +955,12 @@ def api_cobrar():
 
             db.execute(
                 "INSERT INTO venta_lineas (venta_id, producto_id, producto_codigo, producto_nombre, "
-                "presentacion, factor, cantidad, precio_unitario, descuento_linea, iva_tipo, "
-                "iva_tarifa, subtotal, iva_valor, total, lotes_json, "
+                "presentacion, presentacion_id, factor, cantidad, precio_unitario, descuento_linea, "
+                "iva_tipo, iva_tarifa, subtotal, iva_valor, total, lotes_json, "
                 "precio_original, motivo_precio) "
-                "VALUES (?,?,?,?,'Unidad',1,?,?,?,?,?,?,?,?,?,?,?)",
-                (venta_id, producto_id, prod["codigo"], nombre, cantidad, precio, descuento,
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (venta_id, producto_id, prod["codigo"], prod["nombre"], presentacion["nombre"],
+                 presentacion_id or None, factor, cantidad, precio, descuento,
                  prod["iva_tipo"], tarifa, base, iva_valor, total_linea,
                  json.dumps(asignaciones, ensure_ascii=False),
                  precio_original, motivo_precio),
