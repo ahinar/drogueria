@@ -626,3 +626,37 @@ class TestImportarDeOdoo(TestImportador):
         self.importar_odoo([[None, "7700001", "ACETAMINOFEN 500mg LAPROFF", "All", 1600, 1000, "SELLO X 10",
                              "CAJA X 300", "0% IVA Exc", "Por lotes", 0, None]])
         self.assertEqual(self.uno("SELECT COUNT(*) n FROM productos")["n"], antes)
+
+
+class TestAccionesMasivas(BaseUnidades):
+    def masivo(self, ids, accion, valor=""):
+        return self.post(self.c, "/productos/masivo", {"ids": [str(i) for i in ids], "accion": accion, "valor": valor})
+
+    def test_eliminar_solo_los_que_nunca_se_usaron(self):
+        self.lote(1, "L1", FUTURO, 5)                       # el 1 ya tiene lote: no se borra
+        otros = [r["id"] for r in self.db().execute("SELECT id FROM productos WHERE id <> 1")]
+        self.masivo([1] + otros, "eliminar")
+        self.assertIsNotNone(self.uno("SELECT 1 FROM productos WHERE id = 1"))
+        self.assertEqual(self.uno("SELECT COUNT(*) n FROM productos")["n"], 1)
+
+    def test_cambios_de_campo(self):
+        self.masivo([1, 2], "desactivar")
+        self.assertEqual(self.uno("SELECT SUM(activo) s FROM productos WHERE id IN (1,2)")["s"], 0)
+        self.masivo([1, 2], "iva", "gravado:19")
+        self.assertEqual(tuple(self.uno("SELECT iva_tipo, iva_tarifa FROM productos WHERE id = 2")), ("gravado", 19))
+        self.masivo([2], "frio_si")
+        self.assertEqual(tuple(self.uno("SELECT cadena_frio, maneja_vencimiento FROM productos WHERE id = 2")), (1, 1))
+        con = self.db()
+        cat = con.execute("INSERT INTO catalogos (tipo, nombre, activo, creado_en) VALUES ('categoria','Vitaminas',1,?)",
+                          (FECHA,)).lastrowid
+        con.commit()
+        con.close()
+        self.masivo([1, 2], "categoria", str(cat))
+        self.assertEqual(self.uno("SELECT COUNT(*) n FROM productos_categorias WHERE catalogo_id = ?", cat)["n"], 2)
+
+    def test_exportar_excel_y_lista_con_casillas(self):
+        r = self.masivo([1, 2], "exportar")
+        self.assertEqual(r.headers["Content-Type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        html = self.c.get("/productos/?vista=lista").get_data(as_text=True)
+        self.assertIn('class="marca-producto"', html)
+        self.assertIn('id="form-masivo"', html)

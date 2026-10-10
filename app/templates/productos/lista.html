@@ -81,10 +81,14 @@
     {% endfor %}
   </div>
 {% else %}
-  <!-- ===== VISTA LISTA ===== -->
-  <table class="tabla">
+  <!-- ===== VISTA LISTA =====
+       Casillas para marcar varios productos y hacerles algo a todos a la vez
+       (barra de abajo). Las casillas usan form="form-masivo" porque el
+       formulario no puede envolver la tabla (cada fila tiene su propio botón). -->
+  <table class="tabla tabla-productos">
     <thead>
       <tr>
+        {% if g.user['rol'] in ('administrador', 'director_tecnico') %}<th class="col-marca"><input type="checkbox" id="marcar-todos" title="Marcar todos los de la lista" aria-label="Marcar todos"></th>{% endif %}
         <th>Código</th>
         <th>Nombre</th>
         <th>Principio / Lab</th>
@@ -98,6 +102,7 @@
     <tbody>
       {% for p in productos %}
       <tr class="{% if not p['activo'] %}inactivo{% endif %}">
+        {% if g.user['rol'] in ('administrador', 'director_tecnico') %}<td class="col-marca"><input type="checkbox" name="ids" value="{{ p['id'] }}" form="form-masivo" class="marca-producto" aria-label="Marcar {{ p['nombre'] }}"></td>{% endif %}
         <td>{{ p['codigo'] }}</td>
         <td>
           {{ p['nombre'] }}
@@ -131,9 +136,78 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="8">No hay productos que coincidan.</td></tr>
+      <tr><td colspan="9">No hay productos que coincidan.</td></tr>
       {% endfor %}
     </tbody>
   </table>
+
+  {% if g.user['rol'] in ('administrador', 'director_tecnico') %}
+  <!-- ===== BARRA DE ACCIONES (aparece al marcar productos) ===== -->
+  <form id="form-masivo" method="post" action="{{ url_for('productos.masivo') }}" class="barra-masiva" hidden>
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="volver" value="{{ request.full_path }}">
+    <strong id="masivo-cuantos">0 marcados</strong>
+    <select name="accion" id="masivo-accion" aria-label="Qué hacer">
+      <option value="">— ¿Qué hacer con ellos? —</option>
+      {% for clave, texto in acciones.items() %}<option value="{{ clave }}">{{ texto }}</option>{% endfor %}
+    </select>
+    {# Segundo paso, según la acción: categoría, laboratorio o IVA #}
+    <select name="valor" id="masivo-categoria" class="masivo-valor" data-para="categoria" hidden disabled>
+      {% for c in categorias %}<option value="{{ c['id'] }}">{{ c['nombre'] }}</option>{% endfor %}
+    </select>
+    <select name="valor" id="masivo-laboratorio" class="masivo-valor" data-para="laboratorio" hidden disabled>
+      {% for l in laboratorios %}<option value="{{ l['id'] }}">{{ l['nombre'] }}</option>{% endfor %}
+    </select>
+    <select name="valor" id="masivo-iva" class="masivo-valor" data-para="iva" hidden disabled>
+      <option value="excluido">Excluido</option>
+      <option value="exento">Exento</option>
+      <option value="gravado:19">Gravado 19 %</option>
+      <option value="gravado:5">Gravado 5 %</option>
+    </select>
+    <button type="submit" class="boton">Aplicar</button>
+    <button type="button" class="boton secundario" id="masivo-limpiar">Quitar marcas</button>
+  </form>
+  <script>
+    // Barra de acciones sobre varios productos (ver productos.masivo en app/productos.py)
+    (function () {
+      const barra = document.getElementById('form-masivo');
+      const casillas = () => [...document.querySelectorAll('.marca-producto')];
+      const todos = document.getElementById('marcar-todos');
+      const accion = document.getElementById('masivo-accion');
+      function contar() {
+        const n = casillas().filter((c) => c.checked).length;
+        barra.hidden = n === 0;
+        document.getElementById('masivo-cuantos').textContent = n + (n === 1 ? ' marcado' : ' marcados');
+        todos.checked = n > 0 && n === casillas().length;
+        todos.indeterminate = n > 0 && n < casillas().length;
+      }
+      document.addEventListener('change', (e) => { if (e.target.classList.contains('marca-producto')) contar(); });
+      todos.addEventListener('change', () => { casillas().forEach((c) => { c.checked = todos.checked; }); contar(); });
+      document.getElementById('masivo-limpiar').addEventListener('click', () => {
+        casillas().forEach((c) => { c.checked = false; }); contar();
+      });
+      // Mostrar solo el segundo menú que corresponde (categoría, laboratorio o IVA)
+      accion.addEventListener('change', () => {
+        document.querySelectorAll('.masivo-valor').forEach((s) => {
+          const usar = s.dataset.para === accion.value;
+          s.hidden = !usar; s.disabled = !usar;
+        });
+      });
+      // Eliminar y desactivar piden confirmación
+      barra.addEventListener('submit', async (e) => {
+        if (!accion.value) { e.preventDefault(); window.avisar('Escoge qué hacer con los productos marcados.', 'error'); return; }
+        if (accion.value === 'exportar') return;                 // descarga el Excel
+        const n = casillas().filter((c) => c.checked).length;
+        if (accion.value === 'eliminar' || accion.value === 'desactivar') {
+          e.preventDefault();
+          const texto = accion.value === 'eliminar'
+            ? '¿Eliminar ' + n + ' producto(s)? Los que ya tienen ventas, lotes o recepciones no se borran.'
+            : '¿Desactivar ' + n + ' producto(s)? No saldrán en el POS.';
+          if (await window.confirmar(texto)) barra.submit();
+        }
+      });
+    })();
+  </script>
+  {% endif %}
 {% endif %}
 {% endblock %}

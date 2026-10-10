@@ -145,6 +145,8 @@ def _contexto_formulario(producto=None):
         "unidad_bloqueada": pres.tiene_historia(get_db(), producto["id"]) if producto else False,
         "producto": producto,
         "vecinos": _vecinos(producto["id"]) if producto else None,
+        # ¿Se puede borrar? Solo si nunca se usó (si no, se desactiva)
+        "donde_se_usa": _donde_se_usa(get_db(), producto["id"]) if producto else [],
     }
 
 
@@ -195,7 +197,10 @@ def lista():
     filas = get_db().execute(sql, params).fetchall()
 
     respuesta = render_template("productos/lista.html", productos=filas, q=q, filtro=filtro,
-                                vista=vista, venta=_como_se_vende([f["id"] for f in filas]))
+                                vista=vista, venta=_como_se_vende([f["id"] for f in filas]),
+                                # Para la barra de acciones sobre varios productos
+                                acciones=ACCIONES_MASIVAS, categorias=cat_opciones("categoria"),
+                                laboratorios=cat_opciones("laboratorio"))
     from flask import make_response
     resp = make_response(respuesta)
     resp.set_cookie("productos_vista", vista, max_age=60 * 60 * 24 * 365)
@@ -554,6 +559,48 @@ def editar(prod_id):
     return render_template("productos/form.html", **_contexto_formulario(producto))
 
 
+# Dónde puede aparecer un producto. Si aparece en alguna, NO se puede borrar:
+# hay que guardar la historia (ventas, recepciones, kardex...) por trazabilidad
+# (INVIMA / Secretaría de Salud). En ese caso se DESACTIVA.
+_DONDE_SE_USA = (
+    ("venta_lineas", "ventas"), ("recepcion_lineas", "recepciones"), ("lotes", "lotes"),
+    ("movimientos_inventario", "movimientos de inventario"), ("conteo_lineas", "conteos"),
+    ("devolucion_lineas", "devoluciones"),
+)
+
+
+def _donde_se_usa(db, prod_id):
+    """Lista de lugares donde aparece el producto (vacía = se puede eliminar)."""
+    return [texto for tabla, texto in _DONDE_SE_USA
+            if db.execute(f"SELECT 1 FROM {tabla} WHERE producto_id = ? LIMIT 1", (prod_id,)).fetchone()]
+
+
+@bp.route("/<int:prod_id>/eliminar", methods=["POST"])
+@login_required
+@roles_required("administrador", "director_tecnico")
+def eliminar(prod_id):
+    """Borra un producto que NUNCA se usó (ej. uno mal creado o importado).
+    Si ya tiene ventas, recepciones, lotes... no se borra: se desactiva."""
+    producto = _obtener(prod_id)
+    db = get_db()
+    usado = _donde_se_usa(db, prod_id)
+    if usado:
+        flash("No se puede eliminar: ya tiene " + ", ".join(usado) +
+              ". Para que no salga más, usa Desactivar.", "error")
+        return redirect(url_for("productos.editar", prod_id=prod_id))
+    # Primero lo que cuelga del producto, luego el producto
+    for tabla in ("producto_presentaciones", "productos_categorias", "productos_usos"):
+        db.execute(f"DELETE FROM {tabla} WHERE producto_id = ?", (prod_id,))
+    db.execute("DELETE FROM productos WHERE id = ?", (prod_id,))
+    db.commit()
+    if producto["imagen"]:
+        eliminar_imagen(producto["imagen"])
+    registrar("producto_eliminado", "productos", prod_id,
+              f"código={producto['codigo']} nombre={producto['nombre']}")
+    flash(f"Producto {producto['codigo']} · {producto['nombre']} eliminado.", "ok")
+    return redirect(url_for("productos.lista"))
+
+
 @bp.route("/<int:prod_id>/activar", methods=["POST"])
 @login_required
 @roles_required("administrador", "director_tecnico")
@@ -568,6 +615,145 @@ def activar(prod_id):
               "productos", prod_id)
     flash("Producto activado." if nuevo_estado else "Producto desactivado.", "ok")
     return redirect(url_for("productos.lista"))
+
+# ============================================================
+# ACCIONES SOBRE VARIOS PRODUCTOS A LA VEZ (lista con casillas)
+# Se marcan productos en la lista y se escoge qué hacer con todos.
+# Cada acción queda en la bitácora con cuántos productos tocó.
+# ============================================================
+ACCIONES_MASIVAS = {
+    "eliminar": "Eliminar (solo los que nunca se usaron)",
+    "desactivar": "Desactivar",
+    "activar": "Activar",
+    "categoria": "Agregar a la categoría…",
+    "laboratorio": "Poner laboratorio…",
+    "iva": "Cambiar IVA…",
+    "vence_si": "Marcar: maneja lote y vencimiento",
+    "vence_no": "Quitar: maneja lote y vencimiento",
+    "formula_si": "Marcar: requiere fórmula médica",
+    "formula_no": "Quitar: requiere fórmula médica",
+    "frio_si": "Marcar: cadena de frío",
+    "frio_no": "Quitar: cadena de frío",
+    "exportar": "Exportar a Excel",
+}
+
+
+@bp.route("/masivo", methods=["POST"])
+@login_required
+@roles_required("administrador", "director_tecnico")
+def masivo():
+    ids = [int(x) for x in request.form.getlist("ids") if x.isdigit()]
+    accion = request.form.get("accion", "")
+    valor = (request.form.get("valor") or "").strip()
+    volver = request.form.get("volver") or url_for("productos.lista", vista="lista")
+    if not ids or accion not in ACCIONES_MASIVAS:
+        flash("Marca al menos un producto y escoge qué hacer.", "error")
+        return redirect(volver)
+    db = get_db()
+    marcas = ",".join("?" * len(ids))
+
+    if accion == "exportar":
+        return _exportar_excel(ids)
+
+    if accion == "eliminar":
+        # Solo se borran los que nunca se usaron (trazabilidad: INVIMA / Secretaría)
+        borrados, no = 0, []
+        for pid in ids:
+            prod = db.execute("SELECT * FROM productos WHERE id = ?", (pid,)).fetchone()
+            if prod is None:
+                continue
+            if _donde_se_usa(db, pid):
+                no.append(prod["nombre"])
+                continue
+            for tabla in ("producto_presentaciones", "productos_categorias", "productos_usos"):
+                db.execute(f"DELETE FROM {tabla} WHERE producto_id = ?", (pid,))
+            db.execute("DELETE FROM productos WHERE id = ?", (pid,))
+            if prod["imagen"]:
+                eliminar_imagen(prod["imagen"])
+            borrados += 1
+        db.commit()
+        registrar("productos_eliminados_masivo", "productos", None, f"{borrados} eliminados")
+        flash(f"{borrados} producto(s) eliminado(s).", "ok")
+        if no:
+            flash(f"{len(no)} no se eliminaron porque ya tienen ventas, lotes o recepciones "
+                  f"(ej. {', '.join(no[:3])}). A esos usa Desactivar.", "error")
+        return redirect(volver)
+
+    # Cambios de un campo: columna y valor
+    cambios = {
+        "desactivar": ("activo", 0), "activar": ("activo", 1),
+        "vence_si": ("maneja_vencimiento", 1), "vence_no": ("maneja_vencimiento", 0),
+        "formula_si": ("requiere_formula", 1), "formula_no": ("requiere_formula", 0),
+        "frio_si": ("cadena_frio", 1), "frio_no": ("cadena_frio", 0),
+    }
+    if accion in cambios:
+        columna, v = cambios[accion]
+        db.execute(f"UPDATE productos SET {columna} = ?, actualizado_en = ? WHERE id IN ({marcas})",
+                   [v, ahora()] + ids)
+        # Cadena de frío obliga a manejar vencimiento (igual que en la ficha)
+        if accion == "frio_si":
+            db.execute(f"UPDATE productos SET maneja_vencimiento = 1 WHERE id IN ({marcas})", ids)
+    elif accion == "categoria":
+        if not valor.isdigit():
+            flash("Escoge la categoría.", "error")
+            return redirect(volver)
+        for pid in ids:
+            db.execute("INSERT OR IGNORE INTO productos_categorias (producto_id, catalogo_id) VALUES (?, ?)",
+                       (pid, int(valor)))
+    elif accion == "laboratorio":
+        if not valor.isdigit():
+            flash("Escoge el laboratorio.", "error")
+            return redirect(volver)
+        db.execute(f"UPDATE productos SET laboratorio_id = ?, actualizado_en = ? WHERE id IN ({marcas})",
+                   [int(valor), ahora()] + ids)
+    elif accion == "iva":
+        # valor: "excluido", "exento", "gravado:19", "gravado:5"
+        tipo, _, tarifa = valor.partition(":")
+        if tipo not in IVA_TIPOS:
+            flash("Escoge el IVA.", "error")
+            return redirect(volver)
+        db.execute(f"UPDATE productos SET iva_tipo = ?, iva_tarifa = ?, actualizado_en = ? WHERE id IN ({marcas})",
+                   [tipo, float(tarifa or 0) if tipo == "gravado" else 0, ahora()] + ids)
+    db.commit()
+    registrar("productos_cambio_masivo", "productos", None,
+              f"{ACCIONES_MASIVAS[accion]} {valor} -> {len(ids)} productos")
+    flash(f"Listo: «{ACCIONES_MASIVAS[accion].rstrip('…')}» en {len(ids)} producto(s).", "ok")
+    return redirect(volver)
+
+
+def _exportar_excel(ids):
+    """Excel con los productos marcados (para revisar o compartir)."""
+    import io
+    from openpyxl import Workbook
+    from flask import send_file
+    db = get_db()
+    venta = _como_se_vende(ids)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Productos"
+    ws.append(["Código", "Código de barras", "Nombre", "Concentración", "Laboratorio", "Principio activo",
+               "Se vende por", "Precio", "Costo de 1 unidad", "Existencias", "IVA", "Maneja vencimiento",
+               "Requiere fórmula", "Activo"])
+    marcas = ",".join("?" * len(ids))
+    for p in db.execute(
+            "SELECT p.*, (SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) lab, "
+            "(SELECT nombre FROM catalogos WHERE id = p.principio_id) pa FROM productos p "
+            f"WHERE p.id IN ({marcas}) ORDER BY p.nombre COLLATE NOCASE", ids):
+        v = venta.get(p["id"], {})
+        ws.append([p["codigo"], p["codigo_barras"], p["nombre"], p["concentracion"], p["lab"], p["pa"],
+                   v.get("por"), v.get("precio", p["precio_venta"]), p["precio_compra"], v.get("existencias"),
+                   IVA_TIPOS.get(p["iva_tipo"], p["iva_tipo"]) + (f" {p['iva_tarifa']:g}%" if p["iva_tipo"] == "gravado" else ""),
+                   "SI" if p["maneja_vencimiento"] else "NO", "SI" if p["requiere_formula"] else "NO",
+                   "SI" if p["activo"] else "NO"])
+    for col, ancho in zip("ABCDEFGHIJKLMN", (10, 16, 40, 12, 18, 18, 14, 10, 12, 22, 12, 10, 10, 8)):
+        ws.column_dimensions[col].width = ancho
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    registrar("productos_exportados", "productos", None, f"{len(ids)} productos a Excel")
+    return send_file(buf, as_attachment=True, download_name="productos.xlsx",
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
 
 # ============================================================
 # CAMBIAR LA UNIDAD DE INVENTARIO (asistente que convierte todo)

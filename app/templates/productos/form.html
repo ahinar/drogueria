@@ -461,8 +461,30 @@
     <button type="submit" name="_despues" value="siguiente" class="boton secundario">Guardar y siguiente ›</button>
     {% endif %}
     <a class="boton secundario" href="{{ url_for('productos.lista') }}">Cancelar</a>
+    {% if producto %}
+      {# Eliminar: solo si el producto nunca se usó. Va en un formulario aparte (abajo). #}
+      {% if donde_se_usa %}
+      <span class="suave eliminar-no" title="Ya tiene {{ donde_se_usa|join(', ') }}. Usa Desactivar en la lista.">
+        No se puede eliminar (ya tiene {{ donde_se_usa|join(', ') }})</span>
+      {% else %}
+      <button type="submit" form="form-eliminar-producto" class="boton peligro boton-eliminar">🗑 Eliminar producto</button>
+      {% endif %}
+    {% endif %}
   </div>
 </form>
+
+{% if producto and not donde_se_usa %}
+<form id="form-eliminar-producto" method="post" action="{{ url_for('productos.eliminar', prod_id=producto['id']) }}">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+</form>
+<script>
+  // Preguntar antes de borrar (no se puede deshacer)
+  document.getElementById('form-eliminar-producto').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    if (await window.confirmar('¿Eliminar {{ producto['nombre']|e }}? Esto no se puede deshacer.')) this.submit();
+  });
+</script>
+{% endif %}
 
 {# Formulario aparte (no puede ir dentro del otro): pasar el inventario a unidades.
    Va al asistente productos.cambiar_unidad en modo "convertir". #}
