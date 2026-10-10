@@ -1,0 +1,58 @@
+{% extends "reportes/_base.html" %}
+{% from "reportes/_macros.html" import pesos, pct %}
+{% set reporte_activo = 'ventas_compras' %}
+{% block titulo %}Ventas vs compras{% endblock %}
+{% block reporte %}
+{# R4 · VENTAS VS COMPRAS. d = informes.ventas_vs_compras() #}
+<h1>⚖️ Ventas vs compras</h1>
+<p class="suave">Últimos 12 meses. <strong>Vendido</strong> = ventas sin IVA. <strong>Comprado</strong> = mercancía recibida
+  y aprobada en recepción técnica, al costo.</p>
+<p class="no-imprimir"><button type="button" class="boton secundario" onclick="window.print()">🖨️ Imprimir</button></p>
+
+<div class="rep-grafico"><canvas id="grafico-vc"></canvas></div>
+
+<div class="rep-caja">
+<table class="rep-tabla">
+  <thead><tr><th>Mes</th><th class="num">Vendido</th><th class="num">Comprado</th><th class="num">Diferencia</th>
+    <th class="num">Compras / ventas</th></tr></thead>
+  <tbody>
+    {% for f in d.filas|reverse %}
+    <tr><td>{{ f.mes }}</td><td class="num">{{ pesos(f.vendido) }}</td><td class="num">{{ pesos(f.comprado) }}</td>
+      <td class="num {{ 'rep-negativo' if f.diferencia < 0 }}">{{ pesos(f.diferencia) }}</td>
+      <td class="num">{{ pct(f.relacion) if f.relacion is not none else '—' }}</td></tr>
+    {% endfor %}
+  </tbody>
+  <tfoot><tr><td>12 meses</td><td class="num">{{ pesos(d.total_vendido) }}</td><td class="num">{{ pesos(d.total_comprado) }}</td>
+    <td class="num">{{ pesos(d.total_vendido - d.total_comprado) }}</td>
+    <td class="num">{{ pct(d.total_comprado / d.total_vendido * 100) if d.total_vendido else '—' }}</td></tr></tfoot>
+</table>
+</div>
+<details class="eres-ayuda">
+  <summary>❓ ¿Cómo leerlo?</summary>
+  <ul>
+    <li>Si un mes se compra mucho más de lo que se vende, se está llenando la estantería (o se compró para varios meses).</li>
+    <li>Si se vende mucho más de lo que se compra, el inventario está bajando: revisa el <a href="{{ url_for('reportes.sugerido_ver') }}">sugerido de compra</a>.</li>
+    <li>"Compras / ventas" cerca del margen de costo de tus productos (por ejemplo 60–70 %) indica que se repone lo que se vende.</li>
+  </ul>
+</details>
+
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script id="datos-vc" type="application/json">{{ d.filas|tojson }}</script>
+<script>
+// Dos barras por mes: vendido (azul) y comprado (naranja)
+(function () {
+  const filas = JSON.parse(document.getElementById('datos-vc').textContent);
+  const pesos = (v) => '$' + Math.round(v).toLocaleString('es-CO');
+  new Chart(document.getElementById('grafico-vc'), {
+    type: 'bar',
+    data: { labels: filas.map((f) => f.mes), datasets: [
+      { label: 'Vendido', data: filas.map((f) => f.vendido), backgroundColor: '#0a4f8a', borderRadius: 4 },
+      { label: 'Comprado', data: filas.map((f) => f.comprado), backgroundColor: '#e0892b', borderRadius: 4 },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + pesos(c.raw) } } },
+      scales: { y: { ticks: { callback: (v) => pesos(v) } } } },
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,16 @@
+{# Pequeñas ayudas para mostrar números en los reportes (se importan con "import") #}
+{% macro pesos(n) -%}
+  {%- if (n or 0) < -0.5 %}-{% endif %}${{ '{:,.0f}'.format((n or 0)|abs).replace(',', '.') }}
+{%- endmacro %}
+{% macro cant(n) -%}{{ ('%g' % ((n or 0)|round(1))).replace('.', ',') }}{%- endmacro %}
+{% macro pct(n) -%}{{ ('%.1f' % (n or 0)).replace('.', ',') }} %{%- endmacro %}
+{% macro fecha(f) -%}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{%- endmacro %}
+{# Flecha de cambio: verde si es bueno, rojo si es malo. sube_bueno=False para gastos #}
+{% macro cambio(valor, sube_bueno=True) -%}
+  {%- if valor is none -%}<span class="eres-cambio">—</span>
+  {%- else -%}
+    {%- set bueno = (valor > 0) == sube_bueno -%}
+    <span class="eres-cambio {% if valor|abs < 0.05 %}{% elif bueno %}bueno{% else %}malo{% endif %}">
+      {{ '▲' if valor > 0 else ('▼' if valor < 0 else '') }} {{ ('%.1f' % valor|abs).replace('.', ',') }} %</span>
+  {%- endif -%}
+{%- endmacro %}

@@ -1,0 +1,93 @@
+{% extends "reportes/_base.html" %}
+{% from "reportes/_macros.html" import pesos, pct, cambio %}
+{% set reporte_activo = 'ventas' %}
+{% block titulo %}Reporte de ventas{% endblock %}
+{% block reporte %}
+{# R1 · VENTAS. d = informes.ventas(); cambios = % frente al período anterior #}
+<h1>🛒 Ventas</h1>
+<p class="suave"><strong>{{ per.actual.texto|capitalize }}</strong> comparado con {{ per.anterior.texto }} · las ventas anuladas no cuentan</p>
+{% include "reportes/_periodo.html" with context %}
+
+<div class="rep-tarjetas">
+  <div class="eres-tarjeta"><span>Vendido (con IVA)</span><strong>{{ pesos(d.actual.con_iva) }}</strong>
+    <small>{{ cambio(cambios.con_iva) }} vs {{ pesos(d.anterior.con_iva) }}</small></div>
+  <div class="eres-tarjeta"><span>Sin IVA</span><strong>{{ pesos(d.actual.sin_iva) }}</strong>
+    <small>IVA cobrado {{ pesos(d.actual.iva) }}</small></div>
+  <div class="eres-tarjeta"><span>Número de ventas</span><strong>{{ d.actual.n }}</strong>
+    <small>{{ cambio(cambios.n) }} vs {{ d.anterior.n }}</small></div>
+  <div class="eres-tarjeta"><span>Ticket promedio</span><strong>{{ pesos(d.actual.ticket) }}</strong>
+    <small>{{ cambio(cambios.ticket) }} · descuentos {{ pesos(d.actual.descuentos) }}</small></div>
+</div>
+{% if d.anuladas.n %}<p class="suave">❌ {{ d.anuladas.n }} venta(s) anulada(s) por {{ pesos(d.anuladas.total) }} (no se suman).</p>{% endif %}
+
+{% if not d.actual.n %}
+  <p class="rep-vacio">No hay ventas en este período.</p>
+{% else %}
+<!-- Gráfico: ventas por día (Chart.js, archivo local) -->
+<div class="rep-grafico"><canvas id="grafico-ventas"></canvas></div>
+
+<div class="rep-dos">
+  <div class="rep-caja">
+    <h2>💳 Por forma de pago</h2>
+    <table class="rep-tabla">
+      <thead><tr><th>Forma</th><th class="num">Ventas</th><th class="num">Total</th><th class="num">%</th></tr></thead>
+      <tbody>{% for f in d.por_pago %}<tr><td>{{ f.nombre }}<div class="rep-barra" style="width:{{ f.pct }}%"></div></td>
+        <td class="num">{{ f.n }}</td><td class="num">{{ pesos(f.total) }}</td><td class="num">{{ pct(f.pct) }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  <div class="rep-caja">
+    <h2>👤 Por vendedor</h2>
+    <table class="rep-tabla">
+      <thead><tr><th>Vendedor</th><th class="num">Ventas</th><th class="num">Total</th><th class="num">%</th></tr></thead>
+      <tbody>{% for f in d.por_vendedor %}<tr><td>{{ f.nombre }}<div class="rep-barra" style="width:{{ f.pct }}%"></div></td>
+        <td class="num">{{ f.n }}</td><td class="num">{{ pesos(f.total) }}</td><td class="num">{{ pct(f.pct) }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</div>
+
+<div class="rep-dos">
+  <div class="rep-caja">
+    <h2>🕘 Por hora del día</h2>
+    <p class="suave" style="margin-top:0">Sirve para saber a qué horas se necesita más gente en el mostrador.</p>
+    {% set mayor = d.por_hora|map(attribute='total')|max if d.por_hora else 1 %}
+    <table class="rep-tabla">
+      <thead><tr><th>Hora</th><th class="num">Ventas</th><th class="num">Total</th></tr></thead>
+      <tbody>{% for h in d.por_hora %}<tr><td>{{ '%02d' % h.hora }}:00 – {{ '%02d' % h.hora }}:59
+        <div class="rep-barra" style="width:{{ (h.total / (mayor or 1) * 100) }}%"></div></td>
+        <td class="num">{{ h.n }}</td><td class="num">{{ pesos(h.total) }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  <div class="rep-caja">
+    <h2>📅 Día por día</h2>
+    <table class="rep-tabla">
+      <thead><tr><th>Día</th><th class="num">Ventas</th><th class="num">Total</th></tr></thead>
+      <tbody>{% for f in d.por_dia|reverse %}<tr><td>{{ f.etiqueta }}</td><td class="num">{{ f.n }}</td>
+        <td class="num">{{ pesos(f.total) }}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr><td>Total</td><td class="num">{{ d.actual.n }}</td><td class="num">{{ pesos(d.actual.con_iva) }}</td></tr></tfoot>
+    </table>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script id="datos-ventas" type="application/json">{{ d.por_dia|map(attribute='total')|list|tojson }}</script>
+<script id="etiquetas-ventas" type="application/json">{{ d.por_dia|map(attribute='etiqueta')|list|tojson }}</script>
+<script>
+// Gráfico de barras: una barra por día con el total vendido (con IVA)
+(function () {
+  const valores = JSON.parse(document.getElementById('datos-ventas').textContent);
+  const etiquetas = JSON.parse(document.getElementById('etiquetas-ventas').textContent);
+  new Chart(document.getElementById('grafico-ventas'), {
+    type: 'bar',
+    data: { labels: etiquetas, datasets: [{ label: 'Ventas del día', data: valores, backgroundColor: '#0a4f8a', borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: (c) => '$' + Math.round(c.raw).toLocaleString('es-CO') } } },
+      scales: { y: { ticks: { callback: (v) => '$' + Number(v).toLocaleString('es-CO') } },
+                x: { ticks: { autoSkip: true, maxTicksLimit: 12 } } },
+    },
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

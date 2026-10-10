@@ -1,0 +1,36 @@
+{% extends "reportes/_base.html" %}
+{% from "reportes/_macros.html" import cant, fecha %}
+{% set reporte_activo = 'vencimientos' %}
+{% block titulo %}Semáforo de vencimientos{% endblock %}
+{% block reporte %}
+{# R8 · VENCIMIENTOS. grupos = inventario.agrupar_vencimientos() (lo mismo que Inventario → Vencimientos) #}
+<div class="eres-cabecera">
+  <div>
+    <h1>⏳ Semáforo de vencimientos</h1>
+    <p class="suave">Lotes con existencias a hoy. Descárgalo en PDF para la visita de la Secretaría de Salud.</p>
+  </div>
+  <a class="boton no-imprimir" href="{{ url_for('reportes.vencimientos_pdf') }}">📄 Descargar PDF</a>
+</div>
+
+<div class="rep-tarjetas">
+  <div class="eres-tarjeta negativa"><span>⛔ Vencidos</span><strong>{{ grupos.vencidos|length }}</strong><small>retirar de la venta</small></div>
+  <div class="eres-tarjeta"><span>🔴 Rojo</span><strong>{{ grupos.rojo|length }}</strong><small>30 días o menos</small></div>
+  <div class="eres-tarjeta"><span>🟡 Amarillo</span><strong>{{ grupos.amarillo|length }}</strong><small>31 a 90 días</small></div>
+  <div class="eres-tarjeta positiva"><span>🟢 Verde</span><strong>{{ grupos.verde|length }}</strong><small>más de 90 días</small></div>
+</div>
+
+{% for clave, titulo in (('vencidos', '⛔ Vencidos'), ('rojo', '🔴 Vencen en 30 días o menos'), ('amarillo', '🟡 Vencen en 31 a 90 días')) %}
+  {% if grupos[clave] %}
+  <div class="rep-caja" style="margin-bottom:1rem">
+    <h2>{{ titulo }} ({{ grupos[clave]|length }})</h2>
+    <table class="rep-tabla">
+      <thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th class="num">Días</th><th class="num">Cant.</th><th>Estado</th></tr></thead>
+      <tbody>{% for l in grupos[clave] %}<tr><td>{{ l.producto_nombre }}<small>{{ l.producto_codigo }}{% if l.lab_nombre %} · {{ l.lab_nombre }}{% endif %}</small></td>
+        <td>{{ l.lote or 's/n' }}</td><td>{{ fecha(l.vencimiento) }}</td><td class="num">{{ l.dias }}</td>
+        <td class="num">{{ cant(l.cantidad_disponible) }}</td><td>{{ l.estado }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% endif %}
+{% endfor %}
+<p class="suave">El PDF incluye también los lotes en verde y los que no tienen fecha de vencimiento, con firma del director técnico.</p>
+{% endblock %}

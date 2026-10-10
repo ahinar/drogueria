@@ -385,9 +385,13 @@ def kardex(producto_id):
 
 # ---------- Vencimientos (semáforo) ----------
 
-@bp.route("/vencimientos")
-@login_required
-def vencimientos():
+def agrupar_vencimientos():
+    """Lotes con unidades agrupados por semáforo de vencimiento.
+
+    Lo usan la pantalla Inventario → Vencimientos y el PDF de Reportes (R8),
+    así los dos muestran exactamente lo mismo.
+    Devuelve (grupos, total) con grupos = vencidos / rojo / amarillo / verde / sin.
+    """
     hoy = date.today()
     db = get_db()
 
@@ -419,5 +423,11 @@ def vencimientos():
         else:
             grupos["verde"].append(item)
 
-    return render_template("inventario/vencimientos.html", grupos=grupos,
-                           total=len(lotes))
+    return grupos, len(lotes)
+
+
+@bp.route("/vencimientos")
+@login_required
+def vencimientos():
+    grupos, total = agrupar_vencimientos()
+    return render_template("inventario/vencimientos.html", grupos=grupos, total=total)

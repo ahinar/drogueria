@@ -1,0 +1,52 @@
+{% extends "reportes/_base.html" %}
+{% from "reportes/_macros.html" import pesos, pct, cambio, fecha %}
+{% set reporte_activo = 'gastos' %}
+{% block titulo %}Reporte de gastos{% endblock %}
+{% block reporte %}
+{# R5 · GASTOS. d = informes.gastos() #}
+<h1>💸 Gastos</h1>
+<p class="suave"><strong>{{ per.actual.texto|capitalize }}</strong> comparado con {{ per.anterior.texto }}</p>
+{% include "reportes/_periodo.html" with context %}
+
+<div class="rep-tarjetas">
+  <div class="eres-tarjeta"><span>Total de gastos</span><strong>{{ pesos(d.total) }}</strong>
+    <small>{{ cambio(cambio_total, False) }} vs {{ pesos(d.total_anterior) }}</small></div>
+  <div class="eres-tarjeta"><span>Número de gastos</span><strong>{{ d.detalle|length }}</strong>
+    <small><a href="{{ url_for('contabilidad.gastos_lista') }}">Ir a Contabilidad →</a></small></div>
+</div>
+
+{% if not d.categorias %}
+  <p class="rep-vacio">No hay gastos registrados en este período.</p>
+{% else %}
+<div class="rep-dos">
+  <div class="rep-caja">
+    <h2>📂 Por categoría</h2>
+    <table class="rep-tabla">
+      <thead><tr><th>Categoría</th><th class="num">Período</th><th class="num">Anterior</th><th class="num">Cambio</th></tr></thead>
+      <tbody>{% for c in d.categorias %}<tr><td>{{ c.categoria }}<small>{{ c.n }} gasto(s) · {{ pct(c.pct) }}</small>
+        <div class="rep-barra" style="width:{{ c.pct }}%"></div></td>
+        <td class="num">{{ pesos(c.total) }}</td><td class="num suave">{{ pesos(c.anterior) }}</td>
+        <td class="num">{{ cambio(((c.total - c.anterior) / c.anterior * 100) if c.anterior else none, False) }}</td></tr>{% endfor %}</tbody>
+      <tfoot><tr><td>Total</td><td class="num">{{ pesos(d.total) }}</td><td class="num">{{ pesos(d.total_anterior) }}</td><td></td></tr></tfoot>
+    </table>
+  </div>
+  <div class="rep-caja">
+    <h2>💳 Por forma de pago</h2>
+    <table class="rep-tabla">
+      <thead><tr><th>Forma</th><th class="num">Gastos</th><th class="num">Total</th></tr></thead>
+      <tbody>{% for f in d.por_pago %}<tr><td>{{ f.nombre }}</td><td class="num">{{ f.n }}</td><td class="num">{{ pesos(f.total) }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </div>
+</div>
+
+<div class="rep-caja">
+  <h2>🧾 Detalle</h2>
+  <table class="rep-tabla">
+    <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th class="num">Monto</th></tr></thead>
+    <tbody>{% for g_ in d.detalle %}<tr><td>{{ fecha(g_.fecha) }}</td>
+      <td>{{ g_.descripcion }}{% if g_.proveedor %}<small>{{ g_.proveedor }}</small>{% endif %}</td>
+      <td>{{ g_.categoria }}</td><td class="num">{{ pesos(g_.monto) }}</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

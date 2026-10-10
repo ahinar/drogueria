@@ -1,0 +1,20 @@
+{#
+  SELECTOR DE PERÍODO (lo comparten varios reportes)
+  Necesita: per (de utilidades.periodos), meses (lista de los últimos 12) y args.
+  Un mes, o un rango libre de fechas. Hay que incluirlo con "with context".
+#}
+<form method="get" class="eres-filtros no-imprimir">
+  {% for clave, valor in (extra_filtros or {}).items() %}<input type="hidden" name="{{ clave }}" value="{{ valor }}">{% endfor %}
+  <label>Mes
+    <select name="mes" onchange="this.form.desde.value=''; this.form.hasta.value=''; this.form.submit()">
+      {% for valor, texto in meses %}
+        <option value="{{ valor }}" {% if per.modo == 'mes' and per.mes == valor %}selected{% endif %}>{{ texto|capitalize }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <span class="suave eres-o">o entre fechas</span>
+  <label>Desde <input type="date" name="desde" value="{{ args.get('desde', '') if per.modo == 'rango' else '' }}"></label>
+  <label>Hasta <input type="date" name="hasta" value="{{ args.get('hasta', '') if per.modo == 'rango' else '' }}"></label>
+  <button type="submit" class="boton secundario">Ver</button>
+  <button type="button" class="boton secundario" onclick="window.print()">🖨️ Imprimir</button>
+</form>

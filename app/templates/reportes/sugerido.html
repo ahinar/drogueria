@@ -1,6 +1,7 @@
-{% extends "base.html" %}
+{% extends "reportes/_base.html" %}
+{% set reporte_activo = 'sugerido' %}
 {% block titulo %}Sugerido de compra{% endblock %}
-{% block contenido %}
+{% block reporte %}
 {#
   R6 · SUGERIDO DE COMPRA
   d = lo que calcula app/sugerido.py. Las cantidades del pedido se pueden

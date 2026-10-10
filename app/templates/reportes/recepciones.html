@@ -1,0 +1,45 @@
+{% extends "reportes/_base.html" %}
+{% from "reportes/_macros.html" import pesos, pct, cant, fecha %}
+{% set reporte_activo = 'recepciones' %}
+{% block titulo %}Reporte de recepciones{% endblock %}
+{% block reporte %}
+{# R7 · RECEPCIONES. d = informes.recepciones() #}
+<h1>🚚 Recepciones</h1>
+<p class="suave"><strong>{{ per.actual.texto|capitalize }}</strong> · recepción técnica por proveedor, con los productos rechazados y su motivo.</p>
+{% include "reportes/_periodo.html" with context %}
+
+<div class="rep-tarjetas">
+  <div class="eres-tarjeta"><span>Recepciones</span><strong>{{ d.total_recepciones }}</strong></div>
+  <div class="eres-tarjeta"><span>Mercancía aprobada (al costo)</span><strong>{{ pesos(d.total_valor) }}</strong></div>
+  <div class="eres-tarjeta"><span>Productos rechazados</span><strong>{{ d.rechazos|length }}</strong></div>
+</div>
+
+{% if not d.por_proveedor %}
+  <p class="rep-vacio">No hay recepciones en este período.</p>
+{% else %}
+<div class="rep-caja">
+  <h2>🏢 Por proveedor</h2>
+  <table class="rep-tabla">
+    <thead><tr><th>Proveedor</th><th class="num">Recepciones</th><th class="num">Aprobadas</th><th class="num">Rechazadas</th>
+      <th class="num">En cuarentena</th><th class="num">Productos rechazados</th><th class="num">Valor aprobado</th></tr></thead>
+    <tbody>{% for f in d.por_proveedor %}<tr><td>{{ f.proveedor }}</td><td class="num">{{ f.recepciones }}</td>
+      <td class="num">{{ f.aprobadas }}</td><td class="num">{{ f.rechazadas }}</td><td class="num">{{ f.en_cuarentena }}</td>
+      <td class="num {{ 'rep-negativo' if f.lineas_rechazadas }}">{{ f.lineas_rechazadas }} de {{ f.lineas }}<small>{{ pct(f.pct_rechazo) }}</small></td>
+      <td class="num">{{ pesos(f.valor) }}</td></tr>{% endfor %}</tbody>
+  </table>
+</div>
+
+<div class="rep-caja" style="margin-top:1rem">
+  <h2>❌ Productos rechazados</h2>
+  {% if d.rechazos %}
+  <table class="rep-tabla">
+    <thead><tr><th>Fecha</th><th>Recepción</th><th>Producto</th><th>Empaque</th><th>Motivo</th></tr></thead>
+    <tbody>{% for r in d.rechazos %}<tr><td>{{ fecha(r.fecha) }}</td>
+      <td><a href="{{ url_for('recepciones.ver', rec_id=r.recepcion_id) }}">{{ r.numero }}</a><small>{{ r.proveedor }}</small></td>
+      <td>{{ r.producto }}<small>lote {{ r.lote or 's/n' }} · {{ cant(r.cantidad_recibida) }} und</small></td>
+      <td>{{ r.estado_empaque }}</td><td>{{ r.motivo_rechazo or r.observaciones or '—' }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="suave">No se rechazó ningún producto en este período. ✅</p>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

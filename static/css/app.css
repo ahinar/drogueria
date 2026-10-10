@@ -2495,3 +2495,47 @@ body.sidebar-colapsado .sidebar-submenu { display: block; max-height: none; back
   .sug-tabla td small { display: none; }
   .contenido { margin: 0 !important; padding: 0 !important; overflow: visible !important; }
 }
+
+/* ===== Reportes: molde común (menú de reportes + reporte) ===== */
+.rep-layout { display: grid; grid-template-columns: 200px 1fr; gap: 1.2rem; align-items: start; }
+.rep-menu { position: sticky; top: .5rem; display: flex; flex-direction: column; gap: .15rem;
+  background: #fff; border: 1px solid #e3e8ee; border-radius: 8px; padding: .5rem; }
+.rep-menu a { padding: .5rem .6rem; border-radius: 6px; color: #1f2a33; text-decoration: none; font-size: .92rem; white-space: nowrap; }
+.rep-menu a:hover { background: #f0f4f8; }
+.rep-menu a.activo { background: #0a4f8a; color: #fff; }
+.rep-menu-titulo { font-weight: 700; border-bottom: 1px solid #eef1f4; border-radius: 6px 6px 0 0 !important; margin-bottom: .2rem; }
+.rep-cuerpo { min-width: 0; }
+.rep-cuerpo h1 { margin-top: 0; }
+@media (max-width: 900px) {
+  .rep-layout { grid-template-columns: 1fr; }
+  /* En pantallas pequeñas el menú es una fila que se desliza con el dedo */
+  .rep-menu { position: static; flex-direction: row; overflow-x: auto; padding: .35rem; }
+  .rep-menu-titulo { border-bottom: 0; margin-bottom: 0; }
+}
+/* Tablas y tarjetas genéricas de los reportes */
+.rep-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .8rem; margin-bottom: 1rem; }
+.rep-grafico { position: relative; height: 280px; background: #fff; border: 1px solid #e3e8ee; border-radius: 8px; padding: .6rem; margin-bottom: 1rem; }
+.rep-dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.rep-caja { background: #fff; border: 1px solid #e3e8ee; border-radius: 8px; padding: .8rem 1rem; overflow-x: auto; }
+.rep-caja h2 { font-size: 1rem; margin: 0 0 .5rem; }
+.rep-tabla { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.rep-tabla th, .rep-tabla td { padding: .45rem .6rem; border-bottom: 1px solid #eef1f4; text-align: left; vertical-align: top; }
+.rep-tabla th { background: #f3f6f9; font-size: .82rem; color: #5c6b78; }
+.rep-tabla .num { text-align: right; white-space: nowrap; }
+.rep-tabla tfoot td { font-weight: 700; border-top: 2px solid #d5dee6; }
+.rep-tabla small { display: block; color: #6b7884; }
+.rep-barra { height: .45rem; border-radius: 999px; background: #0a4f8a; min-width: 2px; margin-top: .2rem; }
+.rep-vacio { padding: 1.5rem; text-align: center; color: #6b7884; background: #fff; border: 1px dashed #d5dee6; border-radius: 8px; }
+.rep-negativo { color: #b3261e; }
+.rep-orden { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 .8rem; }
+@media print {
+  .rep-layout { display: block; }
+  .rep-grafico { break-inside: avoid; }
+}
+@media (max-width: 600px) {
+  /* En el celular las tarjetas de resumen van de a dos */
+  .rep-tarjetas, .eres-tarjetas { grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .eres-tarjeta { padding: .6rem .7rem; }
+  .eres-tarjeta strong { font-size: 1.1rem; }
+  .eres-tarjeta small { font-size: .75rem; }
+}

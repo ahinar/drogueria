@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{#
+  MOLDE COMÚN DE LOS REPORTES
+  A la izquierda la lista de reportes (en el celular, una fila que se desliza)
+  y a la derecha el reporte elegido, que va en el bloque "reporte".
+  Cada reporte dice cuál es con:  {% set reporte_activo = 'ventas' %}
+#}
+{% block contenido %}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+<div class="rep-layout">
+  <nav class="rep-menu no-imprimir" aria-label="Reportes">
+    <a href="{{ url_for('reportes.index') }}" class="rep-menu-titulo">📊 Reportes</a>
+    {% if jefe %}
+    <a href="{{ url_for('reportes.ventas_ver') }}" class="{{ 'activo' if reporte_activo == 'ventas' }}">🛒 Ventas</a>
+    <a href="{{ url_for('reportes.utilidades_ver') }}" class="{{ 'activo' if reporte_activo == 'utilidades' }}">📈 Utilidades</a>
+    <a href="{{ url_for('reportes.top_ver') }}" class="{{ 'activo' if reporte_activo == 'top' }}">🏆 Top productos</a>
+    <a href="{{ url_for('reportes.ventas_compras_ver') }}" class="{{ 'activo' if reporte_activo == 'ventas_compras' }}">⚖️ Ventas vs compras</a>
+    <a href="{{ url_for('reportes.gastos_ver') }}" class="{{ 'activo' if reporte_activo == 'gastos' }}">💸 Gastos</a>
+    <a href="{{ url_for('reportes.sugerido_ver') }}" class="{{ 'activo' if reporte_activo == 'sugerido' }}">📦 Sugerido de compra</a>
+    {% endif %}
+    <a href="{{ url_for('reportes.recepciones_ver') }}" class="{{ 'activo' if reporte_activo == 'recepciones' }}">🚚 Recepciones</a>
+    <a href="{{ url_for('reportes.vencimientos_ver') }}" class="{{ 'activo' if reporte_activo == 'vencimientos' }}">⏳ Vencimientos</a>
+    <a href="{{ url_for('reportes.temperaturas') }}">🌡️ Temperaturas</a>
+  </nav>
+  <div class="rep-cuerpo">
+    {% block reporte %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "reportes/_base.html" %}
+{% from "reportes/_macros.html" import pesos, pct, cant %}
+{% set reporte_activo = 'top' %}
+{% block titulo %}Top productos{% endblock %}
+{% block reporte %}
+{# R3 · TOP PRODUCTOS. d = informes.top_productos() #}
+<h1>🏆 Top productos</h1>
+<p class="suave"><strong>{{ per.actual.texto|capitalize }}</strong> · las unidades se cuentan en la unidad principal (1 caja x 100 = 100)</p>
+{% include "reportes/_periodo.html" with context %}
+
+<!-- Elegir el orden y cuántos mostrar (se conserva el período elegido) -->
+{% set base_args = args.to_dict() %}
+<div class="rep-orden no-imprimir">
+  {% for clave, texto in (('dinero', '💰 Por dinero'), ('unidades', '📦 Por unidades'), ('utilidad', '📈 Por utilidad')) %}
+    {% set a = dict(base_args, orden=clave) %}
+    <a class="boton {{ '' if orden == clave else 'secundario' }}" href="{{ url_for('reportes.top_ver', **a) }}">{{ texto }}</a>
+  {% endfor %}
+  {% for n in (5, 10, 20) %}
+    {% set a = dict(base_args, cuantos=n) %}
+    <a class="boton {{ '' if cuantos == n else 'secundario' }}" href="{{ url_for('reportes.top_ver', **a) }}">Top {{ n }}</a>
+  {% endfor %}
+</div>
+
+{% if not d.top %}
+  <p class="rep-vacio">No hay ventas en este período.</p>
+{% else %}
+<p class="suave">Estos {{ d.top|length }} productos son el <strong>{{ pct(d.pct_top) }}</strong> de lo vendido
+  ({{ d.total_productos }} productos distintos vendidos en el período).</p>
+<div class="rep-caja">
+<table class="rep-tabla">
+  <thead><tr><th>#</th><th>Producto</th><th class="num">Unidades</th><th class="num">Vendido</th>
+    <th class="num">Utilidad</th><th class="num">Margen</th></tr></thead>
+  <tbody>
+    {% for p in d.top %}
+    <tr><td>{{ loop.index }}</td>
+      <td>{{ p.nombre }}<small>{{ p.codigo }} · {{ pct(p.pct) }} de las ventas</small>
+        <div class="rep-barra" style="width:{{ p.pct }}%"></div></td>
+      <td class="num">{{ cant(p.unidades) }}</td><td class="num">{{ pesos(p.con_iva) }}</td>
+      <td class="num {{ 'rep-negativo' if p.utilidad < 0 }}">{{ pesos(p.utilidad) }}</td>
+      <td class="num">{{ pct(p.margen) }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="suave">Utilidad = vendido sin IVA − costo real de los lotes vendidos.</p>
+{% endif %}
+{% endblock %}

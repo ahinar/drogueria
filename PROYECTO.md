@@ -216,7 +216,15 @@
   - Período: mes (selector de 12 meses) o rango libre. Mes en curso → se compara con los mismos días del mes anterior; mes cerrado → mes anterior completo; rango → rango anterior de igual duración. Cambio en % en verde/rojo según si es bueno o malo.
   - Aviso si se vendieron unidades de lotes con costo $0. PDF para el contador. En el celular se oculta la columna "Anterior".
 - **R6 Sugerido de compra ✅** (`app/sugerido.py`, ruta `/reportes/sugerido`, admin y DT): por producto, stock vendible, venta diaria (unidades vendidas en 30 días ÷ 30, cajas cuentan cantidad × factor), días que alcanza y sugerido = max(venta diaria × cobertura, stock mínimo) − stock. Sin ventas → solo stock mínimo. Proveedor y costo de la última recepción aprobada. Cobertura 7/15/30/45 días. Pestañas: **Pedido** por proveedor (cantidades editables, total estimado, botón **WhatsApp** con el pedido escrito —wa.me con el celular del proveedor si es un celular colombiano válido— e **Imprimir** solo ese proveedor), **Se agota en < 7 días**, **Bajo stock mínimo**, **Sin rotación** 60/90 días con el valor quieto al costo. El pedido no se guarda en la base.
-- **Pendientes:** ver el plan del módulo Reportes en la sección 7 (Fase R).
+- **Molde común** (`reportes/_base.html`): menú de reportes a la izquierda (en celular, fila deslizable), reporte a la derecha; selector de período compartido (`reportes/_periodo.html`: mes o rango, con botón Imprimir); números con `reportes/_macros.html`. Cálculos en `app/informes.py`.
+- **R1 Ventas ✅** `/reportes/ventas`: con IVA, sin IVA, número, ticket promedio con cambio vs período anterior; anuladas aparte; gráfico de barras por día (todos los días, aunque estén en 0); por forma de pago, por vendedor, por hora del día y día por día.
+- **R3 Top productos ✅** `/reportes/top`: por dinero, unidades (cantidad × factor) o utilidad (costo real del lote); top 5/10/20; % de las ventas.
+- **R4 Ventas vs compras ✅** `/reportes/ventas-vs-compras`: 12 meses, vendido sin IVA vs comprado (recepciones aprobadas, líneas aceptadas, al costo); gráfico y tabla.
+- **R5 Gastos ✅** `/reportes/gastos`: por categoría con período anterior, por forma de pago y detalle.
+- **R7 Recepciones ✅** `/reportes/recepciones` (todos): por proveedor (recepciones, aprobadas, rechazadas, en cuarentena, productos rechazados y %, valor aprobado) y lista de productos rechazados con motivo.
+- **R8 Vencimientos ✅** `/reportes/vencimientos` (todos) + PDF con firma del DT; usa `inventario.agrupar_vencimientos()`, la misma agrupación de Inventario → Vencimientos.
+- Arreglado: `temperaturas.html` cargaba Chart.js dos veces.
+- **Pendiente de la Fase R:** números del "Resumen" en el Inicio (ventas de hoy/semana/mes, utilidad del mes); descarga en Excel.
 
 ### 5.13 Bitácora
 - Registro inmutable de todas las acciones.
@@ -270,7 +278,7 @@
 - **2.5** IVA con prorrateo ⏸ solo si el contador lo pide.
 - **2.6** Flujo de caja ⏸ lo cubren R1 Ventas (por día y forma de pago) + el cierre de caja.
 
-### Fase R: módulo Reportes ⏳
+### Fase R: módulo Reportes ✅ (falta Resumen en Inicio y Excel)
 Idea (tomada de DATA FARMAC): una pantalla con la lista de reportes a un lado y el
 reporte elegido al otro, con **selector de período** (día, semana, mes, año o
 fechas), gráfico (Chart.js local), tabla y descarga en PDF/Excel.
@@ -281,14 +289,14 @@ Se juntaron los reportes que repetían el mismo cálculo con otro período
 
 | # | Reporte | Qué muestra | Reemplaza a | Quién lo ve |
 |---|---|---|---|---|
-| R1 | **Ventas** | Ventas por día, semana, mes o año; comparación con el período anterior; desglose por forma de pago y por vendedor | Ventas de la semana, Ventas anuales, Ingresos por día, Ingresos por usuario | Admin y DT |
+| R1 ✅ | **Ventas** | Ventas por día, semana, mes o año; comparación con el período anterior; desglose por forma de pago y por vendedor | Ventas de la semana, Ventas anuales, Ingresos por día, Ingresos por usuario | Admin y DT |
 | R2 ✅ | **Utilidades y estado de resultados** | Ventas − costo de lo vendido (costo real del lote) − gastos, por día o por período; estado de resultados simplificado | Ganancia de la semana, Utilidades (Fase 2.3 y 2.4) | Admin y DT |
-| R3 | **Top productos** | Los más vendidos por unidades y por dinero (top 5, 10 o 20) | Top 5 productos | Admin y DT |
-| R4 | **Ventas vs compras** | Comparativo mensual: lo vendido vs lo comprado (recepciones aprobadas) | — | Admin y DT |
-| R5 | **Gastos** | Gastos del período por categoría | Gastos administrativos | Admin y DT |
+| R3 ✅ | **Top productos** | Los más vendidos por unidades y por dinero (top 5, 10 o 20) | Top 5 productos | Admin y DT |
+| R4 ✅ | **Ventas vs compras** | Comparativo mensual: lo vendido vs lo comprado (recepciones aprobadas) | — | Admin y DT |
+| R5 ✅ | **Gastos** | Gastos del período por categoría | Gastos administrativos | Admin y DT |
 | R6 ✅ | **Sugerido de compra** | Qué pedir y cuánto, por proveedor: venta diaria promedio (30 días), días que alcanza el stock, cantidad para cubrir N días. Listas: **bajo stock mínimo**, **se agota en < 7 días**, **sin rotación** (60/90 días). Pedido para imprimir o enviar por WhatsApp | — | Admin y DT |
-| R7 | **Recepciones** | Recepciones por proveedor y período, rechazos y motivos | — | Todos |
-| R8 | **Vencimientos** | Semáforo en PDF para inspección | — | Todos |
+| R7 ✅ | **Recepciones** | Recepciones por proveedor y período, rechazos y motivos | — | Todos |
+| R8 ✅ | **Vencimientos** | Semáforo en PDF para inspección | — | Todos |
 | — | Temperaturas | Ya existe (gráfico, PDF y plantilla mensual) | — | Todos |
 
 Notas:
@@ -434,7 +442,8 @@ Notas:
 - **Venta por presentación (2026-10-09):** cada producto puede venderse por unidad, sobre, caja… con su propio precio; el inventario se descuenta en unidades. Ventana "¿Cómo lo vendes?" en el POS, presentaciones en el formulario de productos, código de barras de la caja, margen por presentación en la "i". La demo trae Acetaminofén e Ibuprofeno por tableta, sobre y caja. **158 tests pasan**.
 - **Panel de alertas (2026-10-09):** "Para atender hoy" en el Inicio con 12 tipos de alerta (ver 5.1); arreglado el texto "con stock mínimo definido" de la tarjeta de productos, que salía vacío. **176 tests pasan**.
 - **R2 Utilidades (2026-10-09):** estado de resultados con costo real por lote, gastos por categoría, pérdidas de inventario, retiros del dueño aparte, comparación con el período anterior y PDF. Casilla "retiro del dueño" en caja menor. Decisiones de Fernando: pérdidas en línea aparte; su sueldo (variable) es gasto en "Sueldo del dueño" y además retira ganancias; registra todos los gastos en Contabilidad; por defecto mes actual vs anterior. **194 tests pasan**.
-- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → ~~utilidades/estado de resultados~~ ✅ → utilidades/estado de resultados → reportes → equipos/calibraciones → devoluciones.
+- **Reportes (2026-10-09):** R6 Sugerido de compra (pedido por proveedor con WhatsApp e imprimir) y R1, R3, R4, R5, R7, R8 con menú común de reportes. **215 tests pasan**.
+- Orden acordado para seguir: importar productos (Excel real) → primer conteo = inventario inicial → ~~venta por presentación~~ ✅ → ~~panel de alertas~~ ✅ → ~~utilidades/estado de resultados~~ ✅ → ~~reportes~~ ✅ → equipos/calibraciones → devoluciones.
 - Consejo: antes de hacer commit, revisar que `git diff --stat` no muestre cientos de líneas borradas en un archivo que no se tocó.
 
 **Sesión anterior:** 2026-10-07. Se completó:

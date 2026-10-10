@@ -606,3 +606,164 @@ def sugerido_ver():
         grupo["whatsapp"] = sugerido.telefono_whatsapp(grupo["telefono"])
     return render_template("reportes/sugerido.html", d=datos,
                            negocio=obtener_config().get("nombre_comercial") or "la droguería")
+
+
+# ============================================================
+# R1, R3, R4, R5, R7 y R8
+# ============================================================
+# Los cálculos están en app/informes.py. Todos usan el mismo selector
+# de período que Utilidades (un mes o un rango de fechas).
+
+def _periodo_pedido():
+    """Período elegido en la dirección (?mes=2026-10 o ?desde=...&hasta=...)."""
+    per = utilidades.periodos(mes=request.args.get("mes"), desde=request.args.get("desde"),
+                              hasta=request.args.get("hasta"))
+    return per, {"per": per, "meses": utilidades.meses_disponibles(), "args": request.args}
+
+
+@bp.route("/ventas")
+@login_required
+@roles_required("administrador", "director_tecnico")
+def ventas_ver():
+    """R1 · Ventas: totales, por día (con gráfico), por forma de pago, vendedor y hora."""
+    from . import informes
+    per, ctx = _periodo_pedido()
+    a, b = per["actual"], per["anterior"]
+    datos = informes.ventas(a["desde"], a["hasta"], b["desde"], b["hasta"])
+    cambios = {k: utilidades.variacion(datos["actual"][k], datos["anterior"][k])
+               for k in ("con_iva", "sin_iva", "n", "ticket")}
+    return render_template("reportes/ventas.html", d=datos, cambios=cambios, **ctx)
+
+
+@bp.route("/top")
+@login_required
+@roles_required("administrador", "director_tecnico")
+def top_ver():
+    """R3 · Top productos por dinero, unidades o utilidad (5, 10 o 20)."""
+    from . import informes
+    per, ctx = _periodo_pedido()
+    cuantos = _entero("cuantos", (5, 10, 20), 10)
+    orden = request.args.get("orden") if request.args.get("orden") in ("dinero", "unidades", "utilidad") else "dinero"
+    datos = informes.top_productos(per["actual"]["desde"], per["actual"]["hasta"], cuantos, orden)
+    return render_template("reportes/top.html", d=datos, cuantos=cuantos, orden=orden,
+                           extra_filtros={"cuantos": cuantos, "orden": orden}, **ctx)
+
+
+@bp.route("/ventas-vs-compras")
+@login_required
+@roles_required("administrador", "director_tecnico")
+def ventas_compras_ver():
+    """R4 · Ventas vs compras de los últimos 12 meses."""
+    from . import informes
+    return render_template("reportes/ventas_compras.html", d=informes.ventas_vs_compras())
+
+
+@bp.route("/gastos")
+@login_required
+@roles_required("administrador", "director_tecnico")
+def gastos_ver():
+    """R5 · Gastos del período por categoría y forma de pago, con el listado."""
+    from . import informes
+    per, ctx = _periodo_pedido()
+    a, b = per["actual"], per["anterior"]
+    datos = informes.gastos(a["desde"], a["hasta"], b["desde"], b["hasta"])
+    return render_template("reportes/gastos.html", d=datos,
+                           cambio_total=utilidades.variacion(datos["total"], datos["total_anterior"]), **ctx)
+
+
+@bp.route("/recepciones")
+@login_required
+def recepciones_ver():
+    """R7 · Recepciones por proveedor y rechazos (lo ven todos)."""
+    from . import informes
+    per, ctx = _periodo_pedido()
+    datos = informes.recepciones(per["actual"]["desde"], per["actual"]["hasta"])
+    return render_template("reportes/recepciones.html", d=datos, **ctx)
+
+
+@bp.route("/vencimientos")
+@login_required
+def vencimientos_ver():
+    """R8 · Semáforo de vencimientos (pantalla) con descarga en PDF para inspección."""
+    from .inventario import agrupar_vencimientos
+    grupos, total = agrupar_vencimientos()
+    return render_template("reportes/vencimientos.html", grupos=grupos, total=total)
+
+
+# Colores y títulos del semáforo (los mismos de Inventario → Vencimientos)
+SEMAFORO = [
+    ("vencidos", "VENCIDOS — retirar de la venta", "#f8d7da"),
+    ("rojo", "ROJO — vencen en 30 días o menos", "#fde3e1"),
+    ("amarillo", "AMARILLO — vencen en 31 a 90 días", "#fff3cd"),
+    ("verde", "VERDE — vencen en más de 90 días", "#e2f2e6"),
+    ("sin", "SIN FECHA DE VENCIMIENTO", "#eef2f6"),
+]
+
+
+@bp.route("/vencimientos/pdf")
+@login_required
+def vencimientos_pdf():
+    """PDF del semáforo de vencimientos, con firma del director técnico (para inspección)."""
+    from .inventario import agrupar_vencimientos
+    grupos, total = agrupar_vencimientos()
+    config = obtener_config()
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+                            topMargin=1.5 * cm, bottomMargin=1.5 * cm,
+                            title="Semáforo de vencimientos", author=config.get("razon_social") or "Droguería")
+    estilos = getSampleStyleSheet()
+    sub = ParagraphStyle("Sub", parent=estilos["Normal"], fontSize=9, textColor=colors.HexColor("#555555"))
+    celda = ParagraphStyle("Celda", parent=estilos["Normal"], fontSize=8)
+    titulo_grupo = ParagraphStyle("Grupo", parent=estilos["Normal"], fontSize=10, spaceBefore=8, spaceAfter=4)
+
+    elementos = list(encabezado_pdf(config, "SEMÁFORO DE VENCIMIENTOS"))
+    elementos.append(Paragraph(
+        f"Corte: <b>{datetime.now().strftime('%d/%m/%Y %H:%M')}</b> · Lotes con existencias: {total} · "
+        f"Vencidos: {len(grupos['vencidos'])} · Rojo: {len(grupos['rojo'])} · "
+        f"Amarillo: {len(grupos['amarillo'])} · Verde: {len(grupos['verde'])}", sub))
+    elementos.append(Spacer(1, 6))
+
+    for clave, titulo, color in SEMAFORO:
+        filas = grupos[clave]
+        if not filas:
+            continue
+        elementos.append(Paragraph(f"<b>{titulo}</b> ({len(filas)})", titulo_grupo))
+        data = [[Paragraph(f"<b>{h}</b>", celda) for h in
+                 ("Código", "Producto", "Laboratorio", "Lote", "Vence", "Días", "Cant.", "Estado")]]
+        for f in filas:
+            vence = f["vencimiento"] or "—"
+            if len(vence) >= 10:
+                vence = f"{vence[8:10]}/{vence[5:7]}/{vence[0:4]}"
+            data.append([Paragraph(str(x), celda) for x in (
+                f["producto_codigo"], f["producto_nombre"], f["lab_nombre"] or "—", f["lote"] or "—",
+                vence, "—" if f["dias"] is None else f["dias"],
+                f"{f['cantidad_disponible']:g}", f["estado"])])
+        tabla = Table(data, colWidths=[1.6 * cm, 5.4 * cm, 2.8 * cm, 2.0 * cm, 1.8 * cm, 1.1 * cm, 1.2 * cm, 2.0 * cm],
+                      repeatRows=1)
+        tabla.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(color)),
+            ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#b8c4cd")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 2), ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+        ]))
+        elementos.append(tabla)
+
+    if not total:
+        elementos.append(Paragraph("No hay lotes con existencias.", sub))
+
+    regente = config.get("regente_nombre") or ""
+    if regente:
+        elementos.append(Spacer(1, 24))
+        elementos.append(Paragraph(
+            f"_______________________________________<br/><b>{regente}</b><br/>"
+            f"Director Técnico — Tarjeta profesional {config.get('regente_tarjeta') or '—'}", sub))
+    pie = config.get("pie_pagina") or ""
+    if pie:
+        elementos.append(Spacer(1, 10))
+        elementos.append(Paragraph(f"<i>{pie}</i>", sub))
+
+    doc.build(elementos)
+    buffer.seek(0)
+    return send_file(buffer, mimetype="application/pdf", as_attachment=True,
+                     download_name=f"vencimientos_{datetime.now().strftime('%Y%m%d')}.pdf")

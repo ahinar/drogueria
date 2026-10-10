@@ -1,6 +1,7 @@
-{% extends "base.html" %}
+{% extends "reportes/_base.html" %}
+{% set reporte_activo = 'utilidades' %}
 {% block titulo %}Utilidades{% endblock %}
-{% block contenido %}
+{% block reporte %}
 {#
   R2 · ESTADO DE RESULTADOS
   - r      = lo que calcula app/utilidades.py (actual, anterior, periodo...)
