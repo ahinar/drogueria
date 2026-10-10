@@ -582,3 +582,47 @@ class TestFlechasDeLaFicha(BaseUnidades):
             "precio_venta": "200", "unidad_venta_id": str(self.u["Tableta"]), "_despues": "siguiente"})
         vec_ids = [r2 for r2 in ids]
         self.assertIn("/editar", r.headers["Location"])
+
+
+class TestImportarDeOdoo(TestImportador):
+    """Archivo exportado de Odoo 18 (Inventario → Productos → Exportar), sin tocarlo."""
+    def importar_odoo(self, filas):
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["Referencia interna", "Código de barras", "Nombre", "Categoría del producto", "Precio de venta",
+                   "Costo", "Unidad de medida", "Unidad de compra", "Impuesto de ventas", "Seguimiento",
+                   "Cantidad a la mano", "Descripción"])
+        for f in filas:
+            ws.append(f)
+        buf = io.BytesIO()
+        wb.save(buf)
+        self.post(self.c, "/productos/importar/previsualizar",
+                  {"archivo": (io.BytesIO(buf.getvalue()), "Producto_product.template.xlsx")},
+                  content_type="multipart/form-data")
+        return self.post(self.c, "/productos/importar/confirmar")
+
+    def test_sello_x_10_lotes_iva_y_codigos(self):
+        self.importar_odoo([
+            [None, "7700001", " ACETAMINOFEN 500mg LAPROFF", "All", 1600, 1000, "SELLO X 10", "CAJA X 300",
+             "0% IVA Exc", "Por lotes", 22.5, None],
+            ["7703038060420", None, "OLOPATADINA", "All", 30000, 0, "Unidades", "Unidades", "0% IVA Exc",
+             "Por cantidad", 1, "<div>TIENE GENERICO</div>"],
+            [None, None, "MISCELANEA", "All", 0, 0, "Unidades", "Unidades", "0% IVA Exc", "Por cantidad", 0, None],
+        ])
+        a = self.uno("SELECT * FROM productos WHERE nombre = 'ACETAMINOFEN 500mg LAPROFF'")
+        unidad = self.uno("SELECT id FROM unidades_medida WHERE nombre = 'Unidad'")[0]
+        self.assertTrue(a["codigo"].startswith("P"))
+        self.assertEqual((a["codigo_barras"], a["unidad_venta_id"], a["precio_venta"], a["precio_compra"],
+                          a["maneja_vencimiento"], a["iva_tipo"]), ("7700001", unidad, 160, 100, 1, "excluido"))
+        sello = self.uno("SELECT u.nombre, pp.factor, pp.precio_venta FROM producto_presentaciones pp "
+                         "JOIN unidades_medida u ON u.id = pp.unidad_id WHERE pp.producto_id = ?", a["id"])
+        self.assertEqual(tuple(sello), ("SELLO X 10", 10, 1600))
+        o = self.uno("SELECT * FROM productos WHERE nombre = 'OLOPATADINA'")
+        self.assertEqual((o["codigo_barras"], o["maneja_vencimiento"], o["descripcion"]), ("7703038060420", 0, "TIENE GENERICO"))
+        self.assertIsNone(self.uno("SELECT 1 FROM productos WHERE nombre = 'MISCELANEA'"))   # sin precio
+        # Importar el mismo archivo otra vez no repite (mismo código de barras)
+        antes = self.uno("SELECT COUNT(*) n FROM productos")["n"]
+        self.importar_odoo([[None, "7700001", "ACETAMINOFEN 500mg LAPROFF", "All", 1600, 1000, "SELLO X 10",
+                             "CAJA X 300", "0% IVA Exc", "Por lotes", 0, None]])
+        self.assertEqual(self.uno("SELECT COUNT(*) n FROM productos")["n"], antes)

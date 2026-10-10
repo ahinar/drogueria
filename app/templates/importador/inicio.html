@@ -35,6 +35,7 @@
   <ul class="suave">
     {% for _c, etiqueta, ejemplo in columnas %}<li>{% if '*' in etiqueta %}<b>{{ etiqueta }}</b>{% else %}{{ etiqueta }}{% endif %}{% if ejemplo %} <span class="suave">— ej: {{ ejemplo }}</span>{% endif %}</li>{% endfor %}
   </ul>
+  <p class="aviso" style="margin-top:1rem"><b>¿Vienes de Odoo?</b> Sube tal cual el Excel que exportas en <i>Inventario → Productos → Exportar</i> (Nombre, Código de barras, Precio de venta, Costo, Unidad de medida, Impuesto de ventas, Seguimiento). El programa lo reconoce solo y le pone código a cada producto.</p>
   <h3 style="margin-top:1rem">Unidades: cómo llenarlas</h3>
   <ul class="suave">
     <li><b>Unidad de venta</b>: lo que vendes normalmente y lo que agrega el POS al tocar el producto (Sobre x 10, Sello x 10, Frasco, Unidad).</li>

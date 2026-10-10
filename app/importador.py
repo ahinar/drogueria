@@ -105,6 +105,86 @@ def _abrir_archivo(nombre_archivo, contenido):
     return None, "Formato no soportado. Usa .xlsx o .csv."
 
 
+# =====================================================================
+# ARCHIVO EXPORTADO DE ODOO (Inventario → Productos → Exportar)
+# Fernando exportó sus productos de Odoo 18. En vez de pedirle que los pase
+# a nuestra plantilla, aquí se "traducen" las columnas de Odoo a las nuestras.
+# Después todo sigue igual que con la plantilla normal.
+# =====================================================================
+def _es_odoo(encabezados):
+    """¿El archivo viene de Odoo? (trae 'Unidad de medida' y 'Seguimiento')"""
+    nombres = {str(e).strip().lower() for e in encabezados}
+    return "unidad de medida" in nombres and "seguimiento" in nombres
+
+
+def _sin_html(texto):
+    """'<div>TIENE GENERICO</div>' -> 'TIENE GENERICO' (Odoo guarda notas en HTML)."""
+    import re
+    return " ".join(re.sub(r"<[^>]+>", " ", str(texto or "")).split())
+
+
+def _iva_de_odoo(texto):
+    """'0% IVA Exc' -> ('excluido', 0) ; '19% IVA' -> ('gravado', 19) ; '5%' -> ('gravado', 5)."""
+    import re
+    t = str(texto or "").lower()
+    if "exc" in t:
+        return "excluido", 0
+    if "exent" in t:
+        return "exento", 0
+    m = re.search(r"(\d+(?:[.,]\d+)?)\s*%", t)
+    if m and float(m.group(1).replace(",", ".")) > 0:
+        return "gravado", float(m.group(1).replace(",", "."))
+    return "excluido", 0
+
+
+def _traducir_odoo(filas, primer_codigo):
+    """Convierte cada fila de Odoo a una fila con los encabezados de NUESTRA plantilla.
+
+    - Código interno: Odoo casi nunca lo tiene -> se crean P00001, P00002...
+      (si la "Referencia interna" de Odoo era un código de barras, se usa como tal)
+    - "Unidades" -> "Unidad". "SELLO X 10" queda igual (trae 10).
+    - Precio y costo de Odoo son de esa unidad de medida (el sello completo).
+    - Seguimiento "Por lotes" -> maneja lote y vencimiento.
+    - IVA: "0% IVA Exc" -> excluido.
+    - Categoría "All" (la de Odoo por defecto) se ignora.
+    - "Cantidad a la mano" NO se importa aquí: las existencias entran con sus
+      lotes (archivo de existencias de Odoo) o con el conteo.
+    """
+    import re
+    etiqueta = {campo: et for campo, et, _ in COLUMNAS}
+    numero = int(primer_codigo[1:]) if primer_codigo[1:].isdigit() else 1
+    resultado = []
+    for f in filas:
+        g = {k.strip(): (v.strip() if isinstance(v, str) else v) for k, v in f.items()}
+        ref = (g.get("Referencia interna") or "").strip()
+        barras = (g.get("Código de barras") or "").strip()
+        if not barras and re.fullmatch(r"\d{8,14}", ref):
+            barras, ref = ref, ""                       # la "referencia" era un código de barras
+        unidad = (g.get("Unidad de medida") or "").strip()
+        if unidad.lower() in ("unidades", "unidad(es)", "unidad", "units"):
+            unidad = "Unidad"
+        iva_tipo, iva_tarifa = _iva_de_odoo(g.get("Impuesto de ventas") or g.get("Impuestos de cliente"))
+        categoria = (g.get("Categoría del producto") or "").split("/")[-1].strip()
+        notas = [t for t in (_sin_html(g.get("Notas internas")), f"Ref. Odoo: {ref}" if ref else "") if t]
+        nueva = {
+            etiqueta["codigo"]: f"P{numero:05d}",
+            etiqueta["codigo_barras"]: barras,
+            etiqueta["nombre"]: " ".join(str(g.get("Nombre") or "").split()),
+            etiqueta["descripcion"]: _sin_html(g.get("Descripción")),
+            etiqueta["unidad_venta"]: unidad,
+            etiqueta["venta_precio"]: g.get("Precio de venta") or "",
+            etiqueta["venta_costo"]: g.get("Costo") or "",
+            etiqueta["iva_tipo"]: iva_tipo,
+            etiqueta["iva_tarifa"]: iva_tarifa,
+            etiqueta["maneja_vencimiento"]: "SI" if "lote" in str(g.get("Seguimiento") or "").lower() else "NO",
+            etiqueta["categorias"]: "" if categoria.lower() in ("all", "todos", "") else categoria,
+            etiqueta["observaciones"]: " · ".join(notas),
+        }
+        resultado.append({k: ("" if v is None else str(v)) for k, v in nueva.items()})
+        numero += 1
+    return resultado
+
+
 def _filas_a_dict(encabezados, filas):
     """Convierte las filas en diccionarios {encabezado: valor}."""
     resultado = []
@@ -261,6 +341,20 @@ def _unidad_por_defecto(db):
     return fila["id"] if fila else None
 
 
+def _ya_existe(db, fila, mapa, codigo):
+    """¿El producto ya está? Mismo código interno o mismo código de barras
+    (así, importar el mismo archivo de Odoo dos veces no repite productos)."""
+    barras = (fila.get(mapa.get("codigo_barras", ""), "") or "").strip()
+    if codigo and db.execute("SELECT 1 FROM productos WHERE LOWER(TRIM(codigo)) = LOWER(TRIM(?))",
+                             (codigo,)).fetchone():
+        return True
+    if barras and db.execute("SELECT 1 FROM productos WHERE codigo_barras = ? UNION ALL "
+                             "SELECT 1 FROM producto_presentaciones WHERE codigo_barras = ?",
+                             (barras, barras)).fetchone():
+        return True
+    return False
+
+
 def _modo_nuevo(fila, mapa):
     """¿La fila viene con "Unidad de venta" (formato nuevo, como la ficha)?"""
     return bool("unidad_venta" in mapa and (fila.get(mapa["unidad_venta"], "") or "").strip())
@@ -402,6 +496,13 @@ def previsualizar():
         flash("El archivo no tiene filas de datos.", "error")
         return redirect(url_for("importador.inicio"))
 
+    # ¿Viene de Odoo? Se traducen sus columnas a las de nuestra plantilla
+    if _es_odoo(filas[0].keys()):
+        from .productos import _siguiente_codigo
+        filas = _traducir_odoo(filas, _siguiente_codigo())
+        flash("Archivo de Odoo reconocido: se tradujeron sus columnas (unidad de medida, precio, "
+              "costo, lotes, IVA). Los productos sin código reciben uno nuevo (P00001…).", "ok")
+
     # Detectar encabezados disponibles
     encabezados = list(filas[0].keys())
     mapa = _mapear_columnas(encabezados)
@@ -428,12 +529,7 @@ def previsualizar():
         nombre = (fila.get(mapa.get("nombre", ""), "") or "").strip()
         errores = _validar_fila(fila, mapa)
 
-        existe = None
-        if codigo:
-            existe = db.execute(
-                "SELECT id FROM productos WHERE LOWER(TRIM(codigo)) = LOWER(TRIM(?)) LIMIT 1",
-                (codigo,),
-            ).fetchone()
+        existe = _ya_existe(db, fila, mapa, codigo)
 
         estado = "ok"
         if errores:
@@ -471,6 +567,8 @@ def previsualizar():
     tmp.close()
     session["importador_tmp"] = tmp.name
 
+    # Primero las filas con error, para verlas aunque estén al final del archivo
+    analisis.sort(key=lambda a: (a["estado"] != "error", a["fila"]))
     return render_template(
         "importador/previsualizar.html",
         analisis=analisis[:50],
@@ -518,10 +616,7 @@ def confirmar():
             errores.append(f"Fila {i} ({codigo or 'sin código'}): {', '.join(errs)}")
             continue
 
-        existe = db.execute(
-            "SELECT id FROM productos WHERE LOWER(TRIM(codigo)) = LOWER(TRIM(?)) LIMIT 1",
-            (codigo,),
-        ).fetchone()
+        existe = _ya_existe(db, fila, mapa, codigo)
         if existe:
             omitidos += 1
             continue
