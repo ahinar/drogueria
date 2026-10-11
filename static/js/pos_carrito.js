@@ -1291,7 +1291,9 @@
   function pintarInfo(p) {
     // ---- Franja amarilla ----
     $('info-nombre').textContent = p.nombre + (p.concentracion ? ' ' + p.concentracion : '');
-    $('info-precio').textContent = peso(p.precio);
+    // Precio de lo que se vende normalmente (ej. "Sobre x 10 · $1.800"), no el de la tableta suelta
+    const defInfo = defectoDe(p);
+    $('info-precio').textContent = (defInfo.id ? defInfo.nombre + ' · ' : '') + peso(defInfo.precio);
     // "A la mano" como se vende (29 sobres + 5 tab.) y entre paréntesis en pastas
     $('info-a-la-mano').textContent = 'A la mano: ' + textoExistencias(p, p.stock) +
       (defectoDe(p).factor > 1 ? ' (' + cant(p.stock) + ' en total)' : '');
@@ -1401,8 +1403,19 @@
     $('editar-nombre').value = p.nombre;
     $('editar-codigo-barras').value = p.codigo_barras || '';
     $('editar-maneja-lotes').checked = p.maneja_vencimiento;
-    $('editar-precio').value = textoNumero(p.precio);
-    $('editar-precio-maximo').value = textoNumero(p.precio_maximo);
+    // PRECIO: el de lo que se vende normalmente. Si se vende por "Sobre x 10",
+    // se edita el precio del SOBRE (no el de la tableta suelta).
+    const def = defectoDe(p);
+    const porPresentacion = def.id !== 0;
+    $('editar-precio-unidad').textContent = porPresentacion || vendibles(p).length > 1 ? def.nombre : '';
+    $('editar-maximo-unidad').textContent = porPresentacion ? def.nombre : '';
+    $('editar-precio').value = textoNumero(def.precio);
+    $('editar-precio-maximo').value = textoNumero(porPresentacion ? (def.precio_maximo || '') : p.precio_maximo);
+    // Los demás precios (unidad suelta, caja...), una fila por cada uno
+    $('editar-otros-precios').innerHTML = vendibles(p).filter((x) => x.id !== def.id).map((x) =>
+      '<label class="editar-fila"><span>Precio · ' + esc(x.nombre) + (x.id === 0 ? ' (suelta)' : '') + '</span>' +
+      '<input type="text" name="precio_pres_' + x.id + '" inputmode="decimal" required value="' +
+      esc(textoNumero(x.precio)) + '"></label>').join('');
     $('editar-iva-tipo').value = p.iva_tipo || 'excluido';
     $('editar-iva-tarifa').value = p.iva_tipo === 'gravado' ? textoNumero(p.iva_tarifa) : '';
     $('editar-formula').checked = p.requiere_formula;
@@ -1424,7 +1437,8 @@
   }
 
   // Si se cambió un producto que está en el carrito, actualizamos su línea.
-  // Si el cajero NO le había cambiado el precio a mano, toma el precio nuevo.
+  // Si el cajero NO le había cambiado el precio a mano, toma el precio nuevo
+  // (el de SU presentación: unidad, sobre, caja...).
   function refrescarEnCarrito(p) {
     let tocado = false;
     carrito.forEach((it) => {
@@ -1434,11 +1448,11 @@
       it.iva_tipo = p.iva_tipo;
       it.iva_tarifa = p.iva_tarifa;
       it.requiere_formula = p.requiere_formula;
-      // El modal "Editar" solo cambia el precio de la unidad principal;
-      // las líneas de sobre/caja conservan el suyo.
-      if (!it.presentacion_id) {
-        it.precio_original = p.precio;
-        if (sinCambioManual) it.precio = p.precio;
+      const opcion = (p.presentaciones || []).find((x) => x.id === (it.presentacion_id || 0));
+      const nuevo = opcion ? opcion.precio : (!it.presentacion_id ? p.precio : null);
+      if (nuevo != null) {
+        it.precio_original = nuevo;
+        if (sinCambioManual) it.precio = nuevo;
       }
       if (p.control_especial) aviso('"' + p.nombre + '" ahora es de control especial: no se podrá cobrar desde el POS.');
       tocado = true;

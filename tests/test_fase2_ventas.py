@@ -368,6 +368,73 @@ class TestEditarDesdePOS(BaseVentas):
         self.assertEqual(self.uno("SELECT precio_venta p FROM productos WHERE id=1")["p"], 1000)
 
 
+class TestEditarDesdePOSPorSobre(BaseVentas):
+    """Producto que se vende por "Sobre x 10": la ventana Editar cambia el precio del SOBRE
+    (no el de la tableta), y también la unidad suelta y las demás presentaciones."""
+
+    def setUp(self):
+        super().setUp()
+        con = self.db()
+        sobre = con.execute("INSERT INTO unidades_medida (nombre, cantidad, activo, creado_en) "
+                            "VALUES ('Sobre x 10', 10, 1, '2026-01-01')").lastrowid
+        caja = con.execute("INSERT INTO unidades_medida (nombre, cantidad, activo, creado_en) "
+                           "VALUES ('Caja x 100', 100, 1, '2026-01-01')").lastrowid
+        con.execute("INSERT INTO producto_presentaciones (producto_id, unidad_id, factor, precio_venta, precio_maximo, "
+                    "creado_en) VALUES (1, ?, 10, 1800, NULL, '2026-01-01')", (sobre,))
+        con.execute("INSERT INTO producto_presentaciones (producto_id, unidad_id, factor, precio_venta, creado_en) "
+                    "VALUES (1, ?, 100, 15000, '2026-01-01')", (caja,))
+        con.execute("UPDATE productos SET venta_defecto_unidad_id = ?, precio_venta = 200, vende_suelto = ? WHERE id = 1",
+                    (sobre, self.suelto))
+        con.commit()
+        con.close()
+        self.sobre_id = self.uno("SELECT id FROM producto_presentaciones WHERE factor = 10")["id"]
+        self.caja_id = self.uno("SELECT id FROM producto_presentaciones WHERE factor = 100")["id"]
+
+    suelto = 1
+
+    def editar(self, **campos):
+        datos = {"nombre": "Acetaminofén 500 mg", "precio_venta": "1700", "iva_tipo": "excluido"}
+        datos.update(campos)
+        return self.post(self.c, "/pos/api/producto/1/editar", datos)
+
+    def precio_pres(self, pid):
+        return self.uno("SELECT precio_venta p FROM producto_presentaciones WHERE id = ?", pid)["p"]
+
+    def test_cambia_el_precio_del_sobre_y_respeta_la_unidad_suelta(self):
+        r = self.editar(**{"precio_pres_0": "190", f"precio_pres_{self.caja_id}": "14000"})
+        self.assertTrue(r.get_json()["ok"], r.get_json())
+        self.assertEqual(self.precio_pres(self.sobre_id), 1700)
+        self.assertEqual(self.precio_pres(self.caja_id), 14000)
+        self.assertEqual(self.uno("SELECT precio_venta p FROM productos WHERE id = 1")["p"], 190)
+        bit = self.uno("SELECT detalle FROM bitacora WHERE accion = 'producto_editado'")["detalle"]
+        self.assertIn("precio Sobre x 10: 1800 -> 1700", bit)
+        # El POS (búsqueda) ya muestra el precio nuevo del sobre
+        prods = self.c.get("/pos/api/productos?q=Acetaminof").get_json()["productos"]
+        sobre = next(x for x in prods[0]["presentaciones"] if x["id"] == self.sobre_id)
+        self.assertEqual(sobre["precio"], 1700)
+
+    def test_maximo_del_sobre(self):
+        self.assertFalse(self.editar(precio_maximo="1600").get_json()["ok"])     # 1700 > 1600
+        self.assertTrue(self.editar(precio_maximo="2000").get_json()["ok"])
+        self.assertEqual(self.uno("SELECT precio_maximo m FROM producto_presentaciones WHERE id = ?",
+                                  self.sobre_id)["m"], 2000)
+        self.assertEqual(self.uno("SELECT precio_maximo m FROM productos WHERE id = 1")["m"], 200)   # 2000 ÷ 10
+
+    def test_precio_invalido_de_otra_presentacion(self):
+        self.assertFalse(self.editar(**{f"precio_pres_{self.caja_id}": "0"}).get_json()["ok"])
+        self.assertEqual(self.precio_pres(self.sobre_id), 1800)                 # no se guardó nada
+
+
+class TestEditarDesdePOSPorSobreSinSuelto(TestEditarDesdePOSPorSobre):
+    """Si NO se vende suelto, la unidad queda en el precio del sobre ÷ 10."""
+    suelto = 0
+
+    def test_cambia_el_precio_del_sobre_y_respeta_la_unidad_suelta(self):
+        self.assertTrue(self.editar().get_json()["ok"])
+        self.assertEqual(self.precio_pres(self.sobre_id), 1700)
+        self.assertEqual(self.uno("SELECT precio_venta p FROM productos WHERE id = 1")["p"], 170)
+
+
 class TestAnular(BaseVentas):
     def vender(self):
         self.lote(1, "CORTO", FUTURO_CERCA, 5)

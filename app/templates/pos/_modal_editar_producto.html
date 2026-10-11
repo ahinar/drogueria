@@ -33,15 +33,23 @@
           <span><input type="checkbox" name="maneja_vencimiento" id="editar-maneja-lotes" value="1"> Por lote y vencimiento</span>
         </label>
 
+        <!-- PRECIO de lo que se vende normalmente. Si el producto se vende por
+             "Sobre x 10", aquí va el precio del SOBRE (y el JS pone ese nombre en
+             la etiqueta: "Precio de venta · Sobre x 10"). Si se vende por unidad,
+             el de la unidad. -->
         <label class="editar-fila">
-          <span>Precio de venta *</span>
+          <span>Precio de venta *<small id="editar-precio-unidad" class="editar-unidad"></small></span>
           <input type="text" name="precio_venta" id="editar-precio" inputmode="decimal" required>
         </label>
 
         <label class="editar-fila">
-          <span>Precio máximo</span>
+          <span>Precio máximo<small id="editar-maximo-unidad" class="editar-unidad"></small></span>
           <input type="text" name="precio_maximo" id="editar-precio-maximo" inputmode="decimal" placeholder="Sin tope">
         </label>
+
+        <!-- Los demás precios: la unidad suelta (si se vende suelto) y las otras
+             presentaciones (caja...). pos_carrito.js arma estas filas según el producto. -->
+        <div id="editar-otros-precios"></div>
 
         <div class="editar-fila">
           <span>IVA</span>

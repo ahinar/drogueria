@@ -775,6 +775,14 @@ def api_producto_editar(producto_id):
 
     Solo cambia los campos de esta ventana; el resto de la ficha (registro
     sanitario, laboratorio, usos, etc.) queda igual y se edita en Productos.
+
+    PRECIOS (igual que la ficha completa, ver productos._traducir_venta):
+      - "precio_venta" y "precio_maximo" son los de lo que se vende NORMALMENTE.
+        Si el producto se vende por "Sobre x 10", son los del SOBRE: se guardan
+        en esa presentación y la unidad queda en precio ÷ 10 (o en su propio
+        precio si se vende suelto).
+      - "precio_pres_<id>": los precios de las demás formas de venderlo
+        (id 0 = la unidad suelta; otro número = caja, etc.).
     """
     db = get_db()
     p = db.execute("SELECT * FROM productos WHERE id = ?", (producto_id,)).fetchone()
@@ -802,6 +810,22 @@ def api_producto_editar(producto_id):
     codigo_barras = (f.get("codigo_barras") or "").strip() or None
     precio_venta = numero("precio_venta")
     precio_maximo = numero("precio_maximo")
+    # ¿Cómo se vende normalmente? (0 = por la unidad; otro = Sobre x 10, etc.)
+    opciones = pres.presentaciones_de([producto_id]).get(producto_id, [])
+    defecto_id = pres.id_por_defecto(opciones, p["venta_defecto_unidad_id"])
+    defecto = next((o for o in opciones if o["id"] == defecto_id), None)
+    # Precios de las demás presentaciones que vinieron en el formulario
+    otros_precios = {}
+    for o in opciones:
+        if o["id"] == defecto_id or f"precio_pres_{o['id']}" not in f:
+            continue
+        valor = numero(f"precio_pres_{o['id']}")
+        if valor in (None, "error") or valor <= 0:
+            return _json_error(f"Escribe un precio válido para {o['nombre']}.")
+        if o["precio_maximo"] and valor > o["precio_maximo"] + 0.01:
+            return _json_error(f"El precio de {o['nombre']} ({pesos(valor)}) supera su precio máximo "
+                               f"({pesos(o['precio_maximo'])}).")
+        otros_precios[o["id"]] = valor
     iva_tipo = (f.get("iva_tipo") or "").strip()
     iva_tarifa = numero("iva_tarifa")
     requiere_formula = 1 if f.get("requiere_formula") else 0
@@ -848,6 +872,28 @@ def api_producto_editar(producto_id):
             return _json_error(f"No se pudo subir la foto: {error}")
         ruta_imagen = ruta_nueva
 
+    # ---- Traducir los precios a como se guardan ----
+    # Lo escrito arriba es el precio de lo que se vende normalmente.
+    pres_cambios = []                       # (id de presentación, precio, máximo) a guardar
+    if defecto and defecto_id != pres.PRINCIPAL and defecto["factor"] > 1:
+        factor = defecto["factor"]
+        pres_cambios.append((defecto_id, precio_venta, precio_maximo))
+        precio_maximo_unidad = round(precio_maximo / factor, 2) if precio_maximo else None
+        if p["vende_suelto"] and pres.PRINCIPAL in otros_precios:
+            precio_unidad = otros_precios.pop(pres.PRINCIPAL)        # la unidad suelta tiene su precio
+        elif p["vende_suelto"]:
+            precio_unidad = float(p["precio_venta"] or 0) or round(precio_venta / factor, 2)
+        else:
+            precio_unidad = round(precio_venta / factor, 2)          # no se vende suelta: sale del sobre
+        if precio_maximo_unidad and precio_unidad > precio_maximo_unidad + 0.01:
+            return _json_error(f"El precio de la unidad suelta ({pesos(precio_unidad)}) supera el máximo por "
+                               f"unidad ({pesos(precio_maximo_unidad)}).")
+    else:
+        precio_unidad, precio_maximo_unidad = precio_venta, precio_maximo
+    for pid_pres, valor in otros_precios.items():
+        if pid_pres != pres.PRINCIPAL:
+            pres_cambios.append((pid_pres, valor, None))          # None = su máximo no cambia
+
     # ---- Anotar qué cambió (para la bitácora) ----
     antes = {"nombre": p["nombre"], "codigo_barras": p["codigo_barras"],
              "precio_venta": p["precio_venta"], "precio_maximo": p["precio_maximo"],
@@ -855,7 +901,7 @@ def api_producto_editar(producto_id):
              "requiere_formula": p["requiere_formula"], "control_especial": p["control_especial"],
              "maneja_vencimiento": p["maneja_vencimiento"], "imagen": p["imagen"]}
     despues = {"nombre": nombre, "codigo_barras": codigo_barras,
-               "precio_venta": precio_venta, "precio_maximo": precio_maximo,
+               "precio_venta": precio_unidad, "precio_maximo": precio_maximo_unidad,
                "iva": f"{iva_tipo} {iva_tarifa:g}%",
                "requiere_formula": requiere_formula, "control_especial": control_especial,
                "maneja_vencimiento": maneja_vencimiento, "imagen": ruta_imagen}
@@ -864,14 +910,30 @@ def api_producto_editar(producto_id):
         "SELECT catalogo_id FROM productos_categorias WHERE producto_id = ?", (producto_id,)))
     if categorias_antes != categorias:
         cambios.append(f"categorias: {categorias_antes} -> {categorias}")
+    por_id = {o["id"]: o for o in opciones}
+    for pid_pres, valor, maximo in pres_cambios:
+        o = por_id[pid_pres]
+        if abs(o["precio"] - valor) > 0.001:
+            cambios.append(f"precio {o['nombre']}: {o['precio']:g} -> {valor:g}")
+        if maximo is not None or pid_pres == defecto_id:
+            if (o["precio_maximo"] or None) != (maximo or None):
+                cambios.append(f"precio máximo {o['nombre']}: {o['precio_maximo'] or '-'} -> {maximo or '-'}")
 
     db.execute(
         "UPDATE productos SET nombre=?, codigo_barras=?, precio_venta=?, precio_maximo=?, "
         "iva_tipo=?, iva_tarifa=?, requiere_formula=?, control_especial=?, "
         "maneja_vencimiento=?, imagen=?, actualizado_en=? WHERE id=?",
-        (nombre, codigo_barras, precio_venta, precio_maximo, iva_tipo, iva_tarifa,
+        (nombre, codigo_barras, precio_unidad, precio_maximo_unidad, iva_tipo, iva_tarifa,
          requiere_formula, control_especial, maneja_vencimiento, ruta_imagen, ahora(), producto_id),
     )
+    # Precios de las presentaciones (sobre, caja...)
+    for pid_pres, valor, maximo in pres_cambios:
+        if pid_pres == defecto_id:
+            db.execute("UPDATE producto_presentaciones SET precio_venta = ?, precio_maximo = ? "
+                       "WHERE id = ? AND producto_id = ?", (valor, maximo or None, pid_pres, producto_id))
+        else:
+            db.execute("UPDATE producto_presentaciones SET precio_venta = ? WHERE id = ? AND producto_id = ?",
+                       (valor, pid_pres, producto_id))
     db.execute("DELETE FROM productos_categorias WHERE producto_id = ?", (producto_id,))
     for cid in categorias:
         db.execute("INSERT OR IGNORE INTO productos_categorias (producto_id, catalogo_id) "
