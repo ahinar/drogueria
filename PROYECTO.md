@@ -483,7 +483,9 @@ Notas:
   prender el computador" ({userstartup}), cierra el programa si está abierto al actualizar, no borra datos.
 - **GitHub Actions** `.github/workflows/instalador.yml` (windows-latest): pruebas en Windows → PyInstaller →
   prueba de arranque del .exe (`--solo-servidor` + /salud) → Inno Setup → artefacto; con etiqueta `v*`
-  publica en Releases. Para sacar versión: subir `VERSION`, commit, `git tag vX.Y.Z && git push --tags`.
+  al publicar una versión en GitHub (Releases → Draft a new release → etiqueta vX.Y.Z → Publish) agrega el .exe a esa
+  publicación. Para sacar versión: subir `VERSION` en app/version.py, commit, y publicar la versión en GitHub.
+  (Desde la sesión de Claude no se pueden crear etiquetas ni publicaciones: lo hace Fernando en la web.)
 
 ### Correcciones tras las pruebas de Fernando (2026-10-11)
 - **POS, ventana Editar (sobre la "i")**: el precio que se edita es el de lo que se vende normalmente

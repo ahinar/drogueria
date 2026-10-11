@@ -2,8 +2,9 @@
 # ARMAR EL INSTALADOR DE WINDOWS (lo hace GitHub solo, en un Windows en la nube)
 # ---------------------------------------------------------------------
 # Cuándo corre:
-#   - Al subir una "etiqueta" de versión, ej.  git tag v1.0.0 && git push --tags
-#     -> arma el instalador y lo publica en GitHub, en "Releases".
+#   - Al PUBLICAR una versión en GitHub: Releases -> "Draft a new release" ->
+#     etiqueta nueva "v1.0.0" -> "Publish release". En unos 10 minutos el
+#     instalador .exe aparece solo dentro de esa publicación.
 #   - A mano: GitHub -> Actions -> "Instalador de Windows" -> Run workflow
 #     -> el instalador queda para descargar en esa ejecución ("Artifacts").
 #
@@ -13,8 +14,8 @@
 name: Instalador de Windows
 
 on:
-  push:
-    tags: ["v*"]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -73,8 +74,8 @@ jobs:
           name: Fervifarma-Instalador-${{ steps.version.outputs.version }}
           path: dist/Fervifarma-Instalador-*.exe
 
-      - name: Publicar en Releases (solo con etiqueta v...)
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Agregar el instalador a la publicación (Releases)
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: dist/Fervifarma-Instalador-*.exe
