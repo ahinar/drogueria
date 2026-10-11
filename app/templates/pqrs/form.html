@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar queja o sugerencia{% endblock %}
+{% block contenido %}
+{# REGISTRAR una queja, reclamo, petición, sugerencia o felicitación (cualquier usuario) #}
+<p><a href="{{ url_for('pqrs.lista') }}">← Quejas y reclamos</a></p>
+<h1>➕ Registrar lo que dijo el usuario</h1>
+<form method="post" class="formulario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <div class="grid-3-compact">
+    <label>¿Qué es? *
+      <select name="tipo">{% for k, v in tipos.items() %}<option value="{{ k }}" {% if d.tipo == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+    <label>¿Por dónde llegó? *
+      <select name="canal">{% for k, v in canales.items() %}<option value="{{ k }}" {% if d.canal == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+    <label>Fecha en que llegó * <input type="date" name="fecha" required max="{{ hoy }}" value="{{ d.fecha }}"></label>
+    <label>Nombre del usuario <input type="text" name="cliente_nombre" maxlength="80" value="{{ d.cliente_nombre or '' }}" placeholder="Vacío = anónimo"></label>
+    <label>Teléfono o correo <input type="text" name="cliente_contacto" maxlength="80" value="{{ d.cliente_contacto or '' }}" placeholder="Para poder responderle"></label>
+    <label>Tiene que ver con
+      <select name="proceso"><option value="">—</option>{% for p in procesos %}<option {% if d.proceso == p %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></label>
+  </div>
+  <label>Lo que dijo el usuario * <textarea name="descripcion" rows="4" required placeholder="Con sus palabras, lo más completo posible">{{ d.descripcion or '' }}</textarea></label>
+  <div class="acciones">
+    <button type="submit">💾 Registrar</button>
+    <a class="boton secundario" href="{{ url_for('pqrs.lista') }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

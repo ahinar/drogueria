@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block titulo %}{{ c.numero }}{% endblock %}
+{% block contenido %}
+{#
+  UN CASO de farmacovigilancia: datos, PDF, enlace al formulario del INVIMA
+  y "Ya lo reporté" (fecha, por dónde y número del reporte).
+  lote = el lote en el inventario, si coincide (para bloquearlo si hace falta)
+#}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+<p><a href="{{ url_for('farmacovigilancia.lista') }}">← Farmacovigilancia</a></p>
+<div class="eres-cabecera">
+  <div>
+    <h1>{{ c.numero }} · {{ c.medicamento }} <span class="equipo-estado {{ c.estado_color }}">{{ c.estado_texto }}</span>
+      {% if c.grave %}<span class="equipo-estado rojo">Grave</span>{% endif %}</h1>
+    <p class="suave">{{ c.tipo_texto }} · se supo el {{ fecha(c.fecha_conocimiento) }} · registró {{ c.usuario_nombre or '—' }}
+      · reportar a más tardar el <strong>{{ fecha(c.plazo_reporte) }}</strong></p>
+  </div>
+  <div class="sug-acciones">
+    <a class="boton secundario" href="{{ url_for('farmacovigilancia.pdf', caso_id=c.id) }}">🖨️ PDF</a>
+    {% if jefe %}<a class="boton secundario" href="{{ url_for('farmacovigilancia.editar', caso_id=c.id) }}">✏️ Editar</a>{% endif %}
+  </div>
+</div>
+
+{% if lote and lote.estado != 'bloqueado' and lote.cantidad_disponible > 0 %}
+<p class="eres-aviso">📦 El lote {{ c.lote }} está en el inventario ({{ '%g' % lote.cantidad_disponible }} und).
+  Si sospechas un problema de calidad, <a href="{{ url_for('inventario.lote_ver', lote_id=lote.id) }}">bloquéalo</a> para que no se venda mientras tanto.</p>
+{% endif %}
+
+<div class="rep-caja">
+  <table class="rep-tabla">
+    <tbody>
+      <tr><th>Qué pasó</th><td style="white-space:pre-line">{{ c.descripcion }}</td></tr>
+      <tr><th>Empezó</th><td>{{ fecha(c.fecha_inicio) }}</td></tr>
+      <tr><th>Qué se hizo</th><td>{{ c.accion or '—' }}</td></tr>
+      <tr><th>Desenlace</th><td>{{ c.desenlace_texto }}</td></tr>
+      <tr><th>Medicamento</th><td>{{ c.medicamento }}{% if c.lote %} · lote {{ c.lote }}{% endif %}
+        <small>{{ c.laboratorio or 'laboratorio —' }} · registro {{ c.registro_sanitario or '—' }}</small></td></tr>
+      <tr><th>Dosis y uso</th><td>{{ c.dosis or '—' }}<small>para: {{ c.indicacion or '—' }}</small></td></tr>
+      <tr><th>Paciente</th><td>{{ c.paciente_iniciales or '—' }} · {{ c.paciente_edad or 'edad —' }} · {{ sexos.get(c.paciente_sexo or '', 'sexo —') }}</td></tr>
+      {% if c.observaciones %}<tr><th>Observaciones</th><td>{{ c.observaciones }}</td></tr>{% endif %}
+      {% if c.reportado %}<tr><th>Reporte</th><td>{{ fecha(c.fecha_reporte) }} · {{ c.medio_reporte }}{% if c.numero_reporte %} · N.º {{ c.numero_reporte }}{% endif %}</td></tr>{% endif %}
+    </tbody>
+  </table>
+</div>
+
+{% if jefe and not c.reportado %}
+<details class="rep-caja equipo-calibrar" style="margin-top:1rem" open>
+  <summary><strong>📨 Reportar</strong></summary>
+  <ol class="fv-pasos">
+    <li>Abre el formulario del INVIMA: <a href="{{ ereporting }}" target="_blank" rel="noopener">eReporting</a>
+      (o el medio que te indique tu Secretaría de Salud).</li>
+    <li>Copia los datos de este caso (el PDF los tiene en orden).</li>
+    <li>Cuando lo envíes, anota aquí la fecha y el número que te dé el sistema.</li>
+  </ol>
+  <form method="post" action="{{ url_for('farmacovigilancia.reportado', caso_id=c.id) }}" class="formulario sin-marco">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="grid-3-compact">
+      <label>Fecha del reporte * <input type="date" name="fecha_reporte" required min="{{ c.fecha_conocimiento }}" max="{{ hoy }}" value="{{ hoy }}"></label>
+      <label>Por dónde * <input type="text" name="medio_reporte" required maxlength="60" value="eReporting INVIMA" list="fv-medios"></label>
+      <label>Número del reporte <input type="text" name="numero_reporte" maxlength="40"></label>
+    </div>
+    <datalist id="fv-medios"><option value="eReporting INVIMA"><option value="Secretaría de Salud"><option value="VigiFlow"><option value="Correo electrónico"></datalist>
+    <div class="acciones"><button type="submit">✅ Ya lo reporté</button></div>
+  </form>
+</details>
+{% endif %}
+{% endblock %}

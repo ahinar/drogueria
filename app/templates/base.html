@@ -105,6 +105,14 @@
          href="{{ url_for('capacitaciones.plan') }}" title="Capacitaciones y personal">
         <span class="ico">{{ ico("birrete", "🎓") }}</span><span class="txt">Capacitaciones</span>
       </a>
+      <a class="sidebar-link {% if ep.startswith('pqrs.') %}activo{% endif %}"
+         href="{{ url_for('pqrs.lista') }}" title="Quejas, reclamos y sugerencias">
+        <span class="ico">{{ ico("globo", "💬") }}</span><span class="txt">Quejas</span>
+      </a>
+      <a class="sidebar-link {% if ep.startswith('farmacovigilancia.') %}activo{% endif %}"
+         href="{{ url_for('farmacovigilancia.lista') }}" title="Farmacovigilancia">
+        <span class="ico">{{ ico("alerta", "💊") }}</span><span class="txt">Farmacovigilancia</span>
+      </a>
 
       <!-- ===== Productos ===== -->
       <div class="sidebar-seccion">Productos</div>

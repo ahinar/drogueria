@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block titulo %}Farmacovigilancia{% endblock %}
+{% block contenido %}
+{#
+  FARMACOVIGILANCIA (app/farmacovigilancia.py, función lista)
+  casos = cada caso con su estado (reportado / por reportar / plazo vencido)
+#}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+<div class="eres-cabecera">
+  <div>
+    <h1><span class="ico-emoji">💊</span> Farmacovigilancia</h1>
+    <p class="suave">Reacciones adversas, medicamentos que no hicieron efecto, errores de medicación y problemas de calidad.
+      Se registran aquí y se reportan al INVIMA: <strong>graves en 72 horas</strong>, no graves hasta el <strong>día 5 del mes siguiente</strong>.
+      Si no pasó nada, no se reporta nada (no hay reporte en cero).</p>
+  </div>
+  <div class="sug-acciones">
+    <a class="boton secundario" href="{{ ereporting }}" target="_blank" rel="noopener">🌐 Reportar en eReporting (INVIMA)</a>
+    <a class="boton" href="{{ url_for('farmacovigilancia.nuevo') }}">➕ Registrar caso</a>
+  </div>
+</div>
+
+<form method="get" class="filtros">
+  <select name="filtro">
+    <option value="todos" {% if filtro == 'todos' %}selected{% endif %}>Todos</option>
+    <option value="pendientes" {% if filtro == 'pendientes' %}selected{% endif %}>Por reportar</option>
+  </select>
+  <button type="submit">Filtrar</button>
+</form>
+
+<div class="rep-caja">
+<table class="rep-tabla">
+  <thead><tr><th>Número</th><th>Se supo</th><th>Medicamento</th><th>Tipo</th><th>Reportar antes de</th><th>Estado</th></tr></thead>
+  <tbody>
+    {% for c in casos %}
+    <tr>
+      <td><a href="{{ url_for('farmacovigilancia.ver', caso_id=c.id) }}"><strong>{{ c.numero }}</strong></a></td>
+      <td>{{ fecha(c.fecha_conocimiento) }}</td>
+      <td>{{ c.medicamento }}{% if c.lote %}<small>lote {{ c.lote }}</small>{% endif %}</td>
+      <td>{{ c.tipo_texto }}{% if c.grave %} <span class="equipo-estado rojo">Grave</span>{% endif %}</td>
+      <td>{{ fecha(c.plazo_reporte) }}{% if c.dias is not none %}<small>{% if c.dias < 0 %}venció hace {{ -c.dias }} días{% else %}faltan {{ c.dias }} días{% endif %}</small>{% endif %}</td>
+      <td><span class="equipo-estado {{ c.estado_color }}">{{ c.estado_texto }}</span></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="suave">No hay casos registrados.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

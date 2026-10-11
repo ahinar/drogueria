@@ -284,6 +284,44 @@ def calcular_alertas(rol):
                 }, url_for("capacitaciones.plan"), "Ver plan de capacitación")
 
     # ------------------------------------------------------------------
+    # 4f. QUEJAS por responder (vencidas = rojo; ≤ 3 días hábiles = amarillo)
+    #     y FARMACOVIGILANCIA por reportar (solo jefe). Ver app/pqrs.py y
+    #     app/farmacovigilancia.py
+    # ------------------------------------------------------------------
+    if jefe:
+        from .farmacovigilancia import casos_por_reportar
+        from .pqrs import TIPOS as TIPOS_PQRS, pqrs_por_vencer
+        pendientes_pqrs = pqrs_por_vencer(hoy)
+        item_pqrs = lambda par: {
+            "texto": f"{par[1]['numero']} · {TIPOS_PQRS[par[1]['tipo']]}",
+            "detalle": (f"venció el {_fecha(par[1]['fecha_limite'])}" if par[0][0] == "vencida"
+                        else f"quedan {par[0][1]} días hábiles (hasta el {_fecha(par[1]['fecha_limite'])})"),
+            "url": url_for("pqrs.ver", pqrs_id=par[1]["id"]),
+        }
+        agregar("pqrs_vencidas", "rojo", "💬", "Quejas sin responder y con el plazo vencido",
+                "La ley da 15 días hábiles. Respóndela cuanto antes y regístralo.",
+                [p for p in pendientes_pqrs if p[0][0] == "vencida"], item_pqrs,
+                url_for("pqrs.lista"), "Ver quejas")
+        agregar("pqrs_por_vencer", "amarillo", "💬", "Quejas por responder pronto",
+                "Respóndela antes de la fecha límite y regístralo.",
+                [p for p in pendientes_pqrs if p[0][0] == "por_vencer"], item_pqrs,
+                url_for("pqrs.lista"), "Ver quejas")
+        casos_fv = casos_por_reportar(hoy)
+        item_fv = lambda f: {
+            "texto": f"{f['numero']} · {f['medicamento']}" + (" (GRAVE)" if f["grave"] else ""),
+            "detalle": f"reportar a más tardar el {_fecha(f['plazo_reporte'])}",
+            "url": url_for("farmacovigilancia.ver", caso_id=f["id"]),
+        }
+        agregar("farmacovigilancia_graves", "rojo", "💊", "Farmacovigilancia: caso grave por reportar",
+                "Los casos graves se reportan en máximo 72 horas.",
+                [f for f in casos_fv if f["grave"] or f["plazo_reporte"] < hoy_txt], item_fv,
+                url_for("farmacovigilancia.lista", filtro="pendientes"), "Ver casos")
+        agregar("farmacovigilancia_por_reportar", "amarillo", "💊", "Farmacovigilancia: casos por reportar",
+                "Los no graves se reportan hasta el día 5 del mes siguiente.",
+                [f for f in casos_fv if not f["grave"] and f["plazo_reporte"] >= hoy_txt], item_fv,
+                url_for("farmacovigilancia.lista", filtro="pendientes"), "Ver casos")
+
+    # ------------------------------------------------------------------
     # 5. STOCK: agotados (rojo) y por debajo del mínimo (amarillo).
     #    Solo productos con "stock mínimo" definido: así un producto que no
     #    se maneja (mínimo 0) no llena el panel de avisos.

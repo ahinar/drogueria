@@ -2831,3 +2831,6 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 /* ===== Capacitaciones (Fase 4.3) ===== */
 .formulario label.check { display: flex; align-items: center; gap: .45rem; font-weight: 400; align-self: end; }
 .cap-asistencia td { vertical-align: middle; }
+
+/* ===== Farmacovigilancia (Fase 4.5) ===== */
+.fv-pasos { margin: .3rem 0 .8rem 1.2rem; line-height: 1.6; }

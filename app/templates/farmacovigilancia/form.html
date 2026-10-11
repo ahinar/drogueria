@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Registrar caso' if nuevo else 'Editar caso' }}{% endblock %}
+{% block contenido %}
+{#
+  REGISTRAR o EDITAR un caso de farmacovigilancia.
+  Los campos son los datos mínimos del reporte (paciente, medicamento, evento).
+  El medicamento se puede elegir de la lista (productos del programa): así se
+  llenan solos el laboratorio y el registro sanitario.
+#}
+<p><a href="{{ url_for('farmacovigilancia.lista') }}">← Farmacovigilancia</a></p>
+<h1>{{ '➕ Registrar caso' if nuevo else '✏️ Editar caso' }}</h1>
+<form method="post" class="formulario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <fieldset>
+    <legend>¿Qué pasó?</legend>
+    <div class="grid-3-compact">
+      <label>Tipo *
+        <select name="tipo">{% for k, v in tipos.items() %}<option value="{{ k }}" {% if d.tipo == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+      <label>¿Es grave?
+        <select name="grave">
+          <option value="0" {% if not d.grave %}selected{% endif %}>No</option>
+          <option value="1" {% if d.grave %}selected{% endif %}>Sí: hospitalización, riesgo de muerte, discapacidad…</option>
+        </select></label>
+      <label>La droguería se enteró el * <input type="date" name="fecha_conocimiento" required max="{{ hoy }}" value="{{ d.fecha_conocimiento.isoformat() }}"></label>
+      <label>Empezó el <input type="date" name="fecha_inicio" max="{{ hoy }}" value="{{ d.fecha_inicio or '' }}"></label>
+    </div>
+    <label>Descripción * <textarea name="descripcion" rows="3" required placeholder="Qué le pasó al paciente o qué se encontró en el producto">{{ d.descripcion or '' }}</textarea></label>
+    <div class="grid-3-compact">
+      <label>Qué se hizo <input type="text" name="accion" maxlength="200" value="{{ d.accion or '' }}" placeholder="Suspendió el medicamento, fue al médico…"></label>
+      <label>Desenlace
+        <select name="desenlace"><option value="">—</option>{% for k, v in desenlaces.items() %}<option value="{{ k }}" {% if d.desenlace == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>Medicamento</legend>
+    <div class="grid-3-compact">
+      <label>Medicamento * <input type="text" name="medicamento" required maxlength="160" list="fv-productos" value="{{ d.medicamento or '' }}"
+        placeholder="Escribe y elige de la lista"></label>
+      <label>Lote <input type="text" name="lote" maxlength="40" value="{{ d.lote or '' }}"></label>
+      <label>Laboratorio <input type="text" name="laboratorio" maxlength="80" value="{{ d.laboratorio or '' }}" placeholder="Se llena solo si eliges de la lista"></label>
+      <label>Registro sanitario <input type="text" name="registro_sanitario" maxlength="40" value="{{ d.registro_sanitario or '' }}"></label>
+      <label>Dosis, vía y frecuencia <input type="text" name="dosis" maxlength="120" value="{{ d.dosis or '' }}" placeholder="Ej: 500 mg oral cada 8 h"></label>
+      <label>Para qué lo tomaba <input type="text" name="indicacion" maxlength="120" value="{{ d.indicacion or '' }}"></label>
+    </div>
+    <datalist id="fv-productos">{% for p in productos %}<option value="{{ p.codigo }} · {{ p.nombre }}">{% endfor %}</datalist>
+  </fieldset>
+  <fieldset>
+    <legend>Paciente (solo iniciales, por privacidad)</legend>
+    <div class="grid-3-compact">
+      <label>Iniciales <input type="text" name="paciente_iniciales" maxlength="6" value="{{ d.paciente_iniciales or '' }}" placeholder="Ej: JPG"></label>
+      <label>Edad <input type="text" name="paciente_edad" maxlength="20" value="{{ d.paciente_edad or '' }}" placeholder="Ej: 45 o 8 meses"></label>
+      <label>Sexo
+        <select name="paciente_sexo"><option value="">—</option>{% for k, v in sexos.items() %}<option value="{{ k }}" {% if d.paciente_sexo == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+    </div>
+  </fieldset>
+  <label>Observaciones <input type="text" name="observaciones" maxlength="300" value="{{ d.observaciones or '' }}"></label>
+  <div class="acciones">
+    <button type="submit">💾 Guardar</button>
+    <a class="boton secundario" href="{{ url_for('farmacovigilancia.lista') if nuevo else url_for('farmacovigilancia.ver', caso_id=d.id) }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

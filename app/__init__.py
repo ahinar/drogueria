@@ -84,6 +84,10 @@ def create_app(test_config=None):
     # Fase 4.3: capacitaciones y personal. Ver app/capacitaciones.py
     from . import capacitaciones
     app.register_blueprint(capacitaciones.bp)
+    # Fase 4.4 y 4.5: quejas (PQRS) y farmacovigilancia. Ver app/pqrs.py y app/farmacovigilancia.py
+    from . import farmacovigilancia, pqrs
+    app.register_blueprint(pqrs.bp)
+    app.register_blueprint(farmacovigilancia.bp)
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
     # {{ 12345 | pesos }} → "$12.345" (formato colombiano, ver app/formato.py)

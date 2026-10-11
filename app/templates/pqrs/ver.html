@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block titulo %}{{ d.numero }}{% endblock %}
+{% block contenido %}
+{# UNA PQRS: lo que dijo el usuario y la respuesta (el DT responde y la cierra) #}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+<p><a href="{{ url_for('pqrs.lista') }}">← Quejas y reclamos</a></p>
+<div class="eres-cabecera">
+  <div>
+    <h1>{{ d.tipo_texto }} {{ d.numero }} <span class="equipo-estado {{ d.estado_color }}">{{ d.estado_texto }}</span></h1>
+    <p class="suave">Recibida el {{ fecha(d.fecha) }} · {{ d.canal_texto }} · registró {{ d.usuario_nombre or '—' }}
+      · responder a más tardar el <strong>{{ fecha(d.fecha_limite) }}</strong>
+      {% if d.estado == 'abierta' %}({% if d.plazo == 'vencida' %}ya venció{% else %}quedan {{ d.quedan }} días hábiles{% endif %}){% endif %}</p>
+  </div>
+  <div class="sug-acciones">
+    <a class="boton secundario" href="{{ url_for('pqrs.pdf', pqrs_id=d.id) }}">🖨️ PDF</a>
+    {% if jefe and d.estado == 'cerrada' %}
+    <form method="post" action="{{ url_for('pqrs.reabrir', pqrs_id=d.id) }}" data-confirmar="¿Abrir de nuevo {{ d.numero }}?">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button type="submit" class="boton secundario">↩️ Reabrir</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="rep-caja">
+  <p><strong>Usuario:</strong> {{ d.cliente_nombre or 'Anónimo' }}{% if d.cliente_contacto %} · {{ d.cliente_contacto }}{% endif %}
+    {% if d.proceso %} · <strong>tiene que ver con:</strong> {{ d.proceso }}{% endif %}</p>
+  <p style="white-space:pre-line">{{ d.descripcion }}</p>
+</div>
+
+{% if d.respuesta %}
+<div class="rep-caja" style="margin-top:1rem">
+  <h3>Respuesta ({{ fecha(d.fecha_respuesta) }}, {{ d.responde_nombre or '—' }})</h3>
+  <p style="white-space:pre-line">{{ d.respuesta }}</p>
+  {% if d.accion_mejora %}<p><strong>Acción de mejora:</strong> {{ d.accion_mejora }}</p>{% endif %}
+  <p><strong>¿Quedó satisfecho?</strong> {{ satisfecho.get(d.satisfecho, '—') if d.satisfecho else '—' }}</p>
+</div>
+{% endif %}
+
+{% if jefe and d.estado == 'abierta' %}
+<details class="rep-caja equipo-calibrar" style="margin-top:1rem" open>
+  <summary><strong>✉️ Responder y cerrar</strong></summary>
+  <form method="post" action="{{ url_for('pqrs.responder', pqrs_id=d.id) }}" class="formulario sin-marco">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>¿Qué se le respondió al usuario? * <textarea name="respuesta" rows="3" required>{{ d.respuesta or '' }}</textarea></label>
+    <label>Acción de mejora <input type="text" name="accion_mejora" maxlength="300" value="{{ d.accion_mejora or '' }}"
+      placeholder="Qué se cambió para que no vuelva a pasar (si aplica)"></label>
+    <div class="grid-3-compact">
+      <label>Fecha de respuesta * <input type="date" name="fecha_respuesta" required min="{{ d.fecha }}" max="{{ hoy }}" value="{{ hoy }}"></label>
+      <label>Respondió <input type="text" name="responde_nombre" maxlength="80" value="{{ responde }}"></label>
+      <label>¿Quedó satisfecho?
+        <select name="satisfecho">{% for k, v in satisfecho.items() %}<option value="{{ k }}" {% if k == 'sin_dato' %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+    </div>
+    <div class="acciones"><button type="submit">💾 Guardar y cerrar</button></div>
+  </form>
+</details>
+{% endif %}
+{% endblock %}

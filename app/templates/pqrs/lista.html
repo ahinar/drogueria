@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block titulo %}Quejas y reclamos{% endblock %}
+{% block contenido %}
+{#
+  QUEJAS Y RECLAMOS (app/pqrs.py, función lista)
+  filas = las del filtro, con su estado listo (_con_estado)
+  ind   = indicadores del año: total, por tipo, abiertas y % respondidas a tiempo
+#}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+<div class="eres-cabecera">
+  <div>
+    <h1><span class="ico-emoji">💬</span> Quejas, reclamos y sugerencias</h1>
+    <p class="suave">Lo que dicen los usuarios: se registra, se responde en máximo 15 días hábiles y se toma una acción
+      para que no se repita. Aunque no lleguen, la Secretaría revisa que exista el registro.</p>
+  </div>
+  <a class="boton" href="{{ url_for('pqrs.nueva') }}">➕ Registrar</a>
+</div>
+
+<div class="rep-tarjetas">
+  <div class="eres-tarjeta"><span>Recibidas {{ anio }}</span><strong>{{ ind.total }}</strong>
+    <small>{{ ind.por_tipo.queja }} quejas · {{ ind.por_tipo.reclamo }} reclamos · {{ ind.por_tipo.sugerencia }} sugerencias</small></div>
+  <div class="eres-tarjeta {{ 'negativa' if ind.abiertas }}"><span>Sin responder</span><strong>{{ ind.abiertas }}</strong></div>
+  <div class="eres-tarjeta"><span>Respondidas a tiempo</span><strong>{{ '%d %%' % ind.a_tiempo_pct if ind.a_tiempo_pct is not none else '—' }}</strong>
+    <small>meta: 100 %</small></div>
+</div>
+
+<form method="get" class="filtros">
+  <select name="filtro">
+    <option value="abiertas" {% if filtro == 'abiertas' %}selected{% endif %}>Sin responder</option>
+    <option value="cerradas" {% if filtro == 'cerradas' %}selected{% endif %}>Respondidas</option>
+    <option value="todas" {% if filtro == 'todas' %}selected{% endif %}>Todas</option>
+  </select>
+  <select name="anio">{% for a in anios %}<option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>{% endfor %}</select>
+  <button type="submit">Filtrar</button>
+</form>
+
+<div class="rep-caja">
+<table class="rep-tabla">
+  <thead><tr><th>Número</th><th>Recibida</th><th>Tipo</th><th>Usuario y lo que dijo</th><th>Responder antes de</th><th>Estado</th></tr></thead>
+  <tbody>
+    {% for d in filas %}
+    <tr>
+      <td><a href="{{ url_for('pqrs.ver', pqrs_id=d.id) }}"><strong>{{ d.numero }}</strong></a></td>
+      <td>{{ fecha(d.fecha) }}<small>{{ d.canal_texto }}</small></td>
+      <td>{{ d.tipo_texto }}</td>
+      <td>{{ d.cliente_nombre or 'Anónimo' }}<small>{{ d.descripcion[:90] }}{{ '…' if d.descripcion|length > 90 }}</small></td>
+      <td>{{ fecha(d.fecha_limite) }}{% if d.estado == 'abierta' %}<small>{% if d.plazo == 'vencida' %}venció{% else %}quedan {{ d.quedan }} días hábiles{% endif %}</small>{% endif %}</td>
+      <td><span class="equipo-estado {{ d.estado_color }}">{{ d.estado_texto }}</span></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="suave">{{ 'No hay nada pendiente por responder.' if filtro == 'abiertas' else 'No hay registros con ese filtro.' }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

@@ -434,6 +434,20 @@ Notas:
     (fecha, horas, asistentes con nota 0–5, acta firmada escaneada; se puede corregir), cancelar o
     reprogramar. Acta en PDF para firmar (con el personal activo ya escrito si aún no hay asistencia)
     y cronograma del año en PDF. Aviso en Inicio (jefe) por capacitaciones atrasadas.
+- **4.4 Quejas (PQRS)** ✅ (2026-10-11) — `app/pqrs.py`, menú **Calidad → Quejas**: registrar (todos;
+  tipo queja/reclamo/petición/sugerencia/felicitación, canal, usuario, descripción) → número PQ-0001 y
+  fecha límite = 15 días hábiles (Ley 1755/2015) con `app/festivos.py` (festivos de Colombia: fijos,
+  Ley Emiliani y los de Pascua); responder y cerrar (jefe: respuesta, acción de mejora, ¿satisfecho?),
+  reabrir, PDF; indicadores del año (por tipo, sin responder, % a tiempo). Avisos en Inicio: vencida
+  (rojo), ≤ 3 días hábiles (amarillo).
+- **4.5 Farmacovigilancia** ✅ (2026-10-11) — `app/farmacovigilancia.py`, menú **Calidad →
+  Farmacovigilancia**: registrar caso (todos): RAM, fallo terapéutico, error de medicación o problema
+  de calidad; grave sí/no; paciente solo iniciales/edad/sexo; medicamento con sugerencias de los
+  productos (enlaza `producto_id` y completa laboratorio y registro sanitario). Plazo de reporte:
+  grave 72 h; no grave día 5 del mes siguiente; sin reportes en cero. Botón al formulario eReporting
+  del INVIMA (primaryreporting.who-umc.org/CO), "Ya lo reporté" (fecha, medio, número), PDF con los
+  datos mínimos (FOREAM), enlace para bloquear el lote si está en inventario. Avisos en Inicio:
+  graves o vencidos (rojo), no graves a ≤ 5 días (amarillo).
 - Plan de saneamiento, capacitaciones, calibraciones.
 - Farmacovigilancia.
 - **Modo Inspección** (paquete ZIP).
@@ -540,6 +554,7 @@ Notas:
 | 30 | `documentos` y `documento_versiones` (gestión documental, Fase 4.1) |
 | 31 | `limpieza_tareas` (con las 3 de Fernando), `limpieza_registros`, `control_plagas`, `residuos_registros`, `residuos_entregas` (Fase 4.2) |
 | 32 | `personal`, `capacitaciones`, `capacitacion_asistentes` (Fase 4.3) |
+| 33 | `pqrs` (Fase 4.4) y `farmacovigilancia` (Fase 4.5) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -560,7 +575,7 @@ Notas:
 - [x] 3.2 Precios máximos
 - [x] 3.3 Alertas INVIMA
 - [ ] 3.4 Control especial (FNE) ⏸ para una actualización posterior
-- [~] Fase 4: cumplimiento — 4.1 Documentos ✅, 4.2 Saneamiento ✅, 4.3 Capacitaciones ✅; faltan quejas, farmacovigilancia, autoinspección y Modo Inspección
+- [~] Fase 4: cumplimiento — 4.1 Documentos ✅, 4.2 Saneamiento ✅, 4.3 Capacitaciones ✅, 4.4 Quejas ✅, 4.5 Farmacovigilancia ✅; faltan autoinspección y Modo Inspección
 - [ ] Fase 5: Facturación electrónica
 - [ ] Fase 6: IA
 - [ ] Fase 7: Empaquetado

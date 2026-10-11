@@ -1217,6 +1217,76 @@ MIGRATIONS = [
         );
         """,
     ),
+    (
+        33,
+        """
+        -- ===== Quejas y reclamos (PQRS) — Fase 4.4 =====
+        -- Peticiones, quejas, reclamos, sugerencias y felicitaciones de los usuarios.
+        -- fecha_limite = 15 días hábiles después de recibida (se calcula en app/pqrs.py).
+        CREATE TABLE pqrs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero TEXT NOT NULL UNIQUE,                 -- PQ-0001
+            fecha TEXT NOT NULL,                         -- cuándo se recibió (aaaa-mm-dd)
+            tipo TEXT NOT NULL CHECK (tipo IN ('peticion', 'queja', 'reclamo', 'sugerencia', 'felicitacion')),
+            canal TEXT NOT NULL DEFAULT 'presencial'
+                CHECK (canal IN ('presencial', 'telefono', 'whatsapp', 'buzon', 'escrito', 'otro')),
+            cliente_nombre TEXT,
+            cliente_contacto TEXT,                       -- teléfono o correo para responderle
+            descripcion TEXT NOT NULL,
+            proceso TEXT,                                -- a qué tiene que ver (dispensación, precio...)
+            fecha_limite TEXT NOT NULL,
+            estado TEXT NOT NULL DEFAULT 'abierta' CHECK (estado IN ('abierta', 'cerrada')),
+            respuesta TEXT,
+            fecha_respuesta TEXT,
+            accion_mejora TEXT,                          -- qué se cambió para que no vuelva a pasar
+            satisfecho TEXT CHECK (satisfecho IN ('si', 'no', 'sin_dato')),
+            responde_nombre TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,                         -- quién la recibió
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT
+        );
+        CREATE INDEX idx_pqrs_fecha ON pqrs (fecha);
+
+        -- ===== Farmacovigilancia — Fase 4.5 =====
+        -- Registro interno de eventos adversos y problemas con medicamentos.
+        -- Del paciente solo se guardan iniciales, edad y sexo (no el nombre completo).
+        -- plazo_reporte: grave = 72 horas; no grave = día 5 del mes siguiente.
+        CREATE TABLE farmacovigilancia (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero TEXT NOT NULL UNIQUE,                 -- FV-0001
+            fecha_conocimiento TEXT NOT NULL,            -- cuándo se enteró la droguería
+            fecha_inicio TEXT,                           -- cuándo empezó el evento
+            tipo TEXT NOT NULL CHECK (tipo IN ('ram', 'fallo', 'error', 'calidad')),
+            grave INTEGER NOT NULL DEFAULT 0,
+            paciente_iniciales TEXT,
+            paciente_edad TEXT,                          -- '45', '8 meses'...
+            paciente_sexo TEXT CHECK (paciente_sexo IN ('F', 'M', 'O')),
+            producto_id INTEGER,
+            medicamento TEXT NOT NULL,                   -- nombre como lo dijo el usuario
+            lote TEXT,
+            laboratorio TEXT,
+            registro_sanitario TEXT,
+            dosis TEXT,                                  -- dosis, vía y frecuencia
+            indicacion TEXT,                             -- para qué lo tomaba
+            descripcion TEXT NOT NULL,                   -- qué pasó
+            desenlace TEXT CHECK (desenlace IN ('recuperado', 'recuperando', 'no_recuperado', 'secuelas',
+                                                'muerte', 'desconocido')),
+            accion TEXT,                                 -- qué se hizo (suspendió, cambió, consultó...)
+            plazo_reporte TEXT NOT NULL,                 -- fecha límite para reportar
+            reportado INTEGER NOT NULL DEFAULT 0,
+            fecha_reporte TEXT,
+            medio_reporte TEXT,                          -- eReporting, Secretaría, VigiFlow...
+            numero_reporte TEXT,
+            observaciones TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT,
+            FOREIGN KEY (producto_id) REFERENCES productos (id)
+        );
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:
