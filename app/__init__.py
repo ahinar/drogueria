@@ -63,6 +63,9 @@ def create_app(test_config=None):
     app.register_blueprint(recepciones.bp)
     app.register_blueprint(inventario.bp)
     app.register_blueprint(importador.bp)
+    # Cotizaciones (se arman en el POS): ver app/cotizaciones.py
+    from . import cotizaciones
+    app.register_blueprint(cotizaciones.bp)
     app.register_blueprint(pos.bp)
     app.register_blueprint(contabilidad.bp)
     app.register_blueprint(caja_menor.bp)

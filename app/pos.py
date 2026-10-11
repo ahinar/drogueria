@@ -602,6 +602,11 @@ def api_productos():
     if cat.isdigit():
         sql += " AND p.id IN (SELECT producto_id FROM productos_categorias WHERE catalogo_id = ?)"
         params.append(int(cat))
+    # ?ids=3,8,15 -> esos productos exactos (lo usa "Cargar cotización en el POS")
+    ids = [int(x) for x in (request.args.get("ids") or "").split(",") if x.strip().isdigit()]
+    if ids:
+        sql += f" AND p.id IN ({','.join('?' * len(ids))})"
+        params += ids
 
     sql += " ORDER BY (stock > 0) DESC, p.nombre COLLATE NOCASE LIMIT 40"
     filas = get_db().execute(sql, params).fetchall()
@@ -1114,6 +1119,10 @@ def api_cobrar():
             db.execute("UPDATE ventas SET cliente_id = ? WHERE id = ?", (cliente_credito["id"], venta_id))
         else:
             recibido, cambio = float(sum_total), 0.0
+
+        # ¿Era una cotización cargada en el POS? Queda "convertida" (ver app/cotizaciones.py)
+        from . import cotizaciones
+        cotizaciones.marcar_convertida(db, request.form.get("cotizacion_id", type=int), venta_id)
 
         db.execute(
             "UPDATE ventas SET subtotal = ?, descuento = ?, iva = ?, total = ?, "

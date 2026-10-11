@@ -70,6 +70,10 @@
          href="{{ url_for('pos.index') }}" title="Vender (POS)">
         <span class="ico">{{ ico("carrito", "🛒") }}</span><span class="txt">Vender (POS)</span>
       </a>
+      <a class="sidebar-link {% if ep.startswith('cotizaciones.') %}activo{% endif %}"
+         href="{{ url_for('cotizaciones.lista') }}" title="Cotizaciones">
+        <span class="ico">{{ ico("documento", "📄") }}</span><span class="txt">Cotizaciones</span>
+      </a>
       <a class="sidebar-link {% if ep.startswith('recepciones.') %}activo{% endif %}"
          href="{{ url_for('recepciones.lista') }}" title="Recepciones">
         <span class="ico">{{ ico("paquete", "📦") }}</span><span class="txt">Recepciones</span>

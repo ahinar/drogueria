@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block titulo %}Cotizaciones{% endblock %}
+{% block contenido %}
+<div class="lista-header">
+  <h1>Cotizaciones</h1>
+</div>
+<p class="suave">Se arman en el POS: llena el carrito y en el menú ☰ toca <strong>"Guardar como cotización"</strong>.
+  Para venderla después, ábrela y toca <strong>"Cargar en el POS"</strong>.</p>
+
+<form method="get" class="filtros">
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por número, cliente o teléfono…">
+  <select name="filtro">
+    <option value="abiertas" {% if filtro == 'abiertas' %}selected{% endif %}>Abiertas (vigentes y vencidas)</option>
+    <option value="convertida" {% if filtro == 'convertida' %}selected{% endif %}>Vendidas</option>
+    <option value="anulada" {% if filtro == 'anulada' %}selected{% endif %}>Anuladas</option>
+    <option value="todas" {% if filtro == 'todas' %}selected{% endif %}>Todas</option>
+  </select>
+  <button type="submit">Filtrar</button>
+  <a class="boton" href="{{ url_for('pos.index') }}">+ Nueva (en el POS)</a>
+</form>
+
+<table class="tabla">
+  <thead><tr><th>Número</th><th>Fecha</th><th>Cliente</th><th class="num">Total</th><th>Válida hasta</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+    {% for c in cotizaciones %}
+    <tr>
+      <td><a href="{{ url_for('cotizaciones.ver', cot_id=c.id) }}" target="_blank">{{ c.numero }}</a></td>
+      <td>{{ c.fecha|fecha_hora }}</td>
+      <td>{{ c.cliente_nombre or '—' }}{% if c.cliente_telefono %}<br><small class="suave">{{ c.cliente_telefono }}</small>{% endif %}</td>
+      <td class="num">{{ c.total|pesos }}</td>
+      <td>{{ c.vence|fecha_hora }}</td>
+      <td>{% if c.estado_txt == 'vigente' %}<span class="tag-ok">Vigente</span>
+          {% elif c.estado_txt == 'vencida' %}<span class="tag-error" style="background:#fff2c2;color:#7a5a00">Vencida</span>
+          {% elif c.estado_txt == 'convertida' %}<span class="suave">Vendida</span>
+          {% else %}<span class="suave">Anulada</span>{% endif %}</td>
+      <td style="white-space:nowrap">
+        <a href="{{ url_for('cotizaciones.ver', cot_id=c.id) }}" target="_blank">Ver</a>
+        {% if c.estado == 'abierta' %}
+          · <a href="{{ url_for('pos.index', cotizacion=c.id) }}">Cargar en el POS</a>
+          <form method="post" action="{{ url_for('cotizaciones.anular', cot_id=c.id) }}" style="display:inline"
+                data-confirmar="¿Anular la cotización {{ c.numero }}?">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button type="submit" class="boton-chico sec">Anular</button>
+          </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="suave">No hay cotizaciones con ese filtro.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

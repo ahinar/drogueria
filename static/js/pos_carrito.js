@@ -62,6 +62,8 @@
     cobrar: $('url-api-cobrar') && $('url-api-cobrar').value,
     gasto: $('url-api-gasto') && $('url-api-gasto').value,
     ventas: $('url-ventas') && $('url-ventas').value,
+    cotizaciones: $('url-cotizaciones') && $('url-cotizaciones').value,
+    cotizacionCrear: $('url-cotizacion-crear') && $('url-cotizacion-crear').value,
     ultima: $('url-ultima-venta') && $('url-ultima-venta').value,
     inventario: $('url-inventario') && $('url-inventario').value,
     estaticos: ($('url-static-base') && $('url-static-base').value) || '/static/',
@@ -842,6 +844,8 @@
     datos.append('cliente_documento', cliente.documento);
     datos.append('observaciones', nota);
     if (formaPago === 'credito') datos.append('cliente_id', clienteCredito.id);
+    // Si esta venta salió de una cotización, queda marcada como vendida
+    if (ventas[activa].cotizacion_id) datos.append('cotizacion_id', ventas[activa].cotizacion_id);
 
     cobrando = true;
     $('pago-confirmar').disabled = true;
@@ -1127,8 +1131,111 @@
       else if (accion === 'otro-ingreso') { cerrar(); pedirOtroIngreso(); }
       else if (accion === 'abono-cartera') { cerrar(); pedirAbono(); }
       else if (accion === 'registrar-gasto') { cerrar(); abrirModalGasto(); }
+      else if (accion === 'guardar-cotizacion') { cerrar(); guardarCotizacion(); }
+      else if (accion === 'cotizaciones') window.location.href = URL.cotizaciones;
     });
   });
+
+  // ---------------------------------------------------------------
+  // 8a. COTIZACIONES (ver app/cotizaciones.py)
+  // ---------------------------------------------------------------
+  // GUARDAR: el carrito de esta venta se guarda como cotización (COT-0001),
+  // se abre para imprimir o mandar por WhatsApp y la venta se cierra.
+  async function guardarCotizacion() {
+    if (!carrito.length) { aviso('El carrito está vacío: agrega lo que el cliente quiere cotizar.'); return; }
+    const datos = await window.pedirDatos({
+      titulo: 'Guardar como cotización',
+      texto: 'No se cobra ni sale del inventario. Se puede imprimir o mandar por WhatsApp.',
+      campos: [
+        { nombre: 'nombre', etiqueta: 'Cliente', valor: cliente.nombre, maximo: 120, placeholder: 'Opcional' },
+        { nombre: 'telefono', etiqueta: 'Celular (para WhatsApp)', maximo: 30, placeholder: 'Opcional' },
+        { nombre: 'validez', etiqueta: 'Válida por (días)', tipo: 'numero', valor: '8', mayorQue: 0 },
+        { nombre: 'notas', etiqueta: 'Nota', tipo: 'area', maximo: 300, placeholder: 'Opcional' },
+      ],
+      textoAceptar: 'Guardar cotización',
+    });
+    if (datos === null) return;
+    const fd = new FormData();
+    fd.append('_csrf', csrf());
+    fd.append('carrito', JSON.stringify(carrito.map((i) => i.libre
+      ? { libre: 1, descripcion: i.nombre, precio: i.precio, cantidad: i.cantidad,
+          descuento_pct: i.descuento_pct, iva_tarifa: i.iva_tarifa }
+      : { producto_id: i.producto_id, presentacion_id: i.presentacion_id || 0, cantidad: i.cantidad,
+          precio: i.precio, descuento_pct: i.descuento_pct })));
+    fd.append('cliente_nombre', datos.nombre || '');
+    fd.append('cliente_documento', cliente.documento || '');
+    fd.append('cliente_telefono', datos.telefono || '');
+    fd.append('validez_dias', datos.validez || 8);
+    fd.append('notas', datos.notas || '');
+    try {
+      const resp = await fetch(URL.cotizacionCrear, { method: 'POST', body: fd, credentials: 'same-origin' });
+      const json = await resp.json();
+      if (!json.ok) { aviso(json.error || 'No se pudo guardar.'); return; }
+      window.open(json.url, '_blank');               // para imprimir o mandar por WhatsApp
+      limpiarCarrito();
+      pintarCarrito();
+      aviso('Cotización ' + json.numero + ' guardada (' + peso(json.total) + ').');
+    } catch (e) {
+      aviso('Error de conexión: ' + e.message);
+    }
+  }
+
+  // CARGAR: /pos/?cotizacion=12 abre una venta nueva con lo cotizado.
+  // Si está vigente, con los precios cotizados (motivo "Cotización COT-…",
+  // así no se pregunta); si está vencida, con los precios de hoy.
+  async function cargarCotizacionDeLaDireccion() {
+    const id = new URLSearchParams(window.location.search).get('cotizacion');
+    if (!id) return;
+    history.replaceState(null, '', window.location.pathname);   // que no se cargue otra vez al recargar
+    try {
+      const cot = await (await fetch('/cotizaciones/api/' + encodeURIComponent(id), { credentials: 'same-origin' })).json();
+      if (!cot.ok) { aviso('No se encontró la cotización.'); return; }
+      if (cot.estado === 'convertida' || cot.estado === 'anulada') {
+        aviso('La cotización ' + cot.numero + ' ya está ' + (cot.estado === 'convertida' ? 'vendida' : 'anulada') + '.');
+        return;
+      }
+      const ids = cot.lineas.filter((l) => l.producto_id).map((l) => l.producto_id);
+      const prods = ids.length
+        ? (await (await fetch(URL.productos + '?ids=' + ids.join(','), { credentials: 'same-origin' })).json()).productos
+        : [];
+      // Venta nueva (si la actual tiene productos, se abre otra pestaña)
+      if (carrito.length) { nuevaVenta(); if (carrito.length) return; }
+      const motivo = 'Cotización ' + cot.numero;
+      const faltan = [];
+      cot.lineas.forEach((l) => {
+        if (!l.producto_id) {                    // venta libre (servicio)
+          carrito.push({ libre: true, producto_id: null, presentacion_id: 0, presentacion: '', factor: 1,
+            stock_base: 0, nombre: l.descripcion, precio: l.precio, precio_original: null, cantidad: l.cantidad,
+            descuento_pct: 0, iva_tipo: l.iva_tarifa > 0 ? 'gravado' : 'excluido', iva_tarifa: l.iva_tarifa, costo: null });
+          return;
+        }
+        const prod = prods.find((p) => p.id === l.producto_id);
+        const opciones = prod && prod.presentaciones && prod.presentaciones.length ? prod.presentaciones
+          : (prod ? [{ id: 0, nombre: '', factor: 1, precio: prod.precio }] : []);
+        const pr = opciones.find((o) => o.id === l.presentacion_id);
+        if (!prod || !pr || prod.stock <= 0) { faltan.push(l.descripcion); return; }
+        const precio = cot.vigente ? l.precio : pr.precio;
+        const it = {
+          producto_id: prod.id, codigo: prod.codigo, nombre: prod.nombre, concentracion: prod.concentracion,
+          precio: precio, precio_original: pr.precio, motivo_precio: null,
+          iva_tipo: prod.iva_tipo, iva_tarifa: prod.iva_tarifa, requiere_formula: prod.requiere_formula,
+          presentacion_id: pr.id, factor: pr.factor, presentacion: opciones.length > 1 ? pr.nombre : '',
+          stock_base: prod.stock, cantidad: l.cantidad, descuento_pct: 0,
+        };
+        if (Math.abs(precio - pr.precio) > 0.01) { it.motivo_precio = motivo; it.motivo_precio_valor = precio; }
+        carrito.push(it);
+      });
+      cliente = Object.assign({ nombre: '', documento: '' }, cot.cliente);
+      nota = motivo;
+      ventas[activa].cotizacion_id = cot.id;
+      guardarCarrito();
+      pintarCarrito();
+      aviso('Cargada la ' + motivo + (cot.vigente ? '' : ' (vencida: con los precios de hoy)') +
+            (faltan.length ? '. Sin existencias: ' + faltan.join(', ') : '.'));
+    } catch (e) {
+      aviso('No se pudo cargar la cotización: ' + e.message);
+    }
+  }
 
   // ---------------------------------------------------------------
   // 8b. VENTANA "i": INFORMACIÓN DEL PRODUCTO
@@ -1519,4 +1626,5 @@
 
   pintarCarrito();
   buscar(false);
+  cargarCotizacionDeLaDireccion();
 })();

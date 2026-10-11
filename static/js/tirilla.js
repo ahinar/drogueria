@@ -48,3 +48,16 @@ function volverDeTirilla(e) {
   }
   return true;          // no hay ventana que la abrió: el enlace funciona normal
 }
+
+/* Abrir algo en la ventana del programa (la que abrió esta tirilla) y cerrar
+   esta. Así "Vender" de una cotización no deja dos POS abiertos.
+   Uso: <a href="/pos/?cotizacion=3" onclick="return irALaVentanaPrincipal(event, this.href)"> */
+function irALaVentanaPrincipal(e, url) {
+  if (window.opener && !window.opener.closed) {
+    e.preventDefault();
+    try { window.opener.location.href = url; window.opener.focus(); } catch (err) { window.location.href = url; return false; }
+    window.close();
+    return false;
+  }
+  return true;
+}

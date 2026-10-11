@@ -1,0 +1,56 @@
+<!doctype html>
+{#- Ancho del papel: el de la dirección (?papel=58 u 80) o el de Configuración (igual que el comprobante) -#}
+{%- set papel = request.args.get('papel') if request.args.get('papel') in ('58', '80') else (config['ancho_tirilla'] or '80') %}
+<html lang="es" class="papel-{{ papel }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cotización {{ c['numero'] }}</title>
+  {# COTIZACIÓN en tirilla (58 u 80 mm), con botones para WhatsApp y para cargarla en el POS.
+     Usa los mismos estilos del comprobante de venta (static/css/tirilla.css). #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tirilla.css') }}">
+  <script src="{{ url_for('static', filename='js/tirilla.js') }}"></script>
+</head>
+<body>
+  <div class="barra">
+    <button type="button" onclick="window.print()">Imprimir</button>
+    <span class="anchos" title="Ancho del papel">
+      <a href="?papel=58" class="{{ 'activo' if papel == '58' else '' }}">58</a><a href="?papel=80" class="{{ 'activo' if papel == '80' else '' }}">80</a>
+    </span>
+    <a href="{{ whatsapp }}" target="_blank" rel="noopener">WhatsApp</a>
+    {% if c['estado'] == 'abierta' %}<a href="{{ url_for('pos.index', cotizacion=c['id']) }}" title="Cargar en el POS para cobrarla" onclick="return irALaVentanaPrincipal(event, this.href)">Vender</a>{% endif %}
+    <a href="{{ url_for('cotizaciones.lista') }}" onclick="return volverDeTirilla(event)">Volver</a>
+  </div>
+
+  {% if config['logo_ruta'] %}<img class="logo" src="{{ url_for('static', filename=config['logo_ruta']) }}" alt="">{% endif %}
+  <h1>{{ config['nombre_comercial'] or config['razon_social'] or 'Droguería' }}</h1>
+  <div class="centro suave">
+    {% if config['nit'] %}NIT {{ config['nit'] }}<br>{% endif %}
+    {% if config['direccion'] %}{{ config['direccion'] }}{% if config['ciudad'] %} · {{ config['ciudad'] }}{% endif %}<br>{% endif %}
+    {% if config['telefono'] or config['celular'] %}Tel. {{ config['telefono'] or config['celular'] }}{% endif %}
+  </div>
+  <hr class="corte">
+  <div class="centro"><strong>COTIZACIÓN</strong></div>
+  {% if estado == 'anulada' %}<div class="anulada">*** ANULADA ***</div>{% endif %}
+  {% if estado == 'convertida' %}<div class="centro suave">Ya se vendió</div>{% endif %}
+  <table class="suave">
+    <tr><td>Número</td><td class="der"><strong>{{ c['numero'] }}</strong></td></tr>
+    <tr><td>Fecha</td><td class="der">{{ c['fecha']|fecha_hora }}</td></tr>
+    <tr><td>Válida hasta</td><td class="der">{{ vence|fecha_hora }}{% if estado == 'vencida' %} (vencida){% endif %}</td></tr>
+    <tr><td>Atendió</td><td class="der">{{ c['usuario_nombre'] }}</td></tr>
+  </table>
+  {% if c['cliente_nombre'] %}<div class="suave">Cliente: {{ c['cliente_nombre'] }}{% if c['cliente_telefono'] %} · {{ c['cliente_telefono'] }}{% endif %}</div>{% endif %}
+  <hr class="corte">
+  <table>
+    {% for l in lineas %}
+    <tr class="producto"><td colspan="2">{{ l['descripcion'] }}{% if l['presentacion'] %} · {{ l['presentacion'] }}{% endif %}</td></tr>
+    <tr><td class="suave">{{ '%g' % l['cantidad'] }} x {{ l['precio_unitario']|pesos }}</td><td class="der">{{ l['total']|pesos }}</td></tr>
+    {% endfor %}
+  </table>
+  <hr class="corte">
+  <table><tr class="total"><td>TOTAL</td><td class="der">{{ c['total']|pesos }}</td></tr></table>
+  {% if c['notas'] %}<hr class="corte"><div class="suave">{{ c['notas'] }}</div>{% endif %}
+  <hr class="corte">
+  <div class="centro suave">Precios sujetos a disponibilidad.<br>Cotización · no es factura</div>
+</body>
+</html>

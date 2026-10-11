@@ -442,7 +442,7 @@ Notas:
   9. **POS táctil:** botones grandes (mínimo 44 px), contraste alto.
   10. **Impresos coherentes:** comprobante de venta en tirilla de 80 mm y todos los PDF con el mismo encabezado.
   Forma de trabajo: primero la guía de estilo y una maqueta de 2–3 pantallas para aprobar, luego módulo por módulo.
-- [ ] (Idea) Cotizaciones. (Las deudas quedaron en **Cartera** ✅, ver 5.9d.)
+- [x] **Cotizaciones** ✅ (`app/cotizaciones.py`, migración 29): en el POS, menú ☰ → "Guardar como cotización" (cliente, celular, validez en días, nota) guarda el carrito como COT-0001 sin tocar inventario ni caja; se abre en tirilla 58/80 con Imprimir, **WhatsApp** (mensaje con productos y total, al celular con +57) y **Vender** (carga en el POS: venta nueva con los precios cotizados y motivo "Cotización COT-…" si está vigente; vencida, con los precios de hoy). Al cobrarla queda "convertida" con su venta (`ventas.cotizacion_id`). Lista en el menú Día a día → Cotizaciones (abiertas/vendidas/anuladas, anular). `/pos/api/productos?ids=…` para cargar productos exactos.
 - [ ] (⏸ solo si el contador lo pide) Reporte de IVA con prorrateo (Art. 490 ET).
 
 ### Mediano plazo
@@ -504,6 +504,7 @@ Notas:
 | 26 | Cartera: tabla `clientes` (cupo), `ventas.cliente_id`, tabla `cartera_abonos` |
 | 27 | `productos.venta_defecto_unidad_id`; `recepcion_lineas.presentacion` y `factor` (recibir por caja/sobre) |
 | 28 | `productos.vende_suelto` (1 = también se vende la unidad mínima suelta) |
+| 29 | `cotizaciones`, `cotizacion_lineas` y `ventas.cotizacion_id` (cotizaciones del POS) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 

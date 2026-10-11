@@ -964,6 +964,58 @@ MIGRATIONS = [
         ALTER TABLE productos ADD COLUMN vende_suelto INTEGER NOT NULL DEFAULT 1;
         """,
     ),
+    (
+        29,
+        """
+        -- ===== Cotizaciones =====
+        -- Lo que se le cotiza a un cliente (sale del carrito del POS). Se imprime
+        -- o se manda por WhatsApp y, si el cliente vuelve, se carga en el POS con
+        -- los precios cotizados (mientras esté vigente) y se cobra.
+        -- estado: abierta (vigente o vencida según la fecha) / convertida (ya se
+        -- vendió: venta_id) / anulada.
+        CREATE TABLE cotizaciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero TEXT NOT NULL UNIQUE,                 -- COT-0001
+            fecha TEXT NOT NULL,
+            validez_dias INTEGER NOT NULL DEFAULT 8,
+            cliente_id INTEGER,
+            cliente_nombre TEXT,
+            cliente_telefono TEXT,
+            cliente_documento TEXT,
+            notas TEXT,
+            total REAL NOT NULL DEFAULT 0,
+            estado TEXT NOT NULL DEFAULT 'abierta'
+                CHECK (estado IN ('abierta', 'convertida', 'anulada')),
+            venta_id INTEGER,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            anulada_motivo TEXT,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT,
+            FOREIGN KEY (cliente_id) REFERENCES clientes (id),
+            FOREIGN KEY (venta_id) REFERENCES ventas (id)
+        );
+        CREATE INDEX idx_cotizaciones_fecha ON cotizaciones (fecha);
+
+        CREATE TABLE cotizacion_lineas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cotizacion_id INTEGER NOT NULL,
+            producto_id INTEGER,                         -- NULL = venta libre (servicio)
+            presentacion_id INTEGER NOT NULL DEFAULT 0,  -- 0 = unidad mínima (ver presentaciones.py)
+            descripcion TEXT NOT NULL,                   -- nombre como se mostró al cliente
+            presentacion TEXT,                           -- ej. 'Sobre x 10'
+            cantidad REAL NOT NULL,
+            precio_unitario REAL NOT NULL,               -- con IVA, ya con descuento
+            iva_tarifa REAL NOT NULL DEFAULT 0,
+            total REAL NOT NULL,
+            FOREIGN KEY (cotizacion_id) REFERENCES cotizaciones (id),
+            FOREIGN KEY (producto_id) REFERENCES productos (id)
+        );
+        CREATE INDEX idx_cot_lineas ON cotizacion_lineas (cotizacion_id);
+
+        ALTER TABLE ventas ADD COLUMN cotizacion_id INTEGER;
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:
