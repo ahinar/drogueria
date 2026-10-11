@@ -487,6 +487,12 @@ Notas:
   publicación. Para sacar versión: subir `VERSION` en app/version.py, commit, y publicar la versión en GitHub.
   (Desde la sesión de Claude no se pueden crear etiquetas ni publicaciones: lo hace Fernando en la web.)
 
+### Versiones publicadas
+| Versión | Fecha | Qué trae |
+|---|---|---|
+| 1.0.0 | 2026-10-11 | Primera con instalador de Windows |
+| 1.0.1 | 2026-10-11 | Menú lateral en el orden de Fernando (Calidad desplegable) |
+
 ### Correcciones tras las pruebas de Fernando (2026-10-11)
 - **Menú lateral reordenado** (pedido de Fernando): Inicio · Día a día (POS, Temperaturas) · Productos
   (Productos, Recepciones, Inventario, Cotizaciones, Proveedores*) · Contabilidad* (Contabilidad, Cartera,
