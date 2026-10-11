@@ -575,7 +575,7 @@ Notas:
 - [x] 3.2 Precios máximos
 - [x] 3.3 Alertas INVIMA
 - [ ] 3.4 Control especial (FNE) ⏸ para una actualización posterior
-- [~] Fase 4: cumplimiento — 4.1 Documentos ✅, 4.2 Saneamiento ✅, 4.3 Capacitaciones ✅, 4.4 Quejas ✅, 4.5 Farmacovigilancia ✅; faltan autoinspección y Modo Inspección
+- [~] Fase 4: cumplimiento — 4.1 Documentos ✅, 4.2 Saneamiento ✅, 4.3 Capacitaciones ✅, 4.4 Quejas ✅, 4.5 Farmacovigilancia ✅; autoinspección y Modo Inspección ⏸ para una actualización posterior (decisión de Fernando, 2026-10-11: empieza a usar el programa en la droguería con lo que hay)
 - [ ] Fase 5: Facturación electrónica
 - [ ] Fase 6: IA
 - [ ] Fase 7: Empaquetado
