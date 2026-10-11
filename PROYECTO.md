@@ -486,6 +486,9 @@ Notas:
   "Contar" por denominación (`pos.js: leerContado`; toma solo los dígitos y recalcula la diferencia al escribir).
 - **Campos de números en todo el programa**: sin flechitas de subir/bajar (app.css) y la rueda del mouse
   ya no cambia el valor (ui.js: al girar la rueda sobre el campo activo se le quita el cursor).
+- **Caja menor: "Registrar aporte" / "Registrar retiro"** no se veían (y "Completar datos" de la recepción
+  tampoco): a esas ventanas les faltaba la regla de ventana flotante en app.css. Se agregaron, y
+  `tests/test_modales.py` revisa que toda ventana `<div id="modal-..." class="modal-oculto">` tenga su regla.
 
 ## 8. Pendientes por hacer
 

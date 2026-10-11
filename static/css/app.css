@@ -1072,10 +1072,16 @@ a.modulo:hover {
    ========================================================= */
 .modal-oculto { display: none !important; }
 
+/* Ventanas que flotan encima de la página con fondo oscuro.
+   OJO: cada ventana nueva (div id="modal-...") tiene que estar en esta lista;
+   si no, queda pegada al final de la página y parece que el botón no hace nada. */
 #modal-crear,
 #modal-producto,
 #modal-conteo,
-#modal-confirmar {
+#modal-confirmar,
+#modal-cm-aporte,      /* Caja menor: registrar aporte */
+#modal-cm-retiro,      /* Caja menor: registrar retiro */
+#modal-tecnicos {      /* Recepción: completar datos técnicos del producto */
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 32, 0.55);
@@ -1091,7 +1097,10 @@ a.modulo:hover {
 #modal-crear .modal-caja,
 #modal-producto .modal-caja,
 #modal-conteo .modal-caja,
-#modal-confirmar .modal-caja {
+#modal-confirmar .modal-caja,
+#modal-cm-aporte .modal-caja,
+#modal-cm-retiro .modal-caja,
+#modal-tecnicos .modal-caja {
   background: #fff;
   border-radius: .6rem;
   padding: 1.4rem 1.6rem;

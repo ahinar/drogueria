@@ -154,7 +154,12 @@
   document.querySelectorAll('[data-modal]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       const modal = document.getElementById('modal-cm-' + btn.dataset.modal);
-      if (modal) modal.classList.remove('modal-oculto');
+      if (modal) {
+        modal.classList.remove('modal-oculto');
+        // El cursor queda listo en "Monto" para escribir de una vez
+        const monto = modal.querySelector('input[name="monto"]');
+        if (monto) setTimeout(function () { monto.focus(); }, 50);
+      }
     });
   });
 
