@@ -184,7 +184,8 @@ def guardar_archivo(archivo):
     if archivo.read(len(firma)) != firma:
         return None, f"El archivo no parece un {ext} de verdad (¿está dañado?)."
     archivo.seek(0)
-    carpeta = Path(current_app.static_folder) / "uploads" / "documentos"
+    from .utils_imagenes import carpeta_uploads
+    carpeta = carpeta_uploads() / "documentos"
     carpeta.mkdir(parents=True, exist_ok=True)
     nombre = f"{uuid.uuid4().hex}{ext}"
     archivo.save(str(carpeta / nombre))

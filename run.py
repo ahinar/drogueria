@@ -43,6 +43,9 @@ def con_diagnostico(wsgi_app):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    # Respaldos automáticos: uno al abrir (si toca) y luego cada 24 horas
+    from app.backup_utils import iniciar_reloj_de_respaldos
+    iniciar_reloj_de_respaldos(app)
     ip = ip_local()
     print("=" * 60)
     print(" Sistema de droguería en marcha")

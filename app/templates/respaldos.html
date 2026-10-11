@@ -1,26 +1,78 @@
 {% extends "base.html" %}
 {% block titulo %}Respaldos{% endblock %}
 {% block contenido %}
+{#
+  RESPALDOS (app/admin.py, función respaldos)
+  lista    = copias de la base de datos (una por día, automáticas)
+  archivos = ZIP semanal con las fotos, certificados, actas y documentos
+  extra    = carpeta adicional (USB o Drive) donde también se copia cada respaldo
+#}
 <div class="fila-titulo">
   <h1>Respaldos</h1>
   <form method="post" class="en-linea">
     <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <button type="submit" class="btn">Crear respaldo ahora</button>
+    <input type="hidden" name="accion" value="respaldar">
+    <button type="submit" class="btn">💾 Crear respaldo ahora</button>
   </form>
 </div>
-<p class="suave">Carpeta: <code>{{ carpeta }}</code>{% if extra %} · Copia adicional en: <code>{{ extra }}</code>{% endif %}.
-  El sistema hace un respaldo automático al iniciar si el último tiene más de 24 horas.
+<p class="suave">El programa hace un respaldo de la base de datos al abrirse y luego <strong>cada 24 horas</strong> aunque
+  quede abierto, y una vez por semana guarda también las <strong>fotos y documentos</strong> en un ZIP.
   Cada respaldo se verifica al crearlo.</p>
-<div class="tabla-scroll">
-<table>
-  <thead><tr><th>Archivo</th><th>Fecha</th><th>Tamaño</th></tr></thead>
-  <tbody>
-  {% for r in lista %}
-    <tr><td>{{ r.nombre }}</td><td>{{ r.fecha }}</td><td>{{ r.kb }} KB</td></tr>
-  {% else %}
-    <tr><td colspan="3">Todavía no hay respaldos.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+
+<div class="rep-caja">
+  <h2>Dónde quedan</h2>
+  <p>Datos del programa: <code>{{ datos }}</code></p>
+  <p>Respaldos: <code>{{ carpeta }}</code></p>
+  {% if en_windows %}
+  <form method="post" class="en-linea">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="accion" value="abrir">
+    <button type="submit" class="boton secundario">📂 Abrir la carpeta de respaldos</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="rep-caja" style="margin-top:1rem">
+  <h2>Copia en una USB o en la nube</h2>
+  <p class="suave">Si el computador se daña, los respaldos que están en él se pierden con él. Escoge una carpeta en una
+    memoria USB o en Google Drive / OneDrive (la carpeta que se sincroniza sola) y cada respaldo se copiará también ahí.</p>
+  <form method="post" class="filtros">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="accion" value="carpeta_extra">
+    <input type="text" name="carpeta_extra" value="{{ extra }}" placeholder="Ej: E:\Respaldos Fervifarma  o  C:\Users\Fernando\Google Drive\Fervifarma" style="flex:1;min-width:18rem">
+    <button type="submit">Guardar</button>
+  </form>
+  {% if extra %}<p class="suave">✅ Se está copiando a: <code>{{ extra }}</code></p>
+  {% else %}<p class="eres-aviso">⚠️ Todavía no hay copia fuera de este computador.</p>{% endif %}
+</div>
+
+<div class="rep-caja" style="margin-top:1rem">
+  <h2>Base de datos (ventas, inventario, registros)</h2>
+  <div class="tabla-scroll">
+  <table class="rep-tabla">
+    <thead><tr><th>Archivo</th><th>Fecha</th><th class="num">Tamaño</th></tr></thead>
+    <tbody>
+    {% for r in lista %}
+      <tr><td>{{ r.nombre }}</td><td>{{ r.fecha }}</td><td class="num">{{ r.kb }} KB</td></tr>
+    {% else %}
+      <tr><td colspan="3" class="suave">Todavía no hay respaldos.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="rep-caja" style="margin-top:1rem">
+  <h2>Fotos y documentos</h2>
+  <div class="tabla-scroll">
+  <table class="rep-tabla">
+    <thead><tr><th>Archivo</th><th>Fecha</th><th class="num">Tamaño</th></tr></thead>
+    <tbody>
+    {% for r in archivos %}
+      <tr><td>{{ r.nombre }}</td><td>{{ r.fecha }}</td><td class="num">{{ r.kb }} KB</td></tr>
+    {% else %}
+      <tr><td colspan="3" class="suave">Todavía no hay respaldo de fotos y documentos.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
 </div>
 {% endblock %}

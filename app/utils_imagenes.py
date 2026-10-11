@@ -15,6 +15,22 @@ EXT_CONVERTIR = {".tif", ".tiff", ".bmp", ".heic", ".heif"}
 EXT_ACEPTADAS = EXT_DIRECTAS | EXT_CONVERTIR
 
 
+def carpeta_uploads():
+    """Carpeta donde se guardan los archivos que sube la droguería (fotos,
+    certificados, actas, documentos). Programando es static/uploads; en el
+    programa instalado es la carpeta de DATOS (ver config.py), para que una
+    actualización nunca los borre."""
+    return Path(current_app.config.get("UPLOADS_DIR") or Path(current_app.static_folder) / "uploads")
+
+
+def ruta_de(ruta_relativa):
+    """'uploads/productos/abc.jpg' (como se guarda en la base) -> archivo real en el disco."""
+    relativa = str(ruta_relativa or "").replace("\\", "/")
+    if relativa.startswith("uploads/"):
+        relativa = relativa[len("uploads/"):]
+    return carpeta_uploads() / relativa
+
+
 def es_extension_valida(nombre_archivo):
     ext = Path(nombre_archivo).suffix.lower()
     return ext in EXT_ACEPTADAS
@@ -90,7 +106,7 @@ def guardar_imagen(archivo, subcarpeta, max_px=1200, max_bytes=5 * 1024 * 1024,
     nombre = f"{base}{ext_salida}"
 
     # Crear carpeta
-    carpeta = Path(current_app.static_folder) / "uploads" / subcarpeta
+    carpeta = carpeta_uploads() / subcarpeta
     carpeta.mkdir(parents=True, exist_ok=True)
 
     # Guardar
@@ -119,7 +135,7 @@ def eliminar_imagen(ruta_relativa):
     """Elimina un archivo de imagen del disco (silenciosamente si no existe)."""
     if not ruta_relativa:
         return
-    ruta_fisica = Path(current_app.static_folder) / ruta_relativa
+    ruta_fisica = ruta_de(ruta_relativa)
     try:
         ruta_fisica.unlink(missing_ok=True)
     except OSError:
@@ -148,7 +164,7 @@ def guardar_documento(archivo, subcarpeta, max_bytes=10 * 1024 * 1024):
         return None, "El archivo no es un PDF válido."
     archivo.seek(0)
 
-    carpeta = Path(current_app.static_folder) / "uploads" / subcarpeta
+    carpeta = carpeta_uploads() / subcarpeta
     carpeta.mkdir(parents=True, exist_ok=True)
     nombre = f"{uuid.uuid4().hex}.pdf"
     try:

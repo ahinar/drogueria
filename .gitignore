@@ -16,3 +16,8 @@ static/uploads/certificados/
 # Fotos de productos que sube cada droguería: no se suben a GitHub
 static/uploads/productos/*
 !static/uploads/productos/878ee27ef42e4bae95192b442a685465.jpeg
+# Empaquetado del instalador (PyInstaller / Inno Setup): se arma en GitHub, no se sube
+build/
+dist/
+# Capturas de pantalla sueltas en la raíz (de pruebas)
+/*.png

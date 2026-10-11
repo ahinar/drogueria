@@ -1,0 +1,85 @@
+# =====================================================================
+# ARMAR EL INSTALADOR DE WINDOWS (lo hace GitHub solo, en un Windows en la nube)
+# ---------------------------------------------------------------------
+# Cuándo corre:
+#   - Al subir una "etiqueta" de versión, ej.  git tag v1.0.0 && git push --tags
+#     -> arma el instalador y lo publica en GitHub, en "Releases".
+#   - A mano: GitHub -> Actions -> "Instalador de Windows" -> Run workflow
+#     -> el instalador queda para descargar en esa ejecución ("Artifacts").
+#
+# Pasos: 1) pruebas del programa en Windows  2) PyInstaller (dist\Fervifarma)
+#        3) prueba de que el .exe arranca  4) Inno Setup (el instalador)  5) publicar
+# =====================================================================
+name: Instalador de Windows
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write        # para publicar el instalador en "Releases"
+
+jobs:
+  instalador:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar librerías
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller pytest
+
+      - name: Versión del programa (app/version.py)
+        id: version
+        shell: bash
+        run: echo "version=$(python -c 'from app.version import VERSION; print(VERSION)')" >> "$GITHUB_OUTPUT"
+
+      - name: Pruebas del programa en Windows
+        run: python -m pytest -q -p no:cacheprovider
+
+      - name: Empaquetar con PyInstaller
+        run: pyinstaller instalador/fervifarma.spec --noconfirm
+
+      - name: Probar que Fervifarma.exe arranca
+        shell: pwsh
+        run: |
+          $env:FERVIFARMA_DATOS = "$env:RUNNER_TEMP\fv_datos"
+          $p = Start-Process -FilePath "dist\Fervifarma\Fervifarma.exe" -ArgumentList "--solo-servidor" -PassThru
+          $ok = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 1
+            try { $r = Invoke-WebRequest -Uri "http://127.0.0.1:8765/salud" -UseBasicParsing; if ($r.Content -like "fervifarma*") { $ok = $true; break } } catch {}
+          }
+          Stop-Process -Id $p.Id -Force
+          if (-not $ok) { Get-Content "$env:FERVIFARMA_DATOS\logs\fervifarma.log" -ErrorAction SilentlyContinue; throw "Fervifarma.exe no arrancó" }
+          Write-Host "Fervifarma.exe arrancó bien: $($r.Content)"
+
+      - name: Armar el instalador (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DVersion=${{ steps.version.outputs.version }}" instalador\fervifarma.iss
+
+      - name: Guardar el instalador (para descargar desde esta ejecución)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fervifarma-Instalador-${{ steps.version.outputs.version }}
+          path: dist/Fervifarma-Instalador-*.exe
+
+      - name: Publicar en Releases (solo con etiqueta v...)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Fervifarma-Instalador-*.exe
+          name: Fervifarma ${{ steps.version.outputs.version }}
+          body: |
+            Instalador de Fervifarma ${{ steps.version.outputs.version }}.
+            Descarga el archivo .exe y ábrelo. Si ya tienes Fervifarma, instálalo encima:
+            tus datos (ventas, inventario, fotos, respaldos) se conservan.

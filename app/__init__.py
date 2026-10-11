@@ -4,12 +4,11 @@ import secrets
 from datetime import timedelta
 from pathlib import Path
 
-from flask import Flask, render_template
+from flask import Flask, render_template, send_from_directory
 
 import config
 
 from . import db as base_datos
-from .backup_utils import hacer_respaldo_si_toca
 
 log = logging.getLogger("drogueria")
 
@@ -98,6 +97,27 @@ def create_app(test_config=None):
         f"{t[8:10]}/{t[5:7]}/{t[0:4]}" + (f" {t[11:16]}" if len(t or "") >= 16 else "")
     ) if t and len(t) >= 10 else (t or "")
 
+    # ---- Archivos que sube la droguería (fotos, certificados, actas...) ----
+    # Se guardan en la carpeta de DATOS (config.UPLOADS_DIR) y se sirven en la
+    # misma dirección de siempre (/static/uploads/...), así las páginas no cambian.
+    # Esta regla es más específica que la de /static/..., por eso gana.
+    @app.route("/static/uploads/<path:archivo>")
+    def archivos_subidos(archivo):
+        return send_from_directory(app.config["UPLOADS_DIR"], archivo)
+
+    # ---- "¿Estás prendido?" ----
+    # La usa el lanzador del programa instalado (escritorio.py) para saber si
+    # el programa ya está corriendo y no abrir dos veces.
+    from .version import VERSION
+
+    @app.route("/salud")
+    def salud():
+        return f"fervifarma {VERSION}", 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+    @app.context_processor
+    def _version_global():
+        return {"version_programa": VERSION}
+
     @app.errorhandler(400)
     def error_400(_e):
         return render_template("error.html", codigo=400, mensaje="Solicitud no válida o sesión vencida. Vuelve a intentarlo."), 400
@@ -114,16 +134,8 @@ def create_app(test_config=None):
     def error_500(_e):
         return render_template("error.html", codigo=500, mensaje="Ocurrió un error interno. Avisa al administrador."), 500
 
-    if not app.config.get("TESTING"):
-        try:
-            nuevo = hacer_respaldo_si_toca(
-                app.config["DB_PATH"], app.config["BACKUP_DIR"],
-                app.config["BACKUP_EXTRA_DIR"], app.config["BACKUP_KEEP"]
-            )
-            if nuevo:
-                log.info("Respaldo automático creado: %s", nuevo)
-        except Exception:
-            log.exception("No se pudo hacer el respaldo automático al iniciar")
+    # Los respaldos automáticos los hace el "reloj de respaldos" (backup_utils.py),
+    # que arrancan run.py y escritorio.py: uno al abrir y luego cada 24 horas.
 
     from .configuracion import obtener_config as _obtener_config
 

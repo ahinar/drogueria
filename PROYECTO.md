@@ -461,12 +461,29 @@ Notas:
 - Imágenes automáticas por código de barras.
 - Resumen de noticias regulatorias.
 
-### Fase 7: empaquetado y distribución ⏳
-- Ventana nativa con pywebview (sin CMD).
-- Ejecutable .exe con PyInstaller.
-- Instalador con Inno Setup.
-- Arranque automático en Windows 11 LTSC.
-- Ícono personalizado.
+### Fase 7: empaquetado y distribución ✅ (2026-10-11, versión 1.0.0)
+- **Carpeta de DATOS aparte** (`config.py`): instalado (`sys.frozen`), datos en `%LOCALAPPDATA%\Fervifarma`
+  (db/, uploads/, respaldos/, logs/, ventana/); el programa en `%LOCALAPPDATA%\Programs\Fervifarma`.
+  Programando, todo sigue en la carpeta del proyecto. Variable `FERVIFARMA_DATOS` para cambiarla.
+  Las subidas usan `utils_imagenes.carpeta_uploads()` / `ruta_de()` y se sirven en `/static/uploads/...`
+  desde `UPLOADS_DIR` (regla más específica que la de static). Instalado: 127.0.0.1:8765.
+- **Lanzador** `escritorio.py` (el .exe): si `/salud` contesta, solo abre otra ventana; si no, prende
+  Waitress en un hilo + reloj de respaldos y abre Edge/Chrome en modo aplicación (`--app`, maximizado,
+  perfil propio en datos/ventana); al cerrar la ventana se apaga. Sin Edge/Chrome: navegador predeterminado.
+  `--solo-servidor` prende sin ventana. Errores en `logs/fervifarma.log`.
+  (Se descartó pywebview: el comprobante usa ventanas nuevas, window.opener e impresión, que en modo
+  aplicación del navegador funcionan igual que siempre.)
+- **Respaldos**: reloj cada hora (`backup_utils.iniciar_reloj_de_respaldos`, lo arrancan run.py y escritorio.py):
+  base de datos cada 24 h y ZIP semanal de uploads (fotos, certificados, actas, documentos; se guardan 4).
+  Carpeta adicional (USB/Drive) escogida en Administración → Respaldos (config `respaldo_carpeta_extra`),
+  botón para abrir la carpeta en el Explorador. Ya no se respalda dentro de `create_app`.
+- **Versión** en `app/version.py` (se ve en el pie del menú).
+- **PyInstaller** `instalador/fervifarma.spec` (sin consola, ícono `instalador/fervifarma.ico`, sin static/uploads).
+- **Inno Setup** `instalador/fervifarma.iss`: por usuario sin admin, ícono escritorio/menú, tarea "Abrir al
+  prender el computador" ({userstartup}), cierra el programa si está abierto al actualizar, no borra datos.
+- **GitHub Actions** `.github/workflows/instalador.yml` (windows-latest): pruebas en Windows → PyInstaller →
+  prueba de arranque del .exe (`--solo-servidor` + /salud) → Inno Setup → artefacto; con etiqueta `v*`
+  publica en Releases. Para sacar versión: subir `VERSION`, commit, `git tag vX.Y.Z && git push --tags`.
 
 ### Correcciones tras las pruebas de Fernando (2026-10-11)
 - **POS, ventana Editar (sobre la "i")**: el precio que se edita es el de lo que se vende normalmente
@@ -605,7 +622,7 @@ Notas:
 - [~] Fase 4: cumplimiento — 4.1 Documentos ✅, 4.2 Saneamiento ✅, 4.3 Capacitaciones ✅, 4.4 Quejas ✅, 4.5 Farmacovigilancia ✅; autoinspección y Modo Inspección ⏸ para una actualización posterior (decisión de Fernando, 2026-10-11: empieza a usar el programa en la droguería con lo que hay)
 - [ ] Fase 5: Facturación electrónica
 - [ ] Fase 6: IA
-- [ ] Fase 7: Empaquetado
+- [x] Fase 7: Empaquetado (instalador de Windows por GitHub Actions)
 
 **Última sesión:** 2026-10-10. Se completó: login y temas, parte visual 4 (toasts, fechas, ventanas propias, tirilla 58/80 mm), venta libre y otros ingresos, Cartera, unidades (inventario en la unidad mínima, ficha por unidad de venta, conteo en paquetes), ajustes según capturas de Fernando (ficha, recepción con UdM, conteo con un solo "Agregar"), importador único (productos + fotos + lotes del programa anterior), acciones sobre varios productos, flechas en la ficha, ficha compacta, completar datos técnicos desde la recepción. **406 tests pasan**.
 

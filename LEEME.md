@@ -97,7 +97,29 @@ el PC del mostrador es el **servidor**; el PC de la bodega se conecta por navega
 
 ---
 
-## 2. Instalación (solo en el PC principal, una vez)
+## 2A. Instalar en el PC del local (con el instalador) — lo recomendado
+
+1. En GitHub, en el repositorio, entra a **Releases** (columna derecha) y descarga
+   `Fervifarma-Instalador-x.y.z.exe` de la versión más nueva.
+2. Ábrelo: **Siguiente → Instalar**. No pide permisos de administrador.
+   Deja marcado "Abrir Fervifarma al prender el computador" si quieres que arranque solo.
+3. Se abre Fervifarma en su propia ventana, maximizada. La primera vez pide crear el administrador.
+
+**Dónde queda cada cosa**
+- El programa: `C:\Users\<usuario>\AppData\Local\Programs\Fervifarma`
+- Tus datos (base de datos, fotos, certificados, documentos, respaldos, registro de errores):
+  `C:\Users\<usuario>\AppData\Local\Fervifarma`. La ruta exacta se ve en **Administración → Respaldos**.
+
+**Actualizar:** descarga el instalador de la versión nueva y ábrelo encima. Reemplaza el programa,
+**no toca tus datos**, y al abrir se aplican solos los cambios a la base de datos.
+Desinstalar tampoco borra los datos.
+
+**Si algo falla al abrir:** revisa el archivo `logs\fervifarma.log` dentro de la carpeta de datos.
+
+**Pasar datos que ya tenías** (por ejemplo la base de pruebas del PC de la casa): con Fervifarma
+cerrado, copia tu `drogueria.db` a `...\AppData\Local\Fervifarma\db\` (reemplazando la que hay).
+
+## 2. Instalación para programar (con Python, en el PC de desarrollo)
 
 1. Instala **Python 3.11 o superior** desde python.org. En el instalador marca **"Add Python to PATH"**.
 2. Copia esta carpeta al PC principal, por ejemplo en `C:\drogueria`.

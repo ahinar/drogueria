@@ -209,6 +209,8 @@
         <span class="txt"><span class="sidebar-user">{{ g.user.nombre }}</span>
         <span class="sidebar-rol">{{ g.user.rol|rol_nombre }} · tema</span></span>
       </a>
+      {# Versión del programa (app/version.py): sirve para saber si ya está actualizado #}
+      <small class="sidebar-version txt">Fervifarma v{{ version_programa }}</small>
     </div>
   </aside>
   {% endif %}

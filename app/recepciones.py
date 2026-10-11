@@ -136,8 +136,8 @@ def _guardar_foto(archivo, rec_id):
     ext = os.path.splitext(archivo.filename)[1].lower()
     if ext not in (".jpg", ".jpeg", ".png", ".webp", ".pdf"):
         return None
-    carpeta = current_app.config.get("UPLOADS_DIR") or os.path.join("static", "uploads")
-    destino_dir = os.path.join(carpeta, "recepciones")
+    from .utils_imagenes import carpeta_uploads
+    destino_dir = os.path.join(str(carpeta_uploads()), "recepciones")
     os.makedirs(destino_dir, exist_ok=True)
     ruta = os.path.join(destino_dir, f"{rec_id}{ext}")
     archivo.save(ruta)

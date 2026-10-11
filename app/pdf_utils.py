@@ -110,7 +110,8 @@ def encabezado_pdf(config, titulo_pdf, subtitulo_extra=None):
     logo_ruta = config.get("logo_ruta")
     logo_path = None
     if logo_ruta:
-        ruta_fisica = Path(current_app.static_folder) / logo_ruta
+        from .utils_imagenes import ruta_de
+        ruta_fisica = ruta_de(logo_ruta)
         if ruta_fisica.exists():
             logo_path = str(ruta_fisica)
 

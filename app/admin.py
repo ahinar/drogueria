@@ -8,7 +8,8 @@ from werkzeug.security import generate_password_hash
 
 from .audit import registrar
 from .auth import ROLES, USUARIO_VALIDO, roles_required, validar_clave
-from .backup_utils import hacer_respaldo, listar_respaldos
+from .backup_utils import (carpeta_extra, hacer_respaldo, listar_respaldos, listar_respaldos_archivos,
+                           respaldar_archivos)
 from .db import ahora, get_db
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -131,30 +132,59 @@ def bitacora():
 @bp.route("/respaldos", methods=["GET", "POST"])
 @roles_required("administrador")
 def respaldos():
+    """Respaldos: crear uno ahora, escoger la carpeta extra (USB/Drive) y ver los que hay.
+
+    Los automáticos los hace el reloj de backup_utils.py (base de datos cada 24 h;
+    fotos y documentos cada semana, en un ZIP).
+    """
     carpeta = current_app.config["BACKUP_DIR"]
-    if request.method == "POST":
+    accion = request.form.get("accion", "respaldar") if request.method == "POST" else None
+    if accion == "carpeta_extra":
+        # Carpeta adicional: una USB (ej. E:\\Respaldos) o una carpeta de Google Drive / OneDrive
+        nueva = (request.form.get("carpeta_extra") or "").strip()
+        if nueva:
+            try:
+                Path(nueva).mkdir(parents=True, exist_ok=True)
+            except OSError as error:
+                flash(f"No se pudo usar esa carpeta: {error}", "error")
+                return redirect(url_for("admin.respaldos"))
+        from .configuracion import guardar_config
+        guardar_config({"respaldo_carpeta_extra": nueva})
+        registrar("respaldo_carpeta_extra", detalle=nueva or "(ninguna)")
+        flash("Carpeta adicional guardada: cada respaldo se copiará también ahí." if nueva
+              else "Ya no se copian los respaldos a una carpeta adicional.", "ok")
+        return redirect(url_for("admin.respaldos"))
+    if accion == "abrir":
+        # Abre la carpeta en el Explorador de Windows (solo en el computador donde corre el programa)
+        import os
+        import sys
+        if sys.platform == "win32":
+            os.startfile(str(Path(carpeta).resolve()))      # noqa: S606 (abre el Explorador)
+        else:
+            flash("Esto solo funciona en el computador con Windows donde está instalado el programa.", "error")
+        return redirect(url_for("admin.respaldos"))
+    if accion == "respaldar":
+        extra = carpeta_extra(current_app)
         try:
-            destino, avisos = hacer_respaldo(
-                current_app.config["DB_PATH"], carpeta, current_app.config["BACKUP_EXTRA_DIR"], current_app.config["BACKUP_KEEP"]
-            )
+            destino, avisos = hacer_respaldo(current_app.config["DB_PATH"], carpeta, extra,
+                                             current_app.config["BACKUP_KEEP"])
+            zip_ = respaldar_archivos(current_app.config["UPLOADS_DIR"], carpeta, extra)
         except Exception as error:
             flash(f"No se pudo crear el respaldo: {error}", "error")
         else:
-            registrar("respaldo_manual", detalle=destino.name)
-            flash(f"Respaldo creado: {destino.name}", "ok")
+            registrar("respaldo_manual", detalle=destino.name + (f" + {zip_.name}" if zip_ else ""))
+            flash(f"Respaldo creado: {destino.name}" + (" (y las fotos y documentos en un ZIP)" if zip_ else ""), "ok")
             for aviso in avisos:
                 flash(aviso, "error")
         return redirect(url_for("admin.respaldos"))
-    lista = []
-    for ruta in listar_respaldos(carpeta):
-        info = ruta.stat()
-        lista.append(
-            {
-                "nombre": ruta.name,
-                "kb": round(info.st_size / 1024),
-                "fecha": datetime.fromtimestamp(info.st_mtime).strftime("%Y-%m-%d %H:%M"),
-            }
-        )
+
+    def info(rutas):
+        return [{"nombre": r.name, "kb": round(r.stat().st_size / 1024),
+                 "fecha": datetime.fromtimestamp(r.stat().st_mtime).strftime("%Y-%m-%d %H:%M")} for r in rutas]
+
+    import sys
+    import config as _config
     return render_template(
-        "respaldos.html", lista=lista, carpeta=str(Path(carpeta).resolve()), extra=current_app.config["BACKUP_EXTRA_DIR"]
-    )
+        "respaldos.html", lista=info(listar_respaldos(carpeta)), archivos=info(listar_respaldos_archivos(carpeta)),
+        carpeta=str(Path(carpeta).resolve()), extra=carpeta_extra(current_app) or "",
+        datos=str(Path(_config.DATA_DIR).resolve()), en_windows=sys.platform == "win32")

@@ -2850,3 +2850,6 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
+/* Versión del programa en el pie del menú */
+.sidebar-version { display: block; font-size: .7rem; opacity: .55; padding: .2rem .9rem 0; }
