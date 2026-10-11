@@ -557,9 +557,23 @@ def rechazar(rec_id):
 # ---------- Búsqueda de productos para autocompletado ----------
 
 def _presentaciones_simples(producto_id):
-    """[{id, nombre, factor}] para el selector "Viene en" de cada línea."""
-    return [{"id": o["id"], "nombre": o["nombre"], "factor": o["factor"]}
-            for o in pres.presentaciones_de([producto_id]).get(producto_id, [])]
+    """[{id, nombre, factor, defecto, cuenta}] para el selector "Viene en" de cada línea.
+
+    - defecto = True en la forma en que el producto se VENDE normalmente (ej.
+      Sello x 10): la recepción muestra la conversión en esa unidad
+      ("1 Caja x 150 = 15 Sello x 10").
+    - cuenta (solo en la primera, la unidad de inventario) = cuántas unidades
+      mínimas trae esa unidad. Casi siempre 1 (Tableta, Unidad), pero si el
+      inventario se cuenta en SELLO X 10 es 10: así una CAJA X 150 son 15 sellos.
+    """
+    opciones = pres.presentaciones_de([producto_id]).get(producto_id, [])
+    fila = get_db().execute(
+        "SELECT p.venta_defecto_unidad_id, um.nombre, um.cantidad FROM productos p "
+        "LEFT JOIN unidades_medida um ON um.id = p.unidad_venta_id WHERE p.id = ?", (producto_id,)).fetchone()
+    defecto = pres.id_por_defecto(opciones, fila["venta_defecto_unidad_id"]) if fila else pres.PRINCIPAL
+    cuenta = pres.cantidad_efectiva(fila["nombre"], fila["cantidad"]) if fila and fila["nombre"] else 1.0
+    return [{"id": o["id"], "nombre": o["nombre"], "factor": o["factor"], "defecto": o["id"] == defecto,
+             "cuenta": cuenta if o["id"] == pres.PRINCIPAL else None} for o in opciones]
 
 
 def _fila_a_dict(f):

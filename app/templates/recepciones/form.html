@@ -99,7 +99,7 @@
                 <input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="{{ lp.cantidad_recibida }}" required>
                 {# "Viene en": Tableta, Sobre x 10, Caja x 100 (ver recepciones._leer_lineas_formulario) #}
                 <select name="linea_presentacion" class="linea-pres" aria-label="Unidad en que llegó" data-actual="{{ lp.presentacion_id }}">
-                  {% for o in lp.presentaciones %}<option value="{{ o.id }}" data-factor="{{ o.factor }}" {% if o.id == lp.presentacion_id %}selected{% endif %}>{{ o.nombre }}</option>{% endfor %}
+                  {% for o in lp.presentaciones %}<option value="{{ o.id }}" data-factor="{{ o.factor }}"{% if o.defecto %} data-defecto="1"{% endif %}{% if o.cuenta %} data-cuenta="{{ o.cuenta }}"{% endif %} {% if o.id == lp.presentacion_id %}selected{% endif %}>{{ o.nombre }}</option>{% endfor %}
                 </select></div>
                 <input type="number" name="linea_factor_otro" class="linea-otro" min="2" step="1" placeholder="¿Cuántas trae?"
                        value="{{ lp.factor_otro }}" {% if lp.presentacion_id != 'otra' %}hidden{% endif %}>
@@ -421,14 +421,27 @@
     const lista = (p.presentaciones && p.presentaciones.length)
       ? p.presentaciones : [{ id: 0, nombre: p.unidad || 'Unidad', factor: 1 }];
     sel.innerHTML = lista.map(function (o) {
-      return '<option value="' + o.id + '" data-factor="' + o.factor + '">' + escaparHTML(o.nombre) + '</option>';
+      return '<option value="' + o.id + '" data-factor="' + o.factor + '"' +
+        (o.defecto ? ' data-defecto="1"' : '') + (o.cuenta ? ' data-cuenta="' + o.cuenta + '"' : '') + '>' +
+        escaparHTML(o.nombre) + '</option>';
     }).join('');
+    prepararSelector(sel);
     completarUnidades(sel);
     sel.value = String(presentacionId || 0);
     if (sel.selectedIndex < 0) sel.selectedIndex = 0;
     sel.dataset.anterior = sel.value;
-    sel.dataset.base = lista[0].nombre;          // nombre de la unidad de inventario
     equivalenciaLinea(tr);
+  }
+  // Guarda en el selector lo que hace falta para convertir:
+  //   base      = unidad de inventario (Tableta)        baseCant = cuántas mínimas trae (1; 10 si es SELLO X 10)
+  //   venta     = cómo se vende normalmente (Sello x 10) ventaFactor = cuántas de inventario trae (10)
+  function prepararSelector(sel) {
+    const primera = sel.options[0];
+    const venta = sel.querySelector('option[data-defecto="1"]') || primera;
+    sel.dataset.base = primera ? primera.textContent.trim() : 'unidades';
+    sel.dataset.baseCant = primera && primera.dataset.cuenta ? primera.dataset.cuenta : '1';
+    sel.dataset.venta = venta ? venta.textContent.trim() : '';
+    sel.dataset.ventaFactor = venta ? (venta.dataset.factor || '1') : '1';
   }
   // ---- COLUMNA UdM: además de las presentaciones del producto, CUALQUIER unidad ----
   // (el aceite se vende por Unidad pero llegó en CAJA X 12).
@@ -439,12 +452,16 @@
     const propias = [...sel.options].map(function (o) { return o.textContent.trim().toLowerCase(); });
     const grupo = document.createElement('optgroup');
     grupo.label = 'Otras unidades';
+    // Si el inventario se cuenta en algo que trae varias (SELLO X 10), una
+    // CAJA X 150 son 150 ÷ 10 = 15 de inventario (igual que en el servidor:
+    // recepciones._presentacion_por_unidad)
+    const baseCant = parseFloat(sel.dataset.baseCant) || 1;
     UNIDADES.forEach(function (u) {
-      const cant = window.cantidadDeUnidad(u.nombre, u.cantidad);    // "CAJA X 12" -> 12
+      const cant = window.cantidadDeUnidad(u.nombre, u.cantidad) / baseCant;    // "CAJA X 12" -> 12
       if (cant <= 1 || propias.includes(u.nombre.toLowerCase())) return;
       const o = document.createElement('option');
       o.value = 'u' + u.id;
-      o.dataset.factor = cant;
+      o.dataset.factor = +cant.toFixed(4);
       o.textContent = u.nombre;
       grupo.appendChild(o);
     });
@@ -510,10 +527,26 @@
     const factor = factorLinea(tr);
     const cant = parseFloat(tr.querySelector('input[name="linea_cantidad_recibida"]').value) || 0;
     const costo = parseFloat(tr.querySelector('input[name="linea_costo"]').value) || 0;
-    nota.textContent = factor > 1 && cant > 0
-      ? '= ' + (+(cant * factor).toFixed(2)) + ' ' + (sel.dataset.base || 'unidades') +
-        (costo > 0 ? ' · $' + Math.round(costo / factor).toLocaleString('es-CO') + ' c/u' : '')
-      : '';
+    const base = sel.dataset.base || 'unidades';
+    const total = cant * factor;                                   // en unidades de inventario
+    const ventaFactor = parseFloat(sel.dataset.ventaFactor) || 1;
+    const n = function (x) { return String(+x.toFixed(2)).replace('.', ','); };
+    const pesos = function (x) { return '$' + Math.round(x).toLocaleString('es-CO'); };
+    if (!(factor > 1) || !(cant > 0)) { nota.textContent = ''; return; }
+    if (ventaFactor > 1 && Math.abs(factor - ventaFactor) > 1e-9) {
+      // El producto se vende por Sello x 10 (por ejemplo) y llegó en otra cosa:
+      // "= 15 Sello x 10 (150 Tableta) · $2.000 c/Sello x 10"
+      const enteros = Math.floor(total / ventaFactor + 1e-9);
+      const resto = +(total - enteros * ventaFactor).toFixed(4);
+      const partes = [];
+      if (enteros) partes.push(enteros + ' ' + sel.dataset.venta);
+      if (resto > 1e-9) partes.push(n(resto) + ' ' + base);
+      nota.textContent = '= ' + partes.join(' + ') + ' (' + n(total) + ' ' + base + ')' +
+        (costo > 0 ? ' · ' + pesos(costo / factor * ventaFactor) + ' c/' + sel.dataset.venta : '');
+    } else {
+      // Se vende por unidad, o llegó justo en la unidad de venta: "= 30 Tableta · $250 c/u"
+      nota.textContent = '= ' + n(total) + ' ' + base + (costo > 0 ? ' · ' + pesos(costo / factor) + ' c/u' : '');
+    }
   }
   function factorLinea(tr) {
     const sel = tr.querySelector('.linea-pres');
@@ -1022,7 +1055,7 @@
   body.querySelectorAll('tr.linea').forEach(function (tr) {
     const sel = tr.querySelector('.linea-pres');
     if (sel && sel.options.length) {
-      sel.dataset.base = sel.options[0].textContent;
+      prepararSelector(sel);
       completarUnidades(sel);
       if (sel.dataset.actual) sel.value = sel.dataset.actual;      // ej. "u12" (CAJA X 12)
       if (sel.selectedIndex < 0) sel.selectedIndex = 0;

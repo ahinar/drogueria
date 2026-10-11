@@ -489,6 +489,11 @@ Notas:
 - **Caja menor: "Registrar aporte" / "Registrar retiro"** no se veían (y "Completar datos" de la recepción
   tampoco): a esas ventanas les faltaba la regla de ventana flotante en app.css. Se agregaron, y
   `tests/test_modales.py` revisa que toda ventana `<div id="modal-..." class="modal-oculto">` tenga su regla.
+- **Recepción, nota de conversión**: si el producto se vende por Sello x 10 (u otra), la nota bajo la
+  cantidad dice "= 15 Sello x 10 (150 Tableta) · $2.000 c/Sello x 10" (antes solo en la unidad mínima).
+  `_presentaciones_simples` marca `defecto` (la de venta) y `cuenta` (cuántas mínimas trae la unidad de
+  inventario); el JS (`prepararSelector`) divide las "Otras unidades" por esa cuenta, igual que el servidor
+  (`_presentacion_por_unidad`): antes, con inventario en SELLO X 10, la pantalla mostraba de más.
 
 ## 8. Pendientes por hacer
 

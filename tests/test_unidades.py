@@ -758,3 +758,38 @@ class TestCompletarDatosDesdeRecepcion(BaseUnidades):
         con.close()
         j = self.post(self.c, "/recepciones/api/producto/1/tecnicos", {"registro_sanitario": ""}).get_json()
         self.assertFalse(j["ok"])
+
+
+class TestConversionRecepcionEnUnidadDeVenta(BaseVentas):
+    """La recepción muestra la conversión en la unidad en que se VENDE el producto
+    (1 CAJA X 150 = 15 Sello x 10), y sabe cuántas mínimas trae la unidad de inventario."""
+
+    def setUp(self):
+        super().setUp()
+        con = self.db()
+        tab = con.execute("INSERT INTO unidades_medida (nombre, cantidad, activo, creado_en) "
+                          "VALUES ('Tableta', 1, 1, '2026-01-01')").lastrowid
+        sello = con.execute("INSERT INTO unidades_medida (nombre, cantidad, activo, creado_en) "
+                            "VALUES ('Sello x 10', 10, 1, '2026-01-01')").lastrowid
+        self.caja = con.execute("INSERT INTO unidades_medida (nombre, cantidad, activo, creado_en) "
+                                "VALUES ('CAJA X 150', 150, 1, '2026-01-01')").lastrowid
+        # Producto 1: inventario en Tableta, se vende por Sello x 10
+        con.execute("UPDATE productos SET unidad_venta_id = ?, venta_defecto_unidad_id = ? WHERE id = 1", (tab, sello))
+        con.execute("INSERT INTO producto_presentaciones (producto_id, unidad_id, factor, precio_venta, creado_en) "
+                    "VALUES (1, ?, 10, 4000, '2026-01-01')", (sello,))
+        # Producto 2: el inventario se cuenta directamente en Sello x 10
+        con.execute("UPDATE productos SET unidad_venta_id = ? WHERE id = 2", (sello,))
+        con.commit()
+        con.close()
+
+    def test_marca_la_unidad_de_venta_y_cuanto_trae_la_de_inventario(self):
+        from app.recepciones import _presentaciones_simples, _presentacion_por_unidad
+        with self.app.app_context():
+            p1 = _presentaciones_simples(1)
+            p2 = _presentaciones_simples(2)
+            # Una CAJA X 150 cuenta 15 de inventario si el inventario va en sellos
+            self.assertEqual(_presentacion_por_unidad(2, self.caja)["factor"], 15)
+            self.assertEqual(_presentacion_por_unidad(1, self.caja)["factor"], 150)
+        venta = next(o for o in p1 if o["defecto"])
+        self.assertEqual((venta["nombre"], venta["factor"]), ("Sello x 10", 10))
+        self.assertEqual((p1[0]["cuenta"], p2[0]["cuenta"]), (1, 10))
