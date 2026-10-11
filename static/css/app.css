@@ -2827,3 +2827,7 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 .san-planilla td.san-incompleto { color: #a1251b; }
 .san-tipos { display: flex; flex-wrap: wrap; gap: .4rem 1rem; border: 1px solid #d8e0e6; border-radius: .4rem; padding: .5rem .8rem; }
 .san-tipos label { display: flex; align-items: center; gap: .35rem; font-weight: 400; }
+
+/* ===== Capacitaciones (Fase 4.3) ===== */
+.formulario label.check { display: flex; align-items: center; gap: .45rem; font-weight: 400; align-self: end; }
+.cap-asistencia td { vertical-align: middle; }

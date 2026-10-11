@@ -1160,6 +1160,63 @@ MIGRATIONS = [
         );
         """,
     ),
+    (
+        32,
+        """
+        -- ===== Capacitaciones (Fase 4.3) =====
+        -- PERSONAL: quienes trabajan en la droguería (tengan o no usuario en el
+        -- programa: los que van de vez en cuando también se capacitan).
+        CREATE TABLE personal (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            documento TEXT,
+            cargo TEXT,                                  -- Director técnico, Auxiliar...
+            fecha_ingreso TEXT,
+            ocasional INTEGER NOT NULL DEFAULT 0,        -- 1 = va de vez en cuando
+            activo INTEGER NOT NULL DEFAULT 1,
+            usuario_id INTEGER,                          -- su usuario del programa, si tiene
+            observaciones TEXT,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT,
+            FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
+        );
+
+        -- CAPACITACIONES: el plan del año (programadas) y lo que se hizo (realizadas).
+        CREATE TABLE capacitaciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tema TEXT NOT NULL,
+            contenido TEXT,                              -- qué se va a ver (objetivo, puntos)
+            tipo TEXT NOT NULL DEFAULT 'interna'
+                CHECK (tipo IN ('interna', 'externa', 'induccion')),
+            entidad TEXT,                                -- si es externa: laboratorio, SENA, Secretaría...
+            capacitador TEXT,
+            fecha_programada TEXT,                       -- aaaa-mm-dd
+            fecha_realizada TEXT,
+            duracion_horas REAL,
+            estado TEXT NOT NULL DEFAULT 'programada'
+                CHECK (estado IN ('programada', 'realizada', 'cancelada')),
+            evaluacion INTEGER NOT NULL DEFAULT 1,       -- 1 = se evalúa a los asistentes
+            archivo TEXT,                                -- acta firmada, material o certificado
+            observaciones TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT
+        );
+        CREATE INDEX idx_capacitaciones_fecha ON capacitaciones (fecha_programada);
+
+        -- ASISTENCIA: quién estuvo y su nota (0 a 5)
+        CREATE TABLE capacitacion_asistentes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            capacitacion_id INTEGER NOT NULL,
+            personal_id INTEGER NOT NULL,
+            nota REAL,
+            UNIQUE (capacitacion_id, personal_id),
+            FOREIGN KEY (capacitacion_id) REFERENCES capacitaciones (id),
+            FOREIGN KEY (personal_id) REFERENCES personal (id)
+        );
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

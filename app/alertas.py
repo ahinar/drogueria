@@ -270,6 +270,20 @@ def calcular_alertas(rol):
                     url_for("saneamiento.residuos"), "Ver residuos")
 
     # ------------------------------------------------------------------
+    # 4e. CAPACITACIONES programadas cuya fecha ya pasó (solo jefe).
+    #     Ver app/capacitaciones.py
+    # ------------------------------------------------------------------
+    if jefe:
+        from .capacitaciones import capacitaciones_atrasadas
+        agregar("capacitaciones_atrasadas", "amarillo", "🎓", "Capacitaciones atrasadas",
+                "Hazla y regístrala (con el acta firmada), o cámbiale la fecha.",
+                capacitaciones_atrasadas(hoy), lambda f: {
+                    "texto": f["tema"],
+                    "detalle": f"programada para el {_fecha(f['fecha_programada'])}",
+                    "url": url_for("capacitaciones.ver", cap_id=f["id"]),
+                }, url_for("capacitaciones.plan"), "Ver plan de capacitación")
+
+    # ------------------------------------------------------------------
     # 5. STOCK: agotados (rojo) y por debajo del mínimo (amarillo).
     #    Solo productos con "stock mínimo" definido: así un producto que no
     #    se maneja (mínimo 0) no llena el panel de avisos.

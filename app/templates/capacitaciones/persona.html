@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block titulo %}{{ p.nombre }}{% endblock %}
+{% block contenido %}
+{# UNA PERSONA: sus datos (el jefe los edita) y todas las capacitaciones a las que asistió #}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+{% include "capacitaciones/_pestanas.html" %}
+<p><a href="{{ url_for('capacitaciones.personal') }}">← Personal</a></p>
+<h2>{{ p.nombre }}{% if not p.activo %} <span class="equipo-estado gris">Retirado(a)</span>{% endif %}</h2>
+
+<div class="rep-caja">
+  <h3>Capacitaciones recibidas</h3>
+  {% if historial %}
+  <table class="rep-tabla">
+    <thead><tr><th>Fecha</th><th>Tema</th><th>Tipo</th><th class="num">Horas</th><th class="num">Nota</th></tr></thead>
+    <tbody>{% for c in historial %}<tr>
+      <td>{{ fecha(c.fecha_realizada) }}</td>
+      <td><a href="{{ url_for('capacitaciones.ver', cap_id=c.id) }}">{{ c.tema }}</a></td>
+      <td>{{ tipos[c.tipo].split(' (')[0] }}</td>
+      <td class="num">{{ ('%g' % c.duracion_horas).replace('.', ',') if c.duracion_horas else '—' }}</td>
+      <td class="num">{{ ('%g' % c.nota).replace('.', ',') if c.nota is not none else '—' }}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="suave">Todavía no tiene capacitaciones registradas.</p>{% endif %}
+</div>
+
+{% if jefe %}
+<details class="rep-caja equipo-calibrar" style="margin-top:1rem">
+  <summary><strong>✏️ Editar datos</strong></summary>
+  <form method="post" class="formulario sin-marco">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="grid-3-compact">
+      <label>Nombre completo * <input type="text" name="nombre" required maxlength="80" value="{{ p.nombre }}"></label>
+      <label>Documento <input type="text" name="documento" maxlength="20" value="{{ p.documento or '' }}"></label>
+      <label>Cargo <input type="text" name="cargo" maxlength="60" value="{{ p.cargo or '' }}"></label>
+      <label>Fecha de ingreso <input type="date" name="fecha_ingreso" value="{{ p.fecha_ingreso or '' }}"></label>
+      <label>Su usuario en el programa
+        <select name="usuario_id"><option value="">— No tiene —</option>
+          {% for u in usuarios %}<option value="{{ u.id }}" {% if p.usuario_id == u.id %}selected{% endif %}>{{ u.nombre }}</option>{% endfor %}</select></label>
+      <label class="check"><input type="checkbox" name="ocasional" value="1" {% if p.ocasional %}checked{% endif %}> Va de vez en cuando (ocasional)</label>
+    </div>
+    <label>Observaciones <input type="text" name="observaciones" maxlength="200" value="{{ p.observaciones or '' }}"></label>
+    <div class="acciones"><button type="submit">Guardar</button></div>
+  </form>
+  <form method="post" style="margin-top:.6rem" {% if p.activo %}data-confirmar="¿Marcar como retirado(a)? Su historial se conserva."{% endif %}>
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="accion" value="activar">
+    <button type="submit" class="boton secundario">{{ '🚪 Marcar como retirado(a)' if p.activo else '♻️ Activar de nuevo' }}</button>
+  </form>
+</details>
+{% endif %}
+{% endblock %}

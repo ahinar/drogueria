@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Nueva capacitación' if nueva else 'Editar capacitación' }}{% endblock %}
+{% block contenido %}
+{#
+  PROGRAMAR o EDITAR una capacitación (lo que se hizo y quién asistió se
+  registra después, en la ficha de la capacitación).
+#}
+{% include "capacitaciones/_pestanas.html" %}
+<h2>{{ '➕ Programar capacitación' if nueva else '✏️ Editar capacitación' }}</h2>
+{% set c = cap or {} %}
+<form method="post" class="formulario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <label>Tema * <input type="text" name="tema" required maxlength="120" value="{{ c.tema or '' }}"
+    placeholder="{{ 'Ej: Inducción de Ana Pérez' if c.tipo == 'induccion' else 'Ej: Recepción técnica' }}"></label>
+  <label>Contenido (qué se va a ver)
+    <textarea name="contenido" rows="3" placeholder="Los puntos principales">{{ c.contenido or '' }}</textarea></label>
+  <div class="grid-3-compact">
+    <label>Tipo <select name="tipo" id="cap-tipo">
+      {% for k, v in tipos.items() %}<option value="{{ k }}" {% if c.tipo == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+    <label>Entidad (si es externa) <input type="text" name="entidad" maxlength="80" value="{{ c.entidad or '' }}" placeholder="Laboratorio, SENA, Secretaría…"></label>
+    <label>Capacitador <input type="text" name="capacitador" maxlength="80" value="{{ c.capacitador or '' }}"></label>
+    <label>Fecha programada * <input type="date" name="fecha_programada" required value="{{ c.fecha_programada or '' }}"></label>
+    <label>Duración (horas) <input type="text" name="duracion_horas" inputmode="decimal" value="{{ ('%g' % c.duracion_horas).replace('.', ',') if c.duracion_horas else '' }}"></label>
+    <label class="check"><input type="checkbox" name="evaluacion" value="1" {% if c.evaluacion %}checked{% endif %}> Se evalúa (nota de 0 a 5)</label>
+  </div>
+  <label>Observaciones <input type="text" name="observaciones" maxlength="200" value="{{ c.observaciones or '' }}"></label>
+  <div class="acciones">
+    <button type="submit">Guardar</button>
+    <a class="boton secundario" href="{{ url_for('capacitaciones.plan') if nueva else url_for('capacitaciones.ver', cap_id=c.id) }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

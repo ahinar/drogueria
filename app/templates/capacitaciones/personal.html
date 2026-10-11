@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}Personal{% endblock %}
+{% block contenido %}
+{#
+  PERSONAL (app/capacitaciones.py, función personal)
+  Cada persona con cuántas capacitaciones y horas lleva este año, y si ya tuvo inducción.
+#}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+{% include "capacitaciones/_pestanas.html" %}
+
+<div class="rep-caja">
+  <h2>Personal de la droguería</h2>
+  {% if personal %}
+  <table class="rep-tabla">
+    <thead><tr><th>Nombre</th><th>Cargo</th><th>Ingreso</th><th class="num">Capacitaciones {{ anio }}</th><th class="num">Horas {{ anio }}</th><th>Inducción</th></tr></thead>
+    <tbody>{% for p in personal %}<tr class="{{ 'equipo-inactivo' if not p.activo }}">
+      <td><a href="{{ url_for('capacitaciones.persona', persona_id=p.id) }}"><strong>{{ p.nombre }}</strong></a>
+        <small>{% if p.documento %}CC {{ p.documento }}{% endif %}{% if p.ocasional %} · ocasional{% endif %}{% if not p.activo %} · retirado(a){% endif %}</small></td>
+      <td>{{ p.cargo or '—' }}</td>
+      <td>{{ fecha(p.fecha_ingreso) }}</td>
+      <td class="num">{{ p.cantidad }}</td>
+      <td class="num">{{ ('%g' % p.horas).replace('.', ',') }}</td>
+      <td>{% if p.inducciones %}<span class="equipo-estado verde">Hecha</span>{% elif p.activo %}<span class="equipo-estado amarillo">Pendiente</span>{% else %}—{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="suave">Todavía no hay nadie. Empieza por ti y por tu auxiliar.</p>{% endif %}
+</div>
+
+{% if jefe %}
+<details class="rep-caja equipo-calibrar" style="margin-top:1rem" {% if not personal %}open{% endif %}>
+  <summary><strong>➕ Agregar persona</strong></summary>
+  <form method="post" class="formulario sin-marco">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="grid-3-compact">
+      <label>Nombre completo * <input type="text" name="nombre" required maxlength="80"></label>
+      <label>Documento <input type="text" name="documento" maxlength="20"></label>
+      <label>Cargo <input type="text" name="cargo" maxlength="60" list="cargos" placeholder="Ej: Auxiliar de droguería"></label>
+      <label>Fecha de ingreso <input type="date" name="fecha_ingreso"></label>
+      <label>Su usuario en el programa
+        <select name="usuario_id"><option value="">— No tiene —</option>
+          {% for u in usuarios %}<option value="{{ u.id }}">{{ u.nombre }}</option>{% endfor %}</select></label>
+      <label class="check"><input type="checkbox" name="ocasional" value="1"> Va de vez en cuando (ocasional)</label>
+    </div>
+    <datalist id="cargos"><option value="Director técnico"><option value="Regente de farmacia"><option value="Auxiliar de droguería"><option value="Propietario"></datalist>
+    <div class="acciones"><button type="submit">Agregar</button></div>
+  </form>
+</details>
+{% endif %}
+{% endblock %}

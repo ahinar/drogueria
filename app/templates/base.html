@@ -101,6 +101,10 @@
          href="{{ url_for('saneamiento.limpieza') }}" title="Saneamiento: limpieza, plagas y residuos">
         <span class="ico">{{ ico("escoba", "🧽") }}</span><span class="txt">Saneamiento</span>
       </a>
+      <a class="sidebar-link {% if ep.startswith('capacitaciones.') %}activo{% endif %}"
+         href="{{ url_for('capacitaciones.plan') }}" title="Capacitaciones y personal">
+        <span class="ico">{{ ico("birrete", "🎓") }}</span><span class="txt">Capacitaciones</span>
+      </a>
 
       <!-- ===== Productos ===== -->
       <div class="sidebar-seccion">Productos</div>

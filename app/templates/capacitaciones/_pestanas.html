@@ -1,0 +1,11 @@
+{# Encabezado común de Capacitaciones: título y pestañas (variable `pestana` desde app/capacitaciones.py) #}
+<div class="eres-cabecera">
+  <div>
+    <h1><span class="ico-emoji">🎓</span> Capacitaciones</h1>
+    <p class="suave">Plan del año, asistencia y actas firmadas: la prueba de que el personal se capacita.</p>
+  </div>
+</div>
+<nav class="san-pestanas" aria-label="Partes de capacitaciones">
+  <a href="{{ url_for('capacitaciones.plan') }}" class="{{ 'activo' if pestana == 'plan' }}">📅 Plan del año</a>
+  <a href="{{ url_for('capacitaciones.personal') }}" class="{{ 'activo' if pestana == 'personal' }}">👥 Personal</a>
+</nav>

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titulo %}Capacitaciones {{ anio }}{% endblock %}
+{% block contenido %}
+{#
+  PLAN DEL AÑO (app/capacitaciones.py, función plan)
+  caps    = capacitaciones del año (programadas, realizadas y canceladas), con su estado listo
+  resumen = total, realizadas, atrasadas y horas
+#}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+{% include "capacitaciones/_pestanas.html" %}
+
+{% if not hay_personal %}
+<p class="eres-aviso">👥 Primero agrega al personal (tú, tu auxiliar y quienes van de vez en cuando) en la pestaña
+  <a href="{{ url_for('capacitaciones.personal') }}">Personal</a>: así podrás marcar quién asistió.</p>
+{% endif %}
+
+<div class="san-planilla-cab">
+  <form method="get" class="filtros" style="margin:0">
+    <label>Año <select name="anio" onchange="this.form.submit()">
+      {% for a in anios %}<option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>{% endfor %}</select></label>
+  </form>
+  <div class="sug-acciones">
+    <a class="boton secundario" href="{{ url_for('capacitaciones.plan_pdf', anio=anio) }}">🖨️ Cronograma (PDF)</a>
+    {% if jefe %}
+    <a class="boton secundario" href="{{ url_for('capacitaciones.nueva', tipo='induccion') }}">➕ Inducción</a>
+    <a class="boton" href="{{ url_for('capacitaciones.nueva') }}">➕ Nueva capacitación</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if caps %}
+<div class="rep-tarjetas" style="margin-top:.8rem">
+  <div class="eres-tarjeta"><span>Programadas</span><strong>{{ resumen.total }}</strong></div>
+  <div class="eres-tarjeta"><span>Realizadas</span><strong>{{ resumen.realizadas }}</strong>
+    {% if resumen.total %}<small>{{ (resumen.realizadas * 100 // resumen.total) }} % del plan</small>{% endif %}</div>
+  <div class="eres-tarjeta {{ 'negativa' if resumen.atrasadas }}"><span>Atrasadas</span><strong>{{ resumen.atrasadas }}</strong></div>
+  <div class="eres-tarjeta"><span>Horas dictadas</span><strong>{{ ('%g' % resumen.horas).replace('.', ',') }}</strong></div>
+</div>
+
+<div class="rep-caja">
+<table class="rep-tabla">
+  <thead><tr><th>Programada</th><th>Tema</th><th>Capacitador</th><th>Realizada</th><th class="num">Asistentes</th><th>Estado</th></tr></thead>
+  <tbody>
+    {% for c in caps %}
+    <tr class="{{ 'equipo-inactivo' if c.estado == 'cancelada' }}">
+      <td style="white-space:nowrap">{{ fecha(c.fecha_programada) }}</td>
+      <td><a href="{{ url_for('capacitaciones.ver', cap_id=c.id) }}"><strong>{{ c.tema }}</strong></a><small>{{ c.tipo_texto }}{% if c.entidad %} · {{ c.entidad }}{% endif %}</small></td>
+      <td>{{ c.capacitador or '—' }}</td>
+      <td style="white-space:nowrap">{{ fecha(c.fecha_realizada) }}{% if c.duracion_horas and c.estado == 'realizada' %}<small>{{ ('%g' % c.duracion_horas).replace('.', ',') }} h</small>{% endif %}</td>
+      <td class="num">{{ c.asistentes if c.estado == 'realizada' else '—' }}</td>
+      <td><span class="equipo-estado {{ c.estado_color }}">{{ c.estado_texto }}</span>
+        {% if c.estado == 'realizada' and not c.archivo %}<small>falta el acta firmada</small>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% if jefe %}
+<form method="post" action="{{ url_for('capacitaciones.cargar_sugerido') }}" style="margin-top:.6rem">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="anio" value="{{ anio }}">
+  <button type="submit" class="boton secundario">📋 Completar con el plan sugerido</button>
+</form>
+{% endif %}
+{% else %}
+<div class="rep-vacio" style="margin-top:.8rem">
+  <p>No hay capacitaciones en {{ anio }}.</p>
+  {% if jefe %}
+  <form method="post" action="{{ url_for('capacitaciones.cargar_sugerido') }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><input type="hidden" name="anio" value="{{ anio }}">
+    <button type="submit">📋 Cargar el plan sugerido de {{ anio }} (12 temas, uno por mes)</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

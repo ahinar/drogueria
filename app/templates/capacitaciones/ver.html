@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block titulo %}{{ cap.tema }}{% endblock %}
+{% block contenido %}
+{#
+  UNA CAPACITACIÓN (app/capacitaciones.py, función ver)
+    - datos, acta en PDF para imprimir y firmar
+    - "Registrar como realizada": fecha, horas, asistentes y notas, acta firmada (jefe)
+#}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+{% include "capacitaciones/_pestanas.html" %}
+<p><a href="{{ url_for('capacitaciones.plan', anio=(cap.fecha_programada or cap.fecha_realizada)[:4]) }}">← Plan del año</a></p>
+
+<div class="eres-cabecera">
+  <div>
+    <h2>{{ cap.tema }} <span class="equipo-estado {{ cap.estado_color }}">{{ cap.estado_texto }}</span></h2>
+    <p class="suave">{{ cap.tipo_texto }}{% if cap.entidad %} · {{ cap.entidad }}{% endif %} · capacitador: {{ cap.capacitador or '—' }}
+      · programada: {{ fecha(cap.fecha_programada) }}{% if cap.fecha_realizada %} · realizada: {{ fecha(cap.fecha_realizada) }}{% endif %}
+      {% if cap.duracion_horas %} · {{ ('%g' % cap.duracion_horas).replace('.', ',') }} h{% endif %}</p>
+    {% if cap.contenido %}<p>{{ cap.contenido }}</p>{% endif %}
+  </div>
+  <div class="sug-acciones">
+    <a class="boton secundario" href="{{ url_for('capacitaciones.acta_pdf', cap_id=cap.id) }}">🖨️ Acta para firmar (PDF)</a>
+    {% if cap.archivo %}<a class="boton" href="{{ url_for('static', filename=cap.archivo) }}" target="_blank" rel="noopener">📎 Acta firmada</a>{% endif %}
+    {% if jefe %}
+    <a class="boton secundario" href="{{ url_for('capacitaciones.editar', cap_id=cap.id) }}">✏️ Editar</a>
+    {% if cap.estado != 'realizada' %}
+    <form method="post" action="{{ url_for('capacitaciones.cancelar', cap_id=cap.id) }}"
+          {% if cap.estado == 'programada' %}data-confirmar="¿Cancelar esta capacitación?"{% endif %}>
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button type="submit" class="boton secundario">{{ '♻️ Programar de nuevo' if cap.estado == 'cancelada' else '🚫 Cancelar' }}</button>
+    </form>
+    {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+{% if cap.estado == 'realizada' %}
+<div class="rep-caja">
+  <h3>Asistentes ({{ asistentes|length }})</h3>
+  <table class="rep-tabla">
+    <thead><tr><th>Nombre</th><th>Cargo</th>{% if cap.evaluacion %}<th class="num">Nota</th>{% endif %}</tr></thead>
+    <tbody>{% for a in asistentes %}<tr>
+      <td><a href="{{ url_for('capacitaciones.persona', persona_id=a.personal_id) }}">{{ a.nombre }}</a></td><td>{{ a.cargo or '—' }}</td>
+      {% if cap.evaluacion %}<td class="num">{{ ('%g' % a.nota).replace('.', ',') if a.nota is not none else '—' }}</td>{% endif %}
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% if not cap.archivo %}<p class="eres-aviso">✍️ Falta subir el acta firmada: imprímela con el botón de arriba, hazla firmar y súbela abajo.</p>{% endif %}
+</div>
+{% endif %}
+
+{% if jefe and cap.estado != 'cancelada' %}
+<details class="rep-caja equipo-calibrar" style="margin-top:1rem" {% if cap.estado == 'programada' or not cap.archivo %}open{% endif %}>
+  <summary><strong>{{ '✅ Registrar como realizada' if cap.estado == 'programada' else '✏️ Corregir asistencia / subir acta firmada' }}</strong></summary>
+  {% if not personal %}
+    <p class="eres-aviso">Primero agrega al personal en la pestaña <a href="{{ url_for('capacitaciones.personal') }}">Personal</a>.</p>
+  {% else %}
+  <form method="post" action="{{ url_for('capacitaciones.realizar', cap_id=cap.id) }}" enctype="multipart/form-data" class="formulario sin-marco">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="grid-3-compact">
+      <label>Fecha en que se hizo * <input type="date" name="fecha_realizada" required max="{{ hoy }}" value="{{ cap.fecha_realizada or (cap.fecha_programada if cap.fecha_programada and cap.fecha_programada <= hoy else hoy) }}"></label>
+      <label>Duración (horas) * <input type="text" name="duracion_horas" inputmode="decimal" required value="{{ ('%g' % cap.duracion_horas).replace('.', ',') if cap.duracion_horas else '1' }}"></label>
+      <label>Capacitador <input type="text" name="capacitador" maxlength="80" value="{{ cap.capacitador or '' }}"></label>
+    </div>
+    <table class="rep-tabla cap-asistencia">
+      <thead><tr><th>Asistió</th><th>Nombre</th><th>Cargo</th>{% if cap.evaluacion %}<th>Nota (0 a 5)</th>{% endif %}</tr></thead>
+      <tbody>{% for p in personal %}{% set m = marcados.get(p.id) %}<tr>
+        <td><input type="checkbox" name="personal_id" value="{{ p.id }}" {% if m or (cap.estado == 'programada' and not p.ocasional) %}checked{% endif %} aria-label="Asistió {{ p.nombre }}"></td>
+        <td>{{ p.nombre }}{% if p.ocasional %}<small>ocasional</small>{% endif %}</td>
+        <td>{{ p.cargo or '—' }}</td>
+        {% if cap.evaluacion %}<td><input type="text" name="nota_{{ p.id }}" inputmode="decimal" maxlength="4" style="width:5rem"
+            value="{{ ('%g' % m.nota).replace('.', ',') if m and m.nota is not none else '' }}"></td>{% endif %}
+      </tr>{% endfor %}</tbody>
+    </table>
+    <label>Acta firmada escaneada (PDF o foto) <input type="file" name="archivo" accept=".pdf,image/*">
+      {% if cap.archivo %}<small class="suave">Ya hay una; si subes otra, la reemplaza.</small>{% endif %}</label>
+    <div class="acciones"><button type="submit">💾 Guardar</button></div>
+  </form>
+  {% endif %}
+</details>
+{% endif %}
+{% endblock %}

@@ -423,6 +423,17 @@ Notas:
     consolidado mensual + PDF, entregas al gestor con certificado, "Dar de baja lotes vencidos"
     (movimiento `baja` "Baja por vencimiento" + registro de residuo farmacéutico). Aviso en Inicio
     si hay peligrosos guardados > 90 días sin entregar. La alerta de lotes vencidos ahora apunta aquí.
+- **4.3 Capacitaciones** ✅ (2026-10-11) — `app/capacitaciones.py`, menú **Calidad → Capacitaciones**:
+  - *Personal*: nombre, documento, cargo, ingreso, "ocasional", usuario del programa (opcional);
+    retirar (no se borra); columna de capacitaciones y horas del año e inducción hecha/pendiente.
+  - *Plan del año*: "Cargar plan sugerido" (12 temas internos con contenido: recepción, almacenamiento,
+    residuos Res. 591, dispensación, vencimientos, limpieza, farmacovigilancia, cadena de frío, quejas,
+    normatividad, bioseguridad, uso del programa). Año futuro: el 15 de cada mes; año en curso ya
+    avanzado: repartidos entre dentro de 7 días y el 15/12 (`fechas_del_plan`), para que no nazcan atrasados.
+  - Cada capacitación: programar (interna / externa con entidad / inducción), "Registrar como realizada"
+    (fecha, horas, asistentes con nota 0–5, acta firmada escaneada; se puede corregir), cancelar o
+    reprogramar. Acta en PDF para firmar (con el personal activo ya escrito si aún no hay asistencia)
+    y cronograma del año en PDF. Aviso en Inicio (jefe) por capacitaciones atrasadas.
 - Plan de saneamiento, capacitaciones, calibraciones.
 - Farmacovigilancia.
 - **Modo Inspección** (paquete ZIP).
@@ -528,6 +539,7 @@ Notas:
 | 29 | `cotizaciones`, `cotizacion_lineas` y `ventas.cotizacion_id` (cotizaciones del POS) |
 | 30 | `documentos` y `documento_versiones` (gestión documental, Fase 4.1) |
 | 31 | `limpieza_tareas` (con las 3 de Fernando), `limpieza_registros`, `control_plagas`, `residuos_registros`, `residuos_entregas` (Fase 4.2) |
+| 32 | `personal`, `capacitaciones`, `capacitacion_asistentes` (Fase 4.3) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -548,7 +560,7 @@ Notas:
 - [x] 3.2 Precios máximos
 - [x] 3.3 Alertas INVIMA
 - [ ] 3.4 Control especial (FNE) ⏸ para una actualización posterior
-- [~] Fase 4: cumplimiento — 4.1 Documentos ✅, 4.2 Saneamiento ✅; faltan capacitaciones, quejas, farmacovigilancia, autoinspección y Modo Inspección
+- [~] Fase 4: cumplimiento — 4.1 Documentos ✅, 4.2 Saneamiento ✅, 4.3 Capacitaciones ✅; faltan, quejas, farmacovigilancia, autoinspección y Modo Inspección
 - [ ] Fase 5: Facturación electrónica
 - [ ] Fase 6: IA
 - [ ] Fase 7: Empaquetado
