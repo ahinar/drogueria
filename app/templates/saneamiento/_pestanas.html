@@ -1,0 +1,16 @@
+{#
+  Encabezado común de Saneamiento: título y las tres pestañas.
+  Cada página dice cuál está activa con la variable `pestana`
+  (la manda app/saneamiento.py).
+#}
+<div class="eres-cabecera">
+  <div>
+    <h1><span class="ico-emoji">🧽</span> Saneamiento</h1>
+    <p class="suave">Limpieza, control de plagas y residuos: lo que revisa la Secretaría de Salud en la visita.</p>
+  </div>
+</div>
+<nav class="san-pestanas" aria-label="Partes de saneamiento">
+  <a href="{{ url_for('saneamiento.limpieza') }}" class="{{ 'activo' if pestana == 'limpieza' }}">🧹 Limpieza</a>
+  <a href="{{ url_for('saneamiento.plagas') }}" class="{{ 'activo' if pestana == 'plagas' }}">🪳 Control de plagas</a>
+  <a href="{{ url_for('saneamiento.residuos') }}" class="{{ 'activo' if pestana == 'residuos' }}">🗑️ Residuos</a>
+</nav>

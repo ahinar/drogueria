@@ -5,6 +5,7 @@ Cada prueba crea una situación (un lote vencido, un precio por encima del
 máximo, etc.) y revisa que el Inicio muestre la alerta correcta.
 Las alertas se reconocen en el HTML por su data-clave="...".
 """
+import sqlite3
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -41,6 +42,16 @@ class BaseAlertas(BaseVentas):
 
 class TestPanelAlertas(BaseAlertas):
     def test_sin_problemas_dice_todo_en_orden(self):
+        # Saneamiento al día: control de plagas vigente y la limpieza hecha
+        # (sin eso, el Inicio avisa, y está bien que avise)
+        con = sqlite3.connect(self.db_path)
+        con.execute("INSERT INTO control_plagas (fecha, empresa, proxima, creado_en) VALUES (?, 'X', ?, ?)",
+                    (dias(0), dias(150), dias(0)))
+        for (tarea_id,) in con.execute("SELECT id FROM limpieza_tareas").fetchall():
+            con.execute("INSERT INTO limpieza_registros (tarea_id, fecha, creado_en) VALUES (?,?,?)",
+                        (tarea_id, dias(0), dias(0)))
+        con.commit()
+        con.close()
         html = self.inicio()
         self.assertIn("Todo en orden", html)
         self.assertEqual(self.claves(), [])

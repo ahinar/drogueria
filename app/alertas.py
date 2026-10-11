@@ -110,7 +110,7 @@ def calcular_alertas(rol):
         "ORDER BY l.vencimiento", (hoy_txt,)).fetchall()
     agregar("lotes_vencidos", "rojo", "⛔", "Lotes vencidos en el inventario",
             "El POS ya no los vende. Sácalos de la estantería, sepáralos y "
-            "regístralos como baja (Inventario → lote → Ajustar).",
+            "dales de baja como residuo (Saneamiento → Residuos → Dar de baja lotes vencidos).",
             filas, lambda f: {
                 "texto": f"{f['nombre']} · lote {f['lote'] or 's/n'}",
                 "detalle": f"{_cant(f['cantidad_disponible'])} und · {_dias_texto(f['vencimiento'], hoy)}",
@@ -231,6 +231,43 @@ def calcular_alertas(rol):
         agregar("documentos_por_revisar", "amarillo", "🗂️", "Documentos del sistema de calidad por revisar",
                 "Revísalos: si siguen iguales, toca «Revisado: sigue igual»; si cambian, sube la versión nueva.",
                 docs, item_doc, url_for("documentos.lista", filtro="por_revisar"), "Ver documentos")
+
+    # ------------------------------------------------------------------
+    # 4d. SANEAMIENTO (ver app/saneamiento.py)
+    #     - Limpieza pendiente (para todos: los auxiliares también limpian)
+    #     - Control de plagas sin registrar / vencido (solo jefe)
+    #     - Residuos peligrosos guardados mucho tiempo sin entregar (solo jefe)
+    # ------------------------------------------------------------------
+    from . import saneamiento as san
+    item_limpieza = lambda t: {
+        "texto": t["nombre"],
+        "detalle": "hoy" if t["frecuencia"] == "diaria" else
+                   f"{t['frecuencia_texto'].lower()}: hasta el {t['fin'].strftime('%d/%m')}",
+        "url": url_for("saneamiento.limpieza"),
+    }
+    agregar("limpieza_pendiente", "amarillo", "🧹", "Limpieza pendiente",
+            "Cuando la hagas, márcala en Saneamiento → Limpieza.",
+            san.limpieza_pendiente_para_aviso(), item_limpieza,
+            url_for("saneamiento.limpieza"), "Ir a la planilla")
+    if jefe:
+        estado_p, ultima_p, _ = san.estado_plagas(hoy)
+        if estado_p in ("sin", "vencida", "por_vencer"):
+            fila_p = {"texto": "Control de plagas",
+                      "detalle": "sin ningún registro" if estado_p == "sin" else
+                                 f"el próximo {_dias_texto(ultima_p['proxima'], hoy)} ({_fecha(ultima_p['proxima'])})",
+                      "url": url_for("saneamiento.plagas")}
+            agregar("plagas_" + estado_p, "rojo" if estado_p == "vencida" else "amarillo", "🪳",
+                    "Control de plagas vencido" if estado_p == "vencida" else
+                    ("Sin control de plagas registrado" if estado_p == "sin" else "Control de plagas por vencer"),
+                    "Programa la fumigación con una empresa autorizada y sube el certificado.",
+                    [fila_p], lambda f: f, url_for("saneamiento.plagas"), "Ver control de plagas")
+        kg_res, desde_res = san.residuos_sin_entregar(hoy)
+        if kg_res and desde_res and (hoy - date.fromisoformat(desde_res[:10])).days > san.DIAS_MAX_ALMACEN:
+            agregar("residuos_sin_entregar", "amarillo", "🗑️", "Residuos peligrosos sin entregar al gestor",
+                    "Entrégalos a la empresa gestora autorizada y sube el certificado.",
+                    [{"texto": f"{kg_res:g} kg".replace(".", ","), "detalle": f"guardados desde el {_fecha(desde_res)}",
+                      "url": url_for("saneamiento.residuos")}], lambda f: f,
+                    url_for("saneamiento.residuos"), "Ver residuos")
 
     # ------------------------------------------------------------------
     # 5. STOCK: agotados (rojo) y por debajo del mínimo (amarillo).

@@ -409,6 +409,20 @@ Notas:
   y corre la próxima revisión), próxima revisión = aprobación + frecuencia (12 meses),
   aviso amarillo en Inicio cuando la revisión vence o faltan ≤ 30 días, PDF del listado
   maestro con firma del DT. Ver y abrir: todos; modificar: administrador y DT.
+- **4.2 Saneamiento** ✅ (2026-10-10) — `app/saneamiento.py`, menú **Calidad → Saneamiento** (3 pestañas):
+  - *Limpieza*: tareas con frecuencia diaria/semanal/quincenal/mensual (vienen Pisos diaria,
+    Estanterías semanal, Nevera mensual); "Marcar hecha hoy" con un toque (todos los usuarios;
+    auxiliar hasta 7 días atrás); "Deshacer" (quien la marcó el mismo día, o el jefe; queda en
+    bitácora); planilla del mes con cumplimiento (períodos hechos / transcurridos desde que existe
+    la tarea) y PDF; aviso en Inicio: diarias desde las 3 p. m., semanales/quincenales/mensuales
+    cuando quedan 1/2/3 días del período.
+  - *Control de plagas*: registro con empresa, certificado (archivo), próxima = +6 meses; aviso en
+    Inicio si no hay ninguno, si vence en ≤ 30 días o si venció.
+  - *Residuos* (Resolución 591 de 2024, que reemplazó la 1164 de 2002): registro por tipo y kg
+    (farmacéuticos, cortopunzantes, biosanitarios, químicos = peligrosos; aprovechables, ordinarios),
+    consolidado mensual + PDF, entregas al gestor con certificado, "Dar de baja lotes vencidos"
+    (movimiento `baja` "Baja por vencimiento" + registro de residuo farmacéutico). Aviso en Inicio
+    si hay peligrosos guardados > 90 días sin entregar. La alerta de lotes vencidos ahora apunta aquí.
 - Plan de saneamiento, capacitaciones, calibraciones.
 - Farmacovigilancia.
 - **Modo Inspección** (paquete ZIP).
@@ -513,6 +527,7 @@ Notas:
 | 28 | `productos.vende_suelto` (1 = también se vende la unidad mínima suelta) |
 | 29 | `cotizaciones`, `cotizacion_lineas` y `ventas.cotizacion_id` (cotizaciones del POS) |
 | 30 | `documentos` y `documento_versiones` (gestión documental, Fase 4.1) |
+| 31 | `limpieza_tareas` (con las 3 de Fernando), `limpieza_registros`, `control_plagas`, `residuos_registros`, `residuos_entregas` (Fase 4.2) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -533,7 +548,7 @@ Notas:
 - [x] 3.2 Precios máximos
 - [x] 3.3 Alertas INVIMA
 - [ ] 3.4 Control especial (FNE) ⏸ para una actualización posterior
-- [~] Fase 4: cumplimiento — 4.1 Documentos ✅; faltan saneamiento, capacitaciones, quejas, farmacovigilancia, autoinspección y Modo Inspección
+- [~] Fase 4: cumplimiento — 4.1 Documentos ✅, 4.2 Saneamiento ✅; faltan capacitaciones, quejas, farmacovigilancia, autoinspección y Modo Inspección
 - [ ] Fase 5: Facturación electrónica
 - [ ] Fase 6: IA
 - [ ] Fase 7: Empaquetado

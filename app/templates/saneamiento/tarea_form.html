@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Editar tarea de limpieza{% endblock %}
+{% block contenido %}
+{% include "saneamiento/_pestanas.html" %}
+<h2>✏️ Editar tarea: {{ tarea.nombre }}</h2>
+<form method="post" class="formulario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <label>¿Qué se limpia? * <input type="text" name="nombre" required maxlength="60" value="{{ tarea.nombre }}"></label>
+  <label>Área <input type="text" name="area" maxlength="60" value="{{ tarea.area or '' }}"></label>
+  <label>Frecuencia
+    <select name="frecuencia">{% for k, v in frecuencias.items() %}<option value="{{ k }}" {% if tarea.frecuencia == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+  <label>Producto que se usa <input type="text" name="producto" maxlength="80" value="{{ tarea.producto or '' }}"></label>
+  <label>Instrucciones <input type="text" name="instrucciones" maxlength="200" value="{{ tarea.instrucciones or '' }}"></label>
+  <label>Orden en la lista <input type="number" name="orden" min="0" max="999" value="{{ tarea.orden }}"></label>
+  <div class="acciones">
+    <button type="submit">Guardar</button>
+    <a class="boton secundario" href="{{ url_for('saneamiento.tareas') }}">Cancelar</a>
+  </div>
+</form>
+<!-- Desactivar (o activar): la tarea deja de pedirse, pero su planilla vieja se conserva -->
+<form method="post" style="margin-top:1rem" {% if tarea.activa %}data-confirmar="¿Desactivar esta tarea? Su historial se conserva."{% endif %}>
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="accion" value="activar">
+  <button type="submit" class="boton secundario">{{ '🚫 Desactivar tarea' if tarea.activa else '♻️ Activar tarea' }}</button>
+</form>
+{% endblock %}

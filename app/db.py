@@ -1074,6 +1074,92 @@ MIGRATIONS = [
         CREATE INDEX idx_doc_versiones ON documento_versiones (documento_id);
         """,
     ),
+    (
+        31,
+        """
+        -- ===== Saneamiento (Fase 4.2) =====
+        -- 1. LIMPIEZA: las tareas (qué se limpia y cada cuánto) y la planilla
+        --    (cada vez que se hizo: fecha y quién).
+        CREATE TABLE limpieza_tareas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,                        -- Pisos, Estanterías, Nevera...
+            area TEXT,                                   -- dónde: toda la droguería, bodega...
+            frecuencia TEXT NOT NULL DEFAULT 'diaria'
+                CHECK (frecuencia IN ('diaria', 'semanal', 'quincenal', 'mensual')),
+            producto TEXT,                               -- con qué se limpia o desinfecta
+            instrucciones TEXT,
+            activa INTEGER NOT NULL DEFAULT 1,
+            orden INTEGER NOT NULL DEFAULT 0,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT
+        );
+        CREATE TABLE limpieza_registros (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            tarea_id INTEGER NOT NULL,
+            fecha TEXT NOT NULL,                         -- aaaa-mm-dd (el día que se hizo)
+            observaciones TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,                         -- quién la hizo
+            creado_en TEXT NOT NULL,
+            UNIQUE (tarea_id, fecha),                    -- una marca por tarea y día
+            FOREIGN KEY (tarea_id) REFERENCES limpieza_tareas (id)
+        );
+        CREATE INDEX idx_limpieza_fecha ON limpieza_registros (fecha);
+
+        -- Las tres tareas que contó Fernando (se pueden cambiar en el programa)
+        INSERT INTO limpieza_tareas (nombre, area, frecuencia, orden, creado_en) VALUES
+            ('Pisos', 'Toda la droguería', 'diaria', 1, datetime('now', 'localtime')),
+            ('Estanterías', 'Exhibición y bodega', 'semanal', 2, datetime('now', 'localtime')),
+            ('Nevera', 'Cadena de frío', 'mensual', 3, datetime('now', 'localtime'));
+
+        -- 2. CONTROL DE PLAGAS: cada fumigación con su certificado
+        CREATE TABLE control_plagas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha TEXT NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'integral'
+                CHECK (tipo IN ('integral', 'insectos', 'roedores', 'desinfeccion')),
+            empresa TEXT,
+            certificado_numero TEXT,
+            producto TEXT,                               -- producto aplicado
+            areas TEXT,
+            proxima TEXT,                                -- cuándo toca la siguiente
+            archivo TEXT,                                -- certificado escaneado
+            observaciones TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL
+        );
+
+        -- 3. RESIDUOS (Resolución 591 de 2024): lo que se genera, por tipo y en kg,
+        --    y las entregas a la empresa gestora con su certificado.
+        CREATE TABLE residuos_registros (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha TEXT NOT NULL,
+            tipo TEXT NOT NULL CHECK (tipo IN ('farmaceuticos', 'cortopunzantes', 'biosanitarios',
+                                                'quimicos', 'aprovechables', 'ordinarios')),
+            cantidad_kg REAL NOT NULL,
+            descripcion TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL
+        );
+        CREATE INDEX idx_residuos_fecha ON residuos_registros (fecha);
+        CREATE TABLE residuos_entregas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha TEXT NOT NULL,
+            gestor TEXT NOT NULL,                        -- empresa gestora autorizada
+            gestor_nit TEXT,
+            tipos TEXT,                                  -- qué se entregó (texto)
+            cantidad_kg REAL,
+            certificado_numero TEXT,
+            archivo TEXT,                                -- certificado de tratamiento / disposición
+            observaciones TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL
+        );
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

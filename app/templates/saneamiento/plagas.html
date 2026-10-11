@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block titulo %}Control de plagas{% endblock %}
+{% block contenido %}
+{#
+  CONTROL DE PLAGAS (app/saneamiento.py, función plagas)
+  estado = 'sin' | 'vencida' | 'por_vencer' | 'al_dia'  (según la última fumigación)
+#}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+{% include "saneamiento/_pestanas.html" %}
+
+{% if estado == 'sin' %}
+<p class="eres-aviso">⚠️ No hay ningún control de plagas registrado. En la visita lo normal es que pidan el
+  <strong>certificado de fumigación</strong> de una empresa autorizada. Pregunta en tu Secretaría de Salud cada cuánto
+  lo exigen (lo común es cada 6 meses).</p>
+{% else %}
+<div class="rep-tarjetas">
+  <div class="eres-tarjeta"><span>Última</span><strong>{{ fecha(ultima.fecha) }}</strong><small>{{ ultima.empresa }}</small></div>
+  <div class="eres-tarjeta {{ 'negativa' if estado == 'vencida' }}"><span>Próxima</span><strong>{{ fecha(ultima.proxima) }}</strong>
+    <small>{% if dias is not none %}{% if dias < 0 %}venció hace {{ -dias }} días{% else %}faltan {{ dias }} días{% endif %}{% endif %}</small></div>
+</div>
+{% endif %}
+
+{% if jefe %}
+<details class="rep-caja equipo-calibrar" {% if estado in ('sin', 'vencida') %}open{% endif %}>
+  <summary><strong>➕ Registrar control de plagas</strong></summary>
+  <form method="post" enctype="multipart/form-data" class="formulario sin-marco">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="grid-3-compact">
+      <label>Fecha * <input type="date" name="fecha" required max="{{ hoy }}" value="{{ hoy }}"></label>
+      <label>Tipo <select name="tipo">{% for k, v in tipos.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+      <label>Empresa * <input type="text" name="empresa" required maxlength="100" placeholder="Empresa de fumigación"></label>
+      <label>N.º de certificado <input type="text" name="certificado_numero" maxlength="40"></label>
+      <label>Producto aplicado <input type="text" name="producto" maxlength="100"></label>
+      <label>Áreas tratadas <input type="text" name="areas" maxlength="100" placeholder="Ej: toda la droguería"></label>
+      <label>Próxima <input type="date" name="proxima" value="{{ proxima_sugerida }}"><small class="suave">Sugerida: 6 meses después</small></label>
+      <label>Certificado (PDF o foto) <input type="file" name="certificado" accept=".pdf,image/*"></label>
+    </div>
+    <label>Observaciones <textarea name="observaciones" rows="2"></textarea></label>
+    <div class="acciones"><button type="submit">💾 Guardar</button></div>
+  </form>
+</details>
+{% endif %}
+
+<div class="rep-caja" style="margin-top:1rem">
+  <h2>Historial</h2>
+  {% if historial %}
+  <table class="rep-tabla">
+    <thead><tr><th>Fecha</th><th>Tipo</th><th>Empresa / certificado</th><th>Producto y áreas</th><th>Próxima</th><th>Archivo</th></tr></thead>
+    <tbody>{% for p in historial %}<tr>
+      <td>{{ fecha(p.fecha) }}</td>
+      <td>{{ tipos[p.tipo] }}</td>
+      <td>{{ p.empresa or '—' }}<small>{% if p.certificado_numero %}N.º {{ p.certificado_numero }} · {% endif %}registró {{ p.usuario_nombre or '—' }}</small>
+        {% if p.observaciones %}<small>{{ p.observaciones }}</small>{% endif %}</td>
+      <td>{{ p.producto or '—' }}<small>{{ p.areas or '' }}</small></td>
+      <td>{{ fecha(p.proxima) }}</td>
+      <td>{% if p.archivo %}<a href="{{ url_for('static', filename=p.archivo) }}" target="_blank" rel="noopener">📎 Ver</a>{% else %}—{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="suave">Sin registros.</p>{% endif %}
+</div>
+{% endblock %}

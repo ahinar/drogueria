@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block titulo %}Limpieza{% endblock %}
+{% block contenido %}
+{#
+  LIMPIEZA (app/saneamiento.py, función limpieza)
+  tareas = tareas activas con su estado en el período actual (estado_tareas)
+  dias, filas = la planilla del mes (planilla_mes): una fila por tarea
+#}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+{% include "saneamiento/_pestanas.html" %}
+
+<!-- ===== Lo de ahora: marcar con un toque ===== -->
+<h2 class="san-titulo">Para hacer ahora</h2>
+<div class="san-tareas">
+  {% for t in tareas %}
+  <div class="san-tarea {{ 'hecha' if t.hecho }}">
+    <div>
+      <strong>{{ t.nombre }}</strong>
+      <small>{{ t.frecuencia_texto }}{% if t.area %} · {{ t.area }}{% endif %}{% if t.producto %} · con {{ t.producto }}{% endif %}</small>
+      {% if t.frecuencia != 'diaria' %}<small>{% if t.frecuencia == 'semanal' %}esta semana{% elif t.frecuencia == 'quincenal' %}esta quincena{% else %}este mes{% endif %}:
+        {{ t.inicio.strftime('%d/%m') }} al {{ t.fin.strftime('%d/%m') }}</small>{% endif %}
+      {% if t.instrucciones %}<small class="suave">{{ t.instrucciones }}</small>{% endif %}
+    </div>
+    {% if t.hecho %}
+      <div class="san-hecha">
+        ✅ Hecha el {{ t.hecho.fecha[8:10] }}/{{ t.hecho.fecha[5:7] }} por {{ t.hecho.usuario_nombre }}
+        {% if jefe or (t.hecho.usuario_id == g.user.id and t.hecho.creado_en[:10] == hoy.isoformat()) %}
+        <form method="post" action="{{ url_for('saneamiento.limpieza_quitar', registro_id=t.hecho.id) }}" data-confirmar="¿Quitar esta marca?">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="boton-chico sec" title="Quitar la marca (si fue un error)">Deshacer</button>
+        </form>
+        {% endif %}
+      </div>
+    {% else %}
+      <form method="post" action="{{ url_for('saneamiento.limpieza_marcar') }}">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="hidden" name="tarea_id" value="{{ t.id }}">
+        <button type="submit">✔ Marcar hecha hoy</button>
+      </form>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="rep-vacio">No hay tareas de limpieza activas.{% if jefe %} <a href="{{ url_for('saneamiento.tareas') }}">Crea las tareas</a>.{% endif %}</p>
+  {% endfor %}
+</div>
+
+{% if tareas %}
+<!-- Para ponerse al día: marcar una tarea de otro día (hasta 7 días atrás; el jefe, cualquier fecha) -->
+<details class="rep-caja equipo-calibrar">
+  <summary><strong>📅 Marcar una limpieza de otro día</strong></summary>
+  <form method="post" action="{{ url_for('saneamiento.limpieza_marcar') }}" class="formulario sin-marco">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="grid-3-compact">
+      <label>Tarea <select name="tarea_id">{% for t in tareas %}<option value="{{ t.id }}">{{ t.nombre }}</option>{% endfor %}</select></label>
+      <label>Fecha <input type="date" name="fecha" required max="{{ hoy.isoformat() }}" {% if not jefe %}min="{{ minimo }}"{% endif %} value="{{ hoy.isoformat() }}"></label>
+      <label>Observaciones <input type="text" name="observaciones" placeholder="Opcional"></label>
+    </div>
+    <div class="acciones"><button type="submit">Guardar</button></div>
+  </form>
+</details>
+{% endif %}
+
+<!-- ===== Planilla del mes ===== -->
+<div class="rep-caja" style="margin-top:1rem">
+  <div class="san-planilla-cab">
+    <h2>Planilla de {{ mes_texto }}</h2>
+    <div class="sug-acciones">
+      <a class="boton secundario" href="{{ url_for('saneamiento.limpieza', mes=anterior) }}">← Mes anterior</a>
+      {% if siguiente %}<a class="boton secundario" href="{{ url_for('saneamiento.limpieza', mes=siguiente) }}">Mes siguiente →</a>{% endif %}
+      <a class="boton secundario" href="{{ url_for('saneamiento.limpieza_pdf', mes=primero.strftime('%Y-%m')) }}">🖨️ PDF</a>
+      {% if jefe %}<a class="boton secundario" href="{{ url_for('saneamiento.tareas') }}">⚙️ Tareas</a>{% endif %}
+    </div>
+  </div>
+  {% if filas %}
+  <div class="san-planilla-scroll">
+  <table class="rep-tabla san-planilla">
+    <thead><tr><th>Tarea</th>
+      {% for d in dias %}<th class="{{ 'domingo' if d.weekday() == 6 }} {{ 'hoy' if d == hoy }}" title="{{ d.strftime('%d/%m/%Y') }}">{{ d.day }}</th>{% endfor %}
+      <th title="Períodos con la tarea hecha / períodos transcurridos">Cumpl.</th></tr></thead>
+    <tbody>
+      {% for f in filas %}
+      <tr>
+        <td><strong>{{ f.tarea.nombre }}</strong><small>{{ f.frecuencia_texto }}{% if not f.tarea.activa %} · inactiva{% endif %}</small></td>
+        {% for d in dias %}
+          {% set r = f.marcas.get(d.day) %}
+          <td class="{{ 'domingo' if d.weekday() == 6 }} {{ 'hoy' if d == hoy }}"
+              {% if r %}title="{{ r.usuario_nombre }}{% if r.observaciones %}: {{ r.observaciones }}{% endif %}"{% endif %}>{{ '✓' if r }}</td>
+        {% endfor %}
+        <td class="{{ 'san-incompleto' if f.periodos and f.hechos < f.periodos }}">{{ f.hechos }}/{{ f.periodos }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="suave"><small>✓ = hecha ese día (pasa el mouse para ver quién). «Cumpl.» = cuántas veces se cumplió / cuántas tocaba hasta hoy
+    (una tarea semanal cuenta una vez por semana).</small></p>
+  {% else %}<p class="suave">Sin tareas.</p>{% endif %}
+</div>
+{% endblock %}

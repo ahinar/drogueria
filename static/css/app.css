@@ -2802,3 +2802,28 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 .doc-borrador { border-left: 4px solid #e0b100; margin-bottom: .8rem; }
 .doc-borrador p { margin: 0 0 .5rem; }
 .formulario.sin-marco { border: 0; padding: 0; background: transparent; max-width: none; }
+
+/* ===== Saneamiento (Fase 4.2) ===== */
+.san-pestanas { display: flex; gap: .3rem; flex-wrap: wrap; border-bottom: 2px solid #e3e8ec; margin: 0 0 1rem; }
+.san-pestanas a { padding: .5rem .9rem; font-weight: 600; color: #5a6673; text-decoration: none;
+  border-bottom: 3px solid transparent; margin-bottom: -2px; white-space: nowrap; }
+.san-pestanas a:hover { color: var(--acento); }
+.san-pestanas a.activo { color: var(--acento); border-bottom-color: var(--acento); }
+.san-titulo { font-size: 1.05rem; margin: .2rem 0 .6rem; }
+.san-tareas { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .7rem; margin-bottom: 1rem; }
+.san-tarea { display: flex; flex-direction: column; justify-content: space-between; gap: .6rem; background: #fff;
+  border: 1px solid #d8e0e6; border-left: 4px solid #e0b100; border-radius: .5rem; padding: .8rem .9rem; }
+.san-tarea.hecha { border-left-color: #2e8b57; }
+.san-tarea small { display: block; color: #6b7884; }
+.san-tarea form button { width: 100%; }
+.san-hecha { display: flex; align-items: center; justify-content: space-between; gap: .5rem; color: #1e6b3a; font-size: .9rem; }
+.san-planilla-cab { display: flex; justify-content: space-between; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.san-planilla-scroll { overflow-x: auto; }
+.san-planilla th, .san-planilla td { text-align: center; padding: .35rem .25rem; min-width: 1.6rem; font-size: .82rem; }
+.san-planilla th:first-child, .san-planilla td:first-child { text-align: left; min-width: 9rem; position: sticky; left: 0; background: #fff; }
+.san-planilla td:not(:first-child) { color: #1e6b3a; font-weight: 700; }
+.san-planilla .domingo { background: #f3f6f8; }
+.san-planilla th.hoy, .san-planilla td.hoy { outline: 2px solid var(--acento); outline-offset: -2px; }
+.san-planilla td.san-incompleto { color: #a1251b; }
+.san-tipos { display: flex; flex-wrap: wrap; gap: .4rem 1rem; border: 1px solid #d8e0e6; border-radius: .4rem; padding: .5rem .8rem; }
+.san-tipos label { display: flex; align-items: center; gap: .35rem; font-weight: 400; }

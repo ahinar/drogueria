@@ -97,6 +97,10 @@
          href="{{ url_for('documentos.lista') }}" title="Documentos del sistema de calidad">
         <span class="ico">{{ ico("carpeta", "🗂️") }}</span><span class="txt">Documentos</span>
       </a>
+      <a class="sidebar-link {% if ep.startswith('saneamiento.') %}activo{% endif %}"
+         href="{{ url_for('saneamiento.limpieza') }}" title="Saneamiento: limpieza, plagas y residuos">
+        <span class="ico">{{ ico("escoba", "🧽") }}</span><span class="txt">Saneamiento</span>
+      </a>
 
       <!-- ===== Productos ===== -->
       <div class="sidebar-seccion">Productos</div>

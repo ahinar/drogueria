@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titulo %}Tareas de limpieza{% endblock %}
+{% block contenido %}
+{#
+  TAREAS DE LIMPIEZA (solo administrador y DT): qué se limpia y cada cuánto.
+  Una tarea no se borra: se desactiva, así su planilla vieja se conserva.
+#}
+{% include "saneamiento/_pestanas.html" %}
+<p><a href="{{ url_for('saneamiento.limpieza') }}">← Volver a la planilla</a></p>
+
+<div class="rep-caja">
+  <h2>Tareas de limpieza</h2>
+  <table class="rep-tabla">
+    <thead><tr><th>Orden</th><th>Tarea</th><th>Frecuencia</th><th>Producto</th><th>Estado</th><th></th></tr></thead>
+    <tbody>
+      {% for t in tareas %}
+      <tr class="{{ 'equipo-inactivo' if not t.activa }}">
+        <td>{{ t.orden }}</td>
+        <td><strong>{{ t.nombre }}</strong>{% if t.area %}<small>{{ t.area }}</small>{% endif %}
+          {% if t.instrucciones %}<small>{{ t.instrucciones }}</small>{% endif %}</td>
+        <td>{{ frecuencias[t.frecuencia] }}</td>
+        <td>{{ t.producto or '—' }}</td>
+        <td>{% if t.activa %}<span class="equipo-estado verde">Activa</span>{% else %}<span class="equipo-estado gris">Inactiva</span>{% endif %}</td>
+        <td><a href="{{ url_for('saneamiento.tarea_editar', tarea_id=t.id) }}">✏️ Editar</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<details class="rep-caja equipo-calibrar" style="margin-top:1rem" {% if datos %}open{% endif %}>
+  <summary><strong>➕ Nueva tarea</strong></summary>
+  <form method="post" class="formulario sin-marco">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="grid-3-compact">
+      <label>¿Qué se limpia? * <input type="text" name="nombre" required maxlength="60" value="{{ datos.nombre or '' }}" placeholder="Ej: Baño, Mostrador"></label>
+      <label>Área <input type="text" name="area" maxlength="60" value="{{ datos.area or '' }}" placeholder="Ej: Bodega"></label>
+      <label>Frecuencia
+        <select name="frecuencia">{% for k, v in frecuencias.items() %}<option value="{{ k }}" {% if datos.frecuencia == k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+      <label>Producto que se usa <input type="text" name="producto" maxlength="80" value="{{ datos.producto or '' }}" placeholder="Ej: Hipoclorito al 0,5 %"></label>
+    </div>
+    <label>Instrucciones <input type="text" name="instrucciones" maxlength="200" value="{{ datos.instrucciones or '' }}" placeholder="Ej: de arriba hacia abajo, sin mojar las cajas"></label>
+    <div class="acciones"><button type="submit">Crear tarea</button></div>
+  </form>
+</details>
+{% endblock %}

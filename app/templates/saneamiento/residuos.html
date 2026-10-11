@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block titulo %}Residuos{% endblock %}
+{% block contenido %}
+{#
+  RESIDUOS (app/saneamiento.py, función residuos)
+  por_tipo      = kilos de cada tipo en el mes elegido (consolidado mensual)
+  kg_pendientes = kilos de residuos PELIGROSOS registrados después de la última entrega al gestor
+  vencidos      = lotes vencidos con unidades (solo para el jefe: "Dar de baja vencidos")
+#}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+{% macro kg(n) %}{{ ('%.2f' % n).replace('.', ',') }}{% endmacro %}
+{% include "saneamiento/_pestanas.html" %}
+
+<p class="suave">Resolución 591 de 2024: los residuos <strong>peligrosos</strong> (medicamentos vencidos o abiertos,
+  cortopunzantes, biosanitarios, químicos) se guardan aparte y se entregan a una <strong>empresa gestora autorizada</strong>
+  que da un certificado. Los medicamentos vencidos que traen los clientes de su casa van al programa posconsumo (punto azul).</p>
+
+{% if kg_pendientes %}
+<p class="eres-aviso">🗑️ Hay <strong>{{ kg(kg_pendientes) }} kg</strong> de residuos peligrosos guardados desde el
+  {{ fecha(pendientes_desde) }} sin entregar al gestor.</p>
+{% endif %}
+
+<!-- ===== Registrar lo que se genera ===== -->
+<details class="rep-caja equipo-calibrar" open>
+  <summary><strong>➕ Registrar residuos</strong></summary>
+  <form method="post" action="{{ url_for('saneamiento.residuo_registrar') }}" class="formulario sin-marco">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="grid-3-compact">
+      <label>Tipo *
+        <select name="tipo" required>{% for k, (texto, peligroso) in tipos.items() %}<option value="{{ k }}">{{ texto }}{{ ' · peligroso' if peligroso }}</option>{% endfor %}</select></label>
+      <label>Kilos * <input type="text" name="cantidad_kg" inputmode="decimal" required placeholder="Ej: 0,5"></label>
+      <label>Fecha <input type="date" name="fecha" max="{{ hoy }}" value="{{ hoy }}"></label>
+    </div>
+    <label>Descripción <input type="text" name="descripcion" maxlength="200" placeholder="Opcional. Ej: guardián de agujas lleno"></label>
+    <div class="acciones"><button type="submit">💾 Guardar</button></div>
+  </form>
+</details>
+
+{% if jefe and vencidos %}
+<!-- ===== Dar de baja lotes vencidos ===== -->
+<details class="rep-caja equipo-calibrar">
+  <summary><strong>⏳ Dar de baja lotes vencidos ({{ vencidos|length }})</strong></summary>
+  <p class="suave">Los lotes marcados salen del inventario (en el kardex queda «Baja por vencimiento») y se registran
+    como residuo farmacéutico con el peso total que escribas.</p>
+  <form method="post" action="{{ url_for('saneamiento.baja_vencidos') }}" class="formulario sin-marco"
+        data-confirmar="¿Sacar del inventario los lotes marcados? No se puede deshacer.">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <table class="rep-tabla">
+      <thead><tr><th><input type="checkbox" checked onclick="this.closest('table').querySelectorAll('tbody input').forEach(c => c.checked = this.checked)" aria-label="Marcar todos"></th>
+        <th>Producto</th><th>Lote</th><th>Venció</th><th class="num">Unidades</th></tr></thead>
+      <tbody>{% for l in vencidos %}<tr>
+        <td><input type="checkbox" name="lote_id" value="{{ l.id }}" checked></td>
+        <td>{{ l.nombre }}<small>{{ l.codigo }}{% if l.estado == 'bloqueado' %} · bloqueado{% endif %}</small></td>
+        <td>{{ l.lote or '—' }}</td><td>{{ fecha(l.vencimiento) }}</td><td class="num">{{ '%g' % l.cantidad_disponible }}</td>
+      </tr>{% endfor %}</tbody>
+    </table>
+    <div class="grid-3-compact">
+      <label>Peso total (kg) * <input type="text" name="cantidad_kg" inputmode="decimal" required placeholder="Ej: 0,3"></label>
+      <div class="acciones"><button type="submit">🗑️ Dar de baja y registrar</button></div>
+    </div>
+  </form>
+</details>
+{% endif %}
+
+<!-- ===== Consolidado del mes ===== -->
+<div class="rep-caja" style="margin-top:1rem">
+  <div class="san-planilla-cab">
+    <h2>Consolidado de {{ mes_texto }}</h2>
+    <div class="sug-acciones">
+      <a class="boton secundario" href="{{ url_for('saneamiento.residuos', mes=anterior) }}">← Mes anterior</a>
+      {% if siguiente %}<a class="boton secundario" href="{{ url_for('saneamiento.residuos', mes=siguiente) }}">Mes siguiente →</a>{% endif %}
+      <a class="boton secundario" href="{{ url_for('saneamiento.residuos_pdf', mes=primero.strftime('%Y-%m')) }}">🖨️ PDF del mes</a>
+    </div>
+  </div>
+  <table class="rep-tabla">
+    <thead><tr><th>Tipo</th><th>Clase</th><th class="num">Kilos</th></tr></thead>
+    <tbody>{% for k, (texto, peligroso) in tipos.items() %}<tr>
+      <td>{{ texto }}</td>
+      <td>{% if peligroso %}<span class="equipo-estado rojo">Peligroso</span>{% else %}<span class="equipo-estado gris">No peligroso</span>{% endif %}</td>
+      <td class="num">{{ kg(por_tipo[k]) }}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><td>Total</td><td><small>peligrosos {{ kg(total_peligrosos) }} · no peligrosos {{ kg(total_no_peligrosos) }}</small></td>
+      <td class="num">{{ kg(total_peligrosos + total_no_peligrosos) }}</td></tr></tfoot>
+  </table>
+  {% if registros %}
+  <h3>Registros del mes</h3>
+  <table class="rep-tabla">
+    <thead><tr><th>Fecha</th><th>Tipo</th><th class="num">Kilos</th><th>Descripción</th></tr></thead>
+    <tbody>{% for r in registros|reverse %}<tr>
+      <td>{{ fecha(r.fecha) }}</td><td>{{ tipos[r.tipo][0].split(' (')[0] }}</td><td class="num">{{ kg(r.cantidad_kg) }}</td>
+      <td>{{ r.descripcion or '—' }}<small>registró {{ r.usuario_nombre }}</small></td></tr>{% endfor %}</tbody>
+  </table>
+  {% endif %}
+</div>
+
+<!-- ===== Entregas al gestor ===== -->
+<div class="rep-caja" style="margin-top:1rem">
+  <h2>Entregas a la empresa gestora</h2>
+  {% if jefe %}
+  <details class="equipo-calibrar">
+    <summary><strong>➕ Registrar entrega</strong></summary>
+    <form method="post" action="{{ url_for('saneamiento.residuo_entrega') }}" enctype="multipart/form-data" class="formulario sin-marco">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <div class="grid-3-compact">
+        <label>Fecha * <input type="date" name="fecha" required max="{{ hoy }}" value="{{ hoy }}"></label>
+        <label>Empresa gestora * <input type="text" name="gestor" required maxlength="100"></label>
+        <label>NIT <input type="text" name="gestor_nit" maxlength="30"></label>
+        <label>Kilos entregados <input type="text" name="cantidad_kg" inputmode="decimal"></label>
+        <label>N.º de certificado <input type="text" name="certificado_numero" maxlength="40"></label>
+        <label>Certificado (PDF o foto) <input type="file" name="certificado" accept=".pdf,image/*"></label>
+      </div>
+      <fieldset class="san-tipos"><legend>¿Qué se entregó?</legend>
+        {% for k in peligrosos %}<label><input type="checkbox" name="tipos" value="{{ k }}"> {{ tipos[k][0].split(' (')[0] }}</label>{% endfor %}
+      </fieldset>
+      <label>Observaciones <input type="text" name="observaciones" maxlength="200"></label>
+      <div class="acciones"><button type="submit">💾 Guardar entrega</button></div>
+    </form>
+  </details>
+  {% endif %}
+  {% if todas_entregas %}
+  <table class="rep-tabla">
+    <thead><tr><th>Fecha</th><th>Gestor</th><th>Qué se entregó</th><th class="num">Kilos</th><th>Certificado</th></tr></thead>
+    <tbody>{% for e in todas_entregas %}<tr>
+      <td>{{ fecha(e.fecha) }}</td>
+      <td>{{ e.gestor }}{% if e.gestor_nit %}<small>NIT {{ e.gestor_nit }}</small>{% endif %}</td>
+      <td>{{ e.tipos or '—' }}</td>
+      <td class="num">{{ kg(e.cantidad_kg) if e.cantidad_kg else '—' }}</td>
+      <td>{{ e.certificado_numero or '' }}{% if e.archivo %} <a href="{{ url_for('static', filename=e.archivo) }}" target="_blank" rel="noopener">📎 Ver</a>{% elif not e.certificado_numero %}<span class="equipo-estado amarillo">Falta</span>{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="suave">Todavía no hay entregas registradas.</p>{% endif %}
+</div>
+{% endblock %}

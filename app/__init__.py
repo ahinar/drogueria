@@ -78,6 +78,9 @@ def create_app(test_config=None):
     # Fase 4 (calidad): gestión documental. Ver app/documentos.py
     from . import documentos
     app.register_blueprint(documentos.bp)
+    # Fase 4.2: saneamiento (limpieza, plagas, residuos). Ver app/saneamiento.py
+    from . import saneamiento
+    app.register_blueprint(saneamiento.bp)
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
     # {{ 12345 | pesos }} → "$12.345" (formato colombiano, ver app/formato.py)
