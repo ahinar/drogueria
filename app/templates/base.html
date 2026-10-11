@@ -91,6 +91,13 @@
         <span class="ico">{{ ico("inventario", "🗃️") }}</span><span class="txt">Inventario</span>
       </a>
 
+      <!-- ===== Calidad (Fase 4: lo que revisa la Secretaría de Salud) ===== -->
+      <div class="sidebar-seccion">Calidad</div>
+      <a class="sidebar-link {% if ep.startswith('documentos.') %}activo{% endif %}"
+         href="{{ url_for('documentos.lista') }}" title="Documentos del sistema de calidad">
+        <span class="ico">{{ ico("carpeta", "🗂️") }}</span><span class="txt">Documentos</span>
+      </a>
+
       <!-- ===== Productos ===== -->
       <div class="sidebar-seccion">Productos</div>
       <a class="sidebar-link {% if ep.startswith('productos.') or ep.startswith('importador.') %}activo{% endif %}"

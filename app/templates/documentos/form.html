@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block titulo %}{{ 'Nuevo documento' if nuevo else 'Editar documento' }}{% endblock %}
+{% block contenido %}
+{#
+  DATOS DE UN DOCUMENTO (código, nombre, tipo...). El ARCHIVO no se sube
+  aquí: se sube en la ficha del documento, como una "versión".
+#}
+<h1>{{ '➕ Nuevo documento' if nuevo else '✏️ Editar documento' }}</h1>
+{% set d = doc or {} %}
+<form method="post" class="formulario">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <fieldset>
+    <legend>Documento</legend>
+    <label>Código * <input type="text" name="codigo" required maxlength="30" value="{{ d.codigo or '' }}"
+      placeholder="Ej: PR-03"></label>
+    <label>Nombre * <input type="text" name="nombre" required maxlength="160" value="{{ d.nombre or '' }}"
+      placeholder="Ej: Recepción técnica y administrativa"></label>
+    <label>Tipo
+      <select name="tipo">
+        {% for clave, texto in tipos.items() %}<option value="{{ clave }}" {% if d.tipo == clave %}selected{% endif %}>{{ texto }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Proceso al que pertenece <input type="text" name="proceso" maxlength="60" value="{{ d.proceso or '' }}"
+      placeholder="Ej: Recepción técnica" list="procesos"></label>
+    <!-- Sugerencias (los procesos del mapa de procesos); se puede escribir otro -->
+    <datalist id="procesos">
+      {% for p in ['Dirección técnica', 'Gestión documental', 'Evaluación y mejora', 'Selección', 'Adquisición',
+                   'Recepción técnica', 'Almacenamiento', 'Dispensación', 'Devoluciones', 'Talento humano',
+                   'Equipos', 'Saneamiento', 'Inventarios'] %}<option value="{{ p }}">{% endfor %}
+    </datalist>
+  </fieldset>
+  <fieldset>
+    <legend>Revisión</legend>
+    <label>Revisar cada (meses)
+      <input type="number" name="frecuencia_meses" min="1" max="60" value="{{ d.frecuencia_meses or 12 }}">
+      <small class="suave">Lo normal es una vez al año, o antes si cambia la norma o la forma de trabajar.</small>
+    </label>
+    <label>Observaciones <textarea name="observaciones" rows="2">{{ d.observaciones or '' }}</textarea></label>
+  </fieldset>
+  <div class="acciones">
+    <button type="submit">Guardar</button>
+    <a class="boton secundario" href="{{ url_for('documentos.lista') if nuevo else url_for('documentos.ver', doc_id=d.id) }}">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

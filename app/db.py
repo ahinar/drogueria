@@ -1016,6 +1016,64 @@ MIGRATIONS = [
         ALTER TABLE ventas ADD COLUMN cotizacion_id INTEGER;
         """,
     ),
+    (
+        30,
+        """
+        -- ===== Gestión documental (Fase 4.1) =====
+        -- Los procedimientos, manuales y formatos del sistema de calidad, con
+        -- su versión vigente y el HISTORIAL de versiones (control de cambios),
+        -- como lo pide la Resolución 1403 de 2007. Nada se borra.
+        --
+        -- documentos.estado:
+        --   por_hacer = está en el listado maestro pero aún no se ha escrito
+        --   borrador  = ya hay un archivo, pero sin aprobar ni firmar
+        --   vigente   = aprobado y firmado: es el que se usa
+        --   obsoleto  = se retiró (ya no aplica); su historial se conserva
+        CREATE TABLE documentos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo TEXT NOT NULL UNIQUE,                 -- PR-03, FT-03-01, SGC-DOC-001...
+            nombre TEXT NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'procedimiento'
+                CHECK (tipo IN ('procedimiento', 'formato', 'manual', 'politica', 'plan', 'otro')),
+            proceso TEXT,                                -- a qué proceso pertenece (Recepción, Dispensación...)
+            estado TEXT NOT NULL DEFAULT 'por_hacer'
+                CHECK (estado IN ('por_hacer', 'borrador', 'vigente', 'obsoleto')),
+            version TEXT,                                -- versión vigente: '01', '02'...
+            fecha_aprobacion TEXT,                       -- de la versión vigente
+            frecuencia_meses INTEGER NOT NULL DEFAULT 12,-- cada cuánto se revisa
+            proxima_revision TEXT,                       -- fecha en que toca revisarlo
+            archivo TEXT,                                -- archivo de la versión vigente
+            elaboro TEXT,
+            aprobo TEXT,
+            observaciones TEXT,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT
+        );
+
+        -- Una fila por cada versión subida y por cada revisión "sin cambios".
+        -- tipo: version  = se subió un archivo nuevo
+        --       revision = se revisó y sigue igual (deja constancia de la revisión)
+        -- estado de la versión: borrador / vigente / reemplazada
+        CREATE TABLE documento_versiones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            documento_id INTEGER NOT NULL,
+            tipo TEXT NOT NULL DEFAULT 'version' CHECK (tipo IN ('version', 'revision')),
+            version TEXT NOT NULL,
+            fecha TEXT NOT NULL,                         -- fecha de aprobación o de revisión
+            cambio TEXT NOT NULL,                        -- qué cambió (control de cambios)
+            elaboro TEXT,
+            aprobo TEXT,
+            archivo TEXT,
+            estado TEXT NOT NULL DEFAULT 'vigente'
+                CHECK (estado IN ('borrador', 'vigente', 'reemplazada')),
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            FOREIGN KEY (documento_id) REFERENCES documentos (id)
+        );
+        CREATE INDEX idx_doc_versiones ON documento_versiones (documento_id);
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

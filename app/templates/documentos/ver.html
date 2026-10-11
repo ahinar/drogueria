@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block titulo %}{{ doc.codigo }} · {{ doc.nombre }}{% endblock %}
+{% block contenido %}
+{#
+  UN DOCUMENTO (app/documentos.py, función ver):
+    - datos y estado
+    - "Subir versión" (borrador o vigente), "Aprobar" un borrador y
+      "Revisado sin cambios" (solo administrador y DT)
+    - historial completo = control de cambios
+#}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+<p><a href="{{ url_for('documentos.lista') }}">← Documentos</a></p>
+<div class="eres-cabecera">
+  <div>
+    <h1><span class="ico-emoji">📄</span> {{ doc.codigo }} · {{ doc.nombre }}
+      <span class="equipo-estado {{ doc.estado_color }}">{{ doc.estado_texto }}</span>
+      {% if doc.revision in ('vencida', 'por_vencer') %}<span class="equipo-estado {{ doc.revision_color }}">{{ doc.revision_texto }}</span>{% endif %}</h1>
+    <p class="suave">{{ doc.tipo_texto }}{% if doc.proceso %} · proceso: {{ doc.proceso }}{% endif %}
+      · revisar cada {{ doc.frecuencia_meses }} meses{% if doc.observaciones %} · {{ doc.observaciones }}{% endif %}</p>
+  </div>
+  <div class="sug-acciones">
+    {% if doc.archivo %}<a class="boton" href="{{ url_for('static', filename=doc.archivo) }}" target="_blank" rel="noopener"><span class="ico-emoji">📎</span> Abrir versión vigente</a>{% endif %}
+    {% if jefe %}
+    <a class="boton secundario" href="{{ url_for('documentos.editar', doc_id=doc.id) }}"><span class="ico-emoji">✏️</span> Editar datos</a>
+    <form method="post" action="{{ url_for('documentos.obsoleto', doc_id=doc.id) }}"
+          {% if doc.estado != 'obsoleto' %}data-confirmar="¿Marcar este documento como obsoleto? Su historial se conserva."{% endif %}>
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button type="submit" class="boton secundario">{{ '♻️ Reactivar' if doc.estado == 'obsoleto' else '🗄 Obsoleto' }}</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="rep-tarjetas">
+  <div class="eres-tarjeta"><span>Versión vigente</span><strong>{{ doc.version or '—' }}</strong></div>
+  <div class="eres-tarjeta"><span>Aprobada</span><strong>{{ fecha(doc.fecha_aprobacion) }}</strong>
+    {% if doc.aprobo %}<small>por {{ doc.aprobo }}</small>{% endif %}</div>
+  <div class="eres-tarjeta {{ 'negativa' if doc.revision == 'vencida' }}"><span>Próxima revisión</span>
+    <strong>{{ fecha(doc.proxima_revision) }}</strong>
+    <small>{% if doc.dias is not none %}{% if doc.dias < 0 %}venció hace {{ -doc.dias }} días{% else %}faltan {{ doc.dias }} días{% endif %}{% endif %}</small></div>
+</div>
+
+{% if doc.estado == 'por_hacer' %}
+<p class="eres-aviso"><span class="ico-emoji">✍️</span> Este documento todavía no está escrito.
+  {% if jefe %}Cuando tengas el archivo (Word, PDF o foto del documento firmado), súbelo abajo.{% endif %}</p>
+{% endif %}
+
+{% if jefe and doc.estado != 'obsoleto' %}
+
+{# ===== Aprobar un borrador ===== #}
+{% for b in borradores %}
+<div class="rep-caja doc-borrador">
+  <form method="post" action="{{ url_for('documentos.aprobar', doc_id=doc.id, version_id=b.id) }}" class="formulario sin-marco">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <p><strong>Borrador versión {{ b.version }}</strong> · {{ b.cambio }}
+      {% if b.archivo %}· <a href="{{ url_for('static', filename=b.archivo) }}" target="_blank" rel="noopener">📎 Abrir</a>{% endif %}</p>
+    <div class="grid-3-compact">
+      <label>Aprobó * <input type="text" name="aprobo" required value="{{ regente or nombre_usuario }}"></label>
+      <label>Fecha de aprobación <input type="date" name="fecha" max="{{ hoy }}" value="{{ hoy }}"></label>
+      <div class="acciones"><button type="submit"><span class="ico-emoji">✅</span> Aprobar (queda vigente)</button></div>
+    </div>
+  </form>
+</div>
+{% endfor %}
+
+{# ===== Subir una versión nueva ===== #}
+<details class="rep-caja equipo-calibrar" {% if doc.estado == 'por_hacer' %}open{% endif %}>
+  <summary><strong><span class="ico-emoji">⬆️</span> Subir {{ 'el documento' if doc.estado == 'por_hacer' else 'una versión nueva' }}</strong></summary>
+  <form method="post" action="{{ url_for('documentos.subir_version', doc_id=doc.id) }}" enctype="multipart/form-data" class="formulario">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="grid-3-compact">
+      <label>Archivo * <input type="file" name="archivo" required accept=".pdf,.doc,.docx,.xls,.xlsx,.odt,.ods,image/*">
+        <small class="suave">PDF, Word, Excel o foto del documento firmado.</small></label>
+      <label>Versión * <input type="text" name="version" required maxlength="10" value="{{ version_sugerida }}"></label>
+      <label>¿Cómo queda?
+        <select name="estado">
+          <option value="vigente">Vigente (ya está aprobado y firmado)</option>
+          <option value="borrador">Borrador (falta aprobarlo)</option>
+        </select></label>
+      <label>Elaboró <input type="text" name="elaboro" value="{{ nombre_usuario }}"></label>
+      <label>Aprobó <input type="text" name="aprobo" value="{{ regente }}">
+        <small class="suave">Obligatorio si queda vigente.</small></label>
+      <label>Fecha de aprobación <input type="date" name="fecha" max="{{ hoy }}" value="{{ hoy }}"></label>
+    </div>
+    <label>¿Qué cambió? {% if historial %}*{% endif %}
+      <textarea name="cambio" rows="2" placeholder="{{ 'Emisión inicial' if not historial else 'Ej: se agregó el paso de verificar el INVIMA en la recepción' }}"></textarea></label>
+    <div class="acciones"><button type="submit"><span class="ico-emoji">💾</span> Guardar versión</button></div>
+  </form>
+</details>
+
+{# ===== Revisado sin cambios ===== #}
+{% if doc.estado == 'vigente' %}
+<details class="rep-caja equipo-calibrar" {% if doc.revision in ('vencida', 'por_vencer') %}open{% endif %}>
+  <summary><strong><span class="ico-emoji">🔍</span> Revisado: sigue igual</strong></summary>
+  <p class="suave">Si lo revisaste y no hay que cambiarle nada, deja constancia aquí. La próxima revisión se corre {{ doc.frecuencia_meses }} meses.</p>
+  <form method="post" action="{{ url_for('documentos.revisar', doc_id=doc.id) }}" class="formulario">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <div class="grid-3-compact">
+      <label>Revisó * <input type="text" name="reviso" required value="{{ regente or nombre_usuario }}"></label>
+      <label>Fecha <input type="date" name="fecha" max="{{ hoy }}" value="{{ hoy }}"></label>
+      <label>Nota <input type="text" name="nota" placeholder="Revisado: sigue vigente sin cambios"></label>
+    </div>
+    <div class="acciones"><button type="submit"><span class="ico-emoji">✅</span> Registrar revisión</button></div>
+  </form>
+</details>
+{% endif %}
+{% endif %}
+
+<!-- ===== Historial = control de cambios ===== -->
+<div class="rep-caja" style="margin-top:1rem">
+  <h2><span class="ico-emoji">🗂️</span> Control de cambios</h2>
+  {% if historial %}
+  <table class="rep-tabla">
+    <thead><tr><th>Versión</th><th>Fecha</th><th>Qué cambió</th><th>Elaboró / aprobó</th><th>Estado</th><th>Archivo</th></tr></thead>
+    <tbody>{% for v in historial %}<tr>
+      <td><strong>{{ v.version }}</strong></td>
+      <td>{{ fecha(v.fecha) }}</td>
+      <td>{{ v.cambio }}<small>registró {{ v.usuario_nombre or '—' }} el {{ v.creado_en|fecha_hora }}</small></td>
+      <td>{% if v.tipo == 'revision' %}Revisó: {{ v.aprobo or '—' }}{% else %}{{ v.elaboro or '—' }}<small>aprobó: {{ v.aprobo or '—' }}</small>{% endif %}</td>
+      <td>{% if v.tipo == 'revision' %}<span class="equipo-estado gris">Revisión</span>
+          {% elif v.estado == 'vigente' %}<span class="equipo-estado verde">Vigente</span>
+          {% elif v.estado == 'borrador' %}<span class="equipo-estado amarillo">Borrador</span>
+          {% else %}<span class="equipo-estado gris">Reemplazada</span>{% endif %}</td>
+      <td>{% if v.archivo %}<a href="{{ url_for('static', filename=v.archivo) }}" target="_blank" rel="noopener"><span class="ico-emoji">📎</span> Abrir</a>{% else %}—{% endif %}</td>
+    </tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="suave">Todavía no se ha subido ninguna versión.</p>{% endif %}
+</div>
+{% endblock %}

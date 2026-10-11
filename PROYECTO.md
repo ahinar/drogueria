@@ -400,8 +400,15 @@ Notas:
 - **3.3** Alertas INVIMA ✅ (panel de alertas del Inicio).
 - **3.4** Control especial (FNE) — flujo completo.
 
-### Fase 4: gestión documental y cumplimiento ⏳
-- Documentos (PNO) con versiones.
+### Fase 4: gestión documental y cumplimiento 🔄
+- **4.1 Documentos** ✅ (2026-10-10) — `app/documentos.py`, menú **Calidad → Documentos**:
+  listado maestro (estados por hacer / borrador / vigente / obsoleto), botón "Cargar el
+  listado sugerido" (28 documentos: SGC-DOC, PR-01…PR-18, FT), subir versión (PDF, Word,
+  Excel o foto) como borrador o vigente, aprobar borrador, control de cambios (las versiones
+  viejas quedan como "reemplazada", nada se borra), "Revisado: sigue igual" (deja constancia
+  y corre la próxima revisión), próxima revisión = aprobación + frecuencia (12 meses),
+  aviso amarillo en Inicio cuando la revisión vence o faltan ≤ 30 días, PDF del listado
+  maestro con firma del DT. Ver y abrir: todos; modificar: administrador y DT.
 - Plan de saneamiento, capacitaciones, calibraciones.
 - Farmacovigilancia.
 - **Modo Inspección** (paquete ZIP).
@@ -505,6 +512,7 @@ Notas:
 | 27 | `productos.venta_defecto_unidad_id`; `recepcion_lineas.presentacion` y `factor` (recibir por caja/sobre) |
 | 28 | `productos.vende_suelto` (1 = también se vende la unidad mínima suelta) |
 | 29 | `cotizaciones`, `cotizacion_lineas` y `ventas.cotizacion_id` (cotizaciones del POS) |
+| 30 | `documentos` y `documento_versiones` (gestión documental, Fase 4.1) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
@@ -525,7 +533,7 @@ Notas:
 - [x] 3.2 Precios máximos
 - [x] 3.3 Alertas INVIMA
 - [ ] 3.4 Control especial (FNE) ⏸ para una actualización posterior
-- [ ] Fase 4: Gestión documental
+- [~] Fase 4: cumplimiento — 4.1 Documentos ✅; faltan saneamiento, capacitaciones, quejas, farmacovigilancia, autoinspección y Modo Inspección
 - [ ] Fase 5: Facturación electrónica
 - [ ] Fase 6: IA
 - [ ] Fase 7: Empaquetado

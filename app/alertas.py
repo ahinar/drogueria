@@ -214,6 +214,25 @@ def calcular_alertas(rol):
             url_for("equipos.lista"), "Ver equipos")
 
     # ------------------------------------------------------------------
+    # 4c. DOCUMENTOS del sistema de calidad con la revisión vencida o que
+    #     vence en 30 días (solo jefe). Ver app/documentos.py
+    # ------------------------------------------------------------------
+    if jefe:
+        from .documentos import estado_revision
+        docs = [f for f in db.execute(
+            "SELECT id, codigo, nombre, estado, proxima_revision FROM documentos "
+            "WHERE estado = 'vigente' ORDER BY proxima_revision").fetchall()
+            if estado_revision(f, hoy)[0] in ("vencida", "por_vencer")]
+        item_doc = lambda f: {
+            "texto": f"{f['codigo']} · {f['nombre']}",
+            "detalle": f"revisión {_dias_texto(f['proxima_revision'], hoy)} ({_fecha(f['proxima_revision'])})",
+            "url": url_for("documentos.ver", doc_id=f["id"]),
+        }
+        agregar("documentos_por_revisar", "amarillo", "🗂️", "Documentos del sistema de calidad por revisar",
+                "Revísalos: si siguen iguales, toca «Revisado: sigue igual»; si cambian, sube la versión nueva.",
+                docs, item_doc, url_for("documentos.lista", filtro="por_revisar"), "Ver documentos")
+
+    # ------------------------------------------------------------------
     # 5. STOCK: agotados (rojo) y por debajo del mínimo (amarillo).
     #    Solo productos con "stock mínimo" definido: así un producto que no
     #    se maneja (mínimo 0) no llena el panel de avisos.

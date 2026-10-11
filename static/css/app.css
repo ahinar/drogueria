@@ -2797,3 +2797,8 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 .btn-tecnicos { background: none; border: 0; padding: 0 .2rem; margin-left: .3rem; color: var(--primario, #1f7a5c);
   font-size: .75rem; cursor: pointer; text-decoration: underline; height: auto !important; width: auto !important; }
 .btn-tecnicos[hidden] { display: none !important; }
+
+/* ===== Documentos (Fase 4.1): borrador pendiente de aprobar ===== */
+.doc-borrador { border-left: 4px solid #e0b100; margin-bottom: .8rem; }
+.doc-borrador p { margin: 0 0 .5rem; }
+.formulario.sin-marco { border: 0; padding: 0; background: transparent; max-width: none; }

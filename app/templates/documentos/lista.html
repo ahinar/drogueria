@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block titulo %}Documentos del sistema de calidad{% endblock %}
+{% block contenido %}
+{#
+  LISTADO MAESTRO DE DOCUMENTOS (app/documentos.py, función lista)
+  documentos = los que pasan el filtro, ya con textos y colores (_con_estado)
+  conteo     = números para las tarjetas de arriba (sin obsoletos)
+#}
+{% set jefe = g.user.rol in ('administrador', 'director_tecnico') %}
+{% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}
+<div class="eres-cabecera">
+  <div>
+    <h1><span class="ico-emoji">🗂️</span> Documentos del sistema de calidad</h1>
+    <p class="suave">Procedimientos, manuales y formatos con su versión vigente y su control de cambios.
+      La Secretaría de Salud revisa que estén escritos, aprobados y al día.</p>
+  </div>
+  <div class="sug-acciones">
+    <a class="boton secundario" href="{{ url_for('documentos.listado_pdf') }}"><span class="ico-emoji">🖨️</span> Listado maestro (PDF)</a>
+    {% if jefe %}<a class="boton" href="{{ url_for('documentos.nuevo') }}"><span class="ico-emoji">➕</span> Nuevo documento</a>{% endif %}
+  </div>
+</div>
+
+{% if not hay_documentos %}
+  <div class="rep-vacio">
+    <p>Todavía no hay documentos registrados.</p>
+    {% if jefe %}
+    <!-- Crea de una vez el listado completo (28 documentos) en estado "por hacer" -->
+    <form method="post" action="{{ url_for('documentos.cargar_sugerido') }}">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button type="submit"><span class="ico-emoji">📋</span> Cargar el listado sugerido (procedimientos y formatos)</button>
+    </form>
+    {% endif %}
+  </div>
+{% else %}
+
+<div class="rep-tarjetas">
+  <a class="eres-tarjeta" href="{{ url_for('documentos.lista') }}"><span>Documentos</span><strong>{{ conteo.total }}</strong></a>
+  <a class="eres-tarjeta" href="{{ url_for('documentos.lista', filtro='vigente') }}"><span>Vigentes</span><strong>{{ conteo.vigente }}</strong></a>
+  <a class="eres-tarjeta" href="{{ url_for('documentos.lista', filtro='borrador') }}"><span>Borradores</span><strong>{{ conteo.borrador }}</strong></a>
+  <a class="eres-tarjeta" href="{{ url_for('documentos.lista', filtro='por_hacer') }}"><span>Por hacer</span><strong>{{ conteo.por_hacer }}</strong></a>
+  <a class="eres-tarjeta {{ 'negativa' if conteo.por_revisar }}" href="{{ url_for('documentos.lista', filtro='por_revisar') }}"><span>Por revisar</span><strong>{{ conteo.por_revisar }}</strong></a>
+</div>
+
+<form method="get" class="filtros">
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar por código, nombre o proceso…">
+  <select name="filtro">
+    {% for clave, texto in filtros.items() %}<option value="{{ clave }}" {% if filtro == clave %}selected{% endif %}>{{ texto }}</option>{% endfor %}
+  </select>
+  <button type="submit">Filtrar</button>
+  {% if jefe %}
+  <button type="submit" form="form-sugerido" class="secundario" title="Agrega los que falten del listado sugerido">📋 Completar con el listado sugerido</button>
+  {% endif %}
+</form>
+{% if jefe %}
+<form id="form-sugerido" method="post" action="{{ url_for('documentos.cargar_sugerido') }}" hidden>
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+</form>
+{% endif %}
+
+<div class="rep-caja">
+<table class="rep-tabla">
+  <thead><tr><th>Código</th><th>Documento</th><th>Versión</th><th>Aprobado</th><th>Próxima revisión</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+    {% for d in documentos %}
+    <tr class="{{ 'equipo-inactivo' if d.estado == 'obsoleto' }}">
+      <td style="white-space:nowrap"><strong>{{ d.codigo }}</strong></td>
+      <td><a href="{{ url_for('documentos.ver', doc_id=d.id) }}">{{ d.nombre }}</a>
+        <small>{{ d.tipo_texto }}{% if d.proceso %} · {{ d.proceso }}{% endif %}</small></td>
+      <td>{{ d.version or '—' }}</td>
+      <td>{{ fecha(d.fecha_aprobacion) }}</td>
+      <td>{{ fecha(d.proxima_revision) }}
+        {% if d.revision %}<small>{% if d.dias < 0 %}venció hace {{ -d.dias }} días{% else %}faltan {{ d.dias }} días{% endif %}</small>{% endif %}</td>
+      <td><span class="equipo-estado {{ d.estado_color }}">{{ d.estado_texto }}</span>
+        {% if d.revision in ('vencida', 'por_vencer') %}<span class="equipo-estado {{ d.revision_color }}">{{ d.revision_texto }}</span>{% endif %}</td>
+      <td>{% if d.archivo %}<a href="{{ url_for('static', filename=d.archivo) }}" target="_blank" rel="noopener" title="Abrir la versión vigente">📎 Abrir</a>{% endif %}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="suave">No hay documentos con ese filtro.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

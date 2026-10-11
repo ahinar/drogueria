@@ -75,6 +75,9 @@ def create_app(test_config=None):
     app.register_blueprint(apariencia.bp)     # tema (colores) de cada usuario
     app.register_blueprint(otros_ingresos.bp) # plata que entra y no es venta
     app.register_blueprint(cartera.bp)        # ventas a crédito y abonos (cuentas por cobrar)
+    # Fase 4 (calidad): gestión documental. Ver app/documentos.py
+    from . import documentos
+    app.register_blueprint(documentos.bp)
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
     # {{ 12345 | pesos }} → "$12.345" (formato colombiano, ver app/formato.py)
