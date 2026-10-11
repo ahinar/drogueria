@@ -14,7 +14,7 @@ from reportlab.platypus import (Image, Paragraph, SimpleDocTemplate, Spacer,
 from .auth import login_required, roles_required
 from .configuracion import obtener_config
 from .db import get_db
-from .pdf_utils import encabezado_pdf
+from .pdf_utils import encabezado_pdf, pie_de_pagina
 from .temperaturas import _turno_de_hora, turno_de_hh
 from . import utilidades
 
@@ -193,7 +193,7 @@ def temperaturas_pdf():
         elementos.append(Spacer(1, 10))
         elementos.append(Paragraph(f"<i>{pie}</i>", estilo_sub))
 
-    doc.build(elementos)
+    doc.build(elementos, onFirstPage=pie_de_pagina, onLaterPages=pie_de_pagina)
     buffer.seek(0)
 
     nombre_archivo = f"temperaturas_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf"
@@ -275,7 +275,7 @@ def temperaturas_mensual_pdf():
     estilos = getSampleStyleSheet()
     estilo_celda = ParagraphStyle("cc", parent=estilos["Normal"], fontSize=9, leading=10.5)
     estilo_head = ParagraphStyle("ch", parent=estilos["Normal"], fontSize=8.5,
-                                 leading=10, textColor=colors.HexColor("#0a4f8a"),
+                                 leading=10, textColor=colors.HexColor("#0F766E"),
                                  alignment=1)
     estilo_head_grupo = ParagraphStyle("chg", parent=estilos["Normal"], fontSize=9.5,
                                        leading=11, textColor=colors.white,
@@ -303,7 +303,7 @@ def temperaturas_mensual_pdf():
     if config.get("telefono"): partes.append(f"Tel. {config['telefono']}")
 
     titulo_style = ParagraphStyle("t", fontSize=11, leading=13,
-                                  textColor=colors.HexColor("#0a4f8a"), alignment=1)
+                                  textColor=colors.HexColor("#0F766E"), alignment=1)
     sub_style = ParagraphStyle("s", fontSize=8, leading=9.5,
                                textColor=colors.HexColor("#555"), alignment=1)
 
@@ -437,7 +437,7 @@ def temperaturas_mensual_pdf():
         estilo_celda,
     ))
 
-    doc.build(elementos)
+    doc.build(elementos)  # hoja de una sola página con márgenes mínimos: sin pie
     buffer.seek(0)
     nombre = f"temperaturas_{zona['nombre']}_{anio}_{mes:02d}.pdf".replace(" ", "_")
     return send_file(buffer, mimetype="application/pdf", as_attachment=True,
@@ -584,7 +584,7 @@ def utilidades_pdf():
         elementos.append(Spacer(1, 10))
         elementos.append(Paragraph(f"<i>{pie}</i>", sub))
 
-    doc.build(elementos)
+    doc.build(elementos, onFirstPage=pie_de_pagina, onLaterPages=pie_de_pagina)
     buffer.seek(0)
     nombre = f"estado_resultados_{per['actual']['desde'].isoformat()}_{per['actual']['hasta'].isoformat()}.pdf"
     return send_file(buffer, mimetype="application/pdf", as_attachment=True, download_name=nombre)
@@ -751,7 +751,7 @@ def vencimientos_pdf():
                 f["producto_codigo"], f["producto_nombre"], f["lab_nombre"] or "—", f["lote"] or "—",
                 vence, "—" if f["dias"] is None else f["dias"],
                 f"{f['cantidad_disponible']:g}", f["estado"])])
-        tabla = Table(data, colWidths=[1.6 * cm, 5.4 * cm, 2.8 * cm, 2.0 * cm, 1.8 * cm, 1.1 * cm, 1.2 * cm, 2.0 * cm],
+        tabla = Table(data, colWidths=[1.6 * cm, 4.8 * cm, 2.8 * cm, 2.0 * cm, 2.4 * cm, 1.1 * cm, 1.2 * cm, 2.0 * cm],
                       repeatRows=1)
         tabla.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(color)),
@@ -775,7 +775,7 @@ def vencimientos_pdf():
         elementos.append(Spacer(1, 10))
         elementos.append(Paragraph(f"<i>{pie}</i>", sub))
 
-    doc.build(elementos)
+    doc.build(elementos, onFirstPage=pie_de_pagina, onLaterPages=pie_de_pagina)
     buffer.seek(0)
     return send_file(buffer, mimetype="application/pdf", as_attachment=True,
                      download_name=f"vencimientos_{datetime.now().strftime('%Y%m%d')}.pdf")

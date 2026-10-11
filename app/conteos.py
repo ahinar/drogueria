@@ -40,7 +40,7 @@ from .audit import registrar
 from .auth import login_required, roles_required
 from .configuracion import obtener_config
 from .db import ahora, get_db
-from .pdf_utils import encabezado_pdf
+from .pdf_utils import encabezado_pdf, pie_de_pagina
 
 bp = Blueprint("conteos", __name__, url_prefix="/inventario/conteos")
 
@@ -654,7 +654,7 @@ def acta(conteo_id):
                             title=f"Acta de toma de inventario {conteo['numero']}")
     est = getSampleStyleSheet()
     seccion = ParagraphStyle("s", parent=est["Heading3"], fontSize=10,
-                             textColor=colors.HexColor("#0a4f8a"), spaceBefore=8, spaceAfter=4)
+                             textColor=colors.HexColor("#0F766E"), spaceBefore=8, spaceAfter=4)
     normal = ParagraphStyle("n", parent=est["Normal"], fontSize=8.5, leading=11)
     celda = ParagraphStyle("c", parent=est["Normal"], fontSize=7.5, leading=9)
 
@@ -712,7 +712,7 @@ def acta(conteo_id):
         tb.setStyle(TableStyle([
             ("FONTSIZE", (0, 0), (-1, -1), 7.5),
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e8f1fb")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0a4f8a")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#0F766E")),
             ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#cfd8e0")),
             ("ALIGN", (3, 1), (-1, -1), "RIGHT"),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -736,7 +736,7 @@ def acta(conteo_id):
                                 ("ALIGN", (0, 0), (-1, -1), "CENTER")]))
     el.append(firmas)
 
-    doc.build(el)
+    doc.build(el, onFirstPage=pie_de_pagina, onLaterPages=pie_de_pagina)
     buffer.seek(0)
     return send_file(buffer, mimetype="application/pdf", as_attachment=True,
                      download_name=f"Acta_conteo_{conteo['numero']}.pdf")

@@ -3,7 +3,7 @@ import os
 import sqlite3
 from datetime import datetime
 from io import BytesIO
-from .pdf_utils import encabezado_pdf
+from .pdf_utils import encabezado_pdf, pie_de_pagina
 
 from flask import (Blueprint, abort, current_app, flash, g, jsonify, redirect,
                    render_template, request, send_file, url_for)
@@ -884,22 +884,22 @@ def pdf(rec_id):
 
     estilos = getSampleStyleSheet()
     titulo = ParagraphStyle("t", parent=estilos["Title"], fontSize=13,
-                            textColor=colors.HexColor("#0a4f8a"), spaceAfter=2)
+                            textColor=colors.HexColor("#0F766E"), spaceAfter=2)
     subtit = ParagraphStyle("st", parent=estilos["Normal"], fontSize=9,
                             textColor=colors.HexColor("#555"))
     encab = ParagraphStyle("e", parent=estilos["Heading2"], fontSize=12,
-                           textColor=colors.HexColor("#1a2733"), alignment=1)
+                           textColor=colors.HexColor("#13201D"), alignment=1)
     celda = ParagraphStyle("c", parent=estilos["Normal"], fontSize=6.8, leading=8.2)
     celda_chica = ParagraphStyle("cc", parent=estilos["Normal"], fontSize=6.3, leading=7.5)
     celda_head = ParagraphStyle("ch", parent=estilos["Normal"], fontSize=6.5,
-                                leading=7.5, textColor=colors.HexColor("#0a4f8a"))
+                                leading=7.5, textColor=colors.HexColor("#0F766E"))
     seccion = ParagraphStyle("s", parent=estilos["Heading3"], fontSize=9,
-                             textColor=colors.HexColor("#0a4f8a"), spaceBefore=6, spaceAfter=3)
+                             textColor=colors.HexColor("#0F766E"), spaceBefore=6, spaceAfter=3)
 
     elementos = []
 
     # ===== ENCABEZADO con logo =====
-    from .pdf_utils import encabezado_pdf
+    from .pdf_utils import encabezado_pdf, pie_de_pagina
     elementos.extend(encabezado_pdf(
         config,
         f"ACTA DE RECEPCIÓN TÉCNICA N° {rec['numero']}"
@@ -1076,7 +1076,7 @@ def pdf(rec_id):
         elementos.append(Spacer(1, 10))
         elementos.append(Paragraph(f"<i>{pie}</i>", subtit))
 
-    doc.build(elementos)
+    doc.build(elementos, onFirstPage=pie_de_pagina, onLaterPages=pie_de_pagina)
     buffer.seek(0)
     nombre = f"Acta_recepcion_{rec['numero']}.pdf"
     return send_file(buffer, mimetype="application/pdf", as_attachment=True,

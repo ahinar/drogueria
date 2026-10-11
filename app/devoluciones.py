@@ -409,7 +409,7 @@ def acta(dev_id):
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
     from .configuracion import obtener_config
-    from .pdf_utils import encabezado_pdf
+    from .pdf_utils import encabezado_pdf, pie_de_pagina
 
     db = get_db()
     d = db.execute("SELECT d.*, v.consecutivo AS venta, pr.razon_social AS proveedor, pr.nit AS proveedor_nit "
@@ -469,7 +469,7 @@ def acta(dev_id):
     elementos.append(Spacer(1, 10))
     elementos.append(Paragraph(f"Registró: {d['usuario_nombre'] or '—'}", sub))
 
-    doc.build(elementos)
+    doc.build(elementos, onFirstPage=pie_de_pagina, onLaterPages=pie_de_pagina)
     buffer.seek(0)
     return send_file(buffer, mimetype="application/pdf", as_attachment=True,
                      download_name=f"devolucion_{d['numero']}.pdf")

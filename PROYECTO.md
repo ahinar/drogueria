@@ -430,7 +430,7 @@ Notas:
 - [ ] Registrar los equipos reales y subir sus certificados de calibración.
 
 ### Corto plazo
-- [~] **Parte visual — que el programa se vea más profesional** (temas, letra, íconos, barra superior, Inicio, POS con carrito y teclado a la izquierda, reportes en pestañas, toasts, fechas dd/mm/aaaa, ventanas propias en vez de prompt, tirilla 80 mm ✅; queda: unificar estilos de tablas y PDF con el mismo encabezado) (pedido por Fernando, 2026-10-10). Propuesta:
+- [x] **Parte visual — que el programa se vea más profesional** (temas, letra, íconos, barra superior, Inicio, POS con carrito y teclado a la izquierda, reportes en pestañas, toasts, fechas dd/mm/aaaa, ventanas propias en vez de prompt, tirilla 80 mm ✅, todos los PDF con el mismo encabezado, colores y pie de página ✅ — ver `app/pdf_utils.py`: `encabezado_pdf`, `estilo_tabla`, `pie_de_pagina`) (pedido por Fernando, 2026-10-10). Propuesta:
   1. **Guía de estilo única:** colores de la marca Fervifarma, tipografía Inter (archivo local), tamaños y espacios en variables CSS; una página interna que muestre todos los componentes.
   2. **Unificar componentes repetidos:** un solo estilo de botón, de tabla (hoy hay `.tabla`, `.rep-tabla`, `.sug-tabla`, `.eres-tabla`…), de tarjeta y de formulario.
   3. **Íconos de verdad en vez de emojis** (juego SVG local, por ejemplo Lucide): los emojis se ven distintos en cada Windows.
@@ -440,7 +440,7 @@ Notas:
   7. **Mensajes tipo "toast"** que aparecen y se van solos, en vez de franjas que empujan la página.
   8. **Tablas:** encabezado fijo al bajar, números alineados a la derecha, estados vacíos amables, paginación.
   9. **POS táctil:** botones grandes (mínimo 44 px), contraste alto.
-  10. **Impresos coherentes:** comprobante de venta en tirilla de 80 mm y todos los PDF con el mismo encabezado.
+  10. **Impresos coherentes:** comprobante de venta en tirilla de 80 mm y todos los PDF con el mismo encabezado. ✅ (2026-10-11: color verde del programa, línea bajo el encabezado y pie "Impreso el … por … · Página N" en todas las hojas; la hoja mensual de temperaturas no lleva pie porque es de una sola hoja con márgenes mínimos)
   Forma de trabajo: primero la guía de estilo y una maqueta de 2–3 pantallas para aprobar, luego módulo por módulo.
 - [x] **Cotizaciones** ✅ (`app/cotizaciones.py`, migración 29): en el POS, menú ☰ → "Guardar como cotización" (cliente, celular, validez en días, nota) guarda el carrito como COT-0001 sin tocar inventario ni caja; se abre en tirilla 58/80 con Imprimir, **WhatsApp** (mensaje con productos y total, al celular con +57) y **Vender** (carga en el POS: venta nueva con los precios cotizados y motivo "Cotización COT-…" si está vigente; vencida, con los precios de hoy). Al cobrarla queda "convertida" con su venta (`ventas.cotizacion_id`). Lista en el menú Día a día → Cotizaciones (abiertas/vendidas/anuladas, anular). `/pos/api/productos?ids=…` para cargar productos exactos.
 - [ ] (⏸ solo si el contador lo pide) Reporte de IVA con prorrateo (Art. 490 ET).
