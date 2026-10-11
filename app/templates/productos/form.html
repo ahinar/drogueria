@@ -50,12 +50,18 @@
               value="{{ producto['codigo_barras'] if producto and producto['codigo_barras'] else '' }}">
           </label>
       <label>Categoría
-        <select name="categoria_principal" id="sel-categoria-principal">
-          <option value="">— Seleccionar —</option>
-          {% for c in categorias %}
-          <option value="{{ c['id'] }}" {% if c['id'] in categorias_sel %}selected{% endif %}>{{ c['nombre'] }}</option>
-          {% endfor %}
-        </select>
+        <div class="campo-con-boton">
+          <select name="categoria_principal" id="sel-categoria-principal">
+            <option value="">— Seleccionar —</option>
+            {% for c in categorias %}
+            <option value="{{ c['id'] }}" {% if c['id'] in categorias_sel %}selected{% endif %}>{{ c['nombre'] }}</option>
+            {% endfor %}
+          </select>
+          {# + crea una categoría nueva sin salir de la ficha (misma ventana que laboratorio) #}
+          <button type="button" class="btn-mas" data-tipo="categoria" data-select="sel-categoria-principal"
+            title="Crear nueva categoría">+</button>
+        </div>
+        {% if categorias_sel|length > 1 %}<small class="suave">Y {{ categorias_sel|length - 1 }} más (pestaña "Categorías y usos")</small>{% endif %}
       </label>
         </div>
         <label>Nombre *
@@ -420,7 +426,7 @@
   <section class="tab-panel" data-panel="clasificacion">
     <fieldset>
       <legend>Categorías (puedes elegir varias)</legend>
-      <div class="chips">
+      <div class="chips" id="chips-categorias">
         {% for c in categorias %}
         <label class="chip">
           <input type="checkbox" name="categorias" value="{{ c['id'] }}" {% if c['id'] in categorias_sel %}checked{%
@@ -558,11 +564,15 @@
     const catPrincipal = document.getElementById('sel-categoria-principal');
     const chipsCat = document.querySelectorAll('input[name="categorias"]');
     if (catPrincipal) {
+      // Cambiar la categoría de arriba REEMPLAZA la anterior (se desmarca) y marca
+      // la nueva. Para tener varias, se marcan en la pestaña "Categorías y usos".
+      let catAnterior = catPrincipal.value;
+      const chipDe = (id) => document.querySelector('input[name="categorias"][value="' + id + '"]');
       catPrincipal.addEventListener('change', function () {
         const id = catPrincipal.value;
-        if (!id) return;
-        const chk = document.querySelector('input[name="categorias"][value="' + id + '"]');
-        if (chk) chk.checked = true;
+        if (catAnterior && catAnterior !== id && chipDe(catAnterior)) chipDe(catAnterior).checked = false;
+        if (id && chipDe(id)) chipDe(id).checked = true;
+        catAnterior = id;
       });
       if (chipsCat.length === 1 && chipsCat[0].checked) {
         catPrincipal.value = chipsCat[0].value;
@@ -888,6 +898,14 @@
           presMolde.content.querySelectorAll('select.sel-unidad').forEach(agregarOpcion);
         }
         sel.value = json.id;
+        // Categoría nueva: también aparece (marcada) en la pestaña "Categorías y usos"
+        if (tipo === 'categoria' && !document.querySelector('input[name="categorias"][value="' + json.id + '"]')) {
+          const chip = document.createElement('label');
+          chip.className = 'chip';
+          chip.innerHTML = '<input type="checkbox" name="categorias" value="' + json.id + '"> <span></span>';
+          chip.querySelector('span').textContent = json.nombre;
+          document.getElementById('chips-categorias').appendChild(chip);
+        }
         sel.dispatchEvent(new Event('change'));     // para que se recalcule todo
         cerrarModal();
       } catch (e) {
