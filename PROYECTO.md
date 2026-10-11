@@ -425,7 +425,7 @@ Notas:
 ## 8. Pendientes por hacer
 
 ### Inmediatos (dependen de Fernando)
-- [ ] Probar el importador con el Excel real (1500+ productos).
+- [x] Probar el importador con el Excel real (1.336 productos, 1.134 fotos, 981 lotes).
 - [ ] Inventario inicial: primer conteo con los productos reales y sus costos.
 - [ ] Registrar los equipos reales y subir sus certificados de calibración.
 
@@ -512,24 +512,26 @@ Notas:
 - [x] 1.2 Temperaturas con alarma y reportes
 - [x] 1.3 Recepción técnica con Acta PDF
 - [x] 1.4 Inventario por lote
-- [~] 1.5a Importador (código listo, sin probar con Excel real)
+- [x] 1.5a Importador (probado con el archivo real: productos + fotos + lotes)
 - [x] 1.5b Inventario inicial (Toma de inventario lista; falta cargar los datos reales)
 - [x] 2.1 POS (caja, carrito, cobro, anulación, cambio de precio con motivo, botón "i")
-- [ ] 2.2 Gastos discriminados
-- [ ] 2.3 Utilidades
-- [ ] 2.4 Estado de resultados
-- [ ] 2.5 IVA con prorrateo
-- [ ] 2.6 Flujo de caja
-- [ ] 3.1 Devoluciones
-- [ ] 3.2 Precios máximos
-- [ ] 3.3 Alertas INVIMA
-- [ ] 3.4 Control especial (FNE)
+- [x] 2.2 Gastos discriminados
+- [x] 2.3 Utilidades (R2)
+- [x] 2.4 Estado de resultados (R2)
+- [ ] 2.5 IVA con prorrateo ⏸ solo si el contador lo pide
+- [x] 2.6 Flujo de caja (lo cubren R1 + cierre de caja)
+- [x] 3.1 Devoluciones
+- [x] 3.2 Precios máximos
+- [x] 3.3 Alertas INVIMA
+- [ ] 3.4 Control especial (FNE) ⏸ para una actualización posterior
 - [ ] Fase 4: Gestión documental
 - [ ] Fase 5: Facturación electrónica
 - [ ] Fase 6: IA
 - [ ] Fase 7: Empaquetado
 
-**Última sesión:** 2026-10-09 (tarde). Se completó:
+**Última sesión:** 2026-10-10. Se completó: login y temas, parte visual 4 (toasts, fechas, ventanas propias, tirilla 58/80 mm), venta libre y otros ingresos, Cartera, unidades (inventario en la unidad mínima, ficha por unidad de venta, conteo en paquetes), ajustes según capturas de Fernando (ficha, recepción con UdM, conteo con un solo "Agregar"), importador único (productos + fotos + lotes del programa anterior), acciones sobre varios productos, flechas en la ficha, ficha compacta, completar datos técnicos desde la recepción. **406 tests pasan**.
+
+**Sesión 2026-10-09 (tarde).** Se completó:
 - **Reparación:** el commit "ultimo" dejó cortados `app/pos.py` (de 776 a 108 líneas), `static/js/pos_carrito.js` y `static/css/pos_nuevo.css` (se guardaron a medias). Se restauraron desde el commit `9b1f54a` y se le sumaron los cambios nuevos.
 - Cambio de precio al vender con motivo + tope de precio máximo + bitácora.
 - Botón "i" con información del producto (nueva ruta `/pos/api/producto/<id>`).
