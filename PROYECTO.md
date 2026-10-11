@@ -482,6 +482,10 @@ Notas:
   nombre de la impresora (vacío = predeterminada) y "Abrir el cajón al cobrar" (nunca / efectivo /
   siempre) + botón "Probar cajón". En el POS: se abre solo al cobrar según eso y botón "Abrir cajón"
   (menú ☰). Cada apertura queda en la bitácora (`cajon_abierto`, motivo cobro/manual).
+- **Cierre de caja**: el "Efectivo contado" se puede escribir directo (si ya está contado) o seguir usando
+  "Contar" por denominación (`pos.js: leerContado`; toma solo los dígitos y recalcula la diferencia al escribir).
+- **Campos de números en todo el programa**: sin flechitas de subir/bajar (app.css) y la rueda del mouse
+  ya no cambia el valor (ui.js: al girar la rueda sobre el campo activo se le quita el cursor).
 
 ## 8. Pendientes por hacer
 

@@ -513,3 +513,22 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar);
   else arrancar();
 })();
+
+/* =====================================================================
+   CAMPOS DE NÚMEROS: QUE LA RUEDA DEL MOUSE NO LOS CAMBIE
+   ---------------------------------------------------------------------
+   Un <input type="number"> cambia su valor si, estando seleccionado, se
+   mueve la rueda del mouse (escribes 5000 y queda 5001 sin darte cuenta).
+   Aquí, si la rueda se mueve encima de un campo de número que tiene el
+   cursor, se le quita el cursor (blur): así el número no cambia y la
+   página se desplaza normal. Funciona en TODO el programa, también en
+   los campos que se crean después (ventanas, filas nuevas), porque se
+   escucha en el documento entero.
+   Las flechitas de subir/bajar se esconden con CSS (ver app.css).
+   ===================================================================== */
+document.addEventListener('wheel', function (e) {
+  const campo = e.target;
+  if (campo && campo.tagName === 'INPUT' && campo.type === 'number' && document.activeElement === campo) {
+    campo.blur();
+  }
+}, { passive: true });

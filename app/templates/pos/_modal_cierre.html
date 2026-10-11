@@ -24,8 +24,11 @@
         <div class="cierre-linea" style="margin-top:.5rem">
           <span>Efectivo contado</span>
           <div style="display:flex;gap:.4rem;align-items:center">
-            <input type="text" id="cierre-efectivo-contado" readonly
-                   style="text-align:right;max-width:140px" value="$ 0">
+            <!-- Se puede ESCRIBIR el total si ya está contado, o usar "Contar"
+                 (billete por billete). Ver pos.js: leerContado() -->
+            <input type="text" id="cierre-efectivo-contado" inputmode="numeric" autocomplete="off"
+                   style="text-align:right;max-width:140px" value="" placeholder="$ 0"
+                   title="Escribe el total contado o usa Contar">
             <button type="button" class="boton secundario" id="btn-contar-cierre-modal"
                     style="padding:.3rem .6rem;font-size:.8rem"><span class="ico-emoji">🧮</span> Contar</button>
           </div>

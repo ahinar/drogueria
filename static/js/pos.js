@@ -146,7 +146,7 @@
     if (!modalCierre) return;
     cierreError.style.display = 'none';
     cierreContadoValor = 0;
-    cierreContadoInput.value = '$ 0';
+    cierreContadoInput.value = '';
     cierreObservaciones.value = '';
 
     // Cargar resumen desde el servidor
@@ -221,6 +221,26 @@
   if (modalCierre) {
     modalCierre.addEventListener('click', (e) => {
       if (e.target === modalCierre) cerrarModalCierre();
+    });
+  }
+
+  // EFECTIVO CONTADO ESCRITO A MANO: si ya tienes la plata contada, escribes
+  // el total de una vez (ej. 1.250.000). Se toman solo los dígitos: los puntos
+  // de miles y el signo $ no importan. La diferencia se recalcula al escribir.
+  function leerContado() {
+    const digitos = (cierreContadoInput.value || '').replace(/[^0-9]/g, '');
+    cierreContadoValor = digitos ? parseInt(digitos, 10) : 0;
+    actualizarDiferencia();
+  }
+  if (cierreContadoInput) {
+    cierreContadoInput.addEventListener('input', leerContado);
+    // Al salir del campo se muestra bonito: $ 1.250.000
+    cierreContadoInput.addEventListener('blur', () => {
+      if (cierreContadoInput.value.trim()) cierreContadoInput.value = formatoCOP(cierreContadoValor);
+    });
+    // Al entrar, se deja solo el número para corregirlo fácil
+    cierreContadoInput.addEventListener('focus', () => {
+      if (cierreContadoValor) cierreContadoInput.value = String(cierreContadoValor);
     });
   }
 
