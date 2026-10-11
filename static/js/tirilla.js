@@ -46,7 +46,17 @@ function volverDeTirilla(e) {
     window.close();
     return false;
   }
-  return true;          // no hay ventana que la abrió: el enlace funciona normal
+  // No se sabe qué ventana la abrió, pero si es una pestaña recién abierta
+  // (sin páginas anteriores) se intenta cerrar igual: el POS sigue en la otra.
+  // Si el navegador no deja cerrarla, a los 300 ms se sigue el enlace normal.
+  if (window.history.length <= 1) {
+    e.preventDefault();
+    const destino = e.currentTarget.href;
+    window.close();
+    setTimeout(function () { window.location.href = destino; }, 300);
+    return false;
+  }
+  return true;          // se llegó desde otra página (ej. Ventas): el enlace funciona normal
 }
 
 /* Abrir algo en la ventana del programa (la que abrió esta tirilla) y cerrar

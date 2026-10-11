@@ -164,7 +164,9 @@ def index():
         "SELECT id, nombre FROM catalogos WHERE tipo = 'categoria_ingreso' AND activo = 1 "
         "ORDER BY nombre COLLATE NOCASE")]
 
+    config = obtener_config()
     return render_template("pos/index.html", caja=caja, resumen=resumen,
+                           cajon_modo=config.get("cajon_modo") or "no",
                            categorias=categorias,
                            categorias_gasto=categorias_gasto,
                            categorias_ingreso=categorias_ingreso,
@@ -947,6 +949,23 @@ def api_producto_editar(producto_id):
     registrar("producto_editado", "productos", producto_id,
               "desde POS · " + ("; ".join(cambios) if cambios else "sin cambios"))
     return jsonify({"ok": True, "cambios": len(cambios)})
+
+
+@bp.route("/api/abrir-cajon", methods=["POST"])
+@login_required
+def api_abrir_cajon():
+    """Abre el cajón monedero sin imprimir (ver app/cajon.py).
+
+    motivo = "cobro" (lo llama el POS después de cobrar) o "manual" (botón del menú ☰).
+    Queda en la bitácora quién lo abrió y por qué: así se controla el efectivo.
+    """
+    from . import cajon
+    motivo = "cobro" if request.form.get("motivo") == "cobro" else "manual"
+    if _caja_abierta() is None:
+        return _json_error("No hay caja abierta.")
+    ok, error = cajon.abrir(obtener_config().get("impresora_tirillas"))
+    registrar("cajon_abierto", "cajas", None, f"motivo={motivo}" + ("" if ok else f" error={error}"))
+    return jsonify({"ok": True}) if ok else _json_error(error)
 
 
 @bp.route("/api/cobrar", methods=["POST"])

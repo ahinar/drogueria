@@ -468,6 +468,21 @@ Notas:
 - Arranque automático en Windows 11 LTSC.
 - Ícono personalizado.
 
+### Correcciones tras las pruebas de Fernando (2026-10-11)
+- **POS, ventana Editar (sobre la "i")**: el precio que se edita es el de lo que se vende normalmente
+  (Sello/Sobre/Blíster/Caja…, según `venta_defecto_unidad_id`), con su precio máximo; filas aparte para
+  la unidad suelta (si `vende_suelto`) y las demás presentaciones (`precio_pres_<id>`). Si no se vende
+  suelto, la unidad = precio ÷ factor (igual que `productos._traducir_venta`). La franja de la "i" muestra
+  ese precio. El carrito actualiza cada línea con el precio de SU presentación.
+- **Tirilla**: al imprimir, todo negro y en negrilla y letra Consolas/Lucida Console (Courier New salía
+  tenue en la térmica); 58 mm un punto más grande. "Ver comprobante" abre con `rel="opener"` (Chrome trata
+  `target=_blank` como noopener) y "Volver" intenta cerrar la pestaña aunque no conozca la ventana del POS.
+- **Cajón monedero sin imprimir** (`app/cajon.py`): orden ESC/POS `ESC p 0/1 25 250` en modo RAW a la
+  impresora de Windows (ctypes + winspool.drv, sin instalar nada). Configuración → Impresora de tirillas:
+  nombre de la impresora (vacío = predeterminada) y "Abrir el cajón al cobrar" (nunca / efectivo /
+  siempre) + botón "Probar cajón". En el POS: se abre solo al cobrar según eso y botón "Abrir cajón"
+  (menú ☰). Cada apertura queda en la bitácora (`cajon_abierto`, motivo cobro/manual).
+
 ## 8. Pendientes por hacer
 
 ### Inmediatos (dependen de Fernando)

@@ -862,6 +862,9 @@
       $('exito-cambio').textContent = peso(json.cambio);
       $('exito-cambio-linea').style.display = json.cambio > 0 ? '' : 'none';
       $('exito-comprobante').href = json.url_comprobante;
+      // Cajón monedero: se abre solo según Configuración (sin imprimir nada)
+      const modoCajon = $('cfg-cajon') ? $('cfg-cajon').value : 'no';
+      if (modoCajon === 'siempre' || (modoCajon === 'efectivo' && formaPago === 'efectivo')) abrirCajon('cobro');
       $('pago-form').style.display = 'none';
       $('pago-exito').style.display = '';
       limpiarCarrito();   // cierra la venta cobrada (si hay otras abiertas, pasa a la siguiente)
@@ -873,6 +876,23 @@
     } finally {
       cobrando = false;
       $('pago-confirmar').disabled = false;
+    }
+  }
+
+  // Abre el cajón monedero sin imprimir (el servidor le habla a la impresora: app/cajon.py)
+  async function abrirCajon(motivo) {
+    const url = $('url-api-abrir-cajon') && $('url-api-abrir-cajon').value;
+    if (!url) return;
+    const datos = new FormData();
+    datos.append('_csrf', csrf());
+    datos.append('motivo', motivo);
+    try {
+      const resp = await fetch(url, { method: 'POST', body: datos, credentials: 'same-origin' });
+      const json = await resp.json();
+      if (!json.ok) aviso('Cajón: ' + (json.error || 'no se pudo abrir.'));
+      else if (motivo === 'manual') aviso('Cajón abierto.');
+    } catch (e) {
+      aviso('Cajón: error de conexión.');
     }
   }
 
@@ -1124,6 +1144,7 @@
       const cerrar = () => { const d = $('pos-drawer'); if (d) d.setAttribute('hidden', ''); };
       if (accion === 'ultimas-ventas') window.location.href = URL.ventas;
       else if (accion === 'reimprimir') window.open(URL.ultima, '_blank');
+      else if (accion === 'abrir-cajon') { cerrar(); abrirCajon('manual'); }
       else if (accion === 'consulta-inventario') window.location.href = URL.inventario;
       else if (accion === 'cliente') { cerrar(); pedirCliente(); }
       else if (accion === 'nota') { cerrar(); pedirNota(); }

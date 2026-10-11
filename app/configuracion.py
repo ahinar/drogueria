@@ -45,6 +45,10 @@ DEFAULTS = {
     "logo_ruta": "",
     # Ancho del papel de la impresora de tirillas (comprobante y recibos): "58" u "80" mm
     "ancho_tirilla": "80",
+    # Cajón monedero (ver app/cajon.py): "no", "efectivo" o "siempre"
+    "cajon_modo": "no",
+    # Nombre de la impresora de tirillas en Windows (vacío = la predeterminada)
+    "impresora_tirillas": "",
 }
 
 
@@ -91,6 +95,10 @@ def ver():
         nuevos["pie_pagina"] = request.form.get("pie_pagina", "").strip()
         # Solo se aceptan los dos anchos que existen en el mercado
         nuevos["ancho_tirilla"] = "58" if request.form.get("ancho_tirilla") == "58" else "80"
+        # Cajón monedero: cuándo se abre solo y en qué impresora (ver app/cajon.py)
+        from .cajon import MODOS
+        nuevos["cajon_modo"] = request.form.get("cajon_modo") if request.form.get("cajon_modo") in MODOS else "no"
+        nuevos["impresora_tirillas"] = (request.form.get("impresora_tirillas") or "").strip()
 
         # Manejar subida de logo
         archivo_logo = request.files.get("logo")
@@ -119,5 +127,19 @@ def ver():
             flash("Configuración guardada.", "ok")
             return redirect(url_for("configuracion.ver"))
 
+    from . import cajon
     valores = obtener_config()
-    return render_template("configuracion.html", campos=CAMPOS, valores=valores)
+    return render_template("configuracion.html", campos=CAMPOS, valores=valores,
+                           modos_cajon=cajon.MODOS, impresoras=cajon.impresoras(),
+                           cajon_disponible=cajon.disponible())
+
+
+@bp.route("/probar-cajon", methods=["POST"])
+@roles_required("administrador")
+def probar_cajon():
+    """Botón "Probar cajón" de la configuración: lo abre sin imprimir nada."""
+    from . import cajon
+    ok, error = cajon.abrir(request.form.get("impresora_tirillas") or obtener_config().get("impresora_tirillas"))
+    registrar("cajon_prueba", "config", detalle="ok" if ok else error)
+    flash("Listo: se mandó la orden de abrir el cajón." if ok else error, "ok" if ok else "error")
+    return redirect(url_for("configuracion.ver"))

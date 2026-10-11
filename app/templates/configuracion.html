@@ -80,6 +80,24 @@
       <small class="suave">Mide el rollo de papel: si es angosto (como el de un datáfono), es de 58 mm.
         En cada tirilla también hay botones para imprimir una vez en el otro ancho.</small>
     </label>
+    {# ----- Cajón monedero (app/cajon.py): conectado a la impresora de tirillas ----- #}
+    <label>Nombre de la impresora de tirillas
+      <input type="text" name="impresora_tirillas" value="{{ valores['impresora_tirillas'] }}" list="impresoras-windows"
+             placeholder="Vacío = la impresora predeterminada de Windows">
+      <datalist id="impresoras-windows">{% for i in impresoras %}<option value="{{ i }}">{% endfor %}</datalist>
+      <small class="suave">Es la que tiene conectado el cajón monedero.{% if impresoras %} Escribe o elige de la lista.{% endif %}</small>
+    </label>
+    <label>Abrir el cajón monedero al cobrar
+      <select name="cajon_modo">
+        {% for k, v in modos_cajon.items() %}<option value="{{ k }}" {% if valores['cajon_modo'] == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+      </select>
+      <small class="suave">Se abre sin imprimir nada. En el POS también está el botón «Abrir cajón» (menú ☰).</small>
+    </label>
+    {% if cajon_disponible %}
+    <button type="submit" formaction="{{ url_for('configuracion.probar_cajon') }}" class="secundario">🔓 Probar cajón</button>
+    {% else %}
+    <p class="suave"><small>El cajón solo se puede abrir desde el computador del local (Windows), con la impresora conectada.</small></p>
+    {% endif %}
   </fieldset>
 
   <div class="acciones">
