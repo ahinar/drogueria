@@ -2853,3 +2853,5 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
 /* Versión del programa en el pie del menú */
 .sidebar-version { display: block; font-size: .7rem; opacity: .55; padding: .2rem .9rem 0; }
+/* Línea que separa Calidad / Reportes / Administración de las secciones de arriba */
+.sidebar-separador { border-top: 1px solid rgba(255, 255, 255, .12); margin: .6rem .9rem .4rem; }

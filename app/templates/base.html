@@ -64,61 +64,34 @@
         <span class="ico">{{ ico("inicio", "🏠") }}</span><span class="txt">Inicio</span>
       </a>
 
-      <!-- ===== Día a día ===== -->
+      <!-- ===== Día a día: lo que se hace todos los días ===== -->
       <div class="sidebar-seccion">Día a día</div>
       <a class="sidebar-link {% if ep.startswith('pos.') %}activo{% endif %}"
          href="{{ url_for('pos.index') }}" title="Vender (POS)">
         <span class="ico">{{ ico("carrito", "🛒") }}</span><span class="txt">Vender (POS)</span>
       </a>
-      <a class="sidebar-link {% if ep.startswith('cotizaciones.') %}activo{% endif %}"
-         href="{{ url_for('cotizaciones.lista') }}" title="Cotizaciones">
-        <span class="ico">{{ ico("documento", "📄") }}</span><span class="txt">Cotizaciones</span>
+      <a class="sidebar-link {% if ep.startswith('temperaturas.') %}activo{% endif %}"
+         href="{{ url_for('temperaturas.inicio') }}" title="Temperaturas">
+        <span class="ico">{{ ico("termometro", "🌡️") }}</span><span class="txt">Temperaturas</span>
+      </a>
+
+      <!-- ===== Productos: lo que entra, lo que hay y lo que se ofrece ===== -->
+      <div class="sidebar-seccion">Productos</div>
+      <a class="sidebar-link {% if ep.startswith('productos.') or ep.startswith('importador.') %}activo{% endif %}"
+         href="{{ url_for('productos.lista') }}" title="Productos">
+        <span class="ico">{{ ico("pastilla", "💊") }}</span><span class="txt">Productos</span>
       </a>
       <a class="sidebar-link {% if ep.startswith('recepciones.') %}activo{% endif %}"
          href="{{ url_for('recepciones.lista') }}" title="Recepciones">
         <span class="ico">{{ ico("paquete", "📦") }}</span><span class="txt">Recepciones</span>
       </a>
-      <a class="sidebar-link {% if ep.startswith('temperaturas.') %}activo{% endif %}"
-         href="{{ url_for('temperaturas.inicio') }}" title="Temperaturas">
-        <span class="ico">{{ ico("termometro", "🌡️") }}</span><span class="txt">Temperaturas</span>
-      </a>
-      <a class="sidebar-link {% if ep.startswith('equipos.') %}activo{% endif %}"
-         href="{{ url_for('equipos.lista') }}" title="Equipos y calibración">
-        <span class="ico">{{ ico("medidor", "📏") }}</span><span class="txt">Equipos</span>
-      </a>
       <a class="sidebar-link {% if ep.startswith('inventario.') or ep.startswith('conteos.') %}activo{% endif %}"
          href="{{ url_for('inventario.inicio') }}" title="Inventario">
         <span class="ico">{{ ico("inventario", "🗃️") }}</span><span class="txt">Inventario</span>
       </a>
-
-      <!-- ===== Calidad (Fase 4: lo que revisa la Secretaría de Salud) ===== -->
-      <div class="sidebar-seccion">Calidad</div>
-      <a class="sidebar-link {% if ep.startswith('documentos.') %}activo{% endif %}"
-         href="{{ url_for('documentos.lista') }}" title="Documentos del sistema de calidad">
-        <span class="ico">{{ ico("carpeta", "🗂️") }}</span><span class="txt">Documentos</span>
-      </a>
-      <a class="sidebar-link {% if ep.startswith('saneamiento.') %}activo{% endif %}"
-         href="{{ url_for('saneamiento.limpieza') }}" title="Saneamiento: limpieza, plagas y residuos">
-        <span class="ico">{{ ico("escoba", "🧽") }}</span><span class="txt">Saneamiento</span>
-      </a>
-      <a class="sidebar-link {% if ep.startswith('capacitaciones.') %}activo{% endif %}"
-         href="{{ url_for('capacitaciones.plan') }}" title="Capacitaciones y personal">
-        <span class="ico">{{ ico("birrete", "🎓") }}</span><span class="txt">Capacitaciones</span>
-      </a>
-      <a class="sidebar-link {% if ep.startswith('pqrs.') %}activo{% endif %}"
-         href="{{ url_for('pqrs.lista') }}" title="Quejas, reclamos y sugerencias">
-        <span class="ico">{{ ico("globo", "💬") }}</span><span class="txt">Quejas</span>
-      </a>
-      <a class="sidebar-link {% if ep.startswith('farmacovigilancia.') %}activo{% endif %}"
-         href="{{ url_for('farmacovigilancia.lista') }}" title="Farmacovigilancia">
-        <span class="ico">{{ ico("alerta", "💊") }}</span><span class="txt">Farmacovigilancia</span>
-      </a>
-
-      <!-- ===== Productos ===== -->
-      <div class="sidebar-seccion">Productos</div>
-      <a class="sidebar-link {% if ep.startswith('productos.') or ep.startswith('importador.') %}activo{% endif %}"
-         href="{{ url_for('productos.lista') }}" title="Productos">
-        <span class="ico">{{ ico("pastilla", "💊") }}</span><span class="txt">Productos</span>
+      <a class="sidebar-link {% if ep.startswith('cotizaciones.') %}activo{% endif %}"
+         href="{{ url_for('cotizaciones.lista') }}" title="Cotizaciones">
+        <span class="ico">{{ ico("documento", "📄") }}</span><span class="txt">Cotizaciones</span>
       </a>
       {% if jefe %}
       <a class="sidebar-link {% if ep.startswith('proveedores.') %}activo{% endif %}"
@@ -127,9 +100,9 @@
       </a>
       {% endif %}
 
-      <!-- ===== Dinero (administrador y director técnico) ===== -->
+      <!-- ===== Contabilidad (administrador y director técnico) ===== -->
       {% if jefe %}
-      <div class="sidebar-seccion">Dinero</div>
+      <div class="sidebar-seccion">Contabilidad</div>
       <a class="sidebar-link {% if ep.startswith('contabilidad.') or ep.startswith('otros_ingresos.') %}activo{% endif %}"
          href="{{ url_for('contabilidad.index') }}" title="Contabilidad">
         <span class="ico">{{ ico("billetera", "💰") }}</span><span class="txt">Contabilidad</span>
@@ -145,8 +118,45 @@
       </a>
       {% endif %}
 
-      <!-- ===== Consultas ===== -->
-      <div class="sidebar-seccion">Consultas</div>
+      <!-- ===== Calidad (desplegable, como Administración; se abre sola si estás en una
+           de sus páginas). Lo que revisa la Secretaría de Salud. Para todos los usuarios. ===== -->
+      <div class="sidebar-separador" aria-hidden="true"></div>
+      {% set en_calidad = ep.startswith('equipos.') or ep.startswith('documentos.') or ep.startswith('saneamiento.')
+                          or ep.startswith('capacitaciones.') or ep.startswith('pqrs.') or ep.startswith('farmacovigilancia.') %}
+      <button type="button" class="sidebar-link sidebar-group {% if en_calidad %}abierto{% endif %}"
+              data-group="calidad" title="Calidad">
+        <span class="ico">{{ ico("escudo", "✅") }}</span>
+        <span class="txt">Calidad</span>
+        <span class="chevron">{{ ico("abajo", "▾") }}</span>
+      </button>
+      <div class="sidebar-submenu {% if en_calidad %}abierto{% endif %}" data-group-content="calidad">
+      <a class="sidebar-sublink {% if ep.startswith('equipos.') %}activo{% endif %}"
+         href="{{ url_for('equipos.lista') }}" title="Equipos y calibración">
+        <span class="ico">{{ ico("regla", "📏") }}</span><span class="txt">Equipos</span>
+      </a>
+      <a class="sidebar-sublink {% if ep.startswith('documentos.') %}activo{% endif %}"
+         href="{{ url_for('documentos.lista') }}" title="Documentos del sistema de calidad">
+        <span class="ico">{{ ico("carpeta", "🗂️") }}</span><span class="txt">Documentos</span>
+      </a>
+      <a class="sidebar-sublink {% if ep.startswith('saneamiento.') %}activo{% endif %}"
+         href="{{ url_for('saneamiento.limpieza') }}" title="Saneamiento: limpieza, plagas y residuos">
+        <span class="ico">{{ ico("escoba", "🧽") }}</span><span class="txt">Saneamiento</span>
+      </a>
+      <a class="sidebar-sublink {% if ep.startswith('capacitaciones.') %}activo{% endif %}"
+         href="{{ url_for('capacitaciones.plan') }}" title="Capacitaciones y personal">
+        <span class="ico">{{ ico("birrete", "🎓") }}</span><span class="txt">Capacitaciones</span>
+      </a>
+      <a class="sidebar-sublink {% if ep.startswith('pqrs.') %}activo{% endif %}"
+         href="{{ url_for('pqrs.lista') }}" title="Quejas, reclamos y sugerencias">
+        <span class="ico">{{ ico("globo", "💬") }}</span><span class="txt">Quejas</span>
+      </a>
+      <a class="sidebar-sublink {% if ep.startswith('farmacovigilancia.') %}activo{% endif %}"
+         href="{{ url_for('farmacovigilancia.lista') }}" title="Farmacovigilancia">
+        <span class="ico">{{ ico("alerta", "💊") }}</span><span class="txt">Farmacovigilancia</span>
+      </a>
+      </div>
+
+      <!-- ===== Reportes ===== -->
       <a class="sidebar-link {% if ep.startswith('reportes.') %}activo{% endif %}"
          href="{{ url_for('reportes.index') }}" title="Reportes">
         <span class="ico">{{ ico("grafico", "📊") }}</span><span class="txt">Reportes</span>

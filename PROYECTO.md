@@ -488,6 +488,11 @@ Notas:
   (Desde la sesión de Claude no se pueden crear etiquetas ni publicaciones: lo hace Fernando en la web.)
 
 ### Correcciones tras las pruebas de Fernando (2026-10-11)
+- **Menú lateral reordenado** (pedido de Fernando): Inicio · Día a día (POS, Temperaturas) · Productos
+  (Productos, Recepciones, Inventario, Cotizaciones, Proveedores*) · Contabilidad* (Contabilidad, Cartera,
+  Caja menor) · ── · Calidad, desplegable como Administración (Equipos, Documentos, Saneamiento,
+  Capacitaciones, Quejas, Farmacovigilancia; se abre sola en sus páginas) · Reportes · Administración* ·
+  Mi cuenta (Apariencia). *solo administrador y director técnico.
 - **POS, ventana Editar (sobre la "i")**: el precio que se edita es el de lo que se vende normalmente
   (Sello/Sobre/Blíster/Caja…, según `venta_defecto_unidad_id`), con su precio máximo; filas aparte para
   la unidad suelta (si `vende_suelto`) y las demás presentaciones (`precio_pres_<id>`). Si no se vende
