@@ -142,8 +142,10 @@ class TestTirillaDirecta(BaseVentas):
         r = self.post(self.c, "/pos/api/imprimir-tirilla", {"venta_id": "abc"})
         self.assertFalse(r.get_json()["ok"])
         venta = self.vender()
-        # Aquí no hay Windows: la impresión real avisa sin romper nada
-        r = self.post(self.c, "/pos/api/imprimir-tirilla", {"venta_id": str(venta["venta_id"])})
+        # Sin Windows (o sin la impresora), la impresión avisa sin romper nada.
+        # Se simula "sin Windows" para que la prueba dé igual en Linux y en Windows.
+        with mock.patch("app.cajon.disponible", return_value=False):
+            r = self.post(self.c, "/pos/api/imprimir-tirilla", {"venta_id": str(venta["venta_id"])})
         self.assertFalse(r.get_json()["ok"])
         self.assertIn("Windows", r.get_json()["error"])
 
