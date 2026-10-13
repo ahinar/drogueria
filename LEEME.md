@@ -119,6 +119,27 @@ Desinstalar tampoco borra los datos.
 **Pasar datos que ya tenías** (por ejemplo la base de pruebas del PC de la casa): con Fervifarma
 cerrado, copia tu `drogueria.db` a `...\AppData\Local\Fervifarma\db\` (reemplazando la que hay).
 
+### Dos computadores: mostrador + portátil (desde la versión 1.1.0)
+
+El **PC principal** (mostrador) guarda los datos; el **PC conectado** (portátil) trabaja sobre esos
+mismos datos, en el local o desde la casa. La conexión va por **Tailscale** (gratis para uso personal),
+una red privada cifrada entre los dos computadores: no hay que tocar el router ni abrir puertos.
+
+1. Instala **Tailscale** (`tailscale.com/download`) en los dos PC y entra con la **misma cuenta**.
+2. **Mostrador:** corre el instalador y escoge *«PC principal (mostrador) · permitir que otros equipos
+   se conecten»*. Windows pide permiso para el cortafuegos: **Sí** (solo deja entrar a la red del local
+   y a Tailscale). Mira el nombre del PC en **Administración → Red y equipos**.
+3. **Portátil:** corre el mismo instalador, escoge *«PC conectado (portátil)»* y escribe ese nombre.
+4. En **Configuración → Impresora de tirillas** escoge la impresión **directa**: las tirillas del
+   portátil salen por la impresora del mostrador (y el cajón que se abre es el del mostrador).
+
+Notas:
+- El mostrador tiene que estar **prendido** (sin suspenderse). Si comparte, al cerrar la ventana el
+  programa **sigue funcionando por detrás** para el portátil; se apaga al apagar el computador.
+- La caja es una sola: las ventas del portátil entran a la caja abierta del mostrador.
+- Seguridad: además del cortafuegos, el programa rechaza cualquier conexión que no venga de este PC,
+  de la red del local o de Tailscale, y siempre pide usuario y contraseña.
+
 ## 2. Instalación para programar (con Python, en el PC de desarrollo)
 
 1. Instala **Python 3.11 o superior** desde python.org. En el instalador marca **"Add Python to PATH"**.

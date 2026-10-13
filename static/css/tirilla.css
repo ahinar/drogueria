@@ -66,3 +66,6 @@ td { padding: .4mm 0; vertical-align: top; }
 .papel-58 .anulada { font-size: 13px; }
 .papel-58 .barra { flex-wrap: wrap; }
 @media print { .papel-58 body { width: 48mm; margin: 0 auto; } }
+
+/* Aviso de "Tirilla enviada" (tirilla directa, ver app/tirilla_directa.py). No se imprime: .barra se oculta al imprimir */
+.aviso-impresion { font-size: 13px; padding: 6px 8px; background: #ecfdf5; border-radius: 8px; }

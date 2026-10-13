@@ -197,6 +197,10 @@
            href="{{ url_for('admin.respaldos') }}" title="Respaldos">
           <span class="ico">{{ ico("disco", "💾") }}</span><span class="txt">Respaldos</span>
         </a>
+        <a class="sidebar-sublink {% if ep == 'admin.red' %}activo{% endif %}"
+           href="{{ url_for('admin.red') }}" title="Red y equipos">
+          <span class="ico">{{ ico("globo", "🌐") }}</span><span class="txt">Red y equipos</span>
+        </a>
         {% endif %}
       </div>
       {% endif %}

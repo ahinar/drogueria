@@ -51,8 +51,55 @@ UPLOADS_DIR = DATA_DIR / "uploads" if INSTALADO else BASE_DIR / "static" / "uplo
 # Registro de lo que pasa (errores), sobre todo para el programa instalado
 LOG_DIR = DATA_DIR / "logs"
 
-# Instalado, el programa solo se ve en ESTE computador (127.0.0.1) y usa el
-# puerto 8765 para no chocar con otros programas. Programando: toda la red, 5000.
-HOST = os.environ.get("DROGUERIA_HOST", "127.0.0.1" if INSTALADO else "0.0.0.0")
+# ---------------------------------------------------------------------------
+# VARIOS COMPUTADORES (desde la versión 1.1.0)
+# ---------------------------------------------------------------------------
+# El archivo  <datos>/equipo.json  dice qué papel cumple ESTE computador.
+# Lo escribe el instalador (la pregunta "¿Cómo se usa este computador?"):
+#
+#   {"modo": "principal", "compartir": true}
+#       PC del mostrador: aquí viven los datos. Con compartir=true acepta
+#       conexiones de otros equipos (solo de la red del local y de Tailscale,
+#       ver app/equipo.py).
+#
+#   {"modo": "conectado", "servidor": "mostrador"}
+#       Portátil: NO tiene datos propios. Su ícono abre la ventana del
+#       programa que corre en el PC "mostrador" (ver escritorio.py).
+#
+# Si el archivo no existe (o está dañado), es un PC principal que no comparte:
+# exactamente como funcionaba la versión 1.0.
+EQUIPO_FILE = DATA_DIR / "equipo.json"
+
+
+def leer_equipo() -> dict:
+    """Lee equipo.json y devuelve {"modo", "compartir", "servidor"} con valores seguros."""
+    import json
+    datos = {}
+    try:
+        datos = json.loads(EQUIPO_FILE.read_text(encoding="utf-8-sig"))   # -sig: por si Windows le pone BOM
+        if not isinstance(datos, dict):
+            datos = {}
+    except (OSError, ValueError):
+        pass
+    modo = "conectado" if datos.get("modo") == "conectado" else "principal"
+    return {
+        "modo": modo,
+        "compartir": modo == "principal" and bool(datos.get("compartir")),
+        "servidor": str(datos.get("servidor") or "").strip(),
+    }
+
+
+EQUIPO = leer_equipo()
+
+# Instalado, el programa usa el puerto 8765 para no chocar con otros programas.
+#   - Si NO comparte: solo se ve en ESTE computador (127.0.0.1).
+#   - Si comparte: escucha en todas las tarjetas de red (0.0.0.0), y app/equipo.py
+#     rechaza a cualquiera que no venga de la red del local o de Tailscale.
+# Programando: toda la red, puerto 5000.
+if INSTALADO:
+    _HOST_POR_DEFECTO = "0.0.0.0" if EQUIPO["compartir"] else "127.0.0.1"
+else:
+    _HOST_POR_DEFECTO = "0.0.0.0"
+HOST = os.environ.get("DROGUERIA_HOST", _HOST_POR_DEFECTO)
 PORT = int(os.environ.get("DROGUERIA_PORT", "8765" if INSTALADO else "5000"))
 SESSION_HORAS = int(os.environ.get("DROGUERIA_SESION_HORAS", "10"))

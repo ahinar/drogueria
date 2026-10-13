@@ -21,12 +21,22 @@
 </head>
 <body>
   <div class="barra">
-    <button type="button" onclick="window.print()">Imprimir</button>
+    {# Tirilla DIRECTA (Configuración): el programa la manda a la impresora del mostrador #}
+    {% if config['tirilla_modo'] == 'directa' %}
+    <form method="post" action="{{ url_for('pos.imprimir_directo', venta_id=venta['id']) }}" style="display:inline">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <button type="submit">Imprimir en el mostrador</button>
+    </form>
+    {% endif %}
+    <button type="button" onclick="window.print()">{{ 'Imprimir aquí' if config['tirilla_modo'] == 'directa' else 'Imprimir' }}</button>
     <span class="anchos" title="Ancho del papel">
       <a href="?papel=58" class="{{ 'activo' if papel == '58' else '' }}">58</a><a href="?papel=80" class="{{ 'activo' if papel == '80' else '' }}">80</a>
     </span>
     <a href="{{ url_for('pos.index') }}" onclick="return volverDeTirilla(event)">Volver al POS</a>
   </div>
+
+  {% if request.args.get('impresa') %}<div class="barra aviso-impresion">✅ Tirilla enviada a la impresora.</div>{% endif %}
+  {% if request.args.get('error') %}<div class="barra aviso-impresion">⚠️ {{ request.args.get('error') }}</div>{% endif %}
 
   {# ---------- Encabezado: logo y datos del negocio ---------- #}
   {% if config['logo_ruta'] %}

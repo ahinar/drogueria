@@ -20,6 +20,14 @@ PARA QUÉ (para aprender):
     Si no encuentra Edge ni Chrome, abre el navegador que haya y el
     programa queda prendido (hasta apagar el computador).
 
+    VARIOS COMPUTADORES (versión 1.1.0, ver config.py y app/equipo.py):
+    - PC principal que COMPARTE: al cerrar la ventana el programa NO se
+      apaga, porque el portátil puede estar trabajando. Sigue por detrás
+      hasta que se apague el computador.
+    - PC CONECTADO (portátil): no prende ningún servidor ni tiene datos.
+      Solo revisa que el PC principal conteste y abre la ventana apuntando
+      a él. Si no contesta, muestra un mensaje con "Reintentar".
+
     Los errores quedan escritos en  <datos>/logs/fervifarma.log  (ver config.py).
 """
 import logging
@@ -38,6 +46,25 @@ import config
 URL = f"http://127.0.0.1:{config.PORT}"
 
 
+def url_del_principal(equipo, puerto):
+    """En un PC conectado, la dirección del PC principal: "mostrador" -> "http://mostrador:8765".
+
+    Si escribieron "http://..." o ya le pusieron el puerto, se respeta. En un PC
+    principal (o sin dirección) devuelve None.
+    """
+    servidor = (equipo.get("servidor") or "").strip().rstrip("/")
+    if equipo.get("modo") != "conectado" or not servidor:
+        return None
+    if not servidor.startswith(("http://", "https://")):
+        servidor = "http://" + servidor
+    if servidor.count(":") < 2:                    # "http://mostrador" -> le falta el puerto
+        servidor += f":{puerto}"
+    return servidor
+
+
+URL_PRINCIPAL = url_del_principal(config.EQUIPO, config.PORT)
+
+
 def preparar_registro():
     """Los mensajes y errores van a un archivo (no hay pantalla negra donde verlos)."""
     config.LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -47,10 +74,10 @@ def preparar_registro():
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
-def ya_esta_prendido():
-    """True si el programa ya está corriendo en este computador."""
+def ya_esta_prendido(url=URL, espera=1.5):
+    """True si el programa contesta en esa dirección (por defecto: en este computador)."""
     try:
-        with urllib.request.urlopen(URL + "/salud", timeout=1.5) as resp:
+        with urllib.request.urlopen(url + "/salud", timeout=espera) as resp:
             return resp.read().decode("utf-8", "ignore").startswith("fervifarma")
     except OSError:
         return False
@@ -87,15 +114,15 @@ def buscar_navegador():
     return next((str(c) for c in candidatos if c.exists()), None)
 
 
-def abrir_ventana(esperar=True):
+def abrir_ventana(esperar=True, url=URL):
     """Abre la ventana del programa. Si esperar=True, no vuelve hasta que la cierren."""
     navegador = buscar_navegador()
     if not navegador:
         logging.warning("No se encontró Edge ni Chrome: se abre el navegador predeterminado")
-        webbrowser.open(URL)
+        webbrowser.open(url)
         return False
     perfil = config.DATA_DIR / "ventana"           # perfil propio: no se mezcla con el navegador de uso diario
-    orden = [navegador, f"--app={URL}", "--start-maximized", f"--user-data-dir={perfil}",
+    orden = [navegador, f"--app={url}", "--start-maximized", f"--user-data-dir={perfil}",
              "--no-first-run", "--no-default-browser-check", "--disable-features=Translate"]
     proceso = subprocess.Popen(orden)
     if esperar:
@@ -103,9 +130,45 @@ def abrir_ventana(esperar=True):
     return True
 
 
+def mensaje(texto, botones=0x10):
+    """Ventanita de Windows con un mensaje. 0x10 = ícono de error y botón Aceptar.
+    Devuelve el botón que tocaron (4 = Reintentar). Fuera de Windows solo lo anota."""
+    logging.warning(texto.replace("\n", " "))
+    if sys.platform != "win32":
+        return 0
+    import ctypes
+    return ctypes.windll.user32.MessageBoxW(None, texto, "Fervifarma", botones)
+
+
+def abrir_conectado():
+    """PC CONECTADO (portátil): abre la ventana del programa del PC principal."""
+    logging.info("PC conectado: se abre %s", URL_PRINCIPAL)
+    while True:
+        # Al prender el portátil, Tailscale puede tardar unos segundos en conectar:
+        # se pregunta varias veces antes de rendirse (hasta ~15 segundos)
+        for _ in range(5):
+            if ya_esta_prendido(URL_PRINCIPAL, espera=3):
+                abrir_ventana(esperar=False, url=URL_PRINCIPAL)
+                return
+            time.sleep(0.5)
+        boton = mensaje(
+            f"No se pudo conectar con el PC principal ({URL_PRINCIPAL}).\n\n"
+            "Revisa que:\n"
+            "  • el PC del mostrador esté prendido y con Fervifarma abierto,\n"
+            "  • Tailscale esté conectado en los dos computadores,\n"
+            "  • este portátil tenga internet (o esté en el WiFi del local).\n\n"
+            "Para cambiar la dirección, vuelve a correr el instalador.",
+            0x5 | 0x30)                              # 0x5 = Reintentar/Cancelar, 0x30 = ícono de advertencia
+        if boton != 4:                               # 4 = tocaron "Reintentar"
+            return
+
+
 def main():
     preparar_registro()
-    logging.info("Abriendo Fervifarma (datos en %s)", config.DATA_DIR)
+    logging.info("Abriendo Fervifarma (datos en %s, modo %s)", config.DATA_DIR, config.EQUIPO["modo"])
+    if URL_PRINCIPAL:
+        abrir_conectado()
+        return
     # "Fervifarma.exe --solo-servidor": prende el programa sin abrir ventana
     # (para revisar que el instalador funciona, o para abrirlo desde otro lado)
     if "--solo-servidor" in sys.argv:
@@ -117,15 +180,14 @@ def main():
         abrir_ventana(esperar=False)               # ya está prendido: solo otra ventana
         return
     if not prender_servidor():
-        if sys.platform == "win32":
-            import ctypes
-            ctypes.windll.user32.MessageBoxW(
-                None, f"No se pudo abrir el programa. Revisa el archivo de errores en:\n{config.LOG_DIR}",
-                "Fervifarma", 0x10)
+        mensaje(f"No se pudo abrir el programa. Revisa el archivo de errores en:\n{config.LOG_DIR}")
         return
     if abrir_ventana(esperar=True):
-        # Se cerró la ventana. Si quedó otra abierta (por ejemplo una tirilla),
-        # se espera a que el perfil quede libre antes de apagar.
+        if config.EQUIPO["compartir"]:
+            # Comparte con el portátil: aunque cierren la ventana, sigue por detrás
+            logging.info("Ventana cerrada: el programa sigue prendido para los otros equipos")
+            while True:
+                time.sleep(3600)
         logging.info("Ventana cerrada: se apaga el programa")
     else:
         # Sin Edge/Chrome no se sabe cuándo cierran el navegador: queda prendido

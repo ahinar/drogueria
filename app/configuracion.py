@@ -49,6 +49,17 @@ DEFAULTS = {
     "cajon_modo": "no",
     # Nombre de la impresora de tirillas en Windows (vacío = la predeterminada)
     "impresora_tirillas": "",
+    # Cómo se imprime el comprobante del POS (ver app/tirilla_directa.py):
+    #   "navegador" = se abre la página y se imprime desde ella (en el PC donde se vende)
+    #   "directa"   = el programa la manda a la impresora del PC principal (sirve desde el portátil)
+    "tirilla_modo": "navegador",
+    # Tirilla directa: "si" = con tildes y ñ; "no" = sin tildes (si la impresora las imprime raras)
+    "tirilla_tildes": "si",
+}
+
+MODOS_TIRILLA = {
+    "navegador": "Por el navegador (en el computador donde se vende)",
+    "directa": "Directa a la impresora del PC principal (recomendada; sirve desde el portátil)",
 }
 
 
@@ -99,6 +110,9 @@ def ver():
         from .cajon import MODOS
         nuevos["cajon_modo"] = request.form.get("cajon_modo") if request.form.get("cajon_modo") in MODOS else "no"
         nuevos["impresora_tirillas"] = (request.form.get("impresora_tirillas") or "").strip()
+        # Tirilla del POS: por el navegador o directa (app/tirilla_directa.py)
+        nuevos["tirilla_modo"] = "directa" if request.form.get("tirilla_modo") == "directa" else "navegador"
+        nuevos["tirilla_tildes"] = "no" if request.form.get("tirilla_tildes") == "no" else "si"
 
         # Manejar subida de logo
         archivo_logo = request.files.get("logo")
@@ -131,6 +145,7 @@ def ver():
     valores = obtener_config()
     return render_template("configuracion.html", campos=CAMPOS, valores=valores,
                            modos_cajon=cajon.MODOS, impresoras=cajon.impresoras(),
+                           modos_tirilla=MODOS_TIRILLA,
                            cajon_disponible=cajon.disponible())
 
 
@@ -142,4 +157,26 @@ def probar_cajon():
     ok, error = cajon.abrir(request.form.get("impresora_tirillas") or obtener_config().get("impresora_tirillas"))
     registrar("cajon_prueba", "config", detalle="ok" if ok else error)
     flash("Listo: se mandó la orden de abrir el cajón." if ok else error, "ok" if ok else "error")
+    return redirect(url_for("configuracion.ver"))
+
+@bp.route("/probar-tirilla", methods=["POST"])
+@roles_required("administrador")
+def probar_tirilla():
+    """Botón "Imprimir prueba": manda una tirilla corta directa a la impresora (app/tirilla_directa.py)."""
+    from . import cajon
+    from .tirilla_directa import Tirilla, CENTRO, NEGRILLA, SIN_NEGRILLA, IZQUIERDA
+    valores = obtener_config()
+    ancho = "58" if request.form.get("ancho_tirilla") == "58" else (valores.get("ancho_tirilla") or "80")
+    tildes = (request.form.get("tirilla_tildes") or valores.get("tirilla_tildes")) != "no"
+    t = Tirilla(ancho, tildes=tildes)
+    t.orden(CENTRO, NEGRILLA).linea("PRUEBA DE IMPRESIÓN").orden(SIN_NEGRILLA)
+    t.linea(valores.get("nombre_comercial") or valores.get("razon_social") or "Droguería")
+    t.orden(IZQUIERDA).separador()
+    t.linea("Tildes y eñe: á é í ó ú ñ Ñ ¡ ¿")
+    t.dos_columnas("Acetaminofén 500 mg x 10", "$2.500")
+    t.separador().linea("Si las tildes salen raras, escoge «sin tildes» en Configuración.")
+    impresora = request.form.get("impresora_tirillas") or valores.get("impresora_tirillas")
+    ok, error = cajon.enviar_crudo(impresora, t.terminar(), "Prueba Fervifarma")
+    registrar("tirilla_prueba", "config", detalle="ok" if ok else error)
+    flash("Listo: se mandó la tirilla de prueba." if ok else error, "ok" if ok else "error")
     return redirect(url_for("configuracion.ver"))

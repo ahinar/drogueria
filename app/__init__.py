@@ -44,6 +44,11 @@ def create_app(test_config=None):
     base_datos.init_db(app.config["DB_PATH"])
     base_datos.init_app(app)
 
+    # Candado de red: solo entra quien viene de este PC, la red del local o
+    # Tailscale; y se anota qué equipos están conectados. Ver app/equipo.py
+    from . import equipo
+    equipo.init_app(app)
+
     from . import (admin, apariencia, auth, caja_menor, cartera, catalogos, configuracion,
                    contabilidad, conteos, devoluciones, equipos, importador, inventario, main,
                    otros_ingresos, pos, productos,

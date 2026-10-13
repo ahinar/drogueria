@@ -78,6 +78,18 @@ def abrir(nombre_impresora=""):
     """Manda la orden de abrir el cajón. Devuelve (True, '') o (False, 'qué pasó')."""
     if not disponible():
         return False, "El cajón solo se puede abrir desde el computador del local (Windows) con la impresora conectada."
+    return enviar_crudo(nombre_impresora, ORDEN_ABRIR, "Abrir cajón")
+
+
+def enviar_crudo(nombre_impresora, datos: bytes, titulo="Fervifarma"):
+    """Manda bytes "tal cual" (RAW) a una impresora de Windows.
+
+    La usan el cajón (solo la orden de abrir) y la tirilla directa
+    (app/tirilla_directa.py: el texto de la venta en el idioma ESC/POS).
+    Devuelve (True, '') o (False, 'qué pasó').
+    """
+    if not disponible():
+        return False, "Solo se puede imprimir directo desde el computador del local (Windows)."
     import ctypes
     from ctypes import wintypes
 
@@ -93,20 +105,20 @@ def abrir(nombre_impresora=""):
     manija = wintypes.HANDLE()
     if not winspool.OpenPrinterW(nombre, ctypes.byref(manija), None):
         return False, f"No se encontró la impresora «{nombre}». Revisa el nombre en Configuración."
+    ok, escritos = False, wintypes.DWORD(0)
     try:
-        info = DOC_INFO_1("Abrir cajón", None, "RAW")          # RAW = mandar los bytes tal cual
+        info = DOC_INFO_1(titulo, None, "RAW")                 # RAW = mandar los bytes tal cual
         if not winspool.StartDocPrinterW(manija, 1, ctypes.byref(info)):
             return False, "La impresora no aceptó la orden (¿está apagada o sin conexión?)."
         try:
             winspool.StartPagePrinter(manija)
-            escritos = wintypes.DWORD(0)
-            datos = ctypes.create_string_buffer(ORDEN_ABRIR, len(ORDEN_ABRIR))
-            ok = winspool.WritePrinter(manija, datos, len(ORDEN_ABRIR), ctypes.byref(escritos))
+            buffer = ctypes.create_string_buffer(datos, len(datos))
+            ok = winspool.WritePrinter(manija, buffer, len(datos), ctypes.byref(escritos))
             winspool.EndPagePrinter(manija)
         finally:
             winspool.EndDocPrinter(manija)
     finally:
         winspool.ClosePrinter(manija)
-    if not ok or escritos.value != len(ORDEN_ABRIR):
+    if not ok or escritos.value != len(datos):
         return False, "No se pudo mandar la orden a la impresora."
     return True, ""

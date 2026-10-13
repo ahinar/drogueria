@@ -188,3 +188,11 @@ def respaldos():
         "respaldos.html", lista=info(listar_respaldos(carpeta)), archivos=info(listar_respaldos_archivos(carpeta)),
         carpeta=str(Path(carpeta).resolve()), extra=carpeta_extra(current_app) or "",
         datos=str(Path(_config.DATA_DIR).resolve()), en_windows=sys.platform == "win32")
+
+
+@bp.route("/red")
+@roles_required("administrador")
+def red():
+    """Red y equipos: cómo conectar el portátil al PC del mostrador (ver app/equipo.py)."""
+    from . import equipo
+    return render_template("red.html", info=equipo.info())

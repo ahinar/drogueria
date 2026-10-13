@@ -186,6 +186,8 @@
 <input type="hidden" id="url-api-cobrar" value="{{ url_for('pos.api_cobrar') }}">
 <!-- Cajón monedero: cuándo se abre solo ("no", "efectivo", "siempre") y la ruta que lo abre (app/cajon.py) -->
 <input type="hidden" id="cfg-cajon" value="{{ cajon_modo }}">
+<input type="hidden" id="cfg-tirilla" value="{{ tirilla_modo }}">
+<input type="hidden" id="url-api-imprimir-tirilla" value="{{ url_for('pos.api_imprimir_tirilla') }}">
 <input type="hidden" id="url-api-abrir-cajon" value="{{ url_for('pos.api_abrir_cajon') }}">
 <input type="hidden" id="url-ventas" value="{{ url_for('pos.ventas_lista') }}">
 {# Cotizaciones (app/cotizaciones.py): guardar el carrito y cargar una guardada (?cotizacion=ID) #}

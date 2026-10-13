@@ -862,6 +862,9 @@
       $('exito-cambio').textContent = peso(json.cambio);
       $('exito-cambio-linea').style.display = json.cambio > 0 ? '' : 'none';
       $('exito-comprobante').href = json.url_comprobante;
+      // Tirilla DIRECTA: el botón «Imprimir tirilla» la manda a la impresora del mostrador
+      ventaRecienCobrada = json.venta_id;
+      if ($('exito-imprimir')) $('exito-imprimir').style.display = tirillaDirecta() ? '' : 'none';
       // Cajón monedero: se abre solo según Configuración (sin imprimir nada)
       const modoCajon = $('cfg-cajon') ? $('cfg-cajon').value : 'no';
       if (modoCajon === 'siempre' || (modoCajon === 'efectivo' && formaPago === 'efectivo')) abrirCajon('cobro');
@@ -878,6 +881,29 @@
       $('pago-confirmar').disabled = false;
     }
   }
+
+  // ---- Tirilla DIRECTA (app/tirilla_directa.py) ----
+  // En vez de abrir la página del comprobante e imprimirla con el navegador,
+  // se le pide al programa que la mande a la impresora del PC principal.
+  // Así, aunque se venda desde el portátil, sale por la impresora del mostrador.
+  let ventaRecienCobrada = null;
+  function tirillaDirecta() { return $('cfg-tirilla') && $('cfg-tirilla').value === 'directa'; }
+
+  async function imprimirTirilla(ventaId) {
+    const url = $('url-api-imprimir-tirilla') && $('url-api-imprimir-tirilla').value;
+    if (!url || !ventaId) return;
+    const datos = new FormData();
+    datos.append('_csrf', csrf());
+    datos.append('venta_id', ventaId);
+    try {
+      const resp = await fetch(url, { method: 'POST', body: datos, credentials: 'same-origin' });
+      const json = await resp.json();
+      aviso(json.ok ? 'Tirilla enviada a la impresora.' : 'Tirilla: ' + (json.error || 'no se pudo imprimir.'));
+    } catch (e) {
+      aviso('Tirilla: error de conexión.');
+    }
+  }
+  if ($('exito-imprimir')) $('exito-imprimir').addEventListener('click', () => imprimirTirilla(ventaRecienCobrada));
 
   // Abre el cajón monedero sin imprimir (el servidor le habla a la impresora: app/cajon.py)
   async function abrirCajon(motivo) {
@@ -1143,7 +1169,11 @@
       const accion = b.dataset.accion;
       const cerrar = () => { const d = $('pos-drawer'); if (d) d.setAttribute('hidden', ''); };
       if (accion === 'ultimas-ventas') window.location.href = URL.ventas;
-      else if (accion === 'reimprimir') window.open(URL.ultima, '_blank');
+      else if (accion === 'reimprimir') {
+        // Directa: sale por la impresora del mostrador; si no, se abre la página para imprimir
+        if (tirillaDirecta()) { cerrar(); imprimirTirilla('ultima'); }
+        else window.open(URL.ultima, '_blank');
+      }
       else if (accion === 'abrir-cajon') { cerrar(); abrirCajon('manual'); }
       else if (accion === 'consulta-inventario') window.location.href = URL.inventario;
       else if (accion === 'cliente') { cerrar(); pedirCliente(); }

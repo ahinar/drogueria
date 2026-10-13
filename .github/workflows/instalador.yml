@@ -51,6 +51,9 @@ jobs:
         shell: pwsh
         run: |
           $env:FERVIFARMA_DATOS = "$env:RUNNER_TEMP\fv_datos"
+          # PC principal que comparte (escucha en toda la red): debe arrancar igual
+          New-Item -ItemType Directory -Force -Path $env:FERVIFARMA_DATOS | Out-Null
+          Set-Content -Path "$env:FERVIFARMA_DATOS\equipo.json" -Value '{"modo": "principal", "compartir": true}' -Encoding utf8
           $p = Start-Process -FilePath "dist\Fervifarma\Fervifarma.exe" -ArgumentList "--solo-servidor" -PassThru
           $ok = $false
           for ($i = 0; $i -lt 60; $i++) {

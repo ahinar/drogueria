@@ -93,10 +93,27 @@
       </select>
       <small class="suave">Se abre sin imprimir nada. En el POS también está el botón «Abrir cajón» (menú ☰).</small>
     </label>
+    {# ----- Tirilla del POS: por el navegador o directa (app/tirilla_directa.py) ----- #}
+    <label>Cómo se imprime el comprobante del POS
+      <select name="tirilla_modo">
+        {% for k, v in modos_tirilla.items() %}<option value="{{ k }}" {% if valores['tirilla_modo'] == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+      </select>
+      <small class="suave"><strong>Directa:</strong> el programa la manda a la impresora de arriba, con la letra propia de la
+        impresora (negra y nítida), aunque la venta se haga desde el portátil. No lleva el logo.</small>
+    </label>
+    <label>Tildes en la tirilla directa
+      <select name="tirilla_tildes">
+        <option value="si" {% if valores['tirilla_tildes'] != 'no' %}selected{% endif %}>Con tildes y ñ</option>
+        <option value="no" {% if valores['tirilla_tildes'] == 'no' %}selected{% endif %}>Sin tildes (si salen letras raras)</option>
+      </select>
+    </label>
     {% if cajon_disponible %}
-    <button type="submit" formaction="{{ url_for('configuracion.probar_cajon') }}" class="secundario">🔓 Probar cajón</button>
+    <div class="acciones">
+      <button type="submit" formaction="{{ url_for('configuracion.probar_cajon') }}" class="secundario">🔓 Probar cajón</button>
+      <button type="submit" formaction="{{ url_for('configuracion.probar_tirilla') }}" class="secundario">🧾 Imprimir prueba</button>
+    </div>
     {% else %}
-    <p class="suave"><small>El cajón solo se puede abrir desde el computador del local (Windows), con la impresora conectada.</small></p>
+    <p class="suave"><small>El cajón y la tirilla directa solo funcionan en el computador del local (Windows), con la impresora conectada.</small></p>
     {% endif %}
   </fieldset>
 

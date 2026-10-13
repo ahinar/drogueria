@@ -167,6 +167,7 @@ def index():
     config = obtener_config()
     return render_template("pos/index.html", caja=caja, resumen=resumen,
                            cajon_modo=config.get("cajon_modo") or "no",
+                           tirilla_modo=config.get("tirilla_modo") or "navegador",
                            categorias=categorias,
                            categorias_gasto=categorias_gasto,
                            categorias_ingreso=categorias_ingreso,
@@ -1313,6 +1314,47 @@ def comprobante(venta_id):
         saldo_cliente = cartera.saldo(venta["cliente_id"])
     return render_template("pos/comprobante.html", venta=venta, lineas=lineas,
                            config=obtener_config(), saldo_cliente=saldo_cliente)
+
+def _imprimir_directo(venta_id):
+    """Manda la tirilla de la venta a la impresora del PC principal y lo anota en la bitácora."""
+    from .tirilla_directa import imprimir_venta
+    ok, error = imprimir_venta(venta_id)
+    registrar("tirilla_impresa", "ventas", venta_id, "directa" + ("" if ok else f" error={error}"))
+    return ok, error
+
+
+@bp.route("/api/imprimir-tirilla", methods=["POST"])
+@login_required
+def api_imprimir_tirilla():
+    """Imprime la tirilla DIRECTA (app/tirilla_directa.py) en la impresora del PC principal.
+
+    venta_id = número de la venta, o "ultima" (botón «Reimprimir último»).
+    La usa el POS desde cualquier computador: el del mostrador o el portátil.
+    """
+    pedido = (request.form.get("venta_id") or "").strip()
+    if pedido == "ultima":
+        fila = get_db().execute("SELECT id FROM ventas ORDER BY id DESC LIMIT 1").fetchone()
+        if fila is None:
+            return _json_error("Todavía no hay ventas.")
+        venta_id = fila["id"]
+    elif pedido.isdigit():
+        venta_id = int(pedido)
+    else:
+        return _json_error("Venta inválida.")
+    ok, error = _imprimir_directo(venta_id)
+    return jsonify({"ok": True}) if ok else _json_error(error)
+
+
+@bp.route("/venta/<int:venta_id>/imprimir", methods=["POST"])
+@login_required
+def imprimir_directo(venta_id):
+    """Botón «Imprimir en el mostrador» de la página del comprobante."""
+    _venta_o_404(venta_id)
+    ok, error = _imprimir_directo(venta_id)
+    if ok:
+        return redirect(url_for("pos.comprobante", venta_id=venta_id, impresa=1))
+    return redirect(url_for("pos.comprobante", venta_id=venta_id, error=error))
+
 
 @bp.route("/venta/ultima")
 @login_required

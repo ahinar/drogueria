@@ -492,6 +492,23 @@ Notas:
 |---|---|---|
 | 1.0.0 | 2026-10-11 | Primera con instalador de Windows |
 | 1.0.1 | 2026-10-11 | Menú lateral en el orden de Fernando (Calidad desplegable) |
+| 1.1.0 | 2026-10-13 | Dos computadores (mostrador + portátil por Tailscale) y tirilla directa ESC/POS |
+
+### Versión 1.1.0 — dos computadores (2026-10-13)
+- Pedido de Fernando: el portátil (director técnico) hace tareas administrativas y ayuda a vender,
+  en el local **y desde la casa**; la tirilla del portátil sale por la impresora del mostrador.
+- `config.py` lee `<datos>/equipo.json` (lo escribe el instalador): principal que comparte,
+  principal solo, o conectado (con la dirección del principal).
+- `app/equipo.py`: candado de red (solo este PC, red privada y Tailscale 100.64.0.0/10; lo demás 403),
+  lista de equipos conectados. Página **Administración → Red y equipos** (`red.html`).
+- `escritorio.py`: en el portátil no prende servidor, abre la ventana del principal (con Reintentar si
+  no contesta); en el principal que comparte, cerrar la ventana no apaga el programa.
+- `app/tirilla_directa.py`: comprobante en ESC/POS (PC850, 32/48 letras), mandado RAW con
+  `cajon.enviar_crudo`. Configuración: modo de tirilla (navegador/directa), tildes, «Imprimir prueba».
+  POS: botón «Imprimir tirilla», «Reimprimir último» directo; comprobante: «Imprimir en el mostrador».
+- Instalador: página «¿Cómo se usa este computador?», dirección del principal, regla de cortafuegos
+  (programa + puerto 8765 + red local/Tailscale, con UAC una vez) y cierre del programa antes de copiar.
+- Pendiente probar en el local: Tailscale real, cortafuegos, tirilla directa en la impresora térmica.
 
 ### Correcciones tras las pruebas de Fernando (2026-10-11)
 - **Menú lateral reordenado** (pedido de Fernando): Inicio · Día a día (POS, Temperaturas) · Productos

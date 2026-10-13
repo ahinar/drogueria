@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block titulo %}Red y equipos{% endblock %}
+{% block contenido %}
+{#
+  RED Y EQUIPOS (app/admin.py, función red; los datos salen de app/equipo.py)
+  info.modo        = "principal" (aquí están los datos) o "conectado"
+  info.compartir   = True si otros equipos pueden conectarse a este
+  info.direcciones = direcciones de este PC [{ip, red}]  (red: Tailscale / Red del local)
+  info.conectados  = equipos que usaron el programa en los últimos 15 minutos
+#}
+<div class="fila-titulo"><h1>Red y equipos</h1></div>
+<p class="suave">El programa se puede usar en dos computadores al tiempo: el <strong>PC principal</strong> (mostrador),
+  donde se guardan los datos, y un <strong>PC conectado</strong> (por ejemplo el portátil), que trabaja sobre esos mismos
+  datos, en el local o desde la casa.</p>
+
+{# ---------- 1. ¿Qué es este computador? ---------- #}
+<div class="rep-caja">
+  <h2>Este computador</h2>
+  {% if not info.instalado %}
+    <p>Programa en modo de <strong>desarrollo</strong> (python run.py): acepta conexiones de la red del local en el puerto {{ info.puerto }}.</p>
+  {% elif info.compartir %}
+    <p class="aviso ok">✅ Es el <strong>PC principal</strong> y <strong>comparte</strong>: el portátil se puede conectar.</p>
+    <p class="suave">Aunque se cierre la ventana, el programa sigue funcionando por detrás para que el portátil no se
+      quede sin conexión. Se apaga al apagar el computador.</p>
+  {% else %}
+    <p class="aviso">Es el <strong>PC principal</strong> pero <strong>no comparte</strong>: solo se puede usar aquí.</p>
+    <p class="suave">Para permitir el portátil, vuelve a correr el instalador en este computador y escoge
+      <em>«PC principal (mostrador) · permitir que otros equipos se conecten»</em>. Tus datos no se tocan.</p>
+  {% endif %}
+  <p>Nombre del computador: <strong>{{ info.nombre }}</strong></p>
+</div>
+
+{# ---------- 2. Qué escribir en el portátil ---------- #}
+{% if info.compartir or not info.instalado %}
+<div class="rep-caja" style="margin-top:1rem">
+  <h2>Qué escribir en el portátil</h2>
+  <p>Cuando el instalador del portátil pregunte la <strong>dirección del PC principal</strong>, escribe:</p>
+  <p style="font-size:1.4rem"><code>{{ info.nombre|lower }}</code></p>
+  <p class="suave">Es el nombre de este computador: Tailscale lo encuentra solo, en el local y desde la casa.
+    Si no funciona, prueba con una de estas direcciones:</p>
+  <div class="tabla-scroll">
+  <table class="rep-tabla">
+    <thead><tr><th>Dirección</th><th>Sirve</th></tr></thead>
+    <tbody>
+    {% for d in info.direcciones %}
+      <tr><td><code>{{ d.ip }}</code></td>
+          <td>{% if d.red == 'Tailscale' %}En el local y desde la casa (Tailscale){% else %}Solo dentro del local (puede cambiar si se reinicia el router){% endif %}</td></tr>
+    {% else %}
+      <tr><td colspan="2" class="suave">No se encontraron direcciones de red.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if not info.direcciones|selectattr('red', 'equalto', 'Tailscale')|list %}
+  <p class="aviso">Tailscale no aparece en este computador. Sin él, el portátil solo funciona dentro del local. Mira los pasos abajo.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ---------- 3. Quién está conectado ---------- #}
+<div class="rep-caja" style="margin-top:1rem">
+  <h2>Equipos usando el programa</h2>
+  <p class="suave">Los que abrieron alguna página en los últimos 15 minutos.</p>
+  <div class="tabla-scroll">
+  <table class="rep-tabla">
+    <thead><tr><th>Equipo</th><th>Conectado por</th><th>Usuario</th><th class="num">Última actividad</th></tr></thead>
+    <tbody>
+    {% for c in info.conectados %}
+      <tr><td><code>{{ c.ip }}</code></td><td>{{ c.red }}</td><td>{{ c.usuario or '—' }}</td>
+          <td class="num">{% if c.hace_min == 0 %}ahora{% else %}hace {{ c.hace_min }} min{% endif %}</td></tr>
+    {% else %}
+      <tr><td colspan="4" class="suave">Nadie más por ahora.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+{# ---------- 4. Paso a paso ---------- #}
+<div class="rep-caja" style="margin-top:1rem">
+  <h2>Cómo conectar el portátil (una sola vez)</h2>
+  <ol>
+    <li><strong>Tailscale en los dos computadores.</strong> Descárgalo de <code>tailscale.com/download</code>, instálalo
+      y entra con la <strong>misma cuenta</strong> (por ejemplo tu correo de Google) en el PC del mostrador y en el portátil.
+      Es gratis para uso personal.</li>
+    <li><strong>En el PC del mostrador:</strong> corre el instalador de Fervifarma y escoge
+      <em>«PC principal (mostrador) · permitir que otros equipos se conecten»</em>. Windows pedirá permiso para el
+      cortafuegos: dale <strong>Sí</strong>.</li>
+    <li><strong>En el portátil:</strong> corre el mismo instalador, escoge <em>«PC conectado (portátil)»</em> y escribe la
+      dirección que sale arriba.</li>
+    <li>Abre Fervifarma en el portátil y entra con tu usuario. Todo lo que hagas queda guardado en el mostrador.</li>
+  </ol>
+  <p class="suave">Para que el portátil funcione, el PC del mostrador tiene que estar <strong>prendido</strong> (sin
+    suspenderse) y con Tailscale conectado. Las tirillas que se impriman desde el portátil salen por la impresora del
+    mostrador si en Configuración está escogida la impresión <strong>directa</strong>.</p>
+</div>
+{% endblock %}
