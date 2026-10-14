@@ -53,4 +53,4 @@ if __name__ == "__main__":
     print(f" Desde otro PC (LAN): http://{ip}:{config.PORT}")
     print(" Para detenerlo: cierra esta ventana o presiona Ctrl+C")
     print("=" * 60)
-    serve(con_diagnostico(app), host=config.HOST, port=config.PORT, threads=4)
+    serve(con_diagnostico(app), host=config.HOST, port=config.PORT, threads=12)

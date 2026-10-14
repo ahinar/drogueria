@@ -118,7 +118,8 @@ def guardar_imagen(archivo, subcarpeta, max_px=1200, max_bytes=5 * 1024 * 1024,
             with open(ruta_fisica, "wb") as f:
                 f.write(archivo.read())
         elif ext_salida == ".webp":
-            img.save(ruta_fisica, "WEBP", quality=85, method=6)
+            # method=4: casi igual de liviana que 6 y varias veces más rápida (importa miles de fotos)
+            img.save(ruta_fisica, "WEBP", quality=85, method=4)
         elif ext_salida in (".jpg", ".jpeg"):
             img.save(ruta_fisica, "JPEG", quality=85, optimize=True)
         else:

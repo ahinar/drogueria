@@ -172,3 +172,20 @@ class TestTirillaDirecta(BaseVentas):
             r = self.post(self.c, "/configuracion/probar-tirilla", {"impresora_tirillas": "POS-58"})
         self.assertEqual(r.status_code, 302)
         self.assertIn("PRUEBA".encode(), enviar.call_args[0][1])
+
+
+class TestBaseOcupada(BaseVentas):
+    """Corrección 1.1.1: si la base está ocupada, mensaje claro en vez de "error 500"."""
+    def test_pagina_y_api(self):
+        import sqlite3
+        ocupada = sqlite3.OperationalError("database is locked")
+        with mock.patch("app.pos._caja_abierta", side_effect=ocupada):
+            r = self.c.get("/pos/")
+            self.assertEqual(r.status_code, 503)
+            self.assertIn("ocupado", r.get_data(as_text=True))
+            r = self.post(self.c, "/pos/api/abrir-cajon", {"motivo": "manual"})
+            self.assertEqual(r.status_code, 503)
+            self.assertFalse(r.get_json()["ok"])
+        # Otro error de base de datos sigue siendo un error 500 (no se esconde)
+        with mock.patch("app.pos._caja_abierta", side_effect=sqlite3.OperationalError("no such table: x")):
+            self.assertEqual(self.c.get("/pos/").status_code, 500)

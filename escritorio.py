@@ -74,13 +74,33 @@ def preparar_registro():
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 
-def ya_esta_prendido(url=URL, espera=1.5):
+def ya_esta_prendido(url=URL, espera=3):
     """True si el programa contesta en esa dirección (por defecto: en este computador)."""
     try:
         with urllib.request.urlopen(url + "/salud", timeout=espera) as resp:
             return resp.read().decode("utf-8", "ignore").startswith("fervifarma")
     except OSError:
         return False
+
+
+def puerto_ocupado():
+    """True si ALGUIEN ya está usando el puerto del programa en este computador.
+
+    Por qué (corrección de la versión 1.1.1): si el programa estaba muy ocupado,
+    no alcanzaba a contestar "/salud" a tiempo, y al darle doble clic al ícono se
+    creía apagado y prendía OTRO programa encima del primero. Ahora, además de
+    preguntar, se revisa si el puerto está tomado: si lo está, ya hay uno
+    prendido y solo se abre la ventana.
+    """
+    import socket
+    prueba = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        prueba.bind((config.HOST, config.PORT))     # si se puede "tomar", está libre
+        return False
+    except OSError:
+        return True
+    finally:
+        prueba.close()
 
 
 def prender_servidor():
@@ -93,7 +113,7 @@ def prender_servidor():
     app = create_app()
     iniciar_reloj_de_respaldos(app)
     hilo = threading.Thread(target=serve, args=(app,),
-                            kwargs={"host": config.HOST, "port": config.PORT, "threads": 6},
+                            kwargs={"host": config.HOST, "port": config.PORT, "threads": 12},
                             name="servidor", daemon=True)
     hilo.start()
     for _ in range(100):                           # hasta 20 segundos
@@ -176,8 +196,13 @@ def main():
             while True:
                 time.sleep(3600)
         return
-    if ya_esta_prendido():
-        abrir_ventana(esperar=False)               # ya está prendido: solo otra ventana
+    if ya_esta_prendido() or puerto_ocupado():
+        # Ya está prendido (quizás ocupado): se le da hasta un minuto para contestar
+        # y se abre solo otra ventana. NUNCA se prende un segundo programa.
+        for _ in range(20):
+            if ya_esta_prendido():
+                break
+        abrir_ventana(esperar=False)
         return
     if not prender_servidor():
         mensaje(f"No se pudo abrir el programa. Revisa el archivo de errores en:\n{config.LOG_DIR}")

@@ -135,6 +135,24 @@ def create_app(test_config=None):
     def error_404(_e):
         return render_template("error.html", codigo=404, mensaje="La página no existe."), 404
 
+    # ---- Base de datos ocupada ("database is locked") ----
+    # Pasa si otra tarea larga está escribiendo (por ejemplo una importación grande)
+    # y no termina en 15 segundos. En vez del "error 500" se explica qué hacer.
+    import sqlite3 as _sqlite3
+
+    @app.errorhandler(_sqlite3.OperationalError)
+    def base_ocupada(error):
+        from flask import jsonify, request
+        if "locked" not in str(error).lower():
+            log.exception("Error de base de datos")
+            return error_500(error)
+        log.warning("Base de datos ocupada en %s %s", request.method, request.path)
+        mensaje = ("El programa está ocupado terminando otra tarea (por ejemplo una importación). "
+                   "Espera un momento y vuelve a intentarlo: no se guardó nada de esta operación.")
+        if "/api/" in request.path:
+            return jsonify({"ok": False, "error": mensaje}), 503
+        return render_template("error.html", codigo=503, mensaje=mensaje), 503
+
     @app.errorhandler(500)
     def error_500(_e):
         return render_template("error.html", codigo=500, mensaje="Ocurrió un error interno. Avisa al administrador."), 500

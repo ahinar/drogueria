@@ -493,6 +493,16 @@ Notas:
 | 1.0.0 | 2026-10-11 | Primera con instalador de Windows |
 | 1.0.1 | 2026-10-11 | Menú lateral en el orden de Fernando (Calidad desplegable) |
 | 1.1.0 | 2026-10-13 | Dos computadores (mostrador + portátil por Tailscale) y tirilla directa ESC/POS |
+| 1.1.1 | 2026-10-13 | Importación con fotos ya no bloquea la base (error 500 en POS); nunca dos programas prendidos |
+
+### Versión 1.1.1 — "database is locked" (2026-10-13)
+- Lo que vio Fernando en el PC del local: error 500 al abrir caja y al borrar productos; productos sin cantidad.
+- Causa (fervifarma.log): la importación guardaba miles de fotos dentro de UNA transacción; mientras
+  tanto la base quedaba bloqueada para todos y las cantidades (que se cargan al final) aún no estaban.
+- `importador.confirmar`: cada foto se procesa sin bloquear y se guarda (commit) enseguida. WEBP method=4.
+- `__init__.py`: "database is locked" muestra "El programa está ocupado…" (503) en vez de error 500.
+- `escritorio.py`: si el puerto 8765 está tomado, no prende otro programa (antes, con el programa
+  ocupado, un doble clic prendía un segundo). Waitress con 12 hilos.
 
 ### Versión 1.1.0 — dos computadores (2026-10-13)
 - Pedido de Fernando: el portátil (director técnico) hace tareas administrativas y ayuda a vender,

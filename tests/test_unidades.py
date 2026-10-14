@@ -727,6 +727,42 @@ class TestImportadorUnico(TestImportarDeOtroPrograma):
         import os
         os.remove(os.path.join(self.app.static_folder, a["imagen"]))     # limpiar la foto de prueba
 
+    def test_mientras_guarda_las_fotos_la_base_no_queda_bloqueada(self):
+        """Corrección 1.1.1: con miles de fotos la importación tarda; mientras tanto se
+        debe poder vender (antes: "database is locked" y error 500 en el POS)."""
+        import sqlite3
+        from unittest import mock
+        from app import carga_inicial
+        original = carga_inicial.guardar_foto
+        libre = []
+
+        def foto_y_revisar(texto):
+            # Otra "persona" (otra conexión) intenta escribir SIN esperar (timeout 0)
+            otra = sqlite3.connect(self.db_path, timeout=0)
+            try:
+                otra.execute("BEGIN IMMEDIATE")
+                otra.rollback()
+                libre.append(True)
+            except sqlite3.OperationalError:
+                libre.append(False)
+            finally:
+                otra.close()
+            return original(texto)
+
+        productos = [[None, None, f"PRODUCTO {n}", self.foto(), None, "Unidades", 1000, 1, 500] for n in range(3)]
+        with mock.patch.object(carga_inicial, "guardar_foto", side_effect=foto_y_revisar):
+            self.subir(productos, None)
+        self.assertEqual(libre, [True, True, True])
+        import os
+        for f in self.app_db_fotos():
+            os.remove(os.path.join(self.app.static_folder, f))
+
+    def app_db_fotos(self):
+        con = self.db()
+        fotos = [r[0] for r in con.execute("SELECT imagen FROM productos WHERE imagen IS NOT NULL")]
+        con.close()
+        return fotos
+
     def test_sin_archivo_de_lotes_solo_carga_lo_que_no_maneja_lote(self):
         self.subir([[None, None, "JARABE X", None, None, "Unidades", 9000, 4, 5000]], None)
         p = self.uno("SELECT * FROM productos WHERE nombre = 'JARABE X'")

@@ -781,6 +781,15 @@ def confirmar():
     db.commit()
 
     # ---- Fotos y existencias (si el archivo las trae). Ver app/carga_inicial.py ----
+    #
+    # OJO CON LAS FOTOS (corrección de la versión 1.1.1):
+    # Convertir y guardar cada foto es LENTO (con miles de productos puede tardar
+    # muchos minutos). Antes se hacía todo dentro de una sola "transacción" de la
+    # base de datos, y mientras tanto la base quedaba BLOQUEADA para todos: no se
+    # podía abrir la caja, ni vender, ni borrar ("database is locked", error 500).
+    # Ahora la parte lenta (la foto) se hace SIN tocar la base, y cada foto se
+    # anota y se guarda (commit) enseguida: la base queda libre casi todo el tiempo
+    # y el POS sigue funcionando aunque la importación siga trabajando.
     from . import carga_inicial
     fotos, fotos_malas, fotos_grandes = 0, [], 0
     buscador = carga_inicial.BuscadorProductos(db)
@@ -792,9 +801,10 @@ def confirmar():
         pid = buscador.buscar(nombre, (fila.get(mapa.get("codigo_barras", ""), "") or "").strip())
         if not pid or db.execute("SELECT imagen FROM productos WHERE id = ?", (pid,)).fetchone()["imagen"]:
             continue                                     # no está, o ya tiene foto
-        ruta, error = carga_inicial.guardar_foto(texto)
+        ruta, error = carga_inicial.guardar_foto(texto)  # lo lento: aquí la base NO está bloqueada
         if ruta:
             db.execute("UPDATE productos SET imagen = ? WHERE id = ?", (ruta, pid))
+            db.commit()                                  # se suelta la base enseguida
             fotos += 1
         elif error == "grande":
             fotos_grandes += 1                           # vino el aviso de Excel en vez de la foto
