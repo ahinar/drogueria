@@ -255,18 +255,26 @@
       <!-- ===== Identificación ===== -->
       <div class="modal-seccion">Identificación</div>
       <div class="modal-grid-2">
-        <label>Código interno
-          <input type="text" id="np-codigo" autocomplete="off" placeholder="Auto si lo dejas vacío">
-        </label>
         <label>Nombre *
           <input type="text" id="np-nombre" autocomplete="off" required>
         </label>
+        {# Código de barras (versión 1.1.3): se puede escanear aquí con el lector.
+           El lector "escribe" los números y al final da Enter: ese Enter no guarda,
+           solo pasa al siguiente campo (ver el script de abajo). #}
+        <label>Código de barras
+          <input type="text" id="np-barras" autocomplete="off" inputmode="numeric" placeholder="Escanéalo aquí">
+        </label>
       </div>
-
       <div class="modal-grid-2">
+        <label>Código interno
+          <input type="text" id="np-codigo" autocomplete="off" placeholder="Auto si lo dejas vacío">
+        </label>
+
         <label>Concentración
           <input type="text" id="np-concentracion" placeholder="Ej: 500 mg">
         </label>
+      </div>
+      <div class="modal-grid-2">
         <label>Laboratorio *
           <div class="campo-con-boton">
             <select id="np-laboratorio" required>
@@ -774,10 +782,33 @@
 
   body.querySelectorAll('tr.linea').forEach(ajustarRequeridos);
 
+  // ===== No perder la recepción por accidente (versión 1.1.3) =====
+  // Si ya se escribió algo y se intenta salir de la página (menú, cerrar la
+  // ventana, recargar), el navegador pregunta "¿Salir del sitio?" antes.
+  // Al darle Guardar (submit) ya no pregunta, porque ahí sí se quiere salir.
+  const formRecepcion = document.querySelector('form.form-tabs');
+  let hayCambios = false;
+  if (formRecepcion) {
+    formRecepcion.addEventListener('input', function () { hayCambios = true; });
+    formRecepcion.addEventListener('change', function () { hayCambios = true; });
+    formRecepcion.addEventListener('submit', function () { hayCambios = false; });
+    window.addEventListener('beforeunload', function (e) {
+      if (!hayCambios) return;
+      e.preventDefault();
+      e.returnValue = '';          // así lo piden los navegadores para mostrar la pregunta
+    });
+  }
+
   // ===== MODAL alta rápida =====
   const modal = document.getElementById('modal-producto');
   const npNombre = document.getElementById('np-nombre');
   const npCodigo = document.getElementById('np-codigo');
+  const npBarras = document.getElementById('np-barras');
+  // El lector de código de barras termina con Enter: aquí ese Enter solo
+  // pasa al campo siguiente (si no, podría parecer que "no hizo nada").
+  npBarras.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); npCodigo.focus(); }
+  });
   const npConcentracion = document.getElementById('np-concentracion');
   const npLaboratorio = document.getElementById('np-laboratorio');
   const npRegistro = document.getElementById('np-registro');
@@ -822,6 +853,11 @@
       wrapOrigen = e.target.closest('.buscar-producto-wrap');
       npNombre.value = '';
       npCodigo.value = '';
+      npBarras.value = '';
+      // Si en el buscador de la línea se escaneó un código que no existe,
+      // se pasa de una vez al campo "Código de barras" del producto nuevo
+      const buscado = wrapOrigen ? wrapOrigen.querySelector('.buscar-producto') : null;
+      if (buscado && /^\d{6,14}$/.test(buscado.value.trim())) npBarras.value = buscado.value.trim();
       npConcentracion.value = '';
       npLaboratorio.value = '';
       npRegistro.value = '';
@@ -959,6 +995,7 @@
     datos.append('_csrf', csrfToken);
     datos.append('nombre', nombre);
     datos.append('codigo', npCodigo.value.trim());
+    datos.append('codigo_barras', npBarras.value.trim());
     datos.append('concentracion', npConcentracion.value.trim());
     datos.append('laboratorio_id', npLaboratorio.value);
     datos.append('registro_sanitario', npRegistro.value.trim());

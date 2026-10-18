@@ -915,8 +915,11 @@
     try {
       const resp = await fetch(url, { method: 'POST', body: datos, credentials: 'same-origin' });
       const json = await resp.json();
+      // El programa NO puede saber si el cajón se abrió de verdad: solo sabe que
+      // la orden llegó a la impresora. Por eso dice a cuál le llegó (si es otra
+      // impresora, hay que corregir el nombre en Configuración).
       if (!json.ok) aviso('Cajón: ' + (json.error || 'no se pudo abrir.'));
-      else if (motivo === 'manual') aviso('Cajón abierto.');
+      else if (motivo === 'manual') aviso('Orden de abrir enviada a «' + (json.impresora || 'la impresora') + '».');
     } catch (e) {
       aviso('Cajón: error de conexión.');
     }

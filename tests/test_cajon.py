@@ -101,3 +101,40 @@ class TestInstalable(BaseVentas):
         anonimo = self.app.test_client()
         self.assertIn('rel="manifest"', anonimo.get("/login").get_data(as_text=True))
         self.assertIn('rel="manifest"', self.c.get("/").get_data(as_text=True))
+
+
+class TestOrdenesCajon113(BaseVentas):
+    """Versión 1.1.3: se puede escoger qué orden mandar para abrir el cajón."""
+
+    def test_ordenes(self):
+        from app import cajon
+        self.assertEqual(set(cajon.ORDENES), {"estandar", "largo", "tiempo_real"})
+        for _nombre, datos in cajon.ORDENES.values():
+            self.assertTrue(datos.startswith(b"\x1b@"))           # todas reinician primero
+        self.assertIn(b"\x10\x14\x01\x00\x05", cajon.ORDENES["tiempo_real"][1])   # DLE DC4
+
+    def test_se_guarda_y_el_pos_la_usa(self):
+        self.post(self.c, "/configuracion/", {"razon_social": "Fervifarma", "nit": "1",
+                                              "cajon_orden": "tiempo_real", "impresora_tirillas": "SAT Q150"})
+        from app.configuracion import obtener_config
+        with self.app.app_context():
+            self.assertEqual(obtener_config()["cajon_orden"], "tiempo_real")
+        self.abrir_caja()
+        with mock.patch("app.cajon.abrir", return_value=(True, "")) as abrir:
+            j = self.post(self.c, "/pos/api/abrir-cajon", {"motivo": "manual"}).get_json()
+        abrir.assert_called_once_with("SAT Q150", "tiempo_real")
+        self.assertEqual(j["impresora"], "SAT Q150")              # el POS dice a cuál impresora llegó
+
+    def test_valor_raro_queda_estandar(self):
+        self.post(self.c, "/configuracion/", {"razon_social": "Fervifarma", "nit": "1", "cajon_orden": "cohete"})
+        from app.configuracion import obtener_config
+        with self.app.app_context():
+            self.assertEqual(obtener_config()["cajon_orden"], "estandar")
+
+
+class TestRecepcionBarras113(BaseVentas):
+    def test_modal_tiene_codigo_de_barras(self):
+        html = self.c.get("/recepciones/nueva").get_data(as_text=True)
+        self.assertIn('id="np-barras"', html)
+        self.assertIn("codigo_barras", html)
+        self.assertIn("beforeunload", html)                       # avisa antes de salir sin guardar

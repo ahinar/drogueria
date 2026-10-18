@@ -495,6 +495,22 @@ Notas:
 | 1.1.0 | 2026-10-13 | Dos computadores (mostrador + portátil por Tailscale) y tirilla directa ESC/POS |
 | 1.1.1 | 2026-10-13 | Importación con fotos ya no bloquea la base (error 500 en POS); nunca dos programas prendidos |
 | 1.1.2 | 2026-10-17 | Cajón y tirilla directa abren de verdad (winspool.drv); instalable desde Chrome; la ventana abre con Chrome |
+| 1.1.3 | 2026-10-18 | Tipo de orden del cajón (estándar / pulso largo / tiempo real DLE DC4); la alarma registra sin salir de la página; código de barras en el alta rápida de la recepción |
+
+### Versión 1.1.3 — cajón SAT, alarma sin perder la recepción (2026-10-18)
+- Lo que vio Fernando (impresora SAT Q150U): el botón decía «Cajón abierto» pero no abría, ni al vender;
+  sonó la alarma de temperatura en medio de una recepción, registró y la recepción se perdió;
+  pidió el código de barras en el modal «Nuevo producto» de la recepción.
+- `app/cajon.py`: `ORDENES` = estandar (ESC p 25 ms×2), largo (ESC p 100), tiempo_real (DLE DC4 1 m 5),
+  todas precedidas de ESC @. `impresora_usada()` dice a qué impresora llegó la orden.
+  Configuración: «Tipo de orden para abrir el cajón» (`cajon_orden`); «Probar cajón» usa lo que está
+  en pantalla sin guardar y dice impresora + orden. El POS dice «Orden de abrir enviada a «X»».
+  (El programa no puede saber si el cajón abrió: solo que la orden llegó a la impresora.)
+- `app/temperaturas.py`: `_guardar_lectura()` (reglas comunes) + `POST /temperaturas/api/registrar/<zona>`.
+  `static/js/alarma.js`: «Registrar ahora» abre `pedirDatos` encima de la página (sin navegar);
+  si hay error (fuera de rango sin acción) vuelve a abrir con lo escrito.
+- `recepciones/form.html`: campo «Código de barras» (Enter del lector pasa al siguiente campo; si en
+  el buscador de la línea se escaneó un código, se copia); aviso «¿Salir del sitio?» si hay cambios sin guardar.
 
 ### Versión 1.1.2 — cajón, instalar desde Chrome (2026-10-17)
 - Lo que vio Fernando: el cajón no abría ni al cobrar ni con el botón «Abrir cajón»; la ventana del

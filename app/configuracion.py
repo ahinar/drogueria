@@ -47,6 +47,8 @@ DEFAULTS = {
     "ancho_tirilla": "80",
     # Cajón monedero (ver app/cajon.py): "no", "efectivo" o "siempre"
     "cajon_modo": "no",
+    # Qué orden se le manda a la impresora para abrir el cajón (ver cajon.ORDENES)
+    "cajon_orden": "estandar",
     # Nombre de la impresora de tirillas en Windows (vacío = la predeterminada)
     "impresora_tirillas": "",
     # Cómo se imprime el comprobante del POS (ver app/tirilla_directa.py):
@@ -107,8 +109,9 @@ def ver():
         # Solo se aceptan los dos anchos que existen en el mercado
         nuevos["ancho_tirilla"] = "58" if request.form.get("ancho_tirilla") == "58" else "80"
         # Cajón monedero: cuándo se abre solo y en qué impresora (ver app/cajon.py)
-        from .cajon import MODOS
+        from .cajon import MODOS, ORDENES
         nuevos["cajon_modo"] = request.form.get("cajon_modo") if request.form.get("cajon_modo") in MODOS else "no"
+        nuevos["cajon_orden"] = request.form.get("cajon_orden") if request.form.get("cajon_orden") in ORDENES else "estandar"
         nuevos["impresora_tirillas"] = (request.form.get("impresora_tirillas") or "").strip()
         # Tirilla del POS: por el navegador o directa (app/tirilla_directa.py)
         nuevos["tirilla_modo"] = "directa" if request.form.get("tirilla_modo") == "directa" else "navegador"
@@ -144,7 +147,7 @@ def ver():
     from . import cajon
     valores = obtener_config()
     return render_template("configuracion.html", campos=CAMPOS, valores=valores,
-                           modos_cajon=cajon.MODOS, impresoras=cajon.impresoras(),
+                           modos_cajon=cajon.MODOS, ordenes_cajon=cajon.ORDENES, impresoras=cajon.impresoras(),
                            modos_tirilla=MODOS_TIRILLA,
                            cajon_disponible=cajon.disponible())
 
@@ -152,11 +155,24 @@ def ver():
 @bp.route("/probar-cajon", methods=["POST"])
 @roles_required("administrador")
 def probar_cajon():
-    """Botón "Probar cajón" de la configuración: lo abre sin imprimir nada."""
+    """Botón "Probar cajón" de la configuración: lo abre sin imprimir nada.
+
+    Usa lo que está escrito en la pantalla AHORA (impresora y tipo de orden),
+    aunque todavía no se haya guardado: así se pueden probar las órdenes una
+    por una y guardar la que sí abra.
+    """
     from . import cajon
-    ok, error = cajon.abrir(request.form.get("impresora_tirillas") or obtener_config().get("impresora_tirillas"))
-    registrar("cajon_prueba", "config", detalle="ok" if ok else error)
-    flash("Listo: se mandó la orden de abrir el cajón." if ok else error, "ok" if ok else "error")
+    cfg = obtener_config()
+    impresora = request.form.get("impresora_tirillas") or cfg.get("impresora_tirillas")
+    orden = request.form.get("cajon_orden") or cfg.get("cajon_orden") or "estandar"
+    ok, error = cajon.abrir(impresora, orden)
+    usada = cajon.impresora_usada(impresora)
+    registrar("cajon_prueba", "config", detalle=(f"ok impresora={usada} orden={orden}" if ok else error))
+    if ok:
+        flash(f"Se mandó la orden «{cajon.ORDENES.get(orden, cajon.ORDENES['estandar'])[0]}» a la impresora "
+              f"«{usada or '¿?'}». Si el cajón no abrió, prueba con otro tipo de orden.", "ok")
+    else:
+        flash(error, "error")
     return redirect(url_for("configuracion.ver"))
 
 @bp.route("/probar-tirilla", methods=["POST"])

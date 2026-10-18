@@ -81,16 +81,16 @@
       a.textContent = ' Registrar ahora';
       a.style.marginLeft = '.5rem';
 
-      // Al hacer clic: silenciar, ocultar y suspender la alarma antes de navegar
+      // Al hacer clic: se abre una VENTANITA encima de la página para escribir
+      // la lectura, SIN salir de donde se está trabajando (corrección 1.1.3).
+      // Antes se iba a otra página y se perdía lo que no se había guardado
+      // (por ejemplo, una recepción a medio llenar).
       a.addEventListener('click', function (e) {
         e.preventDefault();
-        suspendido = true;
+        suspendido = true;          // mientras la ventanita está abierta, la alarma espera
         detenerSonido();
         ocultar();
-        // Pequeña pausa para que se vea que se cerró, y luego navega
-        setTimeout(function () {
-          window.location.href = a.href;
-        }, 100);
+        registrarSinSalir(p, a.href);
       });
 
       li.appendChild(a);
@@ -104,6 +104,71 @@
       new Notification('Droguería — temperatura pendiente', {
         body: pendientes.map(function (p) { return p.zona + ' a las ' + p.hora; }).join('\n'),
       });
+    }
+  }
+
+  // ===== Registrar la lectura en una ventanita (sin salir de la página) =====
+  // p = la lectura pendiente (zona, rangos...) que manda /temperaturas/api/pendientes
+  // urlPagina = la página normal de registrar, por si la ventanita no se puede usar
+  async function registrarSinSalir(p, urlPagina) {
+    // window.pedirDatos está en ui.js. Si por algo no cargó, se usa la página de siempre.
+    if (!window.pedirDatos) { window.location.href = urlPagina; return; }
+
+    // Texto con el rango permitido, para que la persona sepa qué es "normal"
+    let rango = 'Rango permitido: ' + p.temp_min + ' a ' + p.temp_max + ' °C';
+    if (p.controla_humedad && p.humedad_min != null && p.humedad_max != null) {
+      rango += ' · Humedad: ' + p.humedad_min + ' a ' + p.humedad_max + ' %';
+    }
+
+    // Lo que se escribió (para no borrarlo si hay que corregir algo y volver a abrir)
+    let valores = {};
+    while (true) {
+      const campos = [
+        { nombre: 'temperatura', etiqueta: 'Temperatura (°C)', tipo: 'numero', obligatorio: true,
+          valor: valores.temperatura },
+      ];
+      if (p.controla_humedad) {
+        campos.push({ nombre: 'humedad', etiqueta: 'Humedad relativa (%)', tipo: 'numero', valor: valores.humedad });
+      }
+      campos.push({ nombre: 'observaciones', etiqueta: 'Observaciones', tipo: 'area', valor: valores.observaciones });
+      campos.push({ nombre: 'accion_correctiva', etiqueta: 'Acción correctiva', tipo: 'area',
+                    valor: valores.accion_correctiva,
+                    ayuda: 'Solo si la lectura está fuera de rango.' });
+
+      const datos = await window.pedirDatos({
+        titulo: '🌡️ ' + p.zona + ' — lectura de las ' + p.hora,
+        texto: rango + '. Lo que estabas haciendo sigue ahí, detrás de esta ventana.',
+        campos: campos,
+        textoAceptar: 'Guardar lectura',
+      });
+
+      if (datos === null) {            // canceló: la alarma vuelve a revisar en el próximo turno
+        suspendido = false;
+        return;
+      }
+      valores = datos;
+
+      // Se manda al programa (igual que un formulario, pero sin cambiar de página)
+      const envio = new FormData();
+      const csrf = document.querySelector('input[name="_csrf"]');
+      envio.append('_csrf', csrf ? csrf.value : '');
+      envio.append('programada_para', p.programada_para);
+      for (const clave in datos) envio.append(clave, datos[clave]);
+      try {
+        const resp = await fetch('/temperaturas/api/registrar/' + p.zona_id,
+                                 { method: 'POST', body: envio, credentials: 'same-origin' });
+        const json = await resp.json();
+        if (json.ok) {
+          if (window.avisar) window.avisar(json.mensaje, json.en_rango ? 'ok' : 'error');
+          suspendido = false;
+          consultar();                  // por si hay otra zona pendiente
+          return;
+        }
+        // Error (por ejemplo: fuera de rango sin acción correctiva): avisar y volver a abrir
+        if (window.avisar) window.avisar(json.error || 'No se pudo guardar la lectura.', 'error');
+      } catch (err) {
+        if (window.avisar) window.avisar('Error de conexión al guardar la lectura. Intenta de nuevo.', 'error');
+      }
     }
   }
 

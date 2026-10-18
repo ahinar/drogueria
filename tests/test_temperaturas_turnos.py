@@ -158,3 +158,37 @@ class TestReporteMensual(BaseTemp):
         r = self.c.get(f"/reportes/temperaturas/mensual/pdf?zona_id={self.zona_id}&mes={hoy.month}&anio={hoy.year}")
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.data.startswith(b"%PDF"))
+
+
+class TestRegistrarDesdeLaAlarma(BaseTemp):
+    """Versión 1.1.3: la alarma abre una ventanita y guarda por /api/registrar, sin salir de la
+    página (antes se perdía la recepción que se estaba llenando)."""
+
+    def registrar(self, **datos):
+        return self.post(self.c, f"/temperaturas/api/registrar/{self.zona_id}", datos).get_json()
+
+    def test_pendientes_traen_el_rango(self):
+        p = self.pendientes(11)[0]
+        for clave in ("temp_min", "temp_max", "controla_humedad"):
+            self.assertIn(clave, p)
+
+    def test_guarda_y_no_deja_dos_en_el_mismo_turno(self):
+        j = self.registrar(temperatura="22", humedad="50")
+        self.assertTrue(j["ok"], j)
+        self.assertEqual(self.uno("SELECT COUNT(*) AS n FROM temperatura_registros")["n"], 1)
+        j = self.registrar(temperatura="22")
+        self.assertFalse(j["ok"])
+        self.assertIn("Ya registraste", j["error"])
+
+    def test_fuera_de_rango_pide_accion_correctiva(self):
+        j = self.registrar(temperatura="50")
+        self.assertFalse(j["ok"])
+        self.assertIn("acción correctiva", j["error"])
+        j = self.registrar(temperatura="50", accion_correctiva="Se prendió el aire")
+        self.assertTrue(j["ok"])
+        self.assertFalse(j["en_rango"])
+
+    def test_la_pagina_de_siempre_sigue_funcionando(self):
+        r = self.post(self.c, f"/temperaturas/registrar/{self.zona_id}", {"temperatura": "22"})
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(self.uno("SELECT COUNT(*) AS n FROM temperatura_registros")["n"], 1)

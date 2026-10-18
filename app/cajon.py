@@ -42,6 +42,26 @@ import sys
 # que funcione con cualquier cajón (el que no esté conectado no hace nada).
 ORDEN_ABRIR = bytes([27, 112, 0, 25, 250]) + bytes([27, 112, 1, 25, 250])
 
+# VERSIÓN 1.1.3: no todas las impresoras entienden la orden igual.
+# Se puede escoger en Configuración cuál mandar y probarlas una por una:
+#   - estandar:    la de arriba (impresoras Epson y la mayoría).
+#   - largo:       la misma, pero dándole corriente más tiempo (200 ms en vez
+#                  de 50 ms): para cajones con el seguro duro o de 24 V.
+#   - tiempo_real: otra orden, DLE DC4 (bytes 16 20 1 m t), que muchas
+#                  impresoras chinas (SAT, Xprinter, 3nStar…) obedecen al
+#                  instante aunque estén ocupadas. t = 5 → 500 ms.
+# Todas empiezan con ESC @ (27 64) = "reiniciar la impresora", por si tenía
+# algo a medias en su memoria que le impidiera entender la orden.
+REINICIAR = bytes([27, 64])
+ORDENES = {
+    "estandar": ("Estándar (la mayoría de impresoras)",
+                 REINICIAR + ORDEN_ABRIR),
+    "largo": ("Pulso largo (cajón duro de abrir)",
+              REINICIAR + bytes([27, 112, 0, 100, 250]) + bytes([27, 112, 1, 100, 250])),
+    "tiempo_real": ("Tiempo real · DLE DC4 (impresoras SAT, Xprinter y similares)",
+                    REINICIAR + bytes([16, 20, 1, 0, 5]) + bytes([16, 20, 1, 1, 5])),
+}
+
 MODOS = {
     "no": "Nunca (lo abro con el botón)",
     "efectivo": "Al cobrar en efectivo",
@@ -118,11 +138,32 @@ def impresoras():
         return []
 
 
-def abrir(nombre_impresora=""):
-    """Manda la orden de abrir el cajón. Devuelve (True, '') o (False, 'qué pasó')."""
+def abrir(nombre_impresora="", orden="estandar"):
+    """Manda la orden de abrir el cajón. Devuelve (True, '') o (False, 'qué pasó').
+
+    orden = cuál de las ORDENES mandar (se escoge en Configuración).
+    """
     if not disponible():
         return False, "El cajón solo se puede abrir desde el computador del local (Windows) con la impresora conectada."
-    return enviar_crudo(nombre_impresora, ORDEN_ABRIR, "Abrir cajón")
+    datos = ORDENES.get(orden, ORDENES["estandar"])[1]
+    return enviar_crudo(nombre_impresora, datos, "Abrir cajón")
+
+
+def impresora_usada(nombre_impresora=""):
+    """A qué impresora le llega la orden de verdad: la escrita en Configuración
+    o, si está vacía, la predeterminada de Windows.
+
+    Sirve para que el mensaje diga "Orden enviada a «SAT Q150»": si sale el
+    nombre de OTRA impresora (por ejemplo "Microsoft Print to PDF"), ahí está
+    el problema: hay que escribir el nombre correcto en Configuración.
+    """
+    nombre = (nombre_impresora or "").strip()
+    if nombre or not disponible():
+        return nombre
+    try:
+        return _impresora_predeterminada()
+    except Exception:                              # noqa: BLE001
+        return ""
 
 
 def enviar_crudo(nombre_impresora, datos: bytes, titulo="Fervifarma"):

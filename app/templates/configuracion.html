@@ -93,6 +93,13 @@
       </select>
       <small class="suave">Se abre sin imprimir nada. En el POS también está el botón «Abrir cajón» (menú ☰).</small>
     </label>
+    <label>Tipo de orden para abrir el cajón
+      <select name="cajon_orden">
+        {% for k, v in ordenes_cajon.items() %}<option value="{{ k }}" {% if valores['cajon_orden'] == k %}selected{% endif %}>{{ v[0] }}</option>{% endfor %}
+      </select>
+      <small class="suave">Cada impresora entiende una. Escoge una, toca «Probar cajón» y, si no abre, prueba la
+        siguiente. Cuando abra, dale «Guardar configuración».</small>
+    </label>
     {# ----- Tirilla del POS: por el navegador o directa (app/tirilla_directa.py) ----- #}
     <label>Cómo se imprime el comprobante del POS
       <select name="tirilla_modo">

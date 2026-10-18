@@ -964,9 +964,12 @@ def api_abrir_cajon():
     motivo = "cobro" if request.form.get("motivo") == "cobro" else "manual"
     if _caja_abierta() is None:
         return _json_error("No hay caja abierta.")
-    ok, error = cajon.abrir(obtener_config().get("impresora_tirillas"))
+    cfg = obtener_config()
+    ok, error = cajon.abrir(cfg.get("impresora_tirillas"), cfg.get("cajon_orden") or "estandar")
     registrar("cajon_abierto", "cajas", None, f"motivo={motivo}" + ("" if ok else f" error={error}"))
-    return jsonify({"ok": True}) if ok else _json_error(error)
+    # "impresora": a cuál le llegó la orden (el POS lo muestra para revisar que sea la correcta)
+    return jsonify({"ok": True, "impresora": cajon.impresora_usada(cfg.get("impresora_tirillas"))}) \
+        if ok else _json_error(error)
 
 
 @bp.route("/api/cobrar", methods=["POST"])

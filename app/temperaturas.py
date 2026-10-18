@@ -120,6 +120,12 @@ def _pendientes():
                 "hora": hora,
                 "turno": turno,
                 "programada_para": programada.strftime("%Y-%m-%d %H:%M"),
+                # Para la ventanita de registrar sin salir de la página (alarma.js)
+                "temp_min": zona["temp_min"],
+                "temp_max": zona["temp_max"],
+                "controla_humedad": 1 if zona["controla_humedad"] else 0,
+                "humedad_min": zona["humedad_min"],
+                "humedad_max": zona["humedad_max"],
             })
     return pendientes
 
@@ -329,6 +335,62 @@ def _ya_registro_turno_hoy(zona_id, turno):
     return False
 
 
+def _guardar_lectura(zona, formulario):
+    """Valida y guarda una lectura de temperatura.
+
+    La usan DOS caminos (para no repetir las reglas):
+      - la página Temperaturas → Registrar   (registrar_lectura)
+      - la ventanita que abre la alarma, sin salir de la pantalla en la que
+        se está trabajando (api_registrar). Así, si suena la alarma en medio
+        de una recepción, la recepción NO se pierde (corrección 1.1.3).
+
+    Devuelve (True, mensaje, en_rango) si se guardó o (False, error, None) si no.
+    """
+    zona_id = zona["id"]
+    turno = _turno_actual(zona)
+    turno_txt = {"am": "mañana", "pm": "tarde"}.get(turno, turno)
+    if _ya_registro_turno_hoy(zona_id, turno):
+        return False, (f"Ya registraste la temperatura de la {turno_txt} hoy para esta zona. "
+                       f"Solo se permite una lectura por turno."), None
+    try:
+        temp = float((formulario.get("temperatura") or "").replace(",", "."))
+    except ValueError:
+        return False, "Temperatura inválida.", None
+
+    humedad = None
+    if zona["controla_humedad"]:
+        try:
+            h = (formulario.get("humedad") or "").strip().replace(",", ".")
+            humedad = float(h) if h else None
+        except ValueError:
+            return False, "Humedad inválida.", None
+
+    en_rango = _en_rango(zona, temp, humedad)
+    accion = (formulario.get("accion_correctiva") or "").strip() or None
+    if not en_rango and not accion:
+        return False, "La lectura está fuera de rango. Debes describir la acción correctiva antes de guardar.", None
+
+    programada = (formulario.get("programada_para") or "").strip() or None
+    observaciones = (formulario.get("observaciones") or "").strip() or None
+
+    db = get_db()
+    # Trazabilidad: qué equipo (termohigrómetro) de esta zona tomó la lectura
+    from .equipos import equipo_de_zona
+    cur = db.execute(
+        "INSERT INTO temperatura_registros (zona_id, equipo_id, fecha, programada_para, temperatura, humedad, "
+        "dentro_de_rango, accion_correctiva, observaciones, usuario_id, usuario_nombre, creado_en) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        (zona_id, equipo_de_zona(zona_id), ahora(), programada, temp, humedad, 1 if en_rango else 0, accion,
+         observaciones, g.user["id"], g.user["nombre"], ahora()),
+    )
+    db.commit()
+    registrar("temperatura_registrada", "temperatura_registros", cur.lastrowid,
+              f"zona={zona['nombre']} turno={turno} temp={temp} humedad={humedad} en_rango={en_rango}")
+    if en_rango:
+        return True, f"Lectura de la {turno_txt} registrada correctamente.", True
+    return True, f"Lectura de la {turno_txt} registrada FUERA DE RANGO. Acción correctiva guardada.", False
+
+
 @bp.route("/registrar/<int:zona_id>", methods=["GET", "POST"])
 @login_required
 def registrar_lectura(zona_id):
@@ -350,47 +412,11 @@ def registrar_lectura(zona_id):
         return redirect(url_for("temperaturas.inicio"))
 
     if request.method == "POST":
-        try:
-            temp = float(request.form.get("temperatura", "").replace(",", "."))
-        except ValueError:
-            flash("Temperatura inválida.", "error")
+        ok, mensaje, en_rango = _guardar_lectura(zona, request.form)
+        if not ok:
+            flash(mensaje, "error")
             return render_template("temperaturas/registrar.html", zona=zona, turno=turno_txt)
-
-        humedad = None
-        if zona["controla_humedad"]:
-            try:
-                h = request.form.get("humedad", "").strip().replace(",", ".")
-                humedad = float(h) if h else None
-            except ValueError:
-                flash("Humedad inválida.", "error")
-                return render_template("temperaturas/registrar.html", zona=zona, turno=turno_txt)
-
-        en_rango = _en_rango(zona, temp, humedad)
-        accion = request.form.get("accion_correctiva", "").strip() or None
-        if not en_rango and not accion:
-            flash("La lectura está fuera de rango. Debes describir la acción correctiva antes de guardar.", "error")
-            return render_template("temperaturas/registrar.html", zona=zona, turno=turno_txt)
-
-        programada = request.form.get("programada_para", "").strip() or None
-        observaciones = request.form.get("observaciones", "").strip() or None
-
-        db = get_db()
-        # Trazabilidad: qué equipo (termohigrómetro) de esta zona tomó la lectura
-        from .equipos import equipo_de_zona
-        cur = db.execute(
-            "INSERT INTO temperatura_registros (zona_id, equipo_id, fecha, programada_para, temperatura, humedad, "
-            "dentro_de_rango, accion_correctiva, observaciones, usuario_id, usuario_nombre, creado_en) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            (zona_id, equipo_de_zona(zona_id), ahora(), programada, temp, humedad, 1 if en_rango else 0, accion,
-             observaciones, g.user["id"], g.user["nombre"], ahora()),
-        )
-        db.commit()
-        registrar("temperatura_registrada", "temperatura_registros", cur.lastrowid,
-                  f"zona={zona['nombre']} turno={turno} temp={temp} humedad={humedad} en_rango={en_rango}")
-        if en_rango:
-            flash(f"Lectura de la {turno_txt} registrada correctamente.", "ok")
-        else:
-            flash(f"Lectura de la {turno_txt} registrada FUERA DE RANGO. Acción correctiva guardada.", "error")
+        flash(mensaje, "ok" if en_rango else "error")
         return redirect(url_for("temperaturas.inicio"))
 
     return render_template("temperaturas/registrar.html", zona=zona, turno=turno_txt)
@@ -432,4 +458,20 @@ def historial():
 @login_required
 def api_pendientes():
     """Endpoint que el cliente consulta periódicamente para disparar la alarma."""
-    return jsonify({"pendientes": _pendientes()})
+    return jsonify({"pendientes": _pendientes()})
+
+
+@bp.route("/api/registrar/<int:zona_id>", methods=["POST"])
+@login_required
+def api_registrar(zona_id):
+    """Guarda la lectura desde la ventanita de la alarma, SIN salir de la página.
+
+    Responde en JSON: {"ok": true, "mensaje": ...} o {"ok": false, "error": ...}.
+    """
+    zona = _obtener_zona(zona_id)
+    if not zona["activa"]:
+        return jsonify({"ok": False, "error": "Esa zona está desactivada."}), 400
+    ok, mensaje, en_rango = _guardar_lectura(zona, request.form)
+    if not ok:
+        return jsonify({"ok": False, "error": mensaje}), 400
+    return jsonify({"ok": True, "mensaje": mensaje, "en_rango": en_rango})
