@@ -494,6 +494,20 @@ Notas:
 | 1.0.1 | 2026-10-11 | Menú lateral en el orden de Fernando (Calidad desplegable) |
 | 1.1.0 | 2026-10-13 | Dos computadores (mostrador + portátil por Tailscale) y tirilla directa ESC/POS |
 | 1.1.1 | 2026-10-13 | Importación con fotos ya no bloquea la base (error 500 en POS); nunca dos programas prendidos |
+| 1.1.2 | 2026-10-17 | Cajón y tirilla directa abren de verdad (winspool.drv); instalable desde Chrome; la ventana abre con Chrome |
+
+### Versión 1.1.2 — cajón, instalar desde Chrome (2026-10-17)
+- Lo que vio Fernando: el cajón no abría ni al cobrar ni con el botón «Abrir cajón»; la ventana del
+  programa abría con Edge; quería el botón «Instalar» de Chrome en la barra de direcciones.
+- Causa del cajón: `ctypes.windll.winspool` hace que Windows busque `winspool.dll`, que no existe
+  (el archivo real es `winspool.drv`). Fallaba antes de hablarle a la impresora. Afectaba también la
+  tirilla directa (usa el mismo `cajon.enviar_crudo`).
+- `app/cajon.py`: `_winspool()` carga `ctypes.WinDLL("winspool.drv")` con argtypes/restype (64 bits);
+  `enviar_crudo` atrapa cualquier error de Windows y devuelve un mensaje claro (y lo anota en el log).
+- `escritorio.py`: `buscar_navegador()` busca primero Chrome; Edge queda de respaldo.
+- `app/instalable.py`: `/manifest.webmanifest` y `/sw.js` (sin caché, sin contraseña); íconos
+  `static/img/app-192.png` y `app-512.png`; `<link rel="manifest">` en base.html y login.html.
+  Chrome solo ofrece instalar en localhost/127.0.0.1 o https (no por 192.168.x.x ni 100.x.x.x).
 
 ### Versión 1.1.1 — "database is locked" (2026-10-13)
 - Lo que vio Fernando en el PC del local: error 500 al abrir caja y al borrar productos; productos sin cantidad.

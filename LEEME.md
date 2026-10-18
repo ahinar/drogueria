@@ -140,6 +140,18 @@ Notas:
 - Seguridad: además del cortafuegos, el programa rechaza cualquier conexión que no venga de este PC,
   de la red del local o de Tailscale, y siempre pide usuario y contraseña.
 
+### Instalar como aplicación desde Chrome (desde la versión 1.1.2)
+
+Abre Chrome en el PC del mostrador y entra a `http://localhost:8765`. En la barra de direcciones
+aparece el botón **Instalar** (una pantallita con una flecha): dale clic y luego *Instalar*.
+Queda un ícono de Fervifarma en el escritorio y en el menú Inicio, y abre en su propia ventana.
+
+- Chrome **solo** muestra ese botón en direcciones seguras: `localhost`, `127.0.0.1` o `https://`.
+  Si se entra por `http://192.168.x.x:8765` o por la dirección de Tailscale (`100.x.x.x`) el botón
+  **no** sale; ahí se usa el programa instalado con el instalador (opción «PC conectado»).
+- El ícono que deja el instalador de Fervifarma ya abre el programa en ventana propia con Chrome
+  (o Edge, si el computador no tiene Chrome); instalarlo desde Chrome es opcional.
+
 ## 2. Instalación para programar (con Python, en el PC de desarrollo)
 
 1. Instala **Python 3.11 o superior** desde python.org. En el instalador marca **"Add Python to PATH"**.

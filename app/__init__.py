@@ -92,6 +92,9 @@ def create_app(test_config=None):
     from . import farmacovigilancia, pqrs
     app.register_blueprint(pqrs.bp)
     app.register_blueprint(farmacovigilancia.bp)
+    # Versión 1.1.2: instalar el programa como aplicación desde Chrome. Ver app/instalable.py
+    from . import instalable
+    app.register_blueprint(instalable.bp)
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
     # {{ 12345 | pesos }} → "$12.345" (formato colombiano, ver app/formato.py)

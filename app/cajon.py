@@ -24,6 +24,14 @@ PARA QUÉ (para aprender):
     Se usa ctypes (viene con Python) para llamar esas funciones de Windows;
     así no hay que instalar nada más.
 
+CORRECCIÓN 1.1.2 (por qué el cajón no abría):
+    Antes se escribía  ctypes.windll.winspool  y Windows buscaba un archivo
+    "winspool.dll"... que NO existe: el archivo de verdad se llama
+    "winspool.drv" (.drv = "driver"). Como no lo encontraba, Python fallaba
+    antes de hablarle a la impresora y el POS solo mostraba
+    "Cajón: error de conexión". Ahora se carga por su nombre completo
+    (ver _winspool() más abajo) y, si algo falla, se explica qué pasó.
+
 DÓNDE SE CONFIGURA: Administración → Configuración → Impresora de tirillas:
     - nombre de la impresora (vacío = la impresora predeterminada de Windows)
     - cuándo abrir el cajón al cobrar: nunca, solo en efectivo, o siempre
@@ -46,16 +54,52 @@ def disponible():
     return sys.platform == "win32"
 
 
+_WINSPOOL = None   # aquí se guarda la librería ya cargada (se carga una sola vez)
+
+
+def _winspool():
+    """Carga la librería de impresoras de Windows: winspool.DRV (no .dll).
+
+    Además se le dice a Python qué recibe y qué devuelve cada función
+    (argtypes / restype). Sin eso, en Windows de 64 bits Python puede
+    "recortar" la manija (handle) de la impresora y la orden se pierde.
+    """
+    global _WINSPOOL
+    if _WINSPOOL is None:
+        import ctypes
+        from ctypes import wintypes
+        w = ctypes.WinDLL("winspool.drv")          # <-- el nombre completo, con .drv
+        P = ctypes.c_void_p                        # "puntero a algo" (direcciones de memoria)
+        w.GetDefaultPrinterW.argtypes = [wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
+        w.GetDefaultPrinterW.restype = wintypes.BOOL
+        w.OpenPrinterW.argtypes = [wintypes.LPWSTR, ctypes.POINTER(wintypes.HANDLE), P]
+        w.OpenPrinterW.restype = wintypes.BOOL
+        w.StartDocPrinterW.argtypes = [wintypes.HANDLE, wintypes.DWORD, P]
+        w.StartDocPrinterW.restype = wintypes.DWORD      # número del trabajo (0 = falló)
+        w.StartPagePrinter.argtypes = [wintypes.HANDLE]
+        w.StartPagePrinter.restype = wintypes.BOOL
+        w.WritePrinter.argtypes = [wintypes.HANDLE, P, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+        w.WritePrinter.restype = wintypes.BOOL
+        w.EndPagePrinter.argtypes = [wintypes.HANDLE]
+        w.EndPagePrinter.restype = wintypes.BOOL
+        w.EndDocPrinter.argtypes = [wintypes.HANDLE]
+        w.EndDocPrinter.restype = wintypes.BOOL
+        w.ClosePrinter.argtypes = [wintypes.HANDLE]
+        w.ClosePrinter.restype = wintypes.BOOL
+        _WINSPOOL = w
+    return _WINSPOOL
+
+
 def _impresora_predeterminada():
     """Nombre de la impresora predeterminada de Windows (o '' si no hay)."""
     import ctypes
     from ctypes import wintypes
     tam = wintypes.DWORD(0)
-    ctypes.windll.winspool.GetDefaultPrinterW(None, ctypes.byref(tam))      # primero pregunta el tamaño
+    _winspool().GetDefaultPrinterW(None, ctypes.byref(tam))      # primero pregunta el tamaño
     if not tam.value:
         return ""
     nombre = ctypes.create_unicode_buffer(tam.value)
-    if ctypes.windll.winspool.GetDefaultPrinterW(nombre, ctypes.byref(tam)):
+    if _winspool().GetDefaultPrinterW(nombre, ctypes.byref(tam)):
         return nombre.value
     return ""
 
@@ -90,6 +134,18 @@ def enviar_crudo(nombre_impresora, datos: bytes, titulo="Fervifarma"):
     """
     if not disponible():
         return False, "Solo se puede imprimir directo desde el computador del local (Windows)."
+    # Si algo inesperado falla al hablar con Windows, se devuelve un mensaje
+    # claro (y queda anotado en el registro) en vez de un "error 500".
+    try:
+        return _enviar_crudo_windows(nombre_impresora, datos, titulo)
+    except Exception as error:                     # noqa: BLE001 (queremos atrapar cualquier cosa)
+        import logging
+        logging.exception("No se pudo mandar la orden a la impresora")
+        return False, f"Windows no dejó hablar con la impresora ({error})."
+
+
+def _enviar_crudo_windows(nombre_impresora, datos: bytes, titulo):
+    """La parte que de verdad le habla a Windows (la llama enviar_crudo)."""
     import ctypes
     from ctypes import wintypes
 
@@ -101,7 +157,7 @@ def enviar_crudo(nombre_impresora, datos: bytes, titulo="Fervifarma"):
     class DOC_INFO_1(ctypes.Structure):
         _fields_ = [("pDocName", wintypes.LPWSTR), ("pOutputFile", wintypes.LPWSTR), ("pDatatype", wintypes.LPWSTR)]
 
-    winspool = ctypes.windll.winspool
+    winspool = _winspool()
     manija = wintypes.HANDLE()
     if not winspool.OpenPrinterW(nombre, ctypes.byref(manija), None):
         return False, f"No se encontró la impresora «{nombre}». Revisa el nombre en Configuración."

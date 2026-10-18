@@ -12,6 +12,19 @@
   {% if config_negocio and config_negocio.logo_ruta %}
     <link rel="icon" href="{{ url_for('static', filename=config_negocio.logo_ruta) }}">
   {% endif %}
+  {# Para poder INSTALAR el programa como aplicación desde Chrome (app/instalable.py) #}
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0f766e">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/app-192.png') }}">
+  <script>
+  // Registra el "service worker" (app/instalable.py). Solo funciona en direcciones
+  // seguras (localhost o https); en las demás el navegador lo ignora sin dar error.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('/sw.js').catch(function () {});
+    });
+  }
+  </script>
 </head>
 <body class="login-body">
   <div class="login-card">

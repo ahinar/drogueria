@@ -57,3 +57,47 @@ class TestCajon(BaseVentas):
         # "Ver comprobante" abre la tirilla CON acceso a la ventana del POS (rel="opener"),
         # así "Volver al POS" la cierra en vez de abrir otro POS
         self.assertIn('id="exito-comprobante" href="#" target="_blank" rel="opener"', html)
+
+
+class TestCorreccion112(BaseVentas):
+    """Versión 1.1.2: el cajón no abría porque se cargaba "winspool" (.dll) en vez de winspool.drv."""
+
+    def test_carga_winspool_drv(self):
+        # Se revisa el código: en ningún lado debe quedar la forma vieja ctypes.windll.winspool.X
+        from app import cajon
+        codigo = Path(cajon.__file__).read_text(encoding="utf-8")
+        self.assertIn('WinDLL("winspool.drv")', codigo)
+        self.assertNotIn("windll.winspool.", codigo)
+
+    def test_si_windows_falla_avisa_sin_romper(self):
+        # Si Windows lanza un error raro, se devuelve un mensaje (no un "error 500")
+        from app import cajon
+        with mock.patch.object(cajon, "disponible", return_value=True), \
+             mock.patch.object(cajon, "_enviar_crudo_windows", side_effect=OSError("prueba")):
+            ok, error = cajon.abrir("POS-58")
+        self.assertFalse(ok)
+        self.assertIn("prueba", error)
+
+
+class TestInstalable(BaseVentas):
+    """Versión 1.1.2: el programa se puede instalar como aplicación desde Chrome."""
+
+    def test_manifiesto_y_service_worker_sin_contraseña(self):
+        anonimo = self.app.test_client()                     # sin iniciar sesión
+        r = anonimo.get("/manifest.webmanifest")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.mimetype, "application/manifest+json")
+        datos = r.get_json(force=True)
+        self.assertEqual(datos["display"], "standalone")
+        tamaños = {i["sizes"] for i in datos["icons"]}
+        self.assertTrue({"192x192", "512x512"} <= tamaños)    # Chrome exige estos dos
+        for icono in datos["icons"]:
+            self.assertEqual(anonimo.get(icono["src"]).status_code, 200)
+        r = anonimo.get("/sw.js")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.mimetype, "application/javascript")
+
+    def test_paginas_anuncian_el_manifiesto(self):
+        anonimo = self.app.test_client()
+        self.assertIn('rel="manifest"', anonimo.get("/login").get_data(as_text=True))
+        self.assertIn('rel="manifest"', self.c.get("/").get_data(as_text=True))

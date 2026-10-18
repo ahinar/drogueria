@@ -11,8 +11,8 @@ PARA QUÉ (para aprender):
        solo abre otra ventana y termina.
     2. Si no: prende el servidor (Waitress) por debajo, en un "hilo".
     3. Arranca el reloj de respaldos (uno al abrir y cada 24 horas).
-    4. Abre la VENTANA del programa, maximizada, con Microsoft Edge (o
-       Google Chrome) en "modo aplicación": sin barra de direcciones ni
+    4. Abre la VENTANA del programa, maximizada, con Google Chrome (o
+       Microsoft Edge si no hay Chrome) en "modo aplicación": sin barra de direcciones ni
        pestañas, como un programa normal. Se imprime y se abren las
        tirillas igual que en el navegador.
     5. Cuando se cierra la ventana, se apaga todo.
@@ -125,12 +125,18 @@ def prender_servidor():
 
 
 def buscar_navegador():
-    """Ruta de Microsoft Edge o Google Chrome (los dos sirven para el modo aplicación)."""
-    candidatos = []
-    for base in (os.environ.get("PROGRAMFILES(X86)"), os.environ.get("PROGRAMFILES"), os.environ.get("LOCALAPPDATA")):
-        if base:
-            candidatos += [Path(base) / "Microsoft" / "Edge" / "Application" / "msedge.exe",
-                           Path(base) / "Google" / "Chrome" / "Application" / "chrome.exe"]
+    """Ruta de Google Chrome o, si no está, de Microsoft Edge.
+
+    Los dos sirven para el "modo aplicación" (ventana sin barra de direcciones).
+    Desde la versión 1.1.2 se busca PRIMERO Chrome (antes era Edge, y como
+    Edge viene en todos los Windows, siempre ganaba). Edge queda de respaldo
+    por si el computador no tiene Chrome.
+    """
+    bases = [os.environ.get("PROGRAMFILES"), os.environ.get("PROGRAMFILES(X86)"), os.environ.get("LOCALAPPDATA")]
+    bases = [b for b in bases if b]
+    # Primero todas las carpetas donde puede estar Chrome, después las de Edge
+    candidatos = [Path(b) / "Google" / "Chrome" / "Application" / "chrome.exe" for b in bases]
+    candidatos += [Path(b) / "Microsoft" / "Edge" / "Application" / "msedge.exe" for b in bases]
     return next((str(c) for c in candidatos if c.exists()), None)
 
 
