@@ -199,7 +199,15 @@ def armar_venta(venta, lineas, cfg, saldo_cliente=None) -> bytes:
     t.dos_columnas("IVA incluido", pesos(venta["iva"]))
     # TOTAL en letra alta y negrilla para que se vea de lejos
     t.orden(NEGRILLA, ALTA).dos_columnas("TOTAL", pesos(venta["total"])).orden(NORMAL, SIN_NEGRILLA)
-    if venta["forma_pago"] != "credito":
+    if venta["forma_pago"] == "mixto":
+        # Pago mixto (versión 1.1.3): una línea por cada forma de pago
+        from .pos import NOMBRES_PAGO, pagos_de_venta
+        for p in pagos_de_venta(venta["id"]):
+            t.dos_columnas(f"Pago {NOMBRES_PAGO.get(p['forma_pago'], p['forma_pago'])}", pesos(p["monto"]))
+        if venta["cambio"]:
+            t.dos_columnas("Efectivo recibido", pesos(venta["monto_recibido"]))
+            t.dos_columnas("Cambio", pesos(venta["cambio"]))
+    elif venta["forma_pago"] != "credito":
         t.dos_columnas(f"Pago ({venta['forma_pago']})", pesos(venta["monto_recibido"] or venta["total"]))
         if venta["cambio"]:
             t.dos_columnas("Cambio", pesos(venta["cambio"]))

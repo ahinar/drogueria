@@ -548,3 +548,60 @@ class TestInicio(BaseVentas):
         html = self.c.get("/").get_data(as_text=True)
         self.assertIn("$3,000", html.replace("$3.000", "$3,000"))   # solo cuenta la venta válida
         self.assertIn("1 venta hoy", html)
+
+
+class TestPagoMixto113(BaseVentas):
+    """Versión 1.1.3: una parte por Nequi (u otra) y el resto en efectivo."""
+
+    def mixto(self, pagos, recibido="", cantidad=5):
+        return self.post(self.c, "/pos/api/cobrar", {
+            "carrito": json.dumps([{"producto_id": 1, "cantidad": cantidad}]),   # 5 x $1.000 = $5.000
+            "forma_pago": "mixto", "pagos": json.dumps(pagos), "monto_recibido": recibido}).get_json()
+
+    def setUp(self):
+        super().setUp()
+        self.lote(1, "L1", FUTURO, 100)
+        self.abrir_caja("10000")
+
+    def test_nequi_y_efectivo_con_cambio(self):
+        j = self.mixto({"nequi": 2000}, recibido="5000")        # $2.000 Nequi + $3.000 efectivo
+        self.assertTrue(j["ok"], j)
+        self.assertEqual((j["total"], j["cambio"]), (5000, 2000))
+        partes = {f["forma_pago"]: f["monto"] for f in self.db().execute("SELECT * FROM venta_pagos")}
+        self.assertEqual(partes, {"efectivo": 3000, "nequi": 2000})
+        self.assertEqual(self.uno("SELECT forma_pago FROM ventas")["forma_pago"], "mixto")
+
+    def test_cierre_suma_cada_parte_en_su_forma(self):
+        self.mixto({"nequi": 2000})                              # 3.000 en efectivo
+        self.cobrar([{"producto_id": 1, "cantidad": 1}])         # 1.000 en efectivo
+        r = self.c.get("/pos/api/resumen-caja").get_json()["resumen"]
+        self.assertEqual(r["n_ventas"], 2)                       # la mixta cuenta UNA vez
+        self.assertEqual(r["total_ventas"], 6000)
+        # Efectivo esperado = 10.000 inicial + 3.000 (parte mixta) + 1.000
+        cierre = self.post(self.c, "/pos/api/cerrar-caja", {"efectivo_contado": "14000"}).get_json()
+        self.assertEqual(cierre["diferencia"], 0)
+
+    def test_dos_formas_sin_efectivo(self):
+        j = self.mixto({"nequi": 3000, "tarjeta": 2000})
+        self.assertTrue(j["ok"], j)
+        self.assertEqual(self.uno("SELECT COUNT(*) AS n FROM venta_pagos WHERE forma_pago = 'efectivo'")["n"], 0)
+
+    def test_errores(self):
+        self.assertIn("al menos dos formas", self.mixto({})["error"])              # todo en efectivo
+        self.assertIn("al menos dos formas", self.mixto({"nequi": 5000})["error"]) # todo por Nequi
+        self.assertIn("más que el total", self.mixto({"nequi": 9000})["error"])
+        self.assertIn("no alcanza", self.mixto({"nequi": 2000}, recibido="1000")["error"])
+        self.assertEqual(self.uno("SELECT COUNT(*) AS n FROM ventas")["n"], 0)    # nada quedó a medias
+        self.assertEqual(self.stock(1), 100)
+
+    def test_comprobante_muestra_las_partes(self):
+        j = self.mixto({"nequi": 2000}, recibido="5000")
+        html = self.c.get(f"/pos/venta/{j['venta_id']}").get_data(as_text=True)
+        self.assertIn("Pago Nequi", html)
+        self.assertIn("Pago Efectivo", html)
+        self.assertIn("Efectivo recibido", html)
+
+    def test_pantalla_tiene_el_boton(self):
+        html = self.c.get("/pos/").get_data(as_text=True)
+        self.assertIn('data-forma="mixto"', html)
+        self.assertIn('id="pago-mixto"', html)

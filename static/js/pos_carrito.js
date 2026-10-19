@@ -718,6 +718,9 @@
     $('pago-exito').style.display = 'none';
     $('pago-error').style.display = 'none';
     $('pago-recibido').value = '';
+    // El pago mixto empieza en blanco en cada cobro
+    document.querySelectorAll('.mixto-monto').forEach((i) => { i.value = ''; });
+    $('mixto-recibido').value = '';
     clienteCredito = null;              // cada cobro empieza sin cliente de crédito
     elegirForma('efectivo');
     actualizarCambio();
@@ -733,6 +736,13 @@
       b.classList.toggle('activo', b.dataset.forma === forma);
     });
     $('pago-efectivo').style.display = forma === 'efectivo' ? '' : 'none';
+    // Mixto: se ven los campos de Nequi / Davivienda / Tarjeta (el resto es efectivo)
+    $('pago-mixto').hidden = forma !== 'mixto';
+    if (forma === 'mixto') {
+      actualizarMixto();
+      const primero = document.querySelector('.mixto-monto');
+      if (primero) primero.focus();
+    }
     // Crédito: se muestra el buscador de clientes de Cartera
     $('pago-credito').hidden = forma !== 'credito';
     if (forma === 'credito') {
@@ -805,6 +815,36 @@
     pintarClienteCredito();
   });
 
+  // ---------------------------------------------------------------
+  // 7c. PAGO MIXTO (versión 1.1.3): parte por Nequi/Davivienda/tarjeta, resto en efectivo
+  // ---------------------------------------------------------------
+  // Lee lo que se escribió en Nequi, Davivienda y Tarjeta: { nequi: 20000, ... }
+  function pagosMixtos() {
+    const pagos = {};
+    document.querySelectorAll('.mixto-monto').forEach((i) => {
+      const n = parseFloat(i.value);
+      if (n > 0) pagos[i.dataset.forma] = n;
+    });
+    return pagos;
+  }
+  // Lo que falta para el total = lo que se paga en EFECTIVO (nunca negativo)
+  function efectivoMixto() {
+    const otros = Object.values(pagosMixtos()).reduce((a, b) => a + b, 0);
+    return Math.max(totalVenta() - otros, 0);
+  }
+  // Pinta "En efectivo: $15.000" y el cambio
+  function actualizarMixto() {
+    const otros = Object.values(pagosMixtos()).reduce((a, b) => a + b, 0);
+    const efectivo = efectivoMixto();
+    $('mixto-efectivo').textContent = otros > totalVenta() + 0.5
+      ? 'Pasa el total por ' + peso(otros - totalVenta()) : peso(efectivo);
+    const recibido = parseFloat($('mixto-recibido').value);
+    const cambio = isNaN(recibido) ? 0 : recibido - efectivo;
+    $('mixto-cambio').textContent = cambio >= 0 ? peso(cambio) : 'Falta ' + peso(-cambio);
+  }
+  document.querySelectorAll('.mixto-monto').forEach((i) => i.addEventListener('input', actualizarMixto));
+  $('mixto-recibido').addEventListener('input', actualizarMixto);
+
   function actualizarCambio() {
     const recibido = parseFloat($('pago-recibido').value);
     const cambio = isNaN(recibido) ? 0 : recibido - totalVenta();
@@ -819,6 +859,18 @@
       errorBox.textContent = 'Escoge el cliente al que se le fía.';
       errorBox.style.display = 'block';
       return;
+    }
+    // Pago mixto: revisar antes de mandar (el servidor revisa lo mismo, por si acaso)
+    if (formaPago === 'mixto') {
+      const pagos = pagosMixtos();
+      const otros = Object.values(pagos).reduce((a, b) => a + b, 0);
+      const partes = Object.keys(pagos).length + (efectivoMixto() >= 0.5 ? 1 : 0);
+      let problema = '';
+      if (otros > totalVenta() + 0.5) problema = 'Lo de Nequi, Davivienda o tarjeta pasa el total de la venta.';
+      else if (partes < 2) problema = 'Para pago mixto escribe cuánto entra por Nequi, Davivienda o tarjeta (el resto va en efectivo).';
+      else if ($('mixto-recibido').value && parseFloat($('mixto-recibido').value) + 0.001 < efectivoMixto())
+        problema = 'El efectivo recibido no alcanza para la parte en efectivo.';
+      if (problema) { errorBox.textContent = problema; errorBox.style.display = 'block'; return; }
     }
 
     const datos = new FormData();
@@ -842,6 +894,10 @@
     })));
     datos.append('forma_pago', formaPago);
     if (formaPago === 'efectivo') datos.append('monto_recibido', $('pago-recibido').value);
+    if (formaPago === 'mixto') {
+      datos.append('pagos', JSON.stringify(pagosMixtos()));       // { nequi: 20000 }
+      datos.append('monto_recibido', $('mixto-recibido').value);  // billetes para la parte en efectivo
+    }
     datos.append('cliente_nombre', cliente.nombre);
     datos.append('cliente_documento', cliente.documento);
     datos.append('observaciones', nota);
@@ -869,7 +925,9 @@
       if ($('exito-imprimir')) $('exito-imprimir').style.display = tirillaDirecta() ? '' : 'none';
       // Cajón monedero: se abre solo según Configuración (sin imprimir nada)
       const modoCajon = $('cfg-cajon') ? $('cfg-cajon').value : 'no';
-      if (modoCajon === 'siempre' || (modoCajon === 'efectivo' && formaPago === 'efectivo')) abrirCajon('cobro');
+      // Con pago mixto también hay billetes si una parte fue en efectivo
+      const huboEfectivo = formaPago === 'efectivo' || (formaPago === 'mixto' && efectivoMixto() >= 0.5);
+      if (modoCajon === 'siempre' || (modoCajon === 'efectivo' && huboEfectivo)) abrirCajon('cobro');
       $('pago-form').style.display = 'none';
       $('pago-exito').style.display = '';
       limpiarCarrito();   // cierra la venta cobrada (si hay otras abiertas, pasa a la siguiente)

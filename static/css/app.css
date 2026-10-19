@@ -2896,3 +2896,12 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   color: var(--acento-fuerte);
   white-space: nowrap;
 }
+
+/* Pago MIXTO en el POS (versión 1.1.3): Nequi, Davivienda y Tarjeta en una fila */
+.pago-mixto-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .5rem;
+  margin-bottom: .4rem;
+}
+@media (max-width: 520px) { .pago-mixto-grid { grid-template-columns: 1fr; } }

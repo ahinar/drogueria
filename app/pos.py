@@ -77,14 +77,24 @@ def _resumen_caja(caja):
     """Devuelve el resumen completo del turno: ventas, movimientos, totales por forma de pago."""
     db = get_db()
 
+    # Ventas por forma de pago. Las ventas con PAGO MIXTO se "parten": su parte en
+    # efectivo suma en Efectivo, la de Nequi en Nequi... (tabla venta_pagos).
+    # Así el efectivo esperado del cierre cuadra con los billetes del cajón.
     ventas_por_pago = db.execute(
-        "SELECT forma_pago, COUNT(*) AS n, COALESCE(SUM(total), 0) AS total "
-        "FROM ventas WHERE caja_id = ? AND estado = 'completada' "
-        "GROUP BY forma_pago",
-        (caja["id"],),
+        "SELECT forma_pago, COUNT(*) AS n, COALESCE(SUM(total), 0) AS total FROM ("
+        "  SELECT forma_pago, total FROM ventas "
+        "  WHERE caja_id = ? AND estado = 'completada' AND forma_pago <> 'mixto' "
+        "  UNION ALL "
+        "  SELECT vp.forma_pago, vp.monto AS total FROM venta_pagos vp "
+        "  JOIN ventas v ON v.id = vp.venta_id "
+        "  WHERE v.caja_id = ? AND v.estado = 'completada' AND v.forma_pago = 'mixto'"
+        ") GROUP BY forma_pago",
+        (caja["id"], caja["id"]),
     ).fetchall()
 
-    total_ventas_n = sum(p["n"] for p in ventas_por_pago)
+    # Número de ventas: se cuentan las ventas (una mixta cuenta UNA vez, no una por parte)
+    total_ventas_n = db.execute(
+        "SELECT COUNT(*) FROM ventas WHERE caja_id = ? AND estado = 'completada'", (caja["id"],)).fetchone()[0]
     total_ventas = sum(p["total"] for p in ventas_por_pago)
 
     movs = db.execute(
@@ -529,10 +539,68 @@ def api_caja_abierta():
 # ============================================================
 
 # "credito" = el cliente queda debiendo (ver app/cartera.py). No entra plata a la caja.
-FORMAS_PAGO = ("efectivo", "nequi", "davivienda", "tarjeta", "credito")
+FORMAS_PAGO = ("efectivo", "nequi", "davivienda", "tarjeta", "credito", "mixto")
+# En un pago MIXTO se pueden combinar estas (el crédito no: o se fía todo o nada)
+FORMAS_MIXTO = ("efectivo", "nequi", "davivienda", "tarjeta")
+NOMBRES_PAGO = {"efectivo": "Efectivo", "nequi": "Nequi", "davivienda": "Davivienda",
+                "tarjeta": "Tarjeta", "credito": "Crédito", "mixto": "Mixto"}
 
 class _VentaError(Exception):
     """Error de negocio al cobrar (ej: 'no hay stock'). El mensaje se le muestra al cajero."""
+
+
+def _pagos_mixtos(formulario, total):
+    """PAGO MIXTO (versión 1.1.3): reparte el total entre varias formas de pago.
+
+    El POS manda en "pagos" cuánto entra por Nequi, Davivienda y Tarjeta, por
+    ejemplo {"nequi": 20000}. Lo que falta para el total es EFECTIVO.
+    "monto_recibido" = billetes que entregó el cliente para la parte en efectivo
+    (sirve para calcular el cambio).
+
+    Devuelve (partes, recibido, cambio):
+        partes = [("efectivo", 15000), ("nequi", 20000)]
+    o lanza _VentaError con un mensaje claro para el cajero.
+    """
+    try:
+        datos = json.loads(formulario.get("pagos") or "{}")
+        if not isinstance(datos, dict):
+            raise ValueError
+    except (ValueError, TypeError):
+        raise _VentaError("Los valores del pago mixto llegaron dañados. Intenta de nuevo.")
+
+    otros = []
+    for forma in ("nequi", "davivienda", "tarjeta"):
+        texto = str(datos.get(forma) or "0").strip().replace(",", ".")
+        try:
+            monto = float(texto or 0)
+        except ValueError:
+            raise _VentaError(f"El valor de {NOMBRES_PAGO[forma]} no es válido.")
+        if monto < 0:
+            raise _VentaError(f"El valor de {NOMBRES_PAGO[forma]} no puede ser negativo.")
+        if monto > 0:
+            otros.append((forma, round(monto, 2)))
+
+    suma_otros = sum(m for _f, m in otros)
+    if suma_otros > total + 0.5:
+        raise _VentaError(f"Lo que entra por Nequi, Davivienda o tarjeta ({pesos(suma_otros)}) "
+                          f"es más que el total de la venta ({pesos(total)}).")
+    efectivo = round(total - suma_otros, 2)
+    if efectivo < 0.5:                       # diferencias de centavos: no hay parte en efectivo
+        efectivo = 0
+    partes = ([("efectivo", efectivo)] if efectivo else []) + otros
+    if len(partes) < 2:
+        raise _VentaError("Para un pago mixto usa al menos dos formas de pago "
+                          "(por ejemplo una parte por Nequi y el resto en efectivo).")
+
+    recibido_txt = (formulario.get("monto_recibido") or "").strip()
+    try:
+        recibido = float(recibido_txt.replace(",", ".")) if recibido_txt else float(efectivo)
+    except ValueError:
+        raise _VentaError("El efectivo recibido no es válido.")
+    if recibido + 1e-9 < efectivo:
+        raise _VentaError(f"El efectivo recibido ({pesos(recibido)}) no alcanza para la parte "
+                          f"en efectivo ({pesos(efectivo)}).")
+    return partes, recibido, recibido - efectivo
 
 def _a_pesos(valor):
     """Redondea al peso entero más cercano (0.5 sube)."""
@@ -1209,6 +1277,12 @@ def api_cobrar():
                     f"su cupo es {pesos(cliente_credito['cupo'])} y le quedan {pesos(disponible)} disponibles.")
             recibido, cambio = 0.0, 0.0
             db.execute("UPDATE ventas SET cliente_id = ? WHERE id = ?", (cliente_credito["id"], venta_id))
+        elif forma_pago == "mixto":
+            # Una parte por Nequi/Davivienda/tarjeta y el resto en efectivo: se guarda cada parte
+            partes, recibido, cambio = _pagos_mixtos(request.form, sum_total)
+            for forma, monto in partes:
+                db.execute("INSERT INTO venta_pagos (venta_id, forma_pago, monto, creado_en) VALUES (?,?,?,?)",
+                           (venta_id, forma, monto, ahora()))
         else:
             recibido, cambio = float(sum_total), 0.0
 
@@ -1323,7 +1397,15 @@ def comprobante(venta_id):
         from . import cartera
         saldo_cliente = cartera.saldo(venta["cliente_id"])
     return render_template("pos/comprobante.html", venta=venta, lineas=lineas,
-                           config=obtener_config(), saldo_cliente=saldo_cliente)
+                           config=obtener_config(), saldo_cliente=saldo_cliente,
+                           pagos=pagos_de_venta(venta_id), nombres_pago=NOMBRES_PAGO)
+
+
+def pagos_de_venta(venta_id):
+    """Partes de un PAGO MIXTO: [{"forma_pago": "nequi", "monto": 20000}, ...] (vacío si no es mixto)."""
+    return get_db().execute(
+        "SELECT forma_pago, monto FROM venta_pagos WHERE venta_id = ? "
+        "ORDER BY CASE forma_pago WHEN 'efectivo' THEN 9 ELSE 0 END, id", (venta_id,)).fetchall()
 
 def _imprimir_directo(venta_id):
     """Manda la tirilla de la venta a la impresora del PC principal y lo anota en la bitácora."""

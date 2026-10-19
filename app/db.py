@@ -1287,6 +1287,24 @@ MIGRATIONS = [
         );
         """,
     ),
+    # Versión 1.1.3: PAGO MIXTO (una parte por Nequi y otra en efectivo, por ejemplo).
+    # La venta queda con forma_pago = 'mixto' y aquí se guarda cuánto entró por cada
+    # forma. Así el cierre de caja suma cada parte donde va (ver pos._resumen_caja).
+    (
+        34,
+        """
+        CREATE TABLE IF NOT EXISTS venta_pagos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venta_id INTEGER NOT NULL,
+            forma_pago TEXT NOT NULL
+                CHECK (forma_pago IN ('efectivo', 'nequi', 'davivienda', 'tarjeta')),
+            monto REAL NOT NULL CHECK (monto > 0),
+            creado_en TEXT NOT NULL,
+            FOREIGN KEY (venta_id) REFERENCES ventas (id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_venta_pagos_venta ON venta_pagos (venta_id);
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

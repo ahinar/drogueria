@@ -80,7 +80,12 @@
     {% if venta['descuento'] %}<tr><td>Descuentos</td><td class="der">-{{ venta['descuento']|pesos }}</td></tr>{% endif %}
     <tr><td>IVA incluido</td><td class="der">{{ venta['iva']|pesos }}</td></tr>
     <tr class="total"><td>TOTAL</td><td class="der">{{ venta['total']|pesos }}</td></tr>
-    {% if venta['forma_pago'] != 'credito' %}
+    {% if venta['forma_pago'] == 'mixto' %}
+    {# Pago mixto (versión 1.1.3): una línea por cada forma de pago #}
+    {% for p in pagos %}<tr><td>Pago {{ nombres_pago.get(p['forma_pago'], p['forma_pago']) }}</td><td class="der">{{ p['monto']|pesos }}</td></tr>{% endfor %}
+    {% if venta['cambio'] %}<tr><td>Efectivo recibido</td><td class="der">{{ venta['monto_recibido']|pesos }}</td></tr>
+    <tr><td>Cambio</td><td class="der">{{ venta['cambio']|pesos }}</td></tr>{% endif %}
+    {% elif venta['forma_pago'] != 'credito' %}
     <tr><td>Pago ({{ venta['forma_pago'] }})</td><td class="der">{{ (venta['monto_recibido'] or venta['total'])|pesos }}</td></tr>
     {% if venta['cambio'] %}<tr><td>Cambio</td><td class="der">{{ venta['cambio']|pesos }}</td></tr>{% endif %}
     {% endif %}
