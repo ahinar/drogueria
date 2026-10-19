@@ -576,6 +576,7 @@ def api_productos():
         "SELECT p.id, p.codigo, p.codigo_barras, p.nombre, p.concentracion, "
         "p.precio_venta, p.iva_tipo, p.iva_tarifa, p.requiere_formula, "
         "p.control_especial, p.imagen, p.venta_defecto_unidad_id, "
+        "(SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS laboratorio, "
         "COALESCE((SELECT SUM(l.cantidad_disponible) FROM lotes l "
         f"          WHERE l.producto_id = p.id AND {SQL_LOTE_VENDIBLE}), 0) AS stock "
         "FROM productos p WHERE p.activo = 1"
@@ -589,9 +590,13 @@ def api_productos():
     # "Gripa" con descripción "resfriado, congestión", escribir "resfriado"
     # lo encuentra.
     #   (también el código de barras de sus presentaciones: sobre, caja...)
+    #   Versión 1.1.3: también la CONCENTRACIÓN y el LABORATORIO, para distinguir
+    #   productos que se llaman igual ("trazodona san fer").
     for palabra in q.split():
         sql += (" AND (p.nombre LIKE ? OR p.codigo LIKE ? OR p.codigo_barras LIKE ? "
-                "OR p.principio_activo LIKE ? "
+                "OR p.principio_activo LIKE ? OR p.concentracion LIKE ? "
+                "OR EXISTS (SELECT 1 FROM catalogos lb WHERE lb.id = p.laboratorio_id "
+                "           AND lb.nombre LIKE ?) "
                 "OR EXISTS (SELECT 1 FROM producto_presentaciones pp WHERE pp.producto_id = p.id "
                 "           AND pp.codigo_barras = ?) "
                 "OR EXISTS (SELECT 1 FROM catalogos pa WHERE pa.id = p.principio_id "
@@ -600,7 +605,7 @@ def api_productos():
                 "           JOIN catalogos u ON u.id = pu.catalogo_id "
                 "           WHERE pu.producto_id = p.id "
                 "           AND (u.nombre LIKE ? OR u.descripcion LIKE ?)))")
-        params += [f"%{palabra}%"] * 4 + [palabra] + [f"%{palabra}%"] * 3
+        params += [f"%{palabra}%"] * 6 + [palabra] + [f"%{palabra}%"] * 3
 
     if cat.isdigit():
         sql += " AND p.id IN (SELECT producto_id FROM productos_categorias WHERE catalogo_id = ?)"
@@ -611,7 +616,8 @@ def api_productos():
         sql += f" AND p.id IN ({','.join('?' * len(ids))})"
         params += ids
 
-    sql += " ORDER BY (stock > 0) DESC, p.nombre COLLATE NOCASE LIMIT 40"
+    # Los que tienen existencias primero; los que se llaman igual, juntos y por laboratorio
+    sql += " ORDER BY (stock > 0) DESC, p.nombre COLLATE NOCASE, laboratorio COLLATE NOCASE LIMIT 40"
     filas = get_db().execute(sql, params).fetchall()
 
     usos = _usos_de([f["id"] for f in filas])
@@ -620,6 +626,7 @@ def api_productos():
     productos = [{
         "id": f["id"], "codigo": f["codigo"], "codigo_barras": f["codigo_barras"],
         "nombre": f["nombre"], "concentracion": f["concentracion"],
+        "laboratorio": f["laboratorio"] or "",     # se muestra en la tarjeta para distinguir "iguales"
         "precio": f["precio_venta"], "iva_tipo": f["iva_tipo"], "iva_tarifa": f["iva_tarifa"],
         "requiere_formula": bool(f["requiere_formula"]),
         "control_especial": bool(f["control_especial"]),

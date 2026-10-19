@@ -311,7 +311,9 @@
         '<div class="pos-card-img">' + imagen + '</div>' +
         '<div class="pos-card-info">' +
           '<div class="pos-card-nombre">' + esc(p.nombre) + esc(etiquetas) + '</div>' +
-          '<div class="pos-card-codigo">' + esc(p.concentracion || p.codigo) + '</div>' +
+          // Concentración y LABORATORIO (para distinguir productos que se llaman igual)
+          '<div class="pos-card-codigo">' + esc(p.concentracion || p.codigo) + ' ' +
+            window.chipLaboratorio(p.laboratorio) + '</div>' +
           sirvePara +
           // Otras presentaciones: el chip se puede tocar para escoger (data-elegir)
           (vendibles(p).length > 1

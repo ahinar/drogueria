@@ -244,7 +244,8 @@ def api_buscar(conteo_id):
     # ---- 1. Productos activos dentro del alcance que coinciden con lo buscado ----
     sql = ("SELECT p.id, p.codigo, p.codigo_barras, p.nombre, p.concentracion, "
            "p.maneja_vencimiento, p.precio_compra, p.venta_defecto_unidad_id, "
-           "(SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre "
+           "(SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre, "
+           "(SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS lab_nombre "
            "FROM productos p WHERE p.activo = 1"
            + _filtro_alcance(conteo))
     params = []
@@ -259,10 +260,13 @@ def api_buscar(conteo_id):
         sql += " AND p.id = ?"
         params.append(exacto["id"])
     else:
-        for palabra in q.split():
-            sql += " AND (p.nombre LIKE ? OR p.codigo LIKE ? OR p.codigo_barras LIKE ?)"
-            params += [f"%{palabra}%"] * 3
-    sql += " ORDER BY p.nombre COLLATE NOCASE"
+        # Palabra por palabra: nombre, concentración, LABORATORIO... (ver app/busqueda.py)
+        from .busqueda import condicion_palabras
+        extra_sql, extra_params = condicion_palabras(q)
+        sql += extra_sql
+        params += extra_params
+    from .busqueda import ORDEN_NOMBRE_LAB
+    sql += " ORDER BY " + ORDEN_NOMBRE_LAB
     productos = db.execute(sql, params).fetchall()
     if not productos:
         return jsonify({"ok": True, "productos": [], "hay_mas": False, "exacto": False,
@@ -322,6 +326,7 @@ def api_buscar(conteo_id):
         resultado.append({
             "id": p["id"], "codigo": p["codigo"], "codigo_barras": p["codigo_barras"],
             "nombre": p["nombre"], "concentracion": p["concentracion"],
+            "laboratorio": p["lab_nombre"] or "",   # para distinguir productos que se llaman igual
             # Se cuenta en la unidad de inventario (ej: tabletas sueltas, no cajas)
             "unidad": p["unidad_nombre"] or "unidades",
             "paquete": _paquete(opciones_de.get(p["id"], []), p["venta_defecto_unidad_id"]),

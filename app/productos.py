@@ -182,18 +182,16 @@ def lista():
         cond.append("p.activo = 1 AND p.requiere_formula = 1")
 
     if q:
-        cond.append(
-            "(p.codigo LIKE ? OR p.codigo_barras LIKE ? OR p.nombre LIKE ? "
-            "OR p.descripcion LIKE ? OR p.grupo LIKE ? "
-            "OR p.principio_id IN (SELECT id FROM catalogos WHERE nombre LIKE ?) "
-            "OR p.laboratorio_id IN (SELECT id FROM catalogos WHERE nombre LIKE ?))"
-        )
-        like = f"%{q}%"
-        params += [like, like, like, like, like, like, like]
+        # Palabra por palabra: nombre, concentración, LABORATORIO... (ver app/busqueda.py)
+        from .busqueda import condicion_palabras
+        extra_sql, extra_params = condicion_palabras(q, extra=("p.descripcion", "p.grupo"))
+        cond.append("1 = 1" + extra_sql)        # "1 = 1" no filtra nada: solo para poder pegar los AND
+        params += extra_params
 
     if cond:
         sql += " WHERE " + " AND ".join(cond)
-    sql += " ORDER BY p.nombre COLLATE NOCASE"
+    from .busqueda import ORDEN_NOMBRE_LAB
+    sql += " ORDER BY " + ORDEN_NOMBRE_LAB          # los que se llaman igual quedan juntos, por laboratorio
     filas = get_db().execute(sql, params).fetchall()
 
     respuesta = render_template("productos/lista.html", productos=filas, q=q, filtro=filtro,

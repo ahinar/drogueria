@@ -293,6 +293,8 @@ def proveedor():
 
     # Lotes con existencias (de cualquier estado: los vencidos y bloqueados también se devuelven)
     sql = ("SELECT l.*, p.nombre AS producto_nombre, p.codigo AS producto_codigo, "
+           "       p.concentracion AS producto_concentracion, "
+           "       (SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS producto_lab, "
            "       r.proveedor_id, pr.razon_social AS proveedor_nombre "
            "FROM lotes l JOIN productos p ON p.id = l.producto_id "
            "LEFT JOIN recepciones r ON r.id = l.recepcion_id "
@@ -303,8 +305,11 @@ def proveedor():
         sql += " AND l.id = ?"
         params.append(lote_id)
     elif q:
-        sql += " AND (p.nombre LIKE ? OR p.codigo LIKE ? OR l.lote LIKE ? OR p.codigo_barras = ?)"
-        params += [f"%{q}%", f"%{q}%", f"%{q}%", q]
+        # Palabra por palabra: nombre, concentración, LABORATORIO o lote (ver app/busqueda.py)
+        from .busqueda import condicion_palabras
+        extra_sql, extra_params = condicion_palabras(q, extra=("l.lote",))
+        sql += extra_sql
+        params += extra_params
     else:
         # Sin búsqueda: primero lo vencido y lo que vence pronto (lo más común de devolver)
         sql += " AND l.vencimiento IS NOT NULL AND l.vencimiento <> '' AND l.vencimiento <= date('now', '+90 day')"

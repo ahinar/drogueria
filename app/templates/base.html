@@ -30,6 +30,20 @@
     }
     return cantidad;
   };
+
+  // Versión 1.1.3: etiqueta del LABORATORIO para los resultados de búsqueda.
+  // Hay productos que se llaman igual y solo cambia el laboratorio
+  // (TRAZODONA 50 MG · SAN FER / · GENFAR): por eso se muestra bien visible.
+  // Si el producto no tiene laboratorio, lo dice (para completarlo en Productos).
+  // Devuelve HTML: el nombre se "escapa" para que un nombre con < > no rompa la página.
+  window.chipLaboratorio = function (lab) {
+    const seguro = String(lab || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+    return seguro
+      ? '<span class="lab-chip" title="Laboratorio">' + seguro + '</span>'
+      : '<span class="lab-chip sin-lab" title="Este producto no tiene laboratorio: complétalo en Productos">Sin laboratorio</span>';
+  };
   </script>
   {# Para poder INSTALAR el programa como aplicación desde Chrome (app/instalable.py) #}
   <link rel="manifest" href="/manifest.webmanifest">

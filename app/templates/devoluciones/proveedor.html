@@ -11,7 +11,7 @@
 <h1><span class="ico-emoji">🚚</span> Devolución a proveedor</h1>
 
 <form method="get" class="eres-filtros">
-  <label>Buscar producto o lote <input type="search" name="q" value="{{ q }}" placeholder="Nombre, código, lote o código de barras"></label>
+  <label>Buscar producto o lote <input type="search" name="q" value="{{ q }}" placeholder="Nombre, laboratorio, concentración, lote o código de barras"></label>
   <button type="submit" class="boton secundario"><span class="ico-emoji">🔍</span> Buscar</button>
   {% if q or lote_id %}<a class="boton secundario" href="{{ url_for('devoluciones.proveedor') }}">Ver vencidos y por vencer</a>{% endif %}
 </form>
@@ -26,7 +26,8 @@
   <table class="rep-tabla">
     <thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th>Estado</th><th class="num">Hay</th><th class="num">Devolver</th></tr></thead>
     <tbody>{% for l in lotes %}<tr>
-      <td>{{ l.producto_nombre }}<small>{{ l.producto_codigo }}{% if l.proveedor_nombre %} · lo vendió {{ l.proveedor_nombre }}{% endif %} · costo {{ pesos(l.costo_unitario) }}</small></td>
+      <td>{{ l.producto_nombre }}{% if l.producto_concentracion %} {{ l.producto_concentracion }}{% endif %}
+        {% if l.producto_lab %}<span class="lab-chip">{{ l.producto_lab }}</span>{% else %}<span class="lab-chip sin-lab">Sin laboratorio</span>{% endif %}<small>{{ l.producto_codigo }}{% if l.proveedor_nombre %} · lo vendió {{ l.proveedor_nombre }}{% endif %} · costo {{ pesos(l.costo_unitario) }}</small></td>
       <td>{{ l.lote or 's/n' }}</td>
       <td>{% if l.vencimiento and l.vencimiento < hoy %}<strong class="rep-negativo">{{ fecha(l.vencimiento) }}</strong>{% else %}{{ fecha(l.vencimiento) }}{% endif %}</td>
       <td>{{ l.estado }}</td>

@@ -138,3 +138,43 @@ class TestRecepcionBarras113(BaseVentas):
         self.assertIn('id="np-barras"', html)
         self.assertIn("codigo_barras", html)
         self.assertIn("beforeunload", html)                       # avisa antes de salir sin guardar
+
+
+class TestBusquedaConLaboratorio113(BaseVentas):
+    """Versión 1.1.3: productos que se llaman igual se distinguen por el laboratorio."""
+
+    def setUp(self):
+        super().setUp()
+        con = self.db()
+        labs = {}
+        for nombre in ("SAN FER", "GENFAR"):
+            labs[nombre] = con.execute("INSERT INTO catalogos (tipo, nombre, activo, creado_en) "
+                                       "VALUES ('laboratorio', ?, 1, '2026-10-18')", (nombre,)).lastrowid
+        unidad = con.execute("SELECT id FROM unidades_medida LIMIT 1").fetchone()[0]
+        for codigo, lab in (("TZ1", "SAN FER"), ("TZ2", "GENFAR")):
+            con.execute("INSERT INTO productos (codigo, nombre, concentracion, laboratorio_id, unidad_venta_id, "
+                        "precio_venta, activo, creado_en) VALUES (?, 'TRAZODONA CLORHIDRATO', '50 MG', ?, ?, 600, 1, "
+                        "'2026-10-18')", (codigo, labs[lab], unidad))
+        con.commit()
+        con.close()
+
+    def test_recepcion_busca_por_nombre_y_laboratorio(self):
+        r = self.c.get("/recepciones/api/buscar-productos?q=trazodona san fer").get_json()["resultados"]
+        self.assertEqual([x["codigo"] for x in r], ["TZ1"])
+        self.assertEqual(r[0]["laboratorio"], "SAN FER")
+        # Solo el nombre: salen los dos, ordenados por laboratorio (GENFAR antes que SAN FER)
+        r = self.c.get("/recepciones/api/buscar-productos?q=trazodona 50").get_json()["resultados"]
+        self.assertEqual([x["codigo"] for x in r], ["TZ2", "TZ1"])
+
+    def test_pos_busca_por_laboratorio_y_lo_devuelve(self):
+        j = self.c.get("/pos/api/productos?q=trazodona genfar").get_json()
+        self.assertEqual([p["codigo"] for p in j["productos"]], ["TZ2"])
+        self.assertEqual(j["productos"][0]["laboratorio"], "GENFAR")
+
+    def test_lista_de_productos(self):
+        html = self.c.get("/productos/?q=trazodona san fer").get_data(as_text=True)
+        self.assertIn("TZ1", html)
+        self.assertNotIn("TZ2", html)
+
+    def test_las_paginas_tienen_la_etiqueta(self):
+        self.assertIn("chipLaboratorio", self.c.get("/").get_data(as_text=True))

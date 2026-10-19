@@ -185,6 +185,7 @@
     return '<div class="cnt-fila' + (primera ? '' : ' cnt-mismo') + '" data-producto="' + p.id + '">' +
       '<div class="cnt-prod">' + (primera
         ? '<strong>' + esc(p.nombre) + (p.concentracion ? ' ' + esc(p.concentracion) : '') + '</strong>' +
+          window.chipLaboratorio(p.laboratorio) +
           '<span class="suave"> ' + esc(p.codigo) + (p.paquete ? ' · se vende por ' + esc(p.paquete.nombre)
             : ' · se cuenta en ' + esc(p.unidad || 'unidades')) + '</span>'
         : '') + '</div>' +
@@ -214,6 +215,7 @@
     return '<div class="cnt-fila cnt-fila-nueva' + (primera ? '' : ' cnt-mismo') + '" data-producto="' + p.id + '">' +
       '<div class="cnt-prod">' + (primera
         ? '<strong>' + esc(p.nombre) + (p.concentracion ? ' ' + esc(p.concentracion) : '') + '</strong>' +
+          window.chipLaboratorio(p.laboratorio) +
           '<span class="suave"> ' + esc(p.codigo) + '</span>' +
           (aviso0 ? '<br><span class="conteo-tag conteo-tag-cero">⚠ Está en 0 en el sistema</span>' : '')
         : '') +
@@ -507,7 +509,7 @@
     $('ag-datos').hidden = !p;
     if (!p) return;
     $('ag-elegido').innerHTML = '<strong>' + esc(p.nombre) + (p.concentracion ? ' ' + esc(p.concentracion) : '') +
-      '</strong> <span class="suave">' + esc(p.codigo) + '</span> <button type="button" class="conteo-cambiar" id="ag-cambiar">Cambiar</button>';
+      '</strong> ' + window.chipLaboratorio(p.laboratorio) + ' <span class="suave">' + esc(p.codigo) + '</span> <button type="button" class="conteo-cambiar" id="ag-cambiar">Cambiar</button>';
     $('ag-cambiar').addEventListener('click', () => { elegirAG(null); agBuscar.value = ''; agBuscar.focus(); });
     // Lote y vencimiento solo si el producto los maneja
     $('ag-campo-lote').hidden = !p.maneja_vencimiento;
@@ -548,7 +550,8 @@
     agResultados = json.productos.slice(0, 8);
     if (json.exacto && agResultados.length === 1) { elegirAG(agResultados[0]); abrirAgregarFoco(); return; }
     agSug.innerHTML = agResultados.map((p) => '<button type="button" data-elegir="' + p.id + '">' + esc(p.nombre) +
-        (p.concentracion ? ' ' + esc(p.concentracion) : '') + ' <span class="suave">' + esc(p.codigo) +
+        (p.concentracion ? ' ' + esc(p.concentracion) : '') + ' ' + window.chipLaboratorio(p.laboratorio) +
+        ' <span class="suave">' + esc(p.codigo) +
         (p.lotes.length ? '' : ' · en 0') + '</span></button>').join('') +
       '<button type="button" class="cnt-crear-nuevo" data-crear="1">+ No está: crear producto "' + esc(q) + '"</button>';
   }

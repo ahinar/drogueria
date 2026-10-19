@@ -615,23 +615,20 @@ def api_buscar_productos():
     if len(q) < 3:
         return jsonify({"ok": True, "resultados": []})
 
-    like = f"%{q}%"
+    # Cada palabra puede estar en el nombre, la concentración o el LABORATORIO
+    # (ver app/busqueda.py): "trazodona san fer 50" encuentra ese producto exacto.
+    from .busqueda import ORDEN_NOMBRE_LAB, condicion_palabras, palabras
+    cond, params = condicion_palabras(q)
+    primera = palabras(q)[0]
     filas = get_db().execute(
-        _SELECT_BUSQUEDA +
-        "WHERE p.activo = 1 AND ("
-        "  p.nombre LIKE ? OR p.codigo LIKE ? OR p.codigo_barras LIKE ? "
-        "  OR p.concentracion LIKE ? "
-        "  OR p.principio_id IN (SELECT id FROM catalogos WHERE nombre LIKE ?) "
-        "  OR p.laboratorio_id IN (SELECT id FROM catalogos WHERE nombre LIKE ?)"
-        ") "
+        _SELECT_BUSQUEDA + "WHERE p.activo = 1" + cond + " "
         "ORDER BY "
         "  CASE WHEN p.codigo = ? THEN 0 "
         "       WHEN p.codigo_barras = ? THEN 0 "
         "       WHEN p.nombre LIKE ? THEN 1 "
-        "       ELSE 2 END, "
-        "  p.nombre COLLATE NOCASE "
-        "LIMIT 8",
-        (like, like, like, like, like, like, q, q, f"{q}%"),
+        "       ELSE 2 END, " + ORDEN_NOMBRE_LAB + " "
+        "LIMIT 15",                                # 15: caben los "iguales" de varios laboratorios
+        params + [q, q, f"{primera}%"],
     ).fetchall()
     return jsonify({"ok": True, "resultados": [_fila_a_dict(f) for f in filas]})
 

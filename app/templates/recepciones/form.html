@@ -605,7 +605,6 @@
         if (p.concentracion) partes.push(p.concentracion);
         if (p.forma) partes.push(p.forma);
         const nombreCompleto = partes.join(' ');
-        const lab = p.laboratorio ? ' — ' + p.laboratorio : '';
         const unidad = p.unidad ? ' · ' + p.unidad : '';
         const precio = p.precio ? ' · $' + Number(p.precio).toFixed(0) : '';
         const rs = p.registro ? ' · RS: ' + p.registro : ' · ⚠ SIN RS';
@@ -626,9 +625,11 @@
              + ' data-pres="' + encodeURIComponent(JSON.stringify(p.presentaciones || [])) + '">'
              + '<div class="resultado-codigo">' + escaparHTML(p.codigo) + '</div>'
              + '<div class="resultado-info">'
-             +   '<div class="resultado-nombre">' + escaparHTML(nombreCompleto + lab) + '</div>'
+             +   '<div class="resultado-nombre">' + escaparHTML(nombreCompleto) + '</div>'
              +   '<div class="resultado-detalle">' + escaparHTML(unidad + precio + rs) + '</div>'
              + '</div>'
+             // El laboratorio, bien visible a la derecha (base.html → chipLaboratorio)
+             + window.chipLaboratorio(p.laboratorio)
              + '</div>';
       }).join('');
     }

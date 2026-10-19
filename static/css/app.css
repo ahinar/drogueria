@@ -2855,3 +2855,34 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .sidebar-version { display: block; font-size: .7rem; opacity: .55; padding: .2rem .9rem 0; }
 /* Línea que separa Calidad / Reportes / Administración de las secciones de arriba */
 .sidebar-separador { border-top: 1px solid rgba(255, 255, 255, .12); margin: .6rem .9rem .4rem; }
+
+
+/* ===== Etiqueta del LABORATORIO en los resultados de búsqueda (versión 1.1.3) =====
+   Productos con el mismo nombre se distinguen por el laboratorio: va a la
+   derecha, en negrilla y con fondo de color, para verlo de un vistazo. */
+.lab-chip {
+  flex-shrink: 0;
+  display: inline-block;
+  max-width: 45%;
+  padding: .15rem .55rem;
+  border-radius: 999px;
+  background: var(--acento-suave);
+  border: 1px solid var(--acento-anillo);   /* borde: se sigue viendo al pasar el mouse */
+  color: var(--acento-fuerte);
+  font-size: .78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.lab-chip.sin-lab {           /* sin laboratorio: aviso suave en naranja */
+  background: #fff4e5;
+  border-color: #f3c98b;
+  color: #9a5b00;
+  font-weight: 600;
+  text-transform: none;
+}
+.pos-card-codigo .lab-chip { max-width: 100%; font-size: .7rem; margin-top: .15rem; }
+.cnt-prod .lab-chip { margin-left: .35rem; }

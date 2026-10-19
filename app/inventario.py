@@ -150,9 +150,11 @@ def lotes():
         cond.append("l.estado = ?")
         params.append(estado)
     if q:
-        cond.append("(p.codigo LIKE ? OR p.nombre LIKE ? OR l.lote LIKE ?)")
-        like = f"%{q}%"
-        params += [like, like, like]
+        # Palabra por palabra: nombre, concentración, LABORATORIO o lote (ver app/busqueda.py)
+        from .busqueda import condicion_palabras
+        extra_sql, extra_params = condicion_palabras(q, extra=("l.lote",))
+        cond.append("1 = 1" + extra_sql)
+        params += extra_params
 
     hoy = date.today().isoformat()
     if vencimiento == "vencidos":

@@ -27,9 +27,9 @@
       return '<div class="resultado-item" data-id="' + p.id + '">'
         + '<div class="resultado-codigo">' + p.codigo + '</div>'
         + '<div class="resultado-info"><div class="resultado-nombre">' + p.nombre
-        + (p.concentracion ? ' ' + p.concentracion : '')
-        + (p.laboratorio ? ' — ' + p.laboratorio : '') + '</div>'
-        + '<div class="resultado-detalle">' + (p.unidad || '') + '</div></div></div>';
+        + (p.concentracion ? ' ' + p.concentracion : '') + '</div>'
+        + '<div class="resultado-detalle">' + (p.unidad || '') + '</div></div>'
+        + window.chipLaboratorio(p.laboratorio) + '</div>';
     }).join('');
     const r = input.getBoundingClientRect();
     panel.style.position = 'absolute';
