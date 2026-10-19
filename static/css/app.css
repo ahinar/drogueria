@@ -2886,3 +2886,13 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 }
 .pos-card-codigo .lab-chip { max-width: 100%; font-size: .7rem; margin-top: .15rem; }
 .cnt-prod .lab-chip { margin-left: .35rem; }
+
+/* Total de cada línea de la recepción (cantidad × costo), debajo del costo (versión 1.1.3) */
+.linea-total-txt {
+  display: block;
+  margin-top: .2rem;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--acento-fuerte);
+  white-space: nowrap;
+}

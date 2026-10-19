@@ -178,3 +178,9 @@ class TestBusquedaConLaboratorio113(BaseVentas):
 
     def test_las_paginas_tienen_la_etiqueta(self):
         self.assertIn("chipLaboratorio", self.c.get("/").get_data(as_text=True))
+
+
+class TestTotalPorLinea113(BaseVentas):
+    def test_recepcion_muestra_total_de_cada_linea(self):
+        html = self.c.get("/recepciones/nueva").get_data(as_text=True)
+        self.assertIn('class="linea-total-txt"', html)     # debajo del costo: cantidad × costo
