@@ -206,6 +206,21 @@ def opciones(tipo: str):
     ).fetchall()
 
 
+@bp.route("/<tipo>/api/lista")
+def api_lista(tipo):
+    """Lista ACTUAL de un catálogo (ej. laboratorios), en JSON.
+
+    La usa la recepción al abrir «Completar datos» y «Nuevo producto»: así
+    aparecen también los laboratorios creados DESPUÉS de abrir la página
+    (en otra pestaña, en Catálogos o con el botón +). Versión 1.1.3.
+    """
+    from flask import g
+    if g.get("user") is None:                    # sin sesión no se entrega nada
+        return jsonify({"ok": False, "error": "Inicia sesión."}), 401
+    _validar_tipo(tipo)
+    return jsonify({"ok": True, "items": [{"id": f["id"], "nombre": f["nombre"]} for f in opciones(tipo)]})
+
+
 @bp.route("/<tipo>/api/crear", methods=["POST"])
 @roles_required("administrador", "director_tecnico")
 def api_crear(tipo):

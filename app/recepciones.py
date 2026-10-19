@@ -296,6 +296,10 @@ def _leer_lineas_formulario():
         # y el costo por tableta = $25.000 / 100 = $250. Así el resto del
         # programa (lotes, kardex, utilidades) sigue igual.
         pres_txt = v(presentaciones, i)
+        # La UdM ("Viene en") es obligatoria (versión 1.1.3). La pantalla siempre
+        # manda este campo; si no llegó ninguno (formularios viejos), se usa la unidad.
+        if presentaciones and pres_txt in ("", "nueva"):
+            errores.append(f"{nombre}: escoge en qué unidad llegó (UdM).")
         if pres_txt == "otra":
             # Caja que no está en la ficha (hoy llegó x 300, otro día x 100)
             try:
@@ -386,7 +390,9 @@ def nueva():
         elif not lineas:
             error_cabecera = "Debes agregar al menos una línea."
         elif errores:
-            error_cabecera = errores[0]
+            # Todos los errores de una vez (versión 1.1.3). Antes solo salía el primero:
+            # se corregía y al guardar aparecía el siguiente.
+            error_cabecera = errores[0] if len(errores) == 1 else errores
 
         if not error_cabecera:
             db = get_db()

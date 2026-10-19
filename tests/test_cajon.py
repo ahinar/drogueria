@@ -203,3 +203,40 @@ class TestBuscaQueContenga113(BaseVentas):
         r = self.c.get("/recepciones/api/buscar-productos?q=meloxi").get_json()["resultados"]
         self.assertIn("MBX", [x["codigo"] for x in r])
         self.assertEqual(r[0]["nombre"][:9], "MELOXICAM")              # los que empiezan igual, primero
+
+
+class TestLaboratoriosEnCompletarDatos113(BaseVentas):
+    def test_lista_actual_y_boton_crear(self):
+        self.post(self.c, "/admin/catalogos/laboratorio/api/crear", {"nombre": "BLASKOV"})
+        j = self.c.get("/admin/catalogos/laboratorio/api/lista").get_json()
+        self.assertIn("BLASKOV", [x["nombre"] for x in j["items"]])
+        self.assertEqual(self.app.test_client().get("/admin/catalogos/laboratorio/api/lista").status_code, 401)
+        html = self.c.get("/recepciones/nueva").get_data(as_text=True)
+        self.assertIn('id="dt-nuevo-lab"', html)
+        self.assertIn("refrescarLaboratorios", html)
+
+
+class TestRecepcionObligatorios113(BaseVentas):
+    """Versión 1.1.3: cantidad, UdM y costo obligatorios en cada línea con producto."""
+
+    def enviar(self, cantidad, costo, udm):
+        return self.post(self.c, "/recepciones/nueva", {
+            "proveedor_id": "1", "factura_numero": "F-OBL",
+            "linea_producto_id": ["2"], "linea_lote": [""], "linea_vencimiento": [""],
+            "linea_cantidad_recibida": [cantidad], "linea_costo": [costo],
+            "linea_presentacion": [udm], "linea_resultado": ["aceptado"]}, follow_redirects=True)
+
+    def test_falta_udm(self):
+        html = self.enviar("4", "1000", "").get_data(as_text=True)
+        self.assertIn("escoge en qué unidad llegó", html)
+
+    def test_falta_cantidad_o_costo(self):
+        html = self.enviar("", "", "0").get_data(as_text=True)
+        self.assertIn("la cantidad recibida debe ser mayor a cero", html)
+        self.assertIn("el costo unitario debe ser mayor a cero", html)
+
+    def test_pantalla_marca_obligatorios(self):
+        html = self.c.get("/recepciones/nueva").get_data(as_text=True)
+        self.assertIn("Cantidad · UdM *", html)
+        self.assertIn("Costo por UdM *", html)
+        self.assertIn("Escribe la cantidad recibida (mayor a 0).", html)

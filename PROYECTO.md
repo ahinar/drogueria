@@ -495,7 +495,7 @@ Notas:
 | 1.1.0 | 2026-10-13 | Dos computadores (mostrador + portátil por Tailscale) y tirilla directa ESC/POS |
 | 1.1.1 | 2026-10-13 | Importación con fotos ya no bloquea la base (error 500 en POS); nunca dos programas prendidos |
 | 1.1.2 | 2026-10-17 | Cajón y tirilla directa abren de verdad (winspool.drv); instalable desde Chrome; la ventana abre con Chrome |
-| 1.1.3 | 2026-10-18 | Tipo de orden del cajón (estándar / pulso largo / tiempo real DLE DC4); la alarma registra sin salir de la página; código de barras en el alta rápida de la recepción; búsqueda por palabras con LABORATORIO en todo el programa; total de cada línea en la recepción; producto creado en la recepción queda excluido de IVA; el buscador de la recepción ya no deja por fuera los que «contienen» lo escrito |
+| 1.1.3 | 2026-10-18 | Tipo de orden del cajón (estándar / pulso largo / tiempo real DLE DC4); la alarma registra sin salir de la página; código de barras en el alta rápida de la recepción; búsqueda por palabras con LABORATORIO en todo el programa; total de cada línea en la recepción; producto creado en la recepción queda excluido de IVA; el buscador de la recepción ya no deja por fuera los que «contienen» lo escrito; laboratorios al día y «+» en «Completar datos»; cantidad, UdM y costo obligatorios |
 
 ### Versión 1.1.3 — cajón SAT, alarma sin perder la recepción (2026-10-18)
 - Lo que vio Fernando (impresora SAT Q150U): el botón decía «Cajón abierto» pero no abría, ni al vender;
@@ -525,6 +525,12 @@ Notas:
 - Buscador de la recepción (y kardex): «meloxi» no mostraba «MEBLAINEX MELOXICAM» porque solo salían 8
   resultados y los que EMPIEZAN igual (MELOXICAM …) ocupaban todos. Ahora 40 resultados y orden: código exacto →
   nombre empieza → nombre contiene → lo demás (laboratorio, principio activo).
+- «Completar datos» no mostraba laboratorios creados después de abrir la página (BLASKOV, ECAR): la lista se
+  llenaba una sola vez. `GET /admin/catalogos/<tipo>/api/lista` + `refrescarLaboratorios()` al abrir los dos
+  modales; botón «+» (`crearLaboratorio`) también en «Completar datos»; el nuevo queda en las dos listas.
+- Recepción: cantidad, UdM y costo obligatorios en toda línea CON producto (`ajustarRequeridos`; antes las
+  líneas agregadas perdían el `required`). Líneas vacías no estorban (campos en blanco, no "0"). Mensajes en
+  español (`invalid`). Servidor: error si falta la UdM. Los errores de la recepción salen TODOS en una lista.
 
 ### Versión 1.1.2 — cajón, instalar desde Chrome (2026-10-17)
 - Lo que vio Fernando: el cajón no abría ni al cobrar ni con el botón «Abrir cajón»; la ventana del
