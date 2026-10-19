@@ -622,13 +622,21 @@ def api_buscar_productos():
     primera = palabras(q)[0]
     filas = get_db().execute(
         _SELECT_BUSQUEDA + "WHERE p.activo = 1" + cond + " "
+        # Orden de los resultados:
+        #   0 = el código o código de barras exacto
+        #   1 = el NOMBRE empieza por lo escrito      (MELOXICAM 15 MG)
+        #   2 = el NOMBRE contiene lo escrito          (MEBLAINEX MELOXICAM)
+        #   3 = lo demás (coincide por laboratorio, principio activo...)
         "ORDER BY "
         "  CASE WHEN p.codigo = ? THEN 0 "
         "       WHEN p.codigo_barras = ? THEN 0 "
         "       WHEN p.nombre LIKE ? THEN 1 "
-        "       ELSE 2 END, " + ORDEN_NOMBRE_LAB + " "
-        "LIMIT 15",                                # 15: caben los "iguales" de varios laboratorios
-        params + [q, q, f"{primera}%"],
+        "       WHEN p.nombre LIKE ? THEN 2 "
+        "       ELSE 3 END, " + ORDEN_NOMBRE_LAB + " "
+        # 40 resultados (la lista tiene barra para bajar). Antes eran 8: si había
+        # muchos "MELOXICAM ...", el "MEBLAINEX MELOXICAM" quedaba por fuera.
+        "LIMIT 40",
+        params + [q, q, f"{primera}%", f"%{primera}%"],
     ).fetchall()
     return jsonify({"ok": True, "resultados": [_fila_a_dict(f) for f in filas]})
 

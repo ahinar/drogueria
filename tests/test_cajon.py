@@ -184,3 +184,22 @@ class TestTotalPorLinea113(BaseVentas):
     def test_recepcion_muestra_total_de_cada_linea(self):
         html = self.c.get("/recepciones/nueva").get_data(as_text=True)
         self.assertIn('class="linea-total-txt"', html)     # debajo del costo: cantidad × costo
+
+
+class TestBuscaQueContenga113(BaseVentas):
+    """Fernando buscó «meloxi» y no salió «MEBLAINEX MELOXICAM»: había muchos «MELOXICAM ...»
+    que empezaban igual y ocupaban todos los puestos de la lista."""
+
+    def test_sale_aunque_haya_muchos_que_empiezan_igual(self):
+        con = self.db()
+        unidad = con.execute("SELECT id FROM unidades_medida LIMIT 1").fetchone()[0]
+        for i in range(25):
+            con.execute("INSERT INTO productos (codigo, nombre, unidad_venta_id, activo, creado_en) "
+                        "VALUES (?, ?, ?, 1, '2026-10-18')", (f"M{i:02d}", f"MELOXICAM {i} MG", unidad))
+        con.execute("INSERT INTO productos (codigo, nombre, unidad_venta_id, activo, creado_en) "
+                    "VALUES ('MBX', 'MEBLAINEX MELOXICAM', ?, 1, '2026-10-18')", (unidad,))
+        con.commit()
+        con.close()
+        r = self.c.get("/recepciones/api/buscar-productos?q=meloxi").get_json()["resultados"]
+        self.assertIn("MBX", [x["codigo"] for x in r])
+        self.assertEqual(r[0]["nombre"][:9], "MELOXICAM")              # los que empiezan igual, primero
