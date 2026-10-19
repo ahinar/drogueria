@@ -746,11 +746,15 @@ def api_crear_producto():
 
     db = get_db()
     try:
+        # IVA (versión 1.1.3, pedido de Fernando): el producto creado aquí queda
+        # EXCLUIDO de IVA (tarifa 0). Si sí tiene IVA, se cambia después en la ficha
+        # del producto. Antes quedaba "gravado 19 %" (lo que trae la base por defecto).
         cur = db.execute(
             "INSERT INTO productos (codigo, nombre, concentracion, laboratorio_id, "
             "registro_sanitario, registro_vence, precio_venta, unidad_venta_id, "
-            "maneja_vencimiento, requiere_formula, cadena_frio, control_especial, activo, creado_en) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?)",
+            "maneja_vencimiento, requiere_formula, cadena_frio, control_especial, activo, creado_en, "
+            "iva_tipo, iva_tarifa) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,'excluido',0)",
             (codigo, nombre, concentracion, int(laboratorio_id),
              registro, registro_vence, precio_unidad, int(unidad_venta_id),
              maneja_venc, requiere_formula, cadena_frio, control_especial, ahora()),

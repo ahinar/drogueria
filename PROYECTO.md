@@ -495,7 +495,7 @@ Notas:
 | 1.1.0 | 2026-10-13 | Dos computadores (mostrador + portátil por Tailscale) y tirilla directa ESC/POS |
 | 1.1.1 | 2026-10-13 | Importación con fotos ya no bloquea la base (error 500 en POS); nunca dos programas prendidos |
 | 1.1.2 | 2026-10-17 | Cajón y tirilla directa abren de verdad (winspool.drv); instalable desde Chrome; la ventana abre con Chrome |
-| 1.1.3 | 2026-10-18 | Tipo de orden del cajón (estándar / pulso largo / tiempo real DLE DC4); la alarma registra sin salir de la página; código de barras en el alta rápida de la recepción; búsqueda por palabras con LABORATORIO en todo el programa; total de cada línea en la recepción |
+| 1.1.3 | 2026-10-18 | Tipo de orden del cajón (estándar / pulso largo / tiempo real DLE DC4); la alarma registra sin salir de la página; código de barras en el alta rápida de la recepción; búsqueda por palabras con LABORATORIO en todo el programa; total de cada línea en la recepción; producto creado en la recepción queda excluido de IVA |
 
 ### Versión 1.1.3 — cajón SAT, alarma sin perder la recepción (2026-10-18)
 - Lo que vio Fernando (impresora SAT Q150U): el botón decía «Cajón abierto» pero no abría, ni al vender;
@@ -520,6 +520,8 @@ Notas:
   a la derecha de cada resultado, en la tarjeta del POS y en el conteo; «Sin laboratorio» en naranja.
 - Recepción: debajo del costo de cada línea, «Total: $…» = cantidad × costo (ej. 4 × 10.058,2 = 40.232,8),
   se actualiza al escribir (`.linea-total-txt`, en `recalcularTotales`).
+- Alta rápida (`/recepciones/api/crear-producto`, también la usa el conteo): el producto queda
+  `iva_tipo='excluido'`, `iva_tarifa=0` (antes, el valor por defecto de la base: gravado 19 %). El IVA se ajusta en la ficha.
 
 ### Versión 1.1.2 — cajón, instalar desde Chrome (2026-10-17)
 - Lo que vio Fernando: el cajón no abría ni al cobrar ni con el botón «Abrir cajón»; la ventana del

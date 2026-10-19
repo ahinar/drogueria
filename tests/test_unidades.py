@@ -829,3 +829,21 @@ class TestConversionRecepcionEnUnidadDeVenta(BaseVentas):
         venta = next(o for o in p1 if o["defecto"])
         self.assertEqual((venta["nombre"], venta["factor"]), ("Sello x 10", 10))
         self.assertEqual((p1[0]["cuenta"], p2[0]["cuenta"]), (1, 10))
+
+
+class TestCrearRapidoSinIva113(BaseUnidades):
+    """Versión 1.1.3: el producto creado desde la recepción queda EXCLUIDO de IVA."""
+
+    def test_queda_excluido(self):
+        con = self.db()
+        lab = con.execute("INSERT INTO catalogos (tipo, nombre, activo, creado_en) "
+                          "VALUES ('laboratorio','La Santé',1,?)", (FECHA,)).lastrowid
+        con.commit()
+        con.close()
+        j = self.post(self.c, "/recepciones/api/crear-producto", {
+            "nombre": "Loratadina jarabe", "laboratorio_id": str(lab),
+            "venta_unidad_id": str(self.uno("SELECT id FROM unidades_medida WHERE nombre = 'Unidad'")["id"]),
+            "precio_venta": "8.000"}).get_json()
+        self.assertTrue(j["ok"], j)
+        p = self.uno("SELECT iva_tipo, iva_tarifa FROM productos WHERE id = ?", j["id"])
+        self.assertEqual((p["iva_tipo"], p["iva_tarifa"]), ("excluido", 0))
