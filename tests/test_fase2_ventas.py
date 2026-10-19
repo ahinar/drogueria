@@ -605,3 +605,16 @@ class TestPagoMixto113(BaseVentas):
         html = self.c.get("/pos/").get_data(as_text=True)
         self.assertIn('data-forma="mixto"', html)
         self.assertIn('id="pago-mixto"', html)
+
+
+class TestPOSComoElProgramaAnterior115(BaseVentas):
+    """Versión 1.1.5: cursor en el producto, números = cantidad, lector, X, Deshacer, numerito."""
+
+    def test_pantalla_y_script(self):
+        self.abrir_caja()
+        html = self.c.get("/pos/").get_data(as_text=True)
+        self.assertIn('id="pos-limpiar-busqueda"', html)                # la X del buscador
+        js = self.c.get("/static/js/pos_carrito.js").get_data(as_text=True)
+        for pieza in ("function quedarseEnElCarrito", "function lectorGuardar", "function escanear",
+                      "function quitarConDeshacer", "function actualizarInsignias", "const BUSQUEDA_MS = 120"):
+            self.assertIn(pieza, js)

@@ -497,6 +497,21 @@ Notas:
 | 1.1.2 | 2026-10-17 | Cajón y tirilla directa abren de verdad (winspool.drv); instalable desde Chrome; la ventana abre con Chrome |
 | 1.1.3 | 2026-10-18 | Tipo de orden del cajón (estándar / pulso largo / tiempo real DLE DC4); la alarma registra sin salir de la página; código de barras en el alta rápida de la recepción; búsqueda por palabras con LABORATORIO en todo el programa; total de cada línea en la recepción; producto creado en la recepción queda excluido de IVA; el buscador de la recepción ya no deja por fuera los que «contienen» lo escrito; laboratorios al día y «+» en «Completar datos»; cantidad, UdM y costo obligatorios; PAGO MIXTO en el POS |
 | 1.1.4 | 2026-10-18 | Todo lo de 1.1.3 (su instalador no se armó) + fechas en líneas agregadas de la recepción (28 → 2028, calendario) + prueba de limpieza que fallaba los lunes |
+| 1.1.5 | 2026-10-19 | POS como el programa anterior: cursor en el producto agregado (números = cantidad, Suprimir con Deshacer), búsqueda que no se borra con X, lector reconocido por velocidad, numerito en las tarjetas, búsqueda más rápida |
+
+### Versión 1.1.5 — POS como en el programa anterior (2026-10-19)
+- Pedido de Fernando y su esposa (videos del mostrador comparando con el programa anterior). Todo en
+  `static/js/pos_carrito.js` (+ `pos/index.html`, `app.css`):
+- `agregar()` → `quedarseEnElCarrito()`: el cursor sale del buscador y queda en la línea agregada, en modo
+  cantidad. El teclado físico global (6b) recibe las teclas: números arman la cantidad (3 → 3, 3 0 → 30),
+  Enter cobra, Suprimir/Backspace en 1 → `quitarConDeshacer()` (aviso «↶ Deshacer» 6 s).
+- Lector vs. persona (6c): con el cursor fuera del buscador cada carácter se guarda 70 ms
+  (`lectorGuardar`); si llegan con < 35 ms entre sí y son ≥ 4 → `escanear(código)` (no toca búsqueda ni
+  tarjetas). Si es persona: números = cantidad (sin producto marcado → al buscador), letras → `irAlBuscador`
+  (reemplaza la búsqueda). En el buscador: ráfaga rápida + Enter = lector → se devuelve el texto anterior.
+- La búsqueda ya no se borra al agregar; «X» (`#pos-limpiar-busqueda`) la borra. Espera 120 ms (antes 250).
+- `actualizarInsignias()`: numerito verde en cada tarjeta = cuántos van en el carrito.
+- Línea marcada del carrito más visible.
 
 ### Versión 1.1.4 — fechas en líneas agregadas; la 1.1.3 no se publicó (2026-10-18)
 - La publicación V.1.1.3 falló en GitHub: `test_saneamiento::test_semanal_queda_hecha_toda_la_semana` fallaba

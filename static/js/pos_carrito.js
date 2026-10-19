@@ -15,6 +15,16 @@
 //   8. Carrito persistente (no se pierde al navegar o cerrar)
 //   9. VARIAS VENTAS A LA VEZ: pestañas "Venta 1", "Venta 2"... y botón +
 //      para atender a otro cliente sin perder la venta que estaba a medias.
+//
+// VERSIÓN 1.1.5 (pedido de Fernando y su esposa, como en el programa anterior):
+//   - Al agregar un producto, el cursor queda EN ESE PRODUCTO del carrito:
+//     los números arman la cantidad (3 → 3; 3 y 0 → 30), Suprimir lo quita
+//     (con "Deshacer") y Enter cobra.
+//   - La búsqueda NO se borra al agregar: la lista queda a la vista. Si se
+//     escriben letras, se reemplaza sola; la "X" la borra de un toque.
+//   - El LECTOR de código de barras se reconoce porque "escribe" muchísimo más
+//     rápido que una persona: lo escaneado entra al carrito sin tocar la búsqueda.
+//   - Cada tarjeta muestra cuántos van en el carrito (el número verde).
 // =====================================================================
 (function () {
   'use strict';
@@ -274,15 +284,52 @@
       if (desdeEnter) {
         if (json.productos.length === 1) {
           // Si se escaneó el código de una presentación (ej: la caja), se agrega esa.
+          // Versión 1.1.5: la búsqueda se queda escrita (se borra con la X).
           agregar(json.productos[0], json.presentacion_id);
-          inputBusqueda.value = '';
-          buscar(false);
         } else if (json.productos.length === 0) {
           aviso('No se encontró ningún producto.');
         }
       }
     } catch (e) {
       aviso('No se pudo buscar: ' + e.message);
+    }
+  }
+
+  // Número en cada tarjeta: cuántos van en el carrito de ese producto (versión 1.1.5).
+  // Suma las cantidades de todas sus líneas (ej. 2 Tableta + 1 Sobre = 3).
+  // No se repintan las tarjetas: solo se pone o se quita el numerito.
+  function actualizarInsignias() {
+    const cuantos = {};
+    carrito.forEach((it) => {
+      if (it.libre) return;                                    // venta libre: no tiene tarjeta
+      cuantos[it.producto_id] = (cuantos[it.producto_id] || 0) + it.cantidad;
+    });
+    grid.querySelectorAll('.pos-card').forEach((tarjeta) => {
+      const n = cuantos[+tarjeta.dataset.id] || 0;
+      let insignia = tarjeta.querySelector('.pos-card-cant');
+      if (!n) { if (insignia) insignia.remove(); return; }
+      if (!insignia) {
+        insignia = document.createElement('span');
+        insignia.className = 'pos-card-cant';
+        insignia.title = 'Van en el carrito';
+        tarjeta.appendChild(insignia);
+      }
+      insignia.textContent = +n.toFixed(2);
+    });
+  }
+
+  // LECTOR DE CÓDIGO DE BARRAS (versión 1.1.5): busca ESE código y lo agrega,
+  // sin cambiar lo que estaba escrito en el buscador ni la lista de tarjetas.
+  async function escanear(codigo) {
+    const url = URL.productos + '?q=' + encodeURIComponent(codigo) + '&cat=';
+    try {
+      const resp = await fetch(url, { credentials: 'same-origin' });
+      const json = await resp.json();
+      if (!json.ok) return;
+      if (json.productos.length === 1) agregar(json.productos[0], json.presentacion_id);
+      else aviso('No se encontró ningún producto con el código ' + codigo + '.');
+    } catch (e) {
+      aviso('No se pudo buscar el código: ' + e.message);
     }
   }
 
@@ -328,6 +375,7 @@
             peso(defectoDe(p).precio) + '</div>' +
         '</div></div>';
     }).join('');
+    actualizarInsignias();      // el numerito de cuántos van en el carrito
   }
 
   // ---------------------------------------------------------------
@@ -412,7 +460,51 @@
       if (prod.requiere_formula) aviso('📋 Requiere fórmula médica: verifícala antes de entregar.');
     }
     seleccionar(pos);
+    quedarseEnElCarrito();
     pintarCarrito();
+  }
+
+  // Versión 1.1.5: después de agregar, el cursor queda EN EL PRODUCTO (no en el
+  // buscador). Así el siguiente número que se escriba es su cantidad (3 → 3).
+  // "blur" = sacar el cursor del buscador. Las teclas las recibe entonces el
+  // "teclado físico global" (sección 6b), que las manda al carrito.
+  function quedarseEnElCarrito() {
+    if (modo !== 'cantidad') { modo = 'cantidad'; marcarModo(); }   // los números son cantidad
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  }
+
+  // Suprimir: quita la línea DE UNA VEZ y muestra "Deshacer" unos segundos
+  // (versión 1.1.5; antes preguntaba "¿Quitar...?" y era más lento en el mostrador).
+  function quitarConDeshacer(pos) {
+    const it = carrito[pos];
+    if (!it) return;
+    carrito.splice(pos, 1);
+    // El cursor pasa al último producto que quede (como en el programa anterior)
+    seleccionar(carrito.length ? carrito.length - 1 : -1);
+    pintarCarrito();
+    avisoDeshacer('Se quitó "' + it.nombre + '".', () => {
+      carrito.splice(Math.min(pos, carrito.length), 0, it);   // vuelve a su puesto
+      seleccionar(carrito.indexOf(it));
+      pintarCarrito();
+    });
+  }
+
+  // Aviso con botón "Deshacer" (dura 6 segundos). Solo hay uno a la vez.
+  function avisoDeshacer(texto, alDeshacer) {
+    const anterior = document.querySelector('.pos-toast-deshacer');
+    if (anterior) anterior.remove();
+    const div = document.createElement('div');
+    div.className = 'pos-toast pos-toast-deshacer';
+    const span = document.createElement('span');
+    span.textContent = texto + ' ';
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.textContent = '↶ Deshacer';
+    boton.addEventListener('mousedown', (e) => e.preventDefault());   // no robar el cursor
+    boton.addEventListener('click', () => { div.remove(); alDeshacer(); });
+    div.append(span, boton);
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 6000);
   }
 
   // Pregunta con la ventana del programa y, si acepta, quita esa línea del carrito
@@ -483,6 +575,7 @@
       $('pos-ir-n').textContent = carrito.length;
       $('pos-ir-total').textContent = peso(total);
     }
+    actualizarInsignias();      // cuántos van en el carrito, en cada tarjeta
     guardarCarrito();
   }
 
@@ -588,6 +681,23 @@
 
     const key = e.key;
 
+    // ---- ¿Es el LECTOR de código de barras? (versión 1.1.5) ----
+    // El lector "escribe" un carácter cada pocos milisegundos y termina con Enter.
+    // Una persona tarda mucho más entre tecla y tecla. Por eso cada carácter se
+    // guarda un momentito (lectorEsperar) antes de decidir qué es:
+    //   - si llegan muy seguidos (lector)  → al final se escanea el código;
+    //   - si no (persona)                  → números = cantidad, letras = buscar.
+    if (key.length === 1 && /\S/.test(key) && !(key === '+' || key === '-' || key === '=' || key === '_')) {
+      e.preventDefault();
+      lectorGuardar(key);
+      return;
+    }
+    if (key === 'Enter' && lector.texto) {
+      e.preventDefault();
+      lectorTerminar(true);      // el Enter del lector (o de la persona después de escribir)
+      return;
+    }
+
     // F2 = cobrar · F3 = enfocar buscador
     if (key === 'F2') { e.preventDefault(); if (carrito.length) abrirPago(); return; }
     if (key === 'F3') { e.preventDefault(); inputBusqueda.focus(); return; }
@@ -622,7 +732,7 @@
           it.cantidad -= 1;
           pintarCarrito();
         } else {
-          quitarConConfirmacion(seleccionado);
+          quitarConDeshacer(seleccionado);
         }
       }
       return;
@@ -631,8 +741,7 @@
     // Delete / Supr = eliminar producto seleccionado
     if (key === 'Delete') {
       e.preventDefault();
-      const it = carrito[seleccionado];
-      if (it) quitarConConfirmacion(seleccionado);
+      if (carrito[seleccionado]) quitarConDeshacer(seleccionado);
       return;
     }
 
@@ -655,13 +764,58 @@
       return;
     }
 
-    // Números y punto = ir al numpad
-    if (/^[0-9]$/.test(key) || key === '.' || key === ',') {
-      e.preventDefault();
-      teclear(key === ',' ? '.' : key);
-      return;
-    }
   });
+
+  // ---------------------------------------------------------------
+  // 6c. LECTOR DE CÓDIGO DE BARRAS vs. PERSONA (versión 1.1.5)
+  // ---------------------------------------------------------------
+  const LECTOR_MS = 35;        // el lector manda un carácter cada ~5-20 ms; una persona, cada 100+ ms
+  const LECTOR_ESPERA = 70;    // cuánto se espera para decidir (no se nota al escribir)
+  const lector = { texto: '', rapido: false, ultima: 0, reloj: null };
+
+  // Guarda un carácter que llegó con el cursor FUERA del buscador
+  function lectorGuardar(caracter) {
+    const ahora = performance.now();
+    if (lector.texto && ahora - lector.ultima < LECTOR_MS) lector.rapido = true;
+    lector.ultima = ahora;
+    lector.texto += caracter;
+    clearTimeout(lector.reloj);
+    lector.reloj = setTimeout(() => lectorTerminar(false), LECTOR_ESPERA);
+  }
+
+  // Decide qué era lo guardado. conEnter = se oprimió Enter al final.
+  function lectorTerminar(conEnter) {
+    clearTimeout(lector.reloj);
+    const texto = lector.texto;
+    const esLector = lector.rapido && texto.length >= 4;
+    lector.texto = ''; lector.rapido = false;
+    if (!texto) return;
+    if (esLector) { escanear(texto); return; }       // código de barras → al carrito
+    // Lo escribió una persona. Si no hay producto marcado en el carrito, todo
+    // va al buscador (ej. un código escrito a mano).
+    if (!carrito[seleccionado]) { irAlBuscador(texto); return; }
+    // Hay producto marcado: carácter por carácter
+    for (let i = 0; i < texto.length; i++) {
+      const c = texto[i];
+      if (/^[0-9]$/.test(c) || c === '.' || c === ',') {
+        teclear(c === ',' ? '.' : c);                // números = cantidad del producto marcado
+      } else {
+        // Letras = buscar otro producto: el resto va al buscador y REEMPLAZA lo anterior
+        irAlBuscador(texto.slice(i));
+        return;
+      }
+    }
+    if (conEnter && carrito.length) abrirPago();      // "3" y Enter = cantidad y cobrar
+  }
+
+  // Pasa el cursor al buscador con un texto nuevo (reemplaza la búsqueda anterior)
+  function irAlBuscador(texto) {
+    inputBusqueda.value = texto;
+    inputBusqueda.focus();
+    actualizarX();
+    clearTimeout(temporizador);
+    temporizador = setTimeout(() => buscar(false), BUSQUEDA_MS);
+  }
 
   // ---------------------------------------------------------------
   // 7. COBRAR
@@ -1693,12 +1847,58 @@
   // 9. ARRANQUE
   // ---------------------------------------------------------------
   let temporizador = null;
-  inputBusqueda.addEventListener('input', () => {
-    clearTimeout(temporizador);
-    temporizador = setTimeout(() => buscar(false), 250);
-  });
+  // Cuánto espera para buscar después de la última letra. Era 250 ms; ahora 120
+  // para que los resultados salgan más rápido (versión 1.1.5).
+  const BUSQUEDA_MS = 120;
+
+  // La "X" del buscador: borra la búsqueda de un toque (solo se ve si hay texto)
+  const btnLimpiar = $('pos-limpiar-busqueda');
+  function actualizarX() { if (btnLimpiar) btnLimpiar.hidden = !inputBusqueda.value; }
+  if (btnLimpiar) {
+    btnLimpiar.addEventListener('mousedown', (e) => e.preventDefault());
+    btnLimpiar.addEventListener('click', () => {
+      inputBusqueda.value = '';
+      actualizarX();
+      inputBusqueda.focus();
+      clearTimeout(temporizador);
+      buscar(false);
+    });
+  }
+
+  // El lector también puede escanear con el cursor EN el buscador. Se anota qué
+  // había escrito antes de que empezara la "ráfaga" rápida de caracteres: si al
+  // Enter resulta que fue el lector, se devuelve la búsqueda a como estaba.
+  const rafaga = { antes: '', n: 0, ultima: 0 };
   inputBusqueda.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); clearTimeout(temporizador); buscar(true); }
+    const ahora = performance.now();
+    if (e.key.length === 1) {
+      if (ahora - rafaga.ultima >= LECTOR_MS) { rafaga.antes = inputBusqueda.value; rafaga.n = 1; }
+      else rafaga.n += 1;
+      rafaga.ultima = ahora;
+      return;
+    }
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    clearTimeout(temporizador);
+    const fueLector = rafaga.n >= 4 && ahora - rafaga.ultima < 150 &&
+      inputBusqueda.value.startsWith(rafaga.antes);
+    if (fueLector) {
+      const codigo = inputBusqueda.value.slice(rafaga.antes.length).trim();
+      inputBusqueda.value = rafaga.antes;          // la búsqueda queda como estaba
+      actualizarX();
+      rafaga.n = 0;
+      numeroBusqueda++;                            // descarta búsquedas a medias del código
+      buscar(false);                               // vuelve a mostrar la lista de antes
+      escanear(codigo);
+    } else {
+      buscar(true);
+    }
+  });
+  actualizarX();
+  inputBusqueda.addEventListener('input', () => {
+    actualizarX();
+    clearTimeout(temporizador);
+    temporizador = setTimeout(() => buscar(false), BUSQUEDA_MS);
   });
 
   grid.addEventListener('click', (e) => {
@@ -1717,8 +1917,8 @@
     } else {
       agregar(prod);
     }
-    // Si se abrió "¿Cómo lo vendes?", el foco se queda en sus botones (teclas 1, 2, 3)
-    if (!modalPres || modalPres.classList.contains('modal-oculto')) inputBusqueda.focus();
+    // Versión 1.1.5: el cursor queda en el producto del carrito (lo hace agregar).
+    // Si se abrió "¿Cómo lo vendes?", el foco se queda en sus botones (teclas 1, 2, 3).
   });
 
   // F4 = nueva venta (atender a otro cliente). Funciona aunque se esté

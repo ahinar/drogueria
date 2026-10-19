@@ -2905,3 +2905,48 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   margin-bottom: .4rem;
 }
 @media (max-width: 520px) { .pago-mixto-grid { grid-template-columns: 1fr; } }
+
+/* ===== POS versión 1.1.5 ===== */
+/* Caja del buscador con la "X" adentro, a la derecha */
+.pos-busqueda-caja { position: relative; flex: 1; display: flex; }
+.pos-busqueda-caja input { flex: 1; padding-right: 2.6rem; }
+.pos-limpiar-busqueda {
+  position: absolute; right: .45rem; top: 50%; transform: translateY(-50%);
+  width: 1.9rem; height: 1.9rem; padding: 0;
+  border: none; border-radius: 50%;
+  background: #e3e8ec; color: #37474f;
+  font-size: 1.3rem; line-height: 1; cursor: pointer;
+}
+.pos-limpiar-busqueda:hover { background: #cfd8dc; }
+.pos-limpiar-busqueda[hidden] { display: none; }
+
+/* Producto marcado en el carrito: bien visible, para saber a cuál van los números */
+.pos-item.seleccionado {
+  background: var(--acento-suave);
+  border-left: 5px solid var(--acento);
+  box-shadow: inset 0 0 0 2px var(--acento-anillo);
+}
+.pos-item.seleccionado .pos-item-cant span { font-weight: 800; color: var(--acento-fuerte); }
+
+/* Numerito verde en la tarjeta: cuántos van en el carrito */
+.pos-card-cant {
+  position: absolute; top: .35rem; left: .35rem; z-index: 2;
+  min-width: 1.7rem; height: 1.7rem; padding: 0 .4rem;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 999px;
+  background: var(--acento); color: #fff;
+  font-weight: 800; font-size: .9rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+}
+
+/* Aviso "Se quitó ... ↶ Deshacer" */
+.pos-toast-deshacer { display: flex; align-items: center; gap: .6rem; }
+.pos-toast-deshacer button {
+  border: 1px solid rgba(255, 255, 255, .6); background: transparent; color: inherit;
+  border-radius: .35rem; padding: .2rem .6rem; font-weight: 700; cursor: pointer;
+}
+/* La "X" un poco más grande y clara (el tema moderno achica los botones) */
+.pos-busqueda .pos-busqueda-caja .pos-limpiar-busqueda {
+  font-size: 1.45rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+}
+.pos-busqueda .pos-busqueda-caja .pos-limpiar-busqueda[hidden] { display: none; }
