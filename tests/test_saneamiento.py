@@ -73,7 +73,10 @@ class TestLimpieza(BaseSaneamiento):
             estanterias = next(t for t in estado_tareas(HOY) if t["nombre"] == "Estanterías")
             pisos = next(t for t in estado_tareas(HOY) if t["nombre"] == "Pisos")
         self.assertIsNotNone(estanterias["hecho"])
-        self.assertEqual(pisos["hecho"] is None, inicio != HOY)
+        # "Pisos" nadie la marcó: sigue pendiente SIEMPRE. (Antes esta línea esperaba lo
+        # contrario cuando hoy es el inicio de la semana, y la prueba fallaba los LUNES:
+        # así falló la publicación de la 1.1.3, porque GitHub corre en hora UTC y ya era lunes.)
+        self.assertIsNone(pisos["hecho"])
 
     def test_auxiliar_marca_hasta_7_dias_atras_y_quita_solo_lo_suyo(self):
         aux = self.auxiliar()

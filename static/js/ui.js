@@ -272,9 +272,11 @@
   }
   // '10/10/2026' → '2026-10-10'   (o null si la fecha no existe, ej. 31/02)
   function textoAIso(texto) {
-    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec((texto || '').trim());
+    // Año con 4 cifras (2028) o con 2 (28 → 2028). Versión 1.1.3: antes el año
+    // de 2 cifras solo se completaba al salir del campo.
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec((texto || '').trim());
     if (!m) return null;
-    const d = +m[1], mes = +m[2], a = +m[3];
+    const d = +m[1], mes = +m[2], a = m[3].length === 2 ? 2000 + +m[3] : +m[3];
     const f = new Date(a, mes - 1, d);
     // Si JavaScript "corrigió" la fecha (31/02 → 03/03), no existía
     if (f.getFullYear() !== a || f.getMonth() !== mes - 1 || f.getDate() !== d) return null;
@@ -291,8 +293,26 @@
   // navegador; defineProperty pone uno nuestro que llama al original.
   const valueOriginal = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
 
+  // Campos de fecha que YA tienen su funcionamiento (calendario, dd/mm/aaaa...).
+  // Un "WeakSet" es una lista que solo recuerda si un elemento está o no.
+  const fechasListas = new WeakSet();
+
   function mejorarFecha(original) {
-    if (original.dataset.fechaPropia) return;     // ya se mejoró
+    if (fechasListas.has(original)) return;       // ya se mejoró
+    // CORRECCIÓN 1.1.3: ¿es la COPIA de una fila (ej. «+ Agregar línea» en la
+    // recepción)? Al copiar una fila se copian el campo visible y el botón del
+    // calendario, pero SIN su funcionamiento: no completaba el año (28 → 2028),
+    // la fecha no llegaba al programa y el calendario no abría. Se quita la copia
+    // "muerta" y se vuelve a preparar el campo desde cero.
+    if (original.dataset.fechaPropia) {
+      const copia = original.closest('.fecha-campo');
+      const visibleViejo = copia && copia.querySelector('.fecha-texto');
+      const obligatorio = !!(visibleViejo && visibleViejo.required);
+      original.type = 'date';
+      if (copia) copia.replaceWith(original);
+      original.required = obligatorio;
+    }
+    fechasListas.add(original);
     original.dataset.fechaPropia = '1';
 
     // --- Campo visible ---
@@ -324,6 +344,13 @@
     // El original pasa a oculto (sin "required": de eso se encarga el visible)
     original.required = false;
     original.type = 'hidden';
+    // Si otro código marca el original como obligatorio (ej. la recepción, cuando el
+    // producto maneja vencimiento), la marca pasa al campo visible (versión 1.1.3).
+    Object.defineProperty(original, 'required', {
+      configurable: true,
+      get: function () { return visible.required; },
+      set: function (v) { visible.required = !!v; },
+    });
 
     // value envuelto: al cambiar el oculto por código, se actualiza el visible
     Object.defineProperty(original, 'value', {
@@ -490,8 +517,10 @@
   // Mejora todas las fechas que haya dentro de "raiz"
   function mejorarFechas(raiz) {
     if (!raiz.querySelectorAll) return;
-    if (raiz.matches && raiz.matches('input[type="date"]')) mejorarFecha(raiz);
-    raiz.querySelectorAll('input[type="date"]').forEach(mejorarFecha);
+    // input[data-fecha-propia] = campos COPIADOS de otra fila (ya ocultos): ver mejorarFecha
+    const selector = 'input[type="date"], input[data-fecha-propia]';
+    if (raiz.matches && raiz.matches(selector)) mejorarFecha(raiz);
+    raiz.querySelectorAll(selector).forEach(mejorarFecha);
   }
   window.mejorarFechas = mejorarFechas;
 

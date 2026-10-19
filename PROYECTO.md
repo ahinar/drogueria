@@ -496,6 +496,18 @@ Notas:
 | 1.1.1 | 2026-10-13 | Importación con fotos ya no bloquea la base (error 500 en POS); nunca dos programas prendidos |
 | 1.1.2 | 2026-10-17 | Cajón y tirilla directa abren de verdad (winspool.drv); instalable desde Chrome; la ventana abre con Chrome |
 | 1.1.3 | 2026-10-18 | Tipo de orden del cajón (estándar / pulso largo / tiempo real DLE DC4); la alarma registra sin salir de la página; código de barras en el alta rápida de la recepción; búsqueda por palabras con LABORATORIO en todo el programa; total de cada línea en la recepción; producto creado en la recepción queda excluido de IVA; el buscador de la recepción ya no deja por fuera los que «contienen» lo escrito; laboratorios al día y «+» en «Completar datos»; cantidad, UdM y costo obligatorios; PAGO MIXTO en el POS |
+| 1.1.4 | 2026-10-18 | Todo lo de 1.1.3 (su instalador no se armó) + fechas en líneas agregadas de la recepción (28 → 2028, calendario) + prueba de limpieza que fallaba los lunes |
+
+### Versión 1.1.4 — fechas en líneas agregadas; la 1.1.3 no se publicó (2026-10-18)
+- La publicación V.1.1.3 falló en GitHub: `test_saneamiento::test_semanal_queda_hecha_toda_la_semana` fallaba
+  los LUNES (esperaba "Pisos" hecha cuando hoy es inicio de semana) y GitHub corre en UTC (ya era lunes).
+  Error de la prueba, no del programa: «Pisos» nadie la marcó → siempre pendiente. Para revisar este tipo de
+  fallas: correr las pruebas con `TZ=UTC`.
+- Fechas (`static/js/ui.js`): en las líneas agregadas con «+ Agregar línea», el campo de fecha se copiaba
+  "muerto" (marcado `data-fecha-propia`, ya oculto): no completaba 28 → 2028, no pasaba la fecha al programa y el
+  calendario no abría. `mejorarFecha` usa un WeakSet de campos listos y rehace las copias; `mejorarFechas` busca
+  también `input[data-fecha-propia]`. `textoAIso` acepta año de 2 cifras (→ 20xx). `original.required` se
+  refleja en el campo visible (la recepción marca la fecha obligatoria si el producto maneja vencimiento).
 
 ### Versión 1.1.3 — cajón SAT, alarma sin perder la recepción (2026-10-18)
 - Lo que vio Fernando (impresora SAT Q150U): el botón decía «Cajón abierto» pero no abría, ni al vender;
