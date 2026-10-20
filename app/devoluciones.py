@@ -316,7 +316,7 @@ def proveedor():
     sql += " ORDER BY l.vencimiento IS NULL, l.vencimiento, p.nombre LIMIT 100"
     lotes = db.execute(sql, params).fetchall()
     proveedores = db.execute("SELECT id, razon_social FROM proveedores WHERE activo = 1 "
-                             "ORDER BY razon_social COLLATE NOCASE").fetchall()
+                             "ORDER BY razon_social COLLATE ES").fetchall()
     sugerido = next((l["proveedor_id"] for l in lotes if l["proveedor_id"]), None)
     return render_template("devoluciones/proveedor.html", lotes=lotes, q=q, lote_id=lote_id,
                            proveedores=proveedores, proveedor_sugerido=sugerido,

@@ -3,6 +3,8 @@
 {% block contenido %}
 <h1><span class="ico-emoji">🗂️</span> Administración · Catálogos</h1>
 <p class="suave">Listas maestras que se usan en toda la aplicación. Actívalas, desactívalas o agrega nuevas.</p>
+{# Versión 1.1.6: encontrar y unir nombres repetidos ("SAN FER" / "San fer") #}
+<p><a class="boton secundario" href="{{ url_for('catalogos.repetidos') }}">🔍 Buscar repetidos</a></p>
 
 <div class="rejilla">
   {% for r in resumen %}

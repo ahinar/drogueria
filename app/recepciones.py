@@ -65,7 +65,7 @@ def _lineas_de(rec_id):
         "p.codigo_barras, "
         "(SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS lab_nombre, "
         "(SELECT nombre FROM catalogos WHERE id = p.forma_farmaceutica_id) AS forma_nombre, "
-        "(SELECT nombre FROM catalogos WHERE id = p.principio_id) AS principio_nombre, "
+        "COALESCE((SELECT GROUP_CONCAT(c.nombre, ' + ') FROM (SELECT c2.nombre FROM producto_principios pp2 JOIN catalogos c2 ON c2.id = pp2.catalogo_id WHERE pp2.producto_id = p.id ORDER BY pp2.orden) c), (SELECT nombre FROM catalogos WHERE id = p.principio_id)) AS principio_nombre, "
         "(SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre "
         "FROM recepcion_lineas rl JOIN productos p ON p.id = rl.producto_id "
         "WHERE rl.recepcion_id = ? ORDER BY rl.id",
@@ -81,34 +81,34 @@ def _productos():
         "(SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS lab_nombre, "
         "(SELECT nombre FROM catalogos WHERE id = p.forma_farmaceutica_id) AS forma_nombre, "
         "(SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre "
-        "FROM productos p WHERE p.activo = 1 ORDER BY p.nombre COLLATE NOCASE"
+        "FROM productos p WHERE p.activo = 1 ORDER BY p.nombre COLLATE ES"
     ).fetchall()
 
 
 def _proveedores():
     return get_db().execute(
         "SELECT id, nit, razon_social FROM proveedores WHERE activo = 1 "
-        "ORDER BY razon_social COLLATE NOCASE"
+        "ORDER BY razon_social COLLATE ES"
     ).fetchall()
 
 
 def _unidades():
-    return get_db().execute(
-        "SELECT id, nombre, cantidad FROM unidades_medida WHERE activo = 1 "
-        "ORDER BY cantidad, nombre"
-    ).fetchall()
+    # "Unidad" primero y después por tamaño (Sello x 4, Caja x 10, Sello x 10...): app/nombres.py
+    from .nombres import orden_unidades
+    return orden_unidades(get_db().execute(
+        "SELECT id, nombre, cantidad FROM unidades_medida WHERE activo = 1").fetchall())
 
 
 def _laboratorios():
     return get_db().execute(
         "SELECT id, nombre FROM catalogos WHERE tipo = 'laboratorio' AND activo = 1 "
-        "ORDER BY nombre COLLATE NOCASE"
+        "ORDER BY nombre COLLATE ES"
     ).fetchall()
 
 
 def _catalogo(tipo):
     return get_db().execute(
-        "SELECT id, nombre FROM catalogos WHERE tipo = ? AND activo = 1 ORDER BY nombre COLLATE NOCASE",
+        "SELECT id, nombre FROM catalogos WHERE tipo = ? AND activo = 1 ORDER BY nombre COLLATE ES",
         (tipo,)).fetchall()
 
 
@@ -157,6 +157,7 @@ def _lineas_previas_formulario():
     motivos = request.form.getlist("linea_motivo")
     presentaciones = request.form.getlist("linea_presentacion")
     factores_otros = request.form.getlist("linea_factor_otro")
+    ivas = request.form.getlist("linea_iva")            # IVA % de cada línea (versión 1.1.6)
 
     db = get_db()
     lineas = []
@@ -188,6 +189,7 @@ def _lineas_previas_formulario():
             "vencimiento": v(vencimientos, i),
             "cantidad_recibida": v(cant_rec, i) or "0",
             "costo_unitario": v(costos, i) or "0",
+            "iva_tarifa": v(ivas, i) or "0",
             "temperatura_ingreso": v(temps_ing, i),
             "estado_empaque": v(empaques, i) or "bueno",
             "resultado": v(resultados, i) or "aceptado",
@@ -242,6 +244,14 @@ def _leer_lineas_formulario():
     presentaciones = request.form.getlist("linea_presentacion")
     # Si escogieron "Otra caja…": cuántas unidades trae esa caja (ej. 300)
     factores_otros = request.form.getlist("linea_factor_otro")
+    # ---- IVA (versión 1.1.6) ----
+    # linea_iva = % de IVA de cada línea (0, 5, 19...). precios_con_iva = la factura
+    # ya trae el IVA dentro del costo. declara_iva (Configuración) decide qué costo
+    # se usa para la utilidad: con IVA (no declara) o sin IVA (sí declara).
+    ivas = request.form.getlist("linea_iva")
+    precios_con_iva = bool(request.form.get("precios_con_iva"))
+    from .configuracion import obtener_config
+    declara_iva = obtener_config().get("declara_iva") == "si"
 
     lineas, errores = [], []
     for i, pid in enumerate(prod_ids):
@@ -324,13 +334,29 @@ def _leer_lineas_formulario():
             presentacion = {"nombre": None, "factor": 1}
         factor = float(presentacion["factor"] or 1)
 
+        # IVA de la línea y los dos costos (por unidad de inventario)
+        try:
+            iva = float(v(ivas, i).replace(",", ".") or 0)
+        except ValueError:
+            iva = 0.0
+        if not 0 <= iva <= 100:
+            errores.append(f"{nombre}: el IVA debe estar entre 0 y 100 %.")
+            iva = 0.0
+        tasa = iva / 100
+        costo_sin = co / (1 + tasa) if precios_con_iva else co      # por la unidad en que llegó (caja)
+        costo_con = costo_sin * (1 + tasa)
+
         lineas.append({
             "producto_id": int(pid),
+            "iva_tarifa": iva,
+            "costo_sin_iva": costo_sin / factor,
+            "costo_con_iva": costo_con / factor,
             "lote": v(lotes, i).strip() or None,
             "vencimiento": v(vencimientos, i).strip() or None,
             "cantidad_facturada": round(cr * factor, 4),
             "cantidad_recibida": round(cr * factor, 4),
-            "costo_unitario": co / factor,
+            # Costo para la UTILIDAD: con IVA si no declara IVA; sin IVA si lo declara
+            "costo_unitario": (costo_sin if declara_iva else costo_con) / factor,
             "presentacion": presentacion["nombre"] if factor != 1 else None,
             "factor": factor,
             "temperatura_ingreso": t_ing,
@@ -407,10 +433,11 @@ def nueva():
                 cur = db.execute(
                     "INSERT INTO recepciones (numero, fecha, proveedor_id, factura_numero, "
                     "remision_numero, temperatura_llegada, estado, recibido_por, "
-                    "recibido_por_nombre, observaciones, creado_en) "
-                    "VALUES (?,?,?,?,?,?, 'cuarentena', ?, ?, ?, ?)",
+                    "recibido_por_nombre, observaciones, creado_en, precios_con_iva) "
+                    "VALUES (?,?,?,?,?,?, 'cuarentena', ?, ?, ?, ?, ?)",
                     (numero, ahora(), int(proveedor_id), factura, remision, temp_llegada,
-                     g.user["id"], g.user["nombre"], observaciones, ahora()),
+                     g.user["id"], g.user["nombre"], observaciones, ahora(),
+                     1 if request.form.get("precios_con_iva") else 0),
                 )
                 rec_id = cur.lastrowid
 
@@ -418,12 +445,14 @@ def nueva():
                     db.execute(
                         "INSERT INTO recepcion_lineas (recepcion_id, producto_id, lote, vencimiento, "
                         "cantidad_facturada, cantidad_recibida, costo_unitario, estado_empaque, "
-                        "resultado, motivo_rechazo, observaciones, temperatura_ingreso, presentacion, factor) "
-                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        "resultado, motivo_rechazo, observaciones, temperatura_ingreso, presentacion, factor, "
+                        "iva_tarifa, costo_sin_iva, costo_con_iva) "
+                        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         (rec_id, l["producto_id"], l["lote"], l["vencimiento"],
                          l["cantidad_facturada"], l["cantidad_recibida"], l["costo_unitario"],
                          l["estado_empaque"], l["resultado"], l["motivo_rechazo"],
-                         l["observaciones"], l["temperatura_ingreso"], l["presentacion"], l["factor"]),
+                         l["observaciones"], l["temperatura_ingreso"], l["presentacion"], l["factor"],
+                         l["iva_tarifa"], l["costo_sin_iva"], l["costo_con_iva"]),
                     )
                 db.commit()
 
@@ -448,6 +477,7 @@ def nueva():
             "remision_numero": remision or "",
             "temperatura_llegada": temperatura,
             "observaciones": observaciones or "",
+            "precios_con_iva": bool(request.form.get("precios_con_iva")),
         }
         return render_template(
             "recepciones/form.html",
@@ -600,12 +630,14 @@ def _fila_a_dict(f):
         "maneja_vencimiento": f["maneja_vencimiento"] or 0,
         "cadena_frio": f["cadena_frio"] or 0,
         "control_especial": f["control_especial"] or 0,
+        # IVA del producto (versión 1.1.6): la recepción lo pone solo en la línea
+        "iva": (f["iva_tarifa"] or 0) if f["iva_tipo"] == "gravado" else 0,
     }
 
 
 _SELECT_BUSQUEDA = (
     "SELECT p.id, p.codigo, p.nombre, p.concentracion, p.codigo_barras, "
-    "p.registro_sanitario, p.registro_vence, p.precio_venta, "
+    "p.registro_sanitario, p.registro_vence, p.precio_venta, p.iva_tipo, p.iva_tarifa, "
     "p.maneja_vencimiento, p.cadena_frio, p.control_especial, "
     "(SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS lab_nombre, "
     "(SELECT nombre FROM catalogos WHERE id = p.forma_farmaceutica_id) AS forma_nombre, "
@@ -701,8 +733,9 @@ def api_crear_producto():
     laboratorio_id = (request.form.get("laboratorio_id") or "").strip()
     concentracion = (request.form.get("concentracion") or "").strip() or None
 
-    if not laboratorio_id or not laboratorio_id.isdigit():
-        return jsonify({"ok": False, "error": "El laboratorio es obligatorio."}), 400
+    # Laboratorio o marca: OPCIONAL desde la versión 1.1.6 (un jabón, un pañal...
+    # puede no tenerlo, o no saberse en el momento). Sin él queda "Sin laboratorio".
+    laboratorio_id = int(laboratorio_id) if laboratorio_id.isdigit() else None
     # ---- Cómo se vende (igual que la ficha del producto) ----
     # Formulario nuevo: "Unidad de venta" (Sello x 10) + precio + ¿suelto?.
     # Por dentro se cuenta en "Unidad" (ver productos._traducir_venta).
@@ -725,7 +758,7 @@ def api_crear_producto():
     if not unidad_venta_id or not unidad_venta_id.isdigit():
         return jsonify({"ok": False, "error": "Debes elegir la unidad de venta."}), 400
 
-    dup = _producto_duplicado(nombre, int(laboratorio_id), concentracion)
+    dup = _producto_duplicado(nombre, laboratorio_id, concentracion)
     if dup:
         return jsonify({
             "ok": False,
@@ -769,7 +802,7 @@ def api_crear_producto():
             "maneja_vencimiento, requiere_formula, cadena_frio, control_especial, activo, creado_en, "
             "iva_tipo, iva_tarifa) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,?,'excluido',0)",
-            (codigo, nombre, concentracion, int(laboratorio_id),
+            (codigo, nombre, concentracion, laboratorio_id,
              registro, registro_vence, precio_unidad, int(unidad_venta_id),
              maneja_venc, requiere_formula, cadena_frio, control_especial, ahora()),
         )
@@ -785,7 +818,8 @@ def api_crear_producto():
         registrar("producto_creado_rapido", "productos", nuevo_id,
                   f"código={codigo} nombre={nombre} (desde recepción)")
 
-        lab = db.execute("SELECT nombre FROM catalogos WHERE id = ?", (int(laboratorio_id),)).fetchone()
+        lab = db.execute("SELECT nombre FROM catalogos WHERE id = ?", (laboratorio_id,)).fetchone() \
+            if laboratorio_id else None
         return jsonify({
             "ok": True,
             "id": nuevo_id,
@@ -821,7 +855,13 @@ def _tecnicos_de(producto_id):
         "p.registro_sanitario, p.registro_vence, p.cadena_frio, p.control_especial, "
         "(SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS laboratorio "
         "FROM productos p WHERE p.id = ?", (producto_id,)).fetchone()
-    return dict(p) if p else None
+    if not p:
+        return None
+    datos = dict(p)
+    # Varios principios activos, como se escriben: "Acetaminofén, Codeína" (versión 1.1.6)
+    from .principios import texto_de
+    datos["principios"] = texto_de(get_db(), producto_id)
+    return datos
 
 
 @bp.route("/api/producto/<int:producto_id>/tecnicos", methods=["GET", "POST"])
@@ -849,14 +889,27 @@ def api_datos_tecnicos(producto_id):
     if (actual["cadena_frio"] or actual["control_especial"]) and not nuevos["registro_sanitario"]:
         return jsonify({"ok": False, "error": "Este producto es de cadena de frío o control especial: "
                                               "el registro INVIMA es obligatorio."}), 400
+    # Principios activos (versión 1.1.6): si llega el texto con comas, manda ese
+    db = get_db()
+    cambio_principios = False
+    if "principios" in f:
+        from . import principios
+        antes = actual["principios"]
+        principios.guardar(db, producto_id, f.get("principios") or "")
+        nuevos["principio_id"] = db.execute("SELECT principio_id FROM productos WHERE id = ?",
+                                            (producto_id,)).fetchone()[0]
+        cambio_principios = principios.texto_de(db, producto_id) != antes
     cambios = [c for c in _CAMPOS_TECNICOS if (actual[c] or None) != nuevos[c]]
+    if cambio_principios and "principio_id" not in cambios:
+        cambios.append("principio_id")
     if cambios:
-        db = get_db()
         db.execute("UPDATE productos SET " + ", ".join(f"{c} = ?" for c in cambios) + ", actualizado_en = ? "
                    "WHERE id = ?", [nuevos[c] for c in cambios] + [ahora(), producto_id])
         db.commit()
         registrar("producto_datos_tecnicos", "productos", producto_id,
                   "desde recepción: " + ", ".join(f"{c}={nuevos[c]}" for c in cambios))
+    else:
+        db.commit()
     return jsonify({"ok": True, "producto": _tecnicos_de(producto_id), "cambios": len(cambios)})
 
 
@@ -880,8 +933,8 @@ def api_crear_unidad():
     if cantidad <= 1:
         return jsonify({"ok": False, "error": "Escribe cuántas unidades trae (más de 1)."}), 400
     db = get_db()
-    fila = db.execute("SELECT id, nombre, cantidad FROM unidades_medida WHERE nombre = ? COLLATE NOCASE",
-                      (nombre,)).fetchone()
+    from .nombres import unidad_igual
+    fila = unidad_igual(db, nombre)          # "CAJA X12" = "Caja x 12": no se crea otra
     if fila is None:
         cur = db.execute("INSERT INTO unidades_medida (nombre, cantidad, referencia_id, activo, creado_en) "
                          "VALUES (?, ?, NULL, 1, ?)", (nombre, cantidad, ahora()))

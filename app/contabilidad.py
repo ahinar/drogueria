@@ -19,14 +19,14 @@ def _categorias_gasto():
     return get_db().execute(
         "SELECT id, nombre FROM catalogos "
         "WHERE tipo = 'categoria_gasto' AND activo = 1 "
-        "ORDER BY nombre COLLATE NOCASE"
+        "ORDER BY nombre COLLATE ES"
     ).fetchall()
 
 
 def _proveedores():
     return get_db().execute(
         "SELECT id, nit, razon_social FROM proveedores WHERE activo = 1 "
-        "ORDER BY razon_social COLLATE NOCASE"
+        "ORDER BY razon_social COLLATE ES"
     ).fetchall()
 
 
@@ -38,71 +38,209 @@ def _proveedores():
 @login_required
 @roles_required("administrador", "director_tecnico")
 def index():
-    db = get_db()
+    """DASHBOARD DE CONTABILIDAD (versión 1.1.6).
 
-    hoy = date.today()
-    inicio_mes = hoy.replace(day=1).isoformat()
+    Todo sale de datos reales del programa. Los números grandes (ingresos, costo,
+    gastos y utilidad) salen del MISMO cálculo de Reportes → Utilidades
+    (app/utilidades.py), para que las dos pantallas siempre coincidan.
+    ?mes=AAAA-MM escoge el mes (por defecto, el actual).
+    """
+    from . import utilidades
+    mes = request.args.get("mes", "").strip() or None
+    datos = _datos_dashboard(get_db(), mes)
+    return render_template("contabilidad/index.html", d=datos,
+                           meses=utilidades.meses_disponibles(), mes=datos["periodo"]["mes"])
 
-    # Total del mes
-    total_mes = db.execute(
-        "SELECT COALESCE(SUM(monto), 0) FROM gastos "
-        "WHERE activo = 1 AND fecha >= ?",
-        (inicio_mes,),
-    ).fetchone()[0]
 
-    n_gastos = db.execute(
-        "SELECT COUNT(*) FROM gastos WHERE activo = 1 AND fecha >= ?",
-        (inicio_mes,),
-    ).fetchone()[0]
+def _datos_dashboard(db, mes=None):
+    """Arma todo lo que muestra el dashboard. Cada parte está explicada abajo."""
+    from datetime import timedelta
+    from . import cartera, utilidades
+    from .alertas import calcular_alertas
+    from .cajas import resumen_sesion
+    from .configuracion import obtener_config
 
-    # Total del mes anterior (para comparar)
-    primer_dia_mes_actual = hoy.replace(day=1)
-    ultimo_dia_mes_anterior = primer_dia_mes_actual - __import__("datetime").timedelta(days=1)
-    primer_dia_mes_anterior = ultimo_dia_mes_anterior.replace(day=1)
+    per = utilidades.periodos(mes)
+    desde, hasta = per["actual"]["desde"], per["actual"]["hasta"]
+    act = utilidades.calcular(desde, hasta)
+    ant = utilidades.calcular(per["anterior"]["desde"], per["anterior"]["hasta"])
+    var = utilidades.variacion
+    ini, fin = desde.isoformat(), (hasta + timedelta(days=1)).isoformat()
 
-    total_mes_anterior = db.execute(
-        "SELECT COALESCE(SUM(monto), 0) FROM gastos "
-        "WHERE activo = 1 AND fecha >= ? AND fecha < ?",
-        (primer_dia_mes_anterior.isoformat(), primer_dia_mes_actual.isoformat()),
-    ).fetchone()[0]
+    # ---- 1. Las cuatro tarjetas (sin IVA, igual que en Utilidades) ----
+    def ingresos(r):           # ventas netas (sin IVA y sin devoluciones) + otros ingresos
+        return r["ventas"] - r["devoluciones"] + r["total_otros_ingresos"]
+    tarjetas = [
+        {"clave": "ingresos", "titulo": "Ingresos del período", "valor": ingresos(act),
+         "var": var(ingresos(act), ingresos(ant)), "detalle": f"{act['n_ventas']} venta{'' if act['n_ventas'] == 1 else 's'} · sin IVA",
+         "url": url_for("reportes.ventas_ver"), "bueno_si_sube": True},
+        {"clave": "costo", "titulo": "Costo de lo vendido", "valor": act["costo"],
+         "var": var(act["costo"], ant["costo"]), "detalle": "lo que costó la mercancía vendida",
+         "url": url_for("reportes.utilidades_ver", mes=per["mes"] or None), "bueno_si_sube": False},
+        {"clave": "gastos", "titulo": "Gastos", "valor": act["total_gastos"],
+         "var": var(act["total_gastos"], ant["total_gastos"]), "detalle": "arriendo, servicios, nómina…",
+         "url": url_for("contabilidad.gastos_lista"), "bueno_si_sube": False},
+        {"clave": "utilidad", "titulo": "Utilidad neta", "valor": act["utilidad_neta"],
+         "var": var(act["utilidad_neta"], ant["utilidad_neta"]),
+         # El margen solo tiene sentido si hubo ventas de verdad: con ventas casi en cero
+         # daría números absurdos (ej. −699.383 %), y entonces no se muestra.
+         "detalle": (f"margen {act['margen_neto']:.1f} % sobre las ventas".replace(".", ",")
+                     if act["ventas"] > 0 and abs(act["margen_neto"]) <= 100 else "ingresos − costo − gastos"),
+         "url": url_for("reportes.utilidades_ver", mes=per["mes"] or None), "bueno_si_sube": True},
+    ]
 
-    # Desglose por categoría (mes actual)
-    por_categoria = db.execute(
-        "SELECT c.nombre AS categoria, COUNT(*) AS n, "
-        "       COALESCE(SUM(g.monto), 0) AS total "
-        "FROM gastos g JOIN catalogos c ON c.id = g.categoria_id "
-        "WHERE g.activo = 1 AND g.fecha >= ? "
-        "GROUP BY c.nombre ORDER BY total DESC",
-        (inicio_mes,),
-    ).fetchall()
-
-    # Últimos 8 gastos
-    ultimos = db.execute(
-        "SELECT g.*, c.nombre AS categoria_nombre "
-        "FROM gastos g LEFT JOIN catalogos c ON c.id = g.categoria_id "
-        "WHERE g.activo = 1 ORDER BY g.id DESC LIMIT 8"
-    ).fetchall()
-
-    # Otros ingresos del mes (plata que entra y no es venta)
-    ingresos_mes, n_ingresos = db.execute(
-        "SELECT COALESCE(SUM(monto), 0), COUNT(*) FROM otros_ingresos "
-        "WHERE activo = 1 AND fecha >= ?", (inicio_mes,)).fetchone()
-
-    # MESES_ES para el título
-    meses = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-             "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-
-    return render_template(
-        "contabilidad/index.html",
-        total_mes=total_mes,
-        n_gastos=n_gastos,
-        total_mes_anterior=total_mes_anterior,
-        por_categoria=por_categoria,
-        ultimos=ultimos,
-        ingresos_mes=ingresos_mes,
-        n_ingresos=n_ingresos,
-        mes_actual=f"{meses[hoy.month]} {hoy.year}",
+    # ---- 2. Flujo de caja por día: plata que ENTRA y que SALE ----
+    # Entra: ventas cobradas (no a crédito), abonos de cartera y otros ingresos.
+    # Sale: gastos. (Las compras a proveedores van aparte, en "Compras del período".)
+    dias = {}
+    d = desde
+    while d <= hasta:
+        dias[d.isoformat()] = {"entradas": 0.0, "salidas": 0.0}
+        d += timedelta(days=1)
+    consultas_entrada = (
+        "SELECT substr(fecha, 1, 10) AS dia, SUM(total) AS t FROM ventas "
+        "WHERE estado = 'completada' AND forma_pago <> 'credito' AND fecha >= ? AND fecha < ? GROUP BY dia",
+        "SELECT substr(fecha, 1, 10) AS dia, SUM(monto) AS t FROM cartera_abonos "
+        "WHERE anulado = 0 AND fecha >= ? AND fecha < ? GROUP BY dia",
+        "SELECT substr(fecha, 1, 10) AS dia, SUM(monto) AS t FROM otros_ingresos "
+        "WHERE activo = 1 AND fecha >= ? AND fecha < ? GROUP BY dia",
     )
+    for sql in consultas_entrada:
+        for f in db.execute(sql, (ini, fin)):
+            if f["dia"] in dias:
+                dias[f["dia"]]["entradas"] += f["t"] or 0
+    for f in db.execute("SELECT substr(fecha, 1, 10) AS dia, SUM(monto) AS t FROM gastos "
+                        "WHERE activo = 1 AND fecha >= ? AND fecha < ? GROUP BY dia", (ini, fin)):
+        if f["dia"] in dias:
+            dias[f["dia"]]["salidas"] += f["t"] or 0
+    saldo, flujo = 0.0, []
+    for dia, v in dias.items():
+        saldo += v["entradas"] - v["salidas"]
+        flujo.append({"dia": dia[8:10] + "/" + dia[5:7], "entradas": round(v["entradas"]),
+                      "salidas": round(v["salidas"]), "saldo": round(saldo)})
+
+    # ---- 3. Distribución de gastos por categoría (la "dona") ----
+    gastos_cat = [{"categoria": c["categoria"], "total": c["total"]} for c in act["gastos"]]
+
+    # ---- 4. Ventas vs. gastos de los últimos 6 meses ----
+    meses_barras = []
+    primero = desde.replace(day=1)
+    for i in range(5, -1, -1):
+        m_ini = primero
+        for _ in range(i):
+            m_ini = (m_ini - timedelta(days=1)).replace(day=1)
+        m_fin = (m_ini.replace(day=28) + timedelta(days=4)).replace(day=1)
+        v = db.execute("SELECT COALESCE(SUM(vl.subtotal), 0) FROM venta_lineas vl JOIN ventas v ON v.id = vl.venta_id "
+                       "WHERE v.estado = 'completada' AND v.fecha >= ? AND v.fecha < ?",
+                       (m_ini.isoformat(), m_fin.isoformat())).fetchone()[0]
+        g_ = db.execute("SELECT COALESCE(SUM(monto), 0) FROM gastos WHERE activo = 1 AND fecha >= ? AND fecha < ?",
+                        (m_ini.isoformat(), m_fin.isoformat())).fetchone()[0]
+        meses_barras.append({"mes": utilidades.MESES[m_ini.month][:3].capitalize(), "ventas": round(v), "gastos": round(g_)})
+
+    # ---- 5. Últimos movimientos (ventas, gastos, otros ingresos y abonos) ----
+    movimientos = [dict(f) for f in db.execute(
+        "SELECT * FROM ("
+        "  SELECT fecha, 'Venta ' || consecutivo AS concepto, 'Ventas' AS categoria, 'ingreso' AS tipo, total AS valor, "
+        "         forma_pago AS detalle FROM ventas WHERE estado = 'completada' "
+        "  UNION ALL SELECT g.fecha, g.descripcion, COALESCE(c.nombre, 'Gasto'), 'egreso', g.monto, g.forma_pago "
+        "         FROM gastos g LEFT JOIN catalogos c ON c.id = g.categoria_id WHERE g.activo = 1 "
+        "  UNION ALL SELECT i.fecha, i.descripcion, COALESCE(c.nombre, 'Otro ingreso'), 'ingreso', i.monto, i.forma_pago "
+        "         FROM otros_ingresos i LEFT JOIN catalogos c ON c.id = i.categoria_id WHERE i.activo = 1 "
+        "  UNION ALL SELECT a.fecha, 'Abono ' || a.numero || ' · ' || COALESCE(cl.nombre, ''), 'Cartera', 'ingreso', "
+        "         a.monto, a.forma_pago FROM cartera_abonos a LEFT JOIN clientes cl ON cl.id = a.cliente_id "
+        "         WHERE a.anulado = 0"
+        ") ORDER BY fecha DESC LIMIT 8")]
+
+    # ---- 6. Cartera, compras del período e IVA ----
+    car = cartera.resumen()
+    compras = db.execute(
+        "SELECT COALESCE(SUM(COALESCE(rl.costo_con_iva, rl.costo_unitario) * rl.cantidad_recibida), 0) AS total, "
+        "       COUNT(DISTINCT r.id) AS n "
+        "FROM recepcion_lineas rl JOIN recepciones r ON r.id = rl.recepcion_id "
+        "WHERE rl.resultado <> 'rechazado' AND r.fecha >= ? AND r.fecha < ?", (ini, fin)).fetchone()
+    declara = obtener_config().get("declara_iva") == "si"
+    iva = None
+    if declara:
+        # IVA cobrado en ventas − IVA pagado en compras = IVA estimado a pagar (orientativo)
+        pagado = db.execute(
+            "SELECT COALESCE(SUM((COALESCE(rl.costo_con_iva, 0) - COALESCE(rl.costo_sin_iva, 0)) * rl.cantidad_recibida), 0) "
+            "FROM recepcion_lineas rl JOIN recepciones r ON r.id = rl.recepcion_id "
+            "WHERE rl.resultado <> 'rechazado' AND r.fecha >= ? AND r.fecha < ?", (ini, fin)).fetchone()[0]
+        iva = {"cobrado": act["iva"], "pagado": pagado, "estimado": act["iva"] - pagado}
+
+    # ---- 7. Últimas sesiones de caja (con su diferencia en color) ----
+    cajas = [resumen_sesion(db, c) for c in db.execute("SELECT * FROM cajas ORDER BY abierta_en DESC, id DESC LIMIT 5").fetchall()]
+
+    # ---- 8. Alertas que tienen que ver con plata e inventario ----
+    claves = ("lotes_vencidos", "lotes_por_vencer", "agotados", "cartera_vencida", "caja_vieja", "precio_maximo")
+    alertas = [a for a in calcular_alertas(g.user["rol"]) if a["clave"] in claves][:4]
+
+    return {
+        "periodo": per, "actual": act, "tarjetas": tarjetas,
+        "flujo": flujo, "gastos_cat": gastos_cat, "meses_barras": meses_barras,
+        "movimientos": movimientos, "cartera": car,
+        "compras": {"total": compras["total"], "n": compras["n"]},
+        "declara_iva": declara, "iva": iva,
+        "cajas": cajas, "alertas": alertas,
+    }
+
+
+# ============================================================
+# Sesiones de caja (versión 1.1.6)
+# ============================================================
+
+@bp.route("/cajas")
+@login_required
+@roles_required("administrador", "director_tecnico")
+def cajas():
+    """Listado de todas las veces que se abrió la caja del POS, con su cuadre.
+
+    Filtros: ?desde=AAAA-MM-DD&hasta=AAAA-MM-DD&usuario=Nombre
+    """
+    from .cajas import resumen_sesion
+    db = get_db()
+    desde = request.args.get("desde", "").strip()
+    hasta = request.args.get("hasta", "").strip()
+    usuario = request.args.get("usuario", "").strip()
+    sql, params = "SELECT * FROM cajas WHERE 1 = 1", []
+    if desde:
+        sql += " AND abierta_en >= ?"
+        params.append(desde)
+    if hasta:
+        sql += " AND abierta_en < date(?, '+1 day')"
+        params.append(hasta)
+    if usuario:
+        sql += " AND (abierta_por_nombre = ? OR cerrada_por_nombre = ?)"
+        params += [usuario, usuario]
+    filas = [resumen_sesion(db, c) for c in db.execute(sql + " ORDER BY abierta_en DESC, id DESC LIMIT 300", params).fetchall()]
+    cerradas = [f for f in filas if f["diferencia"] is not None]
+    totales = {
+        "ventas": sum(f["total_ventas"] for f in filas),
+        "faltantes": sum(f["diferencia"] for f in cerradas if f["diferencia"] < 0),
+        "sobrantes": sum(f["diferencia"] for f in cerradas if f["diferencia"] > 0),
+        "por_forma": {k: sum(f["por_forma"][k] for f in filas)
+                      for k in ("efectivo", "nequi", "davivienda", "tarjeta", "credito")},
+    }
+    totales["neto"] = totales["faltantes"] + totales["sobrantes"]
+    usuarios = [r[0] for r in db.execute(
+        "SELECT DISTINCT nombre FROM (SELECT abierta_por_nombre AS nombre FROM cajas "
+        "UNION SELECT cerrada_por_nombre FROM cajas) WHERE nombre IS NOT NULL ORDER BY nombre COLLATE ES")]
+    return render_template("contabilidad/cajas.html", filas=filas, totales=totales, usuarios=usuarios,
+                           desde=desde, hasta=hasta, usuario=usuario)
+
+
+@bp.route("/cajas/<int:caja_id>")
+@login_required
+@roles_required("administrador", "director_tecnico")
+def caja_detalle(caja_id):
+    """Detalle de UNA sesión de caja: cuadre, ventas del turno y movimientos de efectivo."""
+    from .cajas import resumen_sesion
+    db = get_db()
+    caja = db.execute("SELECT * FROM cajas WHERE id = ?", (caja_id,)).fetchone()
+    if caja is None:
+        abort(404)
+    ventas = db.execute("SELECT * FROM ventas WHERE caja_id = ? ORDER BY id", (caja_id,)).fetchall()
+    return render_template("contabilidad/caja_detalle.html", r=resumen_sesion(db, caja), ventas=ventas)
 
 
 # ============================================================

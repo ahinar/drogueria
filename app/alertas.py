@@ -329,7 +329,7 @@ def calcular_alertas(rol):
     filas = db.execute(
         f"SELECT p.id, p.nombre, p.stock_minimo, {SQL_STOCK} AS stock FROM productos p "
         "WHERE p.activo = 1 AND p.stock_minimo > 0 "
-        f"AND {SQL_STOCK} <= p.stock_minimo ORDER BY stock, p.nombre COLLATE NOCASE",
+        f"AND {SQL_STOCK} <= p.stock_minimo ORDER BY stock, p.nombre COLLATE ES",
         {"hoy": hoy_txt}).fetchall()
     item_stock = lambda f: {
         "texto": f["nombre"],
@@ -382,7 +382,7 @@ def calcular_alertas(rol):
     if jefe:
         filas = db.execute(
             "SELECT id, nombre FROM productos WHERE activo = 1 "
-            "AND (precio_venta IS NULL OR precio_venta <= 0) ORDER BY nombre COLLATE NOCASE").fetchall()
+            "AND (precio_venta IS NULL OR precio_venta <= 0) ORDER BY nombre COLLATE ES").fetchall()
         agregar("sin_precio", "amarillo", "🏷️", "Productos sin precio de venta",
                 "No se pueden vender en el POS hasta ponerles precio.",
                 filas, lambda f: {"texto": f["nombre"], "detalle": "", "url": url_producto(f["id"])})

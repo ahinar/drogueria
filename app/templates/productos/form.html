@@ -322,20 +322,15 @@
     <fieldset class="ficha-tecnica">
       <legend>Datos técnicos (recepción técnica)</legend>
       <div class="ficha-fila ficha-fila-3">
-      <label>Principio activo
-        <div class="campo-con-boton">
-          <select name="principio_id" id="sel-principio">
-            <option value="">— Seleccionar —</option>
-            {% for p in principios %}
-            <option value="{{ p['id'] }}" {% if producto and producto['principio_id']==p['id'] %}selected{% endif %}>{{
-              p['nombre'] }}</option>
-            {% endfor %}
-          </select>
-          <button type="button" class="btn-mas" data-tipo="principio" data-select="sel-principio"
-            title="Crear nuevo principio activo">+</button>
-        </div>
+      {# Versión 1.1.6: VARIOS principios separados por comas ("acetaminofén, codeína"),
+         con sugerencias de los que ya existen (base.html → campoConComas).
+         Los que no existan se crean solos al guardar (app/principios.py). #}
+      <label class="campo-comas">Principio(s) activo(s)
+        <input type="text" name="principios" id="inp-principios" value="{{ principios_texto or '' }}"
+               placeholder="Ej: acetaminofén, codeína" spellcheck="false">
+        <small class="suave">Si es compuesto, sepáralos con comas. Vacío si no tiene (ej. un jabón).</small>
       </label>
-      <label>Laboratorio
+      <label>Laboratorio o marca
         <div class="campo-con-boton">
           <select name="laboratorio_id" id="sel-laboratorio">
             <option value="">— Seleccionar —</option>
@@ -476,6 +471,11 @@
     {% endif %}
   </div>
 </form>
+
+<script>
+  // Principios activos: sugerencias mientras se escribe (versión 1.1.6, ver base.html)
+  window.campoConComas(document.getElementById('inp-principios'), {{ principios|map(attribute='nombre')|list|tojson }});
+</script>
 
 {% if producto and not donde_se_usa %}
 <form id="form-eliminar-producto" method="post" action="{{ url_for('productos.eliminar', prod_id=producto['id']) }}">
@@ -888,7 +888,8 @@
           opcion.value = json.id;
           opcion.textContent = texto;
           if (json.cantidad) opcion.dataset.cantidad = json.cantidad;
-          sel.appendChild(opcion);
+          // En su lugar: alfabético, o por tamaño si es unidad (base.html → insertarOrdenado)
+          window.insertarOrdenado(sel, opcion, tipo === 'unidad');
         }
         const sel = document.getElementById(select);
         agregarOpcion(sel);

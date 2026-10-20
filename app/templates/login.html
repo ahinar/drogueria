@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/moderno.css') }}">
   {% if config_negocio and config_negocio.logo_ruta %}
     <link rel="icon" href="{{ url_for('static', filename=config_negocio.logo_ruta) }}">
+  {% else %}
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='img/app-192.png') }}">
   {% endif %}
   {# Para poder INSTALAR el programa como aplicación desde Chrome (app/instalable.py) #}
   <link rel="manifest" href="/manifest.webmanifest">

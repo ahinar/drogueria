@@ -134,7 +134,7 @@ def capacitaciones_atrasadas(hoy=None):
 
 
 def _personal_activo():
-    return get_db().execute("SELECT * FROM personal WHERE activo = 1 ORDER BY ocasional, nombre COLLATE NOCASE").fetchall()
+    return get_db().execute("SELECT * FROM personal WHERE activo = 1 ORDER BY ocasional, nombre COLLATE ES").fetchall()
 
 
 def _capacitador_por_defecto():
@@ -307,7 +307,7 @@ def editar(cap_id):
 def _asistentes(cap_id):
     return get_db().execute(
         "SELECT a.*, p.nombre, p.cargo, p.documento FROM capacitacion_asistentes a "
-        "JOIN personal p ON p.id = a.personal_id WHERE a.capacitacion_id = ? ORDER BY p.nombre COLLATE NOCASE",
+        "JOIN personal p ON p.id = a.personal_id WHERE a.capacitacion_id = ? ORDER BY p.nombre COLLATE ES",
         (cap_id,)).fetchall()
 
 
@@ -453,7 +453,7 @@ def personal():
         " AND substr(c.fecha_realizada, 1, 4) = :anio) AS horas, "
         "(SELECT COUNT(*) FROM capacitacion_asistentes a JOIN capacitaciones c ON c.id = a.capacitacion_id "
         " WHERE a.personal_id = p.id AND c.estado = 'realizada' AND c.tipo = 'induccion') AS inducciones "
-        "FROM personal p ORDER BY p.activo DESC, p.ocasional, p.nombre COLLATE NOCASE", {"anio": anio}).fetchall()
+        "FROM personal p ORDER BY p.activo DESC, p.ocasional, p.nombre COLLATE ES", {"anio": anio}).fetchall()
     usuarios = db.execute("SELECT id, nombre FROM usuarios WHERE activo = 1 ORDER BY nombre").fetchall()
     return render_template("capacitaciones/personal.html", personal=filas, usuarios=usuarios, anio=anio,
                            pestana="personal")

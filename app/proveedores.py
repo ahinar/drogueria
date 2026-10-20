@@ -35,7 +35,7 @@ def lista():
         params += [like, like, like, like]
     if cond:
         sql += " WHERE " + " AND ".join(cond)
-    sql += " ORDER BY razon_social COLLATE NOCASE"
+    sql += " ORDER BY razon_social COLLATE ES"
     filas = get_db().execute(sql, params).fetchall()
     return render_template("proveedores/lista.html", proveedores=filas, q=q, filtro=filtro)
 

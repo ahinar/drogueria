@@ -127,7 +127,7 @@ def lista():
     filas = get_db().execute(
         "SELECT e.*, z.nombre AS zona_nombre, " + ULTIMO_RESULTADO + " FROM equipos e "
         "LEFT JOIN zonas_temperatura z ON z.id = e.zona_id "
-        "ORDER BY e.activo DESC, e.nombre COLLATE NOCASE").fetchall()
+        "ORDER BY e.activo DESC, e.nombre COLLATE ES").fetchall()
     equipos = [_con_estado(f) for f in filas]
     # Zonas de temperatura activas que no tienen ningún equipo asignado
     sin_equipo = get_db().execute(

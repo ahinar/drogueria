@@ -192,7 +192,8 @@ class TestOtrosIngresosContabilidad(BaseLibre):
     def test_contabilidad_muestra_el_total_del_mes(self):
         self.nuevo()
         html = self.c.get("/contabilidad/").get_data(as_text=True)
-        self.assertIn("Otros ingresos de", html)
+        # Dashboard nuevo (1.1.6): sale en el resumen del período ("Otros ingresos  $150.000")
+        self.assertIn("Otros ingresos", html)
         self.assertIn("$150.000", html)
 
 

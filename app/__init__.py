@@ -44,6 +44,19 @@ def create_app(test_config=None):
     base_datos.init_db(app.config["DB_PATH"])
     base_datos.init_app(app)
 
+    # Versión 1.1.6: las cajas cerradas ANTES de esta versión también dejan su
+    # sobrante/faltante en la contabilidad (una sola vez cada una). Ver app/cajas.py
+    try:
+        from .cajas import registrar_pendientes
+        conexion = base_datos.conectar(app.config["DB_PATH"])
+        try:
+            registrar_pendientes(conexion)
+        finally:
+            conexion.close()
+    except Exception:                                # noqa: BLE001 (nunca debe impedir que abra el programa)
+        import logging
+        logging.exception("No se pudieron registrar las diferencias de caja pendientes")
+
     # Candado de red: solo entra quien viene de este PC, la red del local o
     # Tailscale; y se anota qué equipos están conectados. Ver app/equipo.py
     from . import equipo

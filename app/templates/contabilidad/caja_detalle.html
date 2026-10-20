@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block titulo %}Caja #{{ r.caja.numero }}{% endblock %}
+{% block contenido %}
+{#
+  DETALLE DE UNA SESIÓN DE CAJA (versión 1.1.6): el cuadre completo, las ventas del
+  turno y los movimientos de efectivo (entradas y salidas). Datos: cajas.resumen_sesion.
+#}
+{% set formas = {'efectivo': 'Efectivo', 'nequi': 'Nequi', 'davivienda': 'Davivienda', 'tarjeta': 'Tarjeta',
+                 'credito': 'Crédito', 'mixto': 'Mixto', 'transferencia': 'Transferencia'} %}
+<h1>💵 Caja #{{ r.caja.numero }} {% include "contabilidad/_diferencia.html" %}</h1>
+<p class="suave">Abrió {{ r.caja.abierta_por_nombre or '—' }} el {{ r.caja.abierta_en|fecha_hora }}
+  {% if r.caja.cerrada_en %}· cerró {{ r.caja.cerrada_por_nombre or '—' }} el {{ r.caja.cerrada_en|fecha_hora }}{% endif %}</p>
+<p><a href="{{ url_for('contabilidad.cajas') }}">← Volver a Sesiones de caja</a>
+  {% if r.caja.estado == 'cerrada' %} · <a href="{{ url_for('pos.cierre_confirmacion', caja_id=r.caja.id) }}">🖨️ Ver / imprimir el cierre</a>{% endif %}</p>
+
+<div class="dash-fila dash-fila-2">
+  <section class="dash-panel">
+    <h2>Cuadre del efectivo</h2>
+    <table class="dash-resumen">
+      <tr><td>Efectivo inicial</td><td class="der">{{ r.efectivo_inicial|pesos }}</td></tr>
+      <tr><td>+ Ventas en efectivo</td><td class="der">{{ r.por_forma.efectivo|pesos }}</td></tr>
+      <tr><td>+ Entradas de efectivo (ingresos, abonos)</td><td class="der">{{ r.ingresos_efectivo|pesos }}</td></tr>
+      <tr><td>− Salidas de efectivo (gastos, retiros)</td><td class="der">{{ r.salidas_efectivo|pesos }}</td></tr>
+      <tr class="dash-resumen-total"><td>= Efectivo esperado</td><td class="der">{{ r.esperado|pesos }}</td></tr>
+      <tr><td>Efectivo contado</td><td class="der">{{ r.contado|pesos if r.contado is not none else 'Caja abierta' }}</td></tr>
+      <tr class="dash-resumen-total"><td>Diferencia</td><td class="der">{% include "contabilidad/_diferencia.html" %}</td></tr>
+    </table>
+    {% if r.caja.diferencia_ingreso_id %}<p class="suave"><small>El sobrante quedó como <a href="{{ url_for('otros_ingresos.lista') }}">otro ingreso</a> («Sobrante de caja»).</small></p>{% endif %}
+    {% if r.caja.diferencia_gasto_id %}<p class="suave"><small>El faltante quedó como <a href="{{ url_for('contabilidad.gastos_lista') }}">gasto</a> («Faltante de caja»).</small></p>{% endif %}
+    {% if r.caja.observaciones_cierre %}<p><strong>Nota del cierre:</strong> {{ r.caja.observaciones_cierre }}</p>{% endif %}
+  </section>
+
+  <section class="dash-panel">
+    <h2>Ventas por forma de pago</h2>
+    <table class="dash-resumen">
+      {% for clave in ('efectivo', 'nequi', 'davivienda', 'tarjeta', 'credito') %}
+      <tr><td>{{ formas[clave] }}</td><td class="der">{{ r.por_forma[clave]|pesos }}</td></tr>
+      {% endfor %}
+      <tr class="dash-resumen-total"><td>Total ({{ r.n_ventas }} venta{{ 's' if r.n_ventas != 1 else '' }})</td>
+          <td class="der">{{ r.total_ventas|pesos }}</td></tr>
+    </table>
+    <p class="suave"><small>Las ventas con pago mixto se reparten en cada forma de pago.</small></p>
+  </section>
+</div>
+
+<section class="dash-panel">
+  <h2>Ventas del turno</h2>
+  <div class="tabla-scroll">
+  <table class="tabla dash-tabla">
+    <thead><tr><th>Venta</th><th>Hora</th><th>Cliente</th><th>Pago</th><th class="der">Total</th><th>Estado</th></tr></thead>
+    <tbody>
+    {% for v in ventas %}
+      <tr {% if v.estado == 'anulada' %}class="suave"{% endif %}>
+        <td><a href="{{ url_for('pos.comprobante', venta_id=v.id) }}" target="_blank">{{ v.consecutivo }}</a></td>
+        <td>{{ v.fecha[11:16] }}</td>
+        <td>{{ v.cliente_nombre }}</td>
+        <td>{{ formas.get(v.forma_pago, v.forma_pago) }}</td>
+        <td class="der">{{ v.total|pesos }}</td>
+        <td>{{ 'Anulada' if v.estado == 'anulada' else 'OK' }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="suave">No hubo ventas en este turno.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="dash-panel">
+  <h2>Movimientos de efectivo</h2>
+  <table class="tabla dash-tabla">
+    <thead><tr><th>Hora</th><th>Tipo</th><th>Motivo</th><th>Pago</th><th class="der">Monto</th></tr></thead>
+    <tbody>
+    {% for m in r.movimientos %}
+      <tr>
+        <td>{{ m.fecha|fecha_hora }}</td>
+        <td><span class="dash-etiqueta {{ 'ingreso' if m.tipo == 'ingreso' else 'egreso' }}">{{ 'Entrada' if m.tipo == 'ingreso' else 'Salida' }}</span></td>
+        <td>{{ m.motivo or '—' }}</td>
+        <td>{{ formas.get(m.forma_pago, m.forma_pago) }}</td>
+        <td class="der">{{ m.monto|pesos }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="suave">Sin entradas ni salidas de efectivo.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

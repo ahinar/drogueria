@@ -1305,6 +1305,51 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS idx_venta_pagos_venta ON venta_pagos (venta_id);
         """,
     ),
+    # Versión 1.1.6: VARIOS principios activos por producto ("Acetaminofén + Codeína").
+    # productos.principio_id se queda con el PRIMERO (lo viejo sigue funcionando).
+    # Se copian los principios que ya tenían los productos. Ver app/principios.py
+    (
+        35,
+        """
+        CREATE TABLE IF NOT EXISTS producto_principios (
+            producto_id INTEGER NOT NULL,
+            catalogo_id INTEGER NOT NULL,
+            orden INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (producto_id, catalogo_id),
+            FOREIGN KEY (producto_id) REFERENCES productos (id) ON DELETE CASCADE,
+            FOREIGN KEY (catalogo_id) REFERENCES catalogos (id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_producto_principios_cat ON producto_principios (catalogo_id);
+        INSERT OR IGNORE INTO producto_principios (producto_id, catalogo_id, orden)
+            SELECT id, principio_id, 0 FROM productos WHERE principio_id IS NOT NULL;
+        """,
+    ),
+    # Versión 1.1.6: IVA en la recepción técnica.
+    #   recepciones.precios_con_iva = 1 si los costos de esa factura ya traían el IVA.
+    #   recepcion_lineas: iva_tarifa (0, 5, 19...), costo_sin_iva y costo_con_iva por
+    #   unidad de inventario. costo_unitario sigue siendo el costo que se usa para la
+    #   UTILIDAD (con IVA si la droguería no declara IVA; sin IVA si lo declara).
+    (
+        36,
+        """
+        ALTER TABLE recepciones ADD COLUMN precios_con_iva INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE recepcion_lineas ADD COLUMN iva_tarifa REAL NOT NULL DEFAULT 0;
+        ALTER TABLE recepcion_lineas ADD COLUMN costo_sin_iva REAL;
+        ALTER TABLE recepcion_lineas ADD COLUMN costo_con_iva REAL;
+        UPDATE recepcion_lineas SET costo_sin_iva = costo_unitario, costo_con_iva = costo_unitario;
+        """,
+    ),
+    # Versión 1.1.6: el sobrante o faltante de cada caja queda en la contabilidad
+    # (sobrante = otro ingreso; faltante = gasto). diferencia_revisada = 1 cuando
+    # ya se registró, para no hacerlo dos veces. Ver app/cajas.py
+    (
+        37,
+        """
+        ALTER TABLE cajas ADD COLUMN diferencia_revisada INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE cajas ADD COLUMN diferencia_gasto_id INTEGER;
+        ALTER TABLE cajas ADD COLUMN diferencia_ingreso_id INTEGER;
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:
@@ -1313,6 +1358,9 @@ def conectar(ruta) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA synchronous = FULL")
+    # Orden en español ("ES"): las tildes no mandan al final (ver app/nombres.py)
+    from .nombres import registrar_en
+    registrar_en(conn)
     return conn
 
 def _asegurar_columnas_productos(conn):

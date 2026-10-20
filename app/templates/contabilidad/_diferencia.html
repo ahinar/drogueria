@@ -1,0 +1,11 @@
+{#
+  Diferencia de una sesión de caja, con su color (versión 1.1.6). Ver app/cajas.py
+    azul  = cuadró           (texto "Cuadró")
+    rojo  = faltó plata      (con signo −)
+    verde = sobró plata      (con signo +)
+  Espera una variable "r" con r.diferencia y r.clase (cajas.resumen_sesion).
+#}
+{% if r.diferencia is none %}<span class="dif dif-abierta">Abierta</span>
+{% elif r.clase == 'cuadra' %}<span class="dif dif-cuadra">✔ Cuadró</span>
+{% elif r.clase == 'falta' %}<span class="dif dif-falta">−{{ (r.diferencia|abs)|pesos }}</span>
+{% else %}<span class="dif dif-sobra">+{{ r.diferencia|pesos }}</span>{% endif %}

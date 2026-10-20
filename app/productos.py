@@ -50,10 +50,10 @@ def _usos_de(prod_id):
 
 
 def _unidades():
-    return get_db().execute(
-        "SELECT id, nombre, cantidad FROM unidades_medida WHERE activo = 1 "
-        "ORDER BY cantidad, nombre"
-    ).fetchall()
+    # "Unidad" primero y después por tamaño (Sello x 4, Caja x 10, Sello x 10...): app/nombres.py
+    from .nombres import orden_unidades
+    return orden_unidades(get_db().execute(
+        "SELECT id, nombre, cantidad FROM unidades_medida WHERE activo = 1").fetchall())
 
 
 def _id_unidad_basica():
@@ -110,13 +110,18 @@ def _vecinos(prod_id):
     Devuelve {anterior, siguiente, posicion, total}.
     """
     ids = [f["id"] for f in get_db().execute(
-        "SELECT id FROM productos WHERE activo = 1 ORDER BY nombre COLLATE NOCASE, id").fetchall()]
+        "SELECT id FROM productos WHERE activo = 1 ORDER BY nombre COLLATE ES, id").fetchall()]
     if prod_id not in ids:
         return None
     i = ids.index(prod_id)
     return {"anterior": ids[i - 1] if i > 0 else None,
             "siguiente": ids[i + 1] if i + 1 < len(ids) else None,
             "posicion": i + 1, "total": len(ids)}
+
+
+def _texto_principios(prod_id):
+    from .principios import texto_de
+    return texto_de(get_db(), prod_id)
 
 
 def _contexto_formulario(producto=None):
@@ -129,6 +134,9 @@ def _contexto_formulario(producto=None):
         "base_grande": _base_grande(producto),
         "formas": cat_opciones("forma_farmaceutica"),
         "principios": cat_opciones("principio"),
+        # Lo que va escrito en el campo de principios: "Acetaminofén, Codeína" (versión 1.1.6)
+        "principios_texto": (request.form.get("principios") if request.method == "POST"
+                             else (_texto_principios(producto["id"]) if producto else "")),
         "laboratorios": cat_opciones("laboratorio"),
         "categorias": cat_opciones("categoria"),
         "usos": cat_opciones("uso"),
@@ -164,7 +172,8 @@ def lista():
         "  (SELECT GROUP_CONCAT(c.nombre, ', ') "
         "   FROM productos_categorias pc JOIN catalogos c ON c.id = pc.catalogo_id "
         "   WHERE pc.producto_id = p.id) AS categorias_txt, "
-        "  (SELECT nombre FROM catalogos WHERE id = p.principio_id) AS principio_nombre, "
+        # Todos los principios activos unidos con "+" (versión 1.1.6, ver app/principios.py)
+        "COALESCE((SELECT GROUP_CONCAT(c.nombre, ' + ') FROM (SELECT c2.nombre FROM producto_principios pp2 JOIN catalogos c2 ON c2.id = pp2.catalogo_id WHERE pp2.producto_id = p.id ORDER BY pp2.orden) c), (SELECT nombre FROM catalogos WHERE id = p.principio_id)) AS principio_nombre, "
         "  (SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS laboratorio_nombre, "
         "  (SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre "
         "FROM productos p"
@@ -264,6 +273,9 @@ def _leer_formulario():
         "descripcion": request.form.get("descripcion", "").strip() or None,
         "grupo": request.form.get("grupo", "").strip() or None,
         "principio_id": cat("principio_id"),
+        # Versión 1.1.6: varios principios escritos con comas ("acetaminofén, codeína").
+        # None = el formulario no trae ese campo (se usa principio_id como antes).
+        "principios_texto": request.form.get("principios"),
         "laboratorio_id": cat("laboratorio_id"),
         "forma_farmaceutica_id": cat("forma_farmaceutica_id"),
         "unidad_venta_id": cat("unidad_venta_id"),
@@ -423,6 +435,15 @@ def _validar(datos, producto_id=None):
     return errores
 
 
+def _guardar_principios(db, prod_id, datos):
+    """Principios activos del producto (varios, separados por comas). Ver app/principios.py"""
+    from . import principios
+    if datos.get("principios_texto") is not None:
+        principios.guardar(db, prod_id, datos["principios_texto"])
+    else:
+        principios.guardar_ids(db, prod_id, [datos["principio_id"]] if datos["principio_id"] else [])
+
+
 def _guardar_relaciones(db, prod_id, categorias, usos):
     db.execute("DELETE FROM productos_categorias WHERE producto_id = ?", (prod_id,))
     db.execute("DELETE FROM productos_usos WHERE producto_id = ?", (prod_id,))
@@ -464,6 +485,7 @@ def nuevo():
                 db.execute("UPDATE productos SET venta_defecto_unidad_id = ?, vende_suelto = ? WHERE id = ?",
                            (datos["venta_defecto_unidad_id"], datos["vende_suelto"], pid))
                 _guardar_relaciones(db, pid, datos["categorias"], datos["usos"])
+                _guardar_principios(db, pid, datos)
                 texto_pres = pres.guardar(db, pid, datos["presentaciones"], ahora())
 
                 # Subir imagen si viene
@@ -519,6 +541,7 @@ def editar(prod_id):
                 db.execute("UPDATE productos SET venta_defecto_unidad_id = ?, vende_suelto = ? WHERE id = ?",
                            (datos["venta_defecto_unidad_id"], datos["vende_suelto"], prod_id))
                 _guardar_relaciones(db, prod_id, datos["categorias"], datos["usos"])
+                _guardar_principios(db, prod_id, datos)
                 texto_pres = pres.guardar(db, prod_id, datos["presentaciones"], ahora())
 
                 # Manejar imagen
@@ -735,8 +758,8 @@ def _exportar_excel(ids):
     marcas = ",".join("?" * len(ids))
     for p in db.execute(
             "SELECT p.*, (SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) lab, "
-            "(SELECT nombre FROM catalogos WHERE id = p.principio_id) pa FROM productos p "
-            f"WHERE p.id IN ({marcas}) ORDER BY p.nombre COLLATE NOCASE", ids):
+            "COALESCE((SELECT GROUP_CONCAT(c.nombre, ' + ') FROM (SELECT c2.nombre FROM producto_principios pp2 JOIN catalogos c2 ON c2.id = pp2.catalogo_id WHERE pp2.producto_id = p.id ORDER BY pp2.orden) c), (SELECT nombre FROM catalogos WHERE id = p.principio_id)) pa FROM productos p "
+            f"WHERE p.id IN ({marcas}) ORDER BY p.nombre COLLATE ES", ids):
         v = venta.get(p["id"], {})
         ws.append([p["codigo"], p["codigo_barras"], p["nombre"], p["concentracion"], p["lab"], p["pa"],
                    v.get("por"), v.get("precio", p["precio_venta"]), p["precio_compra"], v.get("existencias"),

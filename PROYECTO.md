@@ -498,6 +498,36 @@ Notas:
 | 1.1.3 | 2026-10-18 | Tipo de orden del cajón (estándar / pulso largo / tiempo real DLE DC4); la alarma registra sin salir de la página; código de barras en el alta rápida de la recepción; búsqueda por palabras con LABORATORIO en todo el programa; total de cada línea en la recepción; producto creado en la recepción queda excluido de IVA; el buscador de la recepción ya no deja por fuera los que «contienen» lo escrito; laboratorios al día y «+» en «Completar datos»; cantidad, UdM y costo obligatorios; PAGO MIXTO en el POS |
 | 1.1.4 | 2026-10-18 | Todo lo de 1.1.3 (su instalador no se armó) + fechas en líneas agregadas de la recepción (28 → 2028, calendario) + prueba de limpieza que fallaba los lunes |
 | 1.1.5 | 2026-10-19 | POS como el programa anterior: cursor en el producto agregado (números = cantidad, Suprimir con Deshacer), búsqueda que no se borra con X, lector reconocido por velocidad, numerito en las tarjetas, búsqueda más rápida |
+| 1.1.6 | 2026-10-19 | (Junta lo planeado para 1.1.6 y 1.1.7) Clic en el buscador del POS selecciona todo; ícono propio en la barra de tareas; varios principios activos con comas; catálogos en orden alfabético (tildes bien) y UdM por tamaño; laboratorio opcional («Laboratorio o marca»); sin repetidos + «Buscar repetidos»; IVA por línea en la recepción y «¿La droguería declara IVA?»; dashboard contable nuevo; Sesiones de caja (azul / rojo − / verde +) y sobrantes/faltantes automáticos en la contabilidad |
+
+### Versión 1.1.6 — catálogos, IVA, dashboard contable y sesiones de caja (2026-10-19)
+- Fernando pidió juntar las listas de 1.1.6 y 1.1.7 en una sola versión. Pruebas: `tests/test_version_116.py`.
+- **POS**: clic en el buscador (o F3) selecciona todo el texto (`pos_carrito.js`, mousedown → focus + select).
+- **Ícono en la barra de tareas** (`icono_ventana.py`, llamado desde `escritorio.py`): un hilo busca las ventanas
+  Chrome_WidgetWin_1 con «· Fervifarma» en el título (o «Comprobante/Recibo/Cotización») y les pone
+  AppUserModelID `Fervifarma.Programa` + RelaunchCommand/Icon (SHGetPropertyStoreForWindow) y WM_SETICON (lo
+  repone si Chrome lo cambia). El instalador pone el mismo AppUserModelID en los accesos directos. Usa WinDLL
+  propios (no toca `windll` del cajón). Favicon por defecto: `img/app-192.png` (antes 💊 en SVG).
+- **Nombres** (`app/nombres.py`): `clave()` = huella sin mayúsculas/tildes/espacios/signos para detectar
+  repetidos; collation SQLite `ES` (todos los `ORDER BY ... COLLATE ES`) y función `PLANO()` para buscar sin
+  tildes («codeina» encuentra «Codeína»). `orden_unidades`: «Unidad» primero, luego por cantidad, luego nombre.
+- **Sin repetidos**: catálogos, unidades, importador y altas rápidas devuelven el existente. Pantalla
+  `/admin/catalogos/repetidos` une los ya repetidos (reasigna productos, gastos, uniones; reactiva si hace falta).
+- **Varios principios activos** (`app/principios.py`, tabla `producto_principios`, migración 35): campo de texto
+  con comas y sugerencias (`campoConComas` en base.html) en el producto, «Completar datos» de la recepción e
+  importador. `principio_id` queda con el primero (compatibilidad). La búsqueda mira todos.
+- **Laboratorio opcional** en las altas rápidas (recepción y conteo); se llama «Laboratorio o marca».
+- **IVA en la recepción** (migración 36): IVA % por línea (sale de la ficha), casilla «los precios ya incluyen
+  IVA», Subtotal + IVA = Total. Se guardan `costo_sin_iva` y `costo_con_iva`; `costo_unitario` (el de la
+  utilidad) = sin IVA si Configuración → «¿La droguería declara IVA?» = Sí; con IVA si = No (por defecto).
+- **Dashboard contable** (`contabilidad._datos_dashboard`, reutiliza `utilidades.calcular`): 4 tarjetas con
+  variación contra el período anterior, flujo de caja, dona de gastos, acciones rápidas, últimos movimientos,
+  ventas vs. gastos 6 meses, cartera, compras, últimas cajas, alertas; tarjeta de IVA solo si declara IVA.
+- **Sesiones de caja** (`app/cajas.py`, `/contabilidad/cajas` y detalle): diferencia azul (cuadró), roja con −
+  (faltó), verde con + (sobró). Al cerrar caja, `registrar_diferencia` apunta el sobrante como otro ingreso
+  («Sobrante de caja») o el faltante como gasto («Faltante de caja"), sin mover plata (el contado ya volvió a
+  caja menor). `registrar_pendientes` lo hace al arrancar con las cajas cerradas antes (migración 37,
+  `cajas.diferencia_revisada` evita repetir).
 
 ### Versión 1.1.5 — POS como en el programa anterior (2026-10-19)
 - Pedido de Fernando y su esposa (videos del mostrador comparando con el programa anterior). Todo en

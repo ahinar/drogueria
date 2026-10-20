@@ -319,10 +319,9 @@ def _obtener_id_catalogo(db, tipo, nombre, cache):
     clave = (tipo, nombre.strip().lower())
     if clave in cache:
         return cache[clave]
-    fila = db.execute(
-        "SELECT id FROM catalogos WHERE tipo = ? AND LOWER(TRIM(nombre)) = LOWER(TRIM(?)) LIMIT 1",
-        (tipo, nombre.strip()),
-    ).fetchone()
+    # Mismo nombre aunque cambien mayúsculas, tildes o espacios (ver app/nombres.py)
+    from .nombres import catalogo_igual
+    fila = catalogo_igual(db, tipo, nombre.strip())
     if fila:
         cache[clave] = fila["id"]
         return fila["id"]
@@ -344,7 +343,8 @@ def _unidad_id(db, nombre, cache):
     clave = ("unidad", nombre.lower())
     if clave in cache:
         return cache[clave]
-    fila = db.execute("SELECT id FROM unidades_medida WHERE nombre = ? COLLATE NOCASE LIMIT 1", (nombre,)).fetchone()
+    from .nombres import unidad_igual
+    fila = unidad_igual(db, nombre)          # "Caja x12" = "CAJA X 12" (ver app/nombres.py)
     if fila is None:
         m = re.search(r"x\s*(\d+(?:[.,]\d+)?)\s*$", nombre, re.I)
         cantidad = float(m.group(1).replace(",", ".")) if m else 1
@@ -661,7 +661,16 @@ def confirmar():
             continue
 
         try:
-            principio_id = _obtener_id_catalogo(db, "principio", fila.get(mapa.get("principio", ""), ""), cache_cat)
+            # Versión 1.1.6: la celda puede traer VARIOS principios con comas
+            # ("acetaminofén, codeína"). El primero va en principio_id y todos
+            # en producto_principios (ver app/principios.py, más abajo).
+            from .principios import partir
+            ids_principios = []
+            for nombre_pa in partir(fila.get(mapa.get("principio", ""), "")):
+                cid = _obtener_id_catalogo(db, "principio", nombre_pa, cache_cat)
+                if cid and cid not in ids_principios:
+                    ids_principios.append(cid)
+            principio_id = ids_principios[0] if ids_principios else None
             laboratorio_id = _obtener_id_catalogo(db, "laboratorio", fila.get(mapa.get("laboratorio", ""), ""), cache_cat)
             forma_id = _obtener_id_catalogo(db, "forma_farmaceutica", fila.get(mapa.get("forma_farmaceutica", ""), ""), cache_cat)
 
@@ -720,6 +729,9 @@ def confirmar():
                  ahora()),
             )
             pid = cur.lastrowid
+            if ids_principios:
+                from .principios import guardar_ids
+                guardar_ids(db, pid, ids_principios)
 
             # Presentaciones (Sobre x 10, Caja x 100) y cuál vende el POS por defecto
             vender_como = (fila.get(mapa.get("vender_como", ""), "") or "").strip().lower()

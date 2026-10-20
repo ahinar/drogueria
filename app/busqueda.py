@@ -38,8 +38,8 @@ CÓMO SE USA (desde otro archivo):
 SQL_LAB = "(SELECT nombre FROM catalogos WHERE id = p.laboratorio_id)"
 
 # Orden: primero por nombre, después por laboratorio, después por concentración.
-ORDEN_NOMBRE_LAB = (f"p.nombre COLLATE NOCASE, {SQL_LAB} COLLATE NOCASE, "
-                    "p.concentracion COLLATE NOCASE")
+ORDEN_NOMBRE_LAB = (f"p.nombre COLLATE ES, {SQL_LAB} COLLATE ES, "
+                    "p.concentracion COLLATE ES")
 
 
 def palabras(q):
@@ -60,12 +60,18 @@ def condicion_palabras(q, extra=()):
     sql, params = "", []
     campos = ["p.nombre", "p.codigo", "p.codigo_barras", "p.concentracion",
               "p.principio_activo"] + list(extra)
+    from .nombres import plano
     for palabra in palabras(q):
-        like = f"%{palabra}%"
-        partes = [f"{c} LIKE ?" for c in campos]
+        # Versión 1.1.6: sin importar TILDES: "codeina" encuentra "Codeína".
+        # PLANO(...) quita tildes y mayúsculas en la base (ver app/nombres.py).
+        like = f"%{plano(palabra)}%"
+        partes = [f"PLANO({c}) LIKE ?" for c in campos]
         # Laboratorio y principio activo están en el catálogo (otra tabla)
-        partes.append("EXISTS (SELECT 1 FROM catalogos cb WHERE cb.id = p.laboratorio_id AND cb.nombre LIKE ?)")
-        partes.append("EXISTS (SELECT 1 FROM catalogos cb WHERE cb.id = p.principio_id AND cb.nombre LIKE ?)")
+        partes.append("EXISTS (SELECT 1 FROM catalogos cb WHERE cb.id = p.laboratorio_id AND PLANO(cb.nombre) LIKE ?)")
+        partes.append("EXISTS (SELECT 1 FROM catalogos cb WHERE cb.id = p.principio_id AND PLANO(cb.nombre) LIKE ?)")
+        # Versión 1.1.6: cualquiera de sus principios activos (compuestos)
+        partes.append("EXISTS (SELECT 1 FROM producto_principios pb JOIN catalogos cb ON cb.id = pb.catalogo_id "
+                      "WHERE pb.producto_id = p.id AND PLANO(cb.nombre) LIKE ?)")
         sql += " AND (" + " OR ".join(partes) + ")"
-        params += [like] * (len(campos) + 2)
+        params += [like] * (len(campos) + 3)
     return sql, params

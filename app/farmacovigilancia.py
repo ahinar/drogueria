@@ -110,7 +110,7 @@ def _siguiente_numero(db):
 def _productos():
     """Para la lista de sugerencias del campo medicamento."""
     return get_db().execute("SELECT id, codigo, nombre FROM productos WHERE activo = 1 "
-                            "ORDER BY nombre COLLATE NOCASE").fetchall()
+                            "ORDER BY nombre COLLATE ES").fetchall()
 
 
 def _leer_form():

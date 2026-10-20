@@ -18,11 +18,12 @@ def _obtener(uid):
 
 
 def _todas():
-    return get_db().execute(
+    # Activas primero; dentro, "Unidad" y después por tamaño (ver app/nombres.py)
+    from .nombres import llave_unidad
+    filas = get_db().execute(
         "SELECT u.*, r.nombre AS ref_nombre "
-        "FROM unidades_medida u LEFT JOIN unidades_medida r ON r.id = u.referencia_id "
-        "ORDER BY u.activo DESC, u.cantidad, u.nombre"
-    ).fetchall()
+        "FROM unidades_medida u LEFT JOIN unidades_medida r ON r.id = u.referencia_id").fetchall()
+    return sorted(filas, key=lambda u: (0 if u["activo"] else 1,) + llave_unidad(u["nombre"], u["cantidad"]))
 
 
 @bp.route("/")
@@ -50,6 +51,12 @@ def _validar(datos, editar_id=None):
         errores.append("La cantidad debe ser mayor a cero.")
     if editar_id is not None and datos["referencia_id"] == editar_id:
         errores.append("La unidad no puede referenciarse a sí misma.")
+    # Sin repetidas: "Caja x12" = "CAJA X 12" (ver app/nombres.py)
+    if datos["nombre"]:
+        from .nombres import unidad_igual
+        igual = unidad_igual(get_db(), datos["nombre"], excepto_id=editar_id)
+        if igual:
+            errores.append(f"Ya existe la unidad «{igual['nombre']}». No se creó otra.")
     return errores
 
 
@@ -156,6 +163,12 @@ def api_crear():
     referencia_id = int(ref) if ref.isdigit() else None
 
     db = get_db()
+    # Si ya existe escrita de otra forma ("Caja x12" / "CAJA X 12"), se devuelve la que hay
+    from .nombres import unidad_igual
+    igual = unidad_igual(db, nombre)
+    if igual:
+        return jsonify({"ok": True, "id": igual["id"], "nombre": igual["nombre"],
+                        "cantidad": igual["cantidad"], "existente": True})
     try:
         cur = db.execute(
             "INSERT INTO unidades_medida (nombre, cantidad, referencia_id, activo, creado_en) "

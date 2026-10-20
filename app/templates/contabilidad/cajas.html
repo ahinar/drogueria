@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block titulo %}Sesiones de caja{% endblock %}
+{% block contenido %}
+{#
+  SESIONES DE CAJA (versión 1.1.6): una fila por cada vez que se abrió la caja del POS.
+  La diferencia (contado − esperado) sale en AZUL si cuadró, ROJO con − si faltó
+  y VERDE con + si sobró (ver contabilidad/_diferencia.html y app/cajas.py).
+  Al tocar una fila se abre el detalle de esa caja.
+#}
+<h1>💵 Sesiones de caja</h1>
+<p class="suave">Cada vez que se abrió y se cerró la caja del POS: ventas del turno, efectivo esperado contra contado y
+  la diferencia. Los sobrantes quedan solos como <strong>otro ingreso</strong> y los faltantes como <strong>gasto</strong>
+  («Sobrante de caja» / «Faltante de caja»), así la utilidad refleja la plata real.</p>
+<p><a href="{{ url_for('contabilidad.index') }}">← Volver a Contabilidad</a></p>
+
+<form method="get" class="filtros-linea">
+  <label>Desde <input type="date" name="desde" value="{{ desde }}"></label>
+  <label>Hasta <input type="date" name="hasta" value="{{ hasta }}"></label>
+  <label>Persona
+    <select name="usuario">
+      <option value="">Todas</option>
+      {% for u in usuarios %}<option value="{{ u }}" {% if u == usuario %}selected{% endif %}>{{ u }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="boton">Filtrar</button>
+  {% if desde or hasta or usuario %}<a class="boton secundario" href="{{ url_for('contabilidad.cajas') }}">Quitar filtros</a>{% endif %}
+</form>
+
+<div class="dash-mini">
+  <div class="dash-mini-tarjeta"><span>Ventas de estas cajas</span><strong>{{ totales.ventas|pesos }}</strong>
+    <small>Efectivo {{ totales.por_forma.efectivo|pesos }} · Nequi {{ totales.por_forma.nequi|pesos }} ·
+      Davivienda {{ totales.por_forma.davivienda|pesos }} · Tarjeta {{ totales.por_forma.tarjeta|pesos }}
+      {% if totales.por_forma.credito %}· Crédito {{ totales.por_forma.credito|pesos }}{% endif %}</small></div>
+  <div class="dash-mini-tarjeta"><span>Faltantes</span><strong class="dif-falta">{% if totales.faltantes %}−{{ (totales.faltantes|abs)|pesos }}{% else %}$0{% endif %}</strong>
+    <small>quedan como gasto</small></div>
+  <div class="dash-mini-tarjeta"><span>Sobrantes</span><strong class="dif-sobra">{% if totales.sobrantes %}+{{ totales.sobrantes|pesos }}{% else %}$0{% endif %}</strong>
+    <small>quedan como otro ingreso</small></div>
+</div>
+
+<div class="tabla-scroll">
+<table class="tabla dash-tabla tabla-cajas">
+  <thead>
+    <tr><th>Caja</th><th>Apertura</th><th>Cierre</th><th class="der">Inicial</th><th class="der">Ventas</th>
+        <th class="der">Efectivo</th><th class="der">Nequi</th><th class="der">Davivienda</th><th class="der">Tarjeta</th>
+        <th class="der">Esperado</th><th class="der">Contado</th><th class="der">Diferencia</th></tr>
+  </thead>
+  <tbody>
+  {% for r in filas %}
+    <tr class="fila-clic" onclick="location.href='{{ url_for('contabilidad.caja_detalle', caja_id=r.caja.id) }}'">
+      <td><a href="{{ url_for('contabilidad.caja_detalle', caja_id=r.caja.id) }}"><strong>#{{ r.caja.numero }}</strong></a></td>
+      <td>{{ r.caja.abierta_en|fecha_hora }}<br><small class="suave">{{ r.caja.abierta_por_nombre or '—' }}</small></td>
+      <td>{% if r.caja.cerrada_en %}{{ r.caja.cerrada_en|fecha_hora }}<br><small class="suave">{{ r.caja.cerrada_por_nombre or '—' }}</small>
+          {% else %}<span class="dif dif-abierta">Abierta</span>{% endif %}</td>
+      <td class="der">{{ r.efectivo_inicial|pesos }}</td>
+      <td class="der"><strong>{{ r.total_ventas|pesos }}</strong><br><small class="suave">{{ r.n_ventas }} venta(s)</small></td>
+      <td class="der">{{ r.por_forma.efectivo|pesos }}</td>
+      <td class="der">{{ r.por_forma.nequi|pesos }}</td>
+      <td class="der">{{ r.por_forma.davivienda|pesos }}</td>
+      <td class="der">{{ r.por_forma.tarjeta|pesos }}</td>
+      <td class="der">{{ r.esperado|pesos }}</td>
+      <td class="der">{{ r.contado|pesos if r.contado is not none else '—' }}</td>
+      <td class="der">{% include "contabilidad/_diferencia.html" %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="12" class="suave">No hay sesiones de caja con esos filtros.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

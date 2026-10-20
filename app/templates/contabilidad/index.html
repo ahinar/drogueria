@@ -1,129 +1,262 @@
 {% extends "base.html" %}
 {% block titulo %}Contabilidad{% endblock %}
 {% block contenido %}
-<h1><span class="ico-emoji">💰</span> Contabilidad</h1>
-<p class="suave">Resumen de gastos y accesos a los módulos contables. Los informes avanzados llegarán en las siguientes fases.</p>
+{#
+  DASHBOARD DE CONTABILIDAD (versión 1.1.6)
+  -----------------------------------------
+  Los datos los arma contabilidad._datos_dashboard (todo es real, del programa).
+  Partes, de arriba hacia abajo:
+    1. Título y selector del mes
+    2. Cuatro tarjetas: ingresos, costo, gastos y utilidad (comparadas con el mes anterior)
+    3. Flujo de caja por día · Distribución de gastos · Acciones rápidas
+    4. Últimos movimientos · Ventas vs. gastos · Cartera / compras / IVA
+    5. Últimas sesiones de caja · Alertas
+  Los gráficos usan Chart.js (static/js/chart.umd.min.js, sin internet).
+#}
+{% from "_iconos.html" import ico %}
+{% set formas = {'efectivo': 'Efectivo', 'nequi': 'Nequi', 'davivienda': 'Davivienda', 'tarjeta': 'Tarjeta',
+                 'credito': 'Crédito', 'mixto': 'Mixto', 'transferencia': 'Transferencia'} %}
 
-<!-- ===== KPI ===== -->
-<div class="tarjetas-kpi" style="margin-bottom:1.4rem">
-  <div class="kpi-card kpi-alerta">
-    <div class="kpi-icono">💸</div>
-    <div class="kpi-info">
-      <span class="kpi-titulo">Gastos de {{ mes_actual }}</span>
-      <strong class="kpi-valor kpi-valor-alerta">${{ '{:,.0f}'.format(total_mes).replace(',', '.') }}</strong>
-      <span class="kpi-detalle">{{ n_gastos }} registro{{ 's' if n_gastos != 1 else '' }}</span>
-    </div>
+{# ===== 1. Título y mes ===== #}
+<div class="dash-cabecera">
+  <div>
+    <p class="dash-modulo">{{ ico("libreta", "📒") }} Módulo de contabilidad</p>
+    <h1>Dashboard contable</h1>
+    <p class="suave">Resumen de la plata de la droguería · {{ d.periodo.actual.texto }}
+      <small>(comparado con {{ d.periodo.anterior.texto }})</small></p>
   </div>
-  <div class="kpi-card kpi-pendiente">
-    <div class="kpi-icono">📊</div>
-    <div class="kpi-info">
-      <span class="kpi-titulo">Mes anterior</span>
-      <strong class="kpi-valor">${{ '{:,.0f}'.format(total_mes_anterior).replace(',', '.') }}</strong>
-      <span class="kpi-detalle">
-        {% if total_mes_anterior > 0 %}
-          {% set dif = ((total_mes - total_mes_anterior) / total_mes_anterior * 100) %}
-          {% if dif > 0 %}<span style="color:#b3261e">▲ +{{ '%.1f'|format(dif) }}%</span>{% else %}<span style="color:#0d6b3d">▼ {{ '%.1f'|format(dif) }}%</span>{% endif %}
-        {% else %}Sin datos{% endif %}
-      </span>
-    </div>
-  </div>
+  <form method="get" class="dash-periodo">
+    <label>Período
+      <select name="mes" onchange="this.form.submit()">
+        {% for valor, texto in meses %}<option value="{{ valor }}" {% if valor == mes %}selected{% endif %}>{{ texto|capitalize }}</option>{% endfor %}
+      </select>
+    </label>
+  </form>
 </div>
 
-<!-- ===== Otros ingresos del mes ===== -->
-<div class="tarjetas-kpi" style="margin:-.6rem 0 1.4rem">
-  <a class="kpi-card" href="{{ url_for('otros_ingresos.lista') }}" style="text-decoration:none;color:inherit">
-    <div class="kpi-icono">💰</div>
-    <div class="kpi-info">
-      <span class="kpi-titulo">Otros ingresos de {{ mes_actual }}</span>
-      <strong class="kpi-valor">{{ ingresos_mes|pesos }}</strong>
-      <span class="kpi-detalle">{{ n_ingresos }} registro{{ 's' if n_ingresos != 1 else '' }} · recargas, arriendo…</span>
-    </div>
+{# ===== 2. Las cuatro tarjetas ===== #}
+<div class="dash-tarjetas">
+  {% for t in d.tarjetas %}
+  <a class="dash-tarjeta dash-{{ t.clave }}" href="{{ t.url }}">
+    <span class="dash-tarjeta-ico">{{ {'ingresos': '💰', 'costo': '🛒', 'gastos': '🧾', 'utilidad': '📈'}[t.clave] }}</span>
+    <span class="dash-tarjeta-titulo">{{ t.titulo }}</span>
+    <strong class="dash-tarjeta-valor {% if t.valor < 0 %}negativo{% endif %}">{{ t.valor|pesos }}</strong>
+    {% if t.var is not none %}
+      {# Verde si el cambio es bueno (sube la venta o baja el gasto), rojo si es malo #}
+      {% set bueno = (t.var >= 0) == t.bueno_si_sube %}
+      <span class="dash-var {{ 'bien' if bueno else 'mal' }}">{{ '▲' if t.var >= 0 else '▼' }}
+        {{ '%.1f'|format(t.var|abs)|replace('.', ',') }} % <small>vs. período anterior</small></span>
+    {% else %}
+      <span class="dash-var"><small>sin datos del período anterior</small></span>
+    {% endif %}
+    <span class="dash-tarjeta-detalle">{{ t.detalle }}</span>
+    <span class="dash-ver">Ver detalle →</span>
   </a>
+  {% endfor %}
 </div>
-
-<!-- ===== Acciones ===== -->
-<div class="rejilla" style="margin-bottom:1.5rem">
-  <a class="modulo" href="{{ url_for('contabilidad.gastos_lista') }}">
-    <h2><span class="ico-emoji">💸</span> Gastos</h2>
-    <p>Registro, filtros y anulación de gastos operativos.</p>
-  </a>
-  <a class="modulo" href="{{ url_for('contabilidad.gastos_nuevo') }}">
-    <h2><span class="ico-emoji">➕</span> Nuevo gasto</h2>
-    <p>Registrar un gasto con categoría, monto y comprobante.</p>
-  </a>
-  <a class="modulo" href="{{ url_for('otros_ingresos.lista') }}">
-    <h2><span class="ico-emoji">💰</span> Otros ingresos</h2>
-    <p>Plata que entra y no es venta: comisión de recargas, arriendo, reciclaje, reintegros.</p>
-  </a>
-  <a class="modulo" href="{{ url_for('cartera.index') }}">
-    <h2><span class="ico-emoji">📒</span> Cartera</h2>
-    <p>Ventas a crédito: cuánto debe cada cliente, desde cuándo, abonos y estado de cuenta.</p>
-  </a>
-  <!-- Los informes de plata viven en Reportes (un solo lugar para cada cosa) -->
-  <a class="modulo" href="{{ url_for('reportes.utilidades_ver') }}">
-    <h2><span class="ico-emoji">📈</span> Utilidades</h2>
-    <p>Estado de resultados: ventas, costo, gastos, pérdidas y utilidad neta.</p>
-  </a>
-  <a class="modulo" href="{{ url_for('reportes.gastos_ver') }}">
-    <h2><span class="ico-emoji">💸</span> Reporte de gastos</h2>
-    <p>Por categoría y forma de pago, comparado con el período anterior.</p>
-  </a>
-  <a class="modulo" href="{{ url_for('reportes.ventas_ver') }}">
-    <h2><span class="ico-emoji">🛒</span> Ventas y flujo</h2>
-    <p>Ventas por día y por forma de pago (efectivo, Nequi, Davivienda, tarjeta).</p>
-  </a>
-</div>
-
-<!-- ===== Desglose por categoría ===== -->
-<h2 class="titulo-seccion">Gastos de {{ mes_actual }} por categoría</h2>
-{% if por_categoria %}
-<table class="tabla">
-  <thead>
-    <tr><th>Categoría</th><th style="text-align:right">Registros</th><th style="text-align:right">Total</th></tr>
-  </thead>
-  <tbody>
-    {% for c in por_categoria %}
-    <tr>
-      <td>{{ c['categoria'] }}</td>
-      <td style="text-align:right">{{ c['n'] }}</td>
-      <td style="text-align:right">${{ '{:,.0f}'.format(c['total']).replace(',', '.') }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p class="suave">Sin gastos registrados este mes.</p>
+{% if d.actual.lineas_sin_costo %}
+<p class="aviso" style="margin:-.4rem 0 1rem">⚠ {{ d.actual.lineas_sin_costo }} venta(s) de productos sin costo registrado:
+  la utilidad sale más alta de lo real. Completa el costo en la recepción o en el inventario inicial.</p>
 {% endif %}
 
-<!-- ===== Últimos gastos ===== -->
-<h2 class="titulo-seccion">Últimos gastos</h2>
-{% if ultimos %}
-<table class="tabla">
-  <thead>
-    <tr>
-      <th>Fecha</th>
-      <th>Categoría</th>
-      <th>Descripción</th>
-      <th>Usuario</th>
-      <th style="text-align:right">Monto</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for g in ultimos %}
-    <tr>
-      <td><small>{{ g['fecha'] }}</small></td>
-      <td>{{ g['categoria_nombre'] or '—' }}</td>
-      <td>{{ g['descripcion'] }}</td>
-      <td>{{ g['usuario_nombre'] or '—' }}</td>
-      <td style="text-align:right">${{ '{:,.0f}'.format(g['monto']).replace(',', '.') }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-<div style="margin-top:.8rem">
-  <a class="boton secundario" href="{{ url_for('contabilidad.gastos_lista') }}">Ver todos los gastos</a>
+{# ===== 3. Flujo · Gastos · Acciones ===== #}
+<div class="dash-fila dash-fila-3">
+  <section class="dash-panel">
+    <h2>{{ ico("grafico", "📊") }} Flujo de caja</h2>
+    <p class="suave dash-nota">Entradas (ventas cobradas, abonos y otros ingresos) y salidas (gastos) por día.
+      La línea es el saldo acumulado del período.</p>
+    <div class="dash-grafico"><canvas id="g-flujo" aria-label="Flujo de caja por día"></canvas></div>
+  </section>
+
+  <section class="dash-panel">
+    <h2>{{ ico("billete", "💸") }} Distribución de gastos</h2>
+    {% if d.gastos_cat %}
+      <div class="dash-dona-caja">
+        <div class="dash-dona"><canvas id="g-gastos" aria-label="Gastos por categoría"></canvas>
+          <div class="dash-dona-centro"><strong>{{ d.actual.total_gastos|pesos }}</strong><small>Total gastos</small></div>
+        </div>
+        <ul class="dash-leyenda" id="leyenda-gastos">
+          {% for c in d.gastos_cat %}
+          <li><span class="punto" data-i="{{ loop.index0 }}"></span>{{ c.categoria }}
+            <strong>{{ '%.1f'|format(c.total / d.actual.total_gastos * 100 if d.actual.total_gastos else 0)|replace('.', ',') }} %</strong></li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% else %}
+      <p class="suave">No hay gastos registrados en este período.</p>
+    {% endif %}
+  </section>
+
+  <section class="dash-panel">
+    <h2>⚡ Acciones rápidas</h2>
+    <div class="dash-acciones">
+      <a href="{{ url_for('contabilidad.gastos_nuevo') }}">➕ Registrar gasto</a>
+      <a href="{{ url_for('otros_ingresos.nuevo') }}">➕ Registrar otro ingreso</a>
+      <a href="{{ url_for('contabilidad.cajas') }}">💵 Sesiones de caja</a>
+      <a href="{{ url_for('reportes.utilidades_ver', mes=mes or None) }}">📈 Utilidades (estado de resultados)</a>
+      <a href="{{ url_for('reportes.ventas_ver') }}">🛒 Reporte de ventas</a>
+      <a href="{{ url_for('reportes.gastos_ver') }}">🧾 Reporte de gastos</a>
+      <a href="{{ url_for('contabilidad.gastos_lista') }}">📋 Lista de gastos</a>
+      <a href="{{ url_for('otros_ingresos.lista') }}">💰 Lista de otros ingresos</a>
+      <a href="{{ url_for('cartera.index') }}">📒 Cartera (fiado)</a>
+    </div>
+  </section>
 </div>
-{% else %}
-<p class="suave">Sin gastos registrados.</p>
-{% endif %}
+
+{# ===== 4. Movimientos · Ventas vs gastos · Cartera / compras / IVA ===== #}
+<div class="dash-fila dash-fila-2">
+  <section class="dash-panel">
+    <h2>{{ ico("lista", "📋") }} Últimos movimientos</h2>
+    <div class="tabla-scroll">
+    <table class="tabla dash-tabla">
+      <thead><tr><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Tipo</th><th class="der">Valor</th><th>Pago</th></tr></thead>
+      <tbody>
+        {% for m in d.movimientos %}
+        <tr>
+          <td>{{ m.fecha|fecha_hora }}</td>
+          <td>{{ m.concepto }}</td>
+          <td>{{ m.categoria }}</td>
+          <td><span class="dash-etiqueta {{ m.tipo }}">{{ 'Ingreso' if m.tipo == 'ingreso' else 'Egreso' }}</span></td>
+          <td class="der">{{ m.valor|pesos }}</td>
+          <td><small>{{ formas.get(m.detalle, m.detalle) }}</small></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="suave">Todavía no hay movimientos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section class="dash-panel">
+    <h2>{{ ico("grafico", "📊") }} Ventas vs. gastos</h2>
+    <p class="suave dash-nota">Últimos 6 meses · ventas sin IVA.</p>
+    <div class="dash-grafico dash-grafico-bajo"><canvas id="g-meses" aria-label="Ventas contra gastos por mes"></canvas></div>
+    <table class="dash-resumen">
+      <tr><td>Ventas del período (sin IVA)</td><td class="der">{{ (d.actual.ventas - d.actual.devoluciones)|pesos }}</td></tr>
+      <tr><td>Costo de lo vendido</td><td class="der">{{ d.actual.costo|pesos }}</td></tr>
+      <tr><td>Gastos</td><td class="der">{{ d.actual.total_gastos|pesos }}</td></tr>
+      {% if d.actual.total_perdidas %}<tr><td>Pérdidas de inventario</td><td class="der">{{ d.actual.total_perdidas|pesos }}</td></tr>{% endif %}
+      {% if d.actual.total_otros_ingresos %}<tr><td>Otros ingresos</td><td class="der">{{ d.actual.total_otros_ingresos|pesos }}</td></tr>{% endif %}
+      <tr class="dash-resumen-total"><td>Utilidad neta</td><td class="der">{{ d.actual.utilidad_neta|pesos }}</td></tr>
+    </table>
+  </section>
+</div>
+
+<div class="dash-mini">
+  <a class="dash-mini-tarjeta" href="{{ url_for('cartera.index') }}">
+    <span>📒 Cuentas por cobrar (cartera)</span>
+    <strong>{{ d.cartera.total|pesos }}</strong>
+    <small>{{ d.cartera.n_deudores }} cliente(s) deben{% if d.cartera.vencida %} · {{ d.cartera.vencida|pesos }} con más de 30 días{% endif %}</small>
+  </a>
+  <a class="dash-mini-tarjeta" href="{{ url_for('recepciones.lista') }}">
+    <span>🚚 Compras del período (recepciones)</span>
+    <strong>{{ d.compras.total|pesos }}</strong>
+    <small>{{ d.compras.n }} recepción(es) · con IVA</small>
+  </a>
+  {% if d.iva %}
+  <div class="dash-mini-tarjeta dash-iva">
+    <span>🧮 IVA estimado a pagar</span>
+    <strong>{{ d.iva.estimado|pesos }}</strong>
+    <small>cobrado en ventas {{ d.iva.cobrado|pesos }} − pagado en compras {{ d.iva.pagado|pesos }}.
+      Es un cálculo orientativo: confírmalo con tu contador.</small>
+  </div>
+  {% endif %}
+</div>
+
+{# ===== 5. Sesiones de caja · Alertas ===== #}
+<div class="dash-fila dash-fila-2">
+  <section class="dash-panel">
+    <h2>💵 Últimas sesiones de caja <a class="dash-ver-todas" href="{{ url_for('contabilidad.cajas') }}">Ver todas →</a></h2>
+    <table class="tabla dash-tabla">
+      <thead><tr><th>Caja</th><th>Abierta</th><th>Cerró</th><th class="der">Ventas</th><th class="der">Diferencia</th></tr></thead>
+      <tbody>
+      {% for r in d.cajas %}
+        <tr class="fila-clic" onclick="location.href='{{ url_for('contabilidad.caja_detalle', caja_id=r.caja.id) }}'">
+          <td><a href="{{ url_for('contabilidad.caja_detalle', caja_id=r.caja.id) }}">#{{ r.caja.numero }}</a></td>
+          <td>{{ r.caja.abierta_en|fecha_hora }}</td>
+          <td>{{ r.caja.cerrada_por_nombre or '—' }}</td>
+          <td class="der">{{ r.total_ventas|pesos }}</td>
+          <td class="der">{% include "contabilidad/_diferencia.html" %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="suave">Todavía no se ha abierto la caja.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="dash-panel">
+    <h2>{{ ico("alerta", "⚠️") }} Alertas</h2>
+    {% for a in d.alertas %}
+      <a class="dash-alerta {{ a.nivel }}" href="{{ a.url or url_for('main.inicio') }}">
+        <span>{{ a.icono }} <strong>{{ a.titulo }}</strong></span>
+        <small>{{ a.total }} caso(s){% if a['items'] %} · {{ a['items'][0].texto }}{% endif %}</small>
+      </a>
+    {% else %}
+      <p class="suave">✅ Nada pendiente con la plata o el inventario.</p>
+    {% endfor %}
+  </section>
+</div>
+
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script>
+(function () {
+  // Colores del tema del usuario (temas.css) y unos fijos para entradas, salidas, etc.
+  const css = getComputedStyle(document.documentElement);
+  const acento = css.getPropertyValue('--acento').trim() || '#0f766e';
+  const VERDE = '#16a34a', ROJO = '#ef4444', AZUL = '#3b82f6';
+  const PALETA = [AZUL, VERDE, '#f59e0b', '#a855f7', '#f97316', '#06b6d4', '#ec4899', '#84cc16', '#64748b'];
+  const pesos = (v) => '$' + Math.round(v).toLocaleString('es-CO');
+  if (!window.Chart) return;                    // sin la librería, la página sigue mostrando las tablas
+  Chart.defaults.font.family = css.getPropertyValue('font-family');
+
+  // ---- Flujo de caja: barras de entradas y salidas + línea de saldo ----
+  const flujo = {{ d.flujo|tojson }};
+  new Chart(document.getElementById('g-flujo'), {
+    data: {
+      labels: flujo.map((f) => f.dia),
+      datasets: [
+        { type: 'bar', label: 'Entradas', data: flujo.map((f) => f.entradas), backgroundColor: VERDE, borderRadius: 3 },
+        { type: 'bar', label: 'Salidas', data: flujo.map((f) => f.salidas), backgroundColor: ROJO, borderRadius: 3 },
+        { type: 'line', label: 'Saldo', data: flujo.map((f) => f.saldo), borderColor: AZUL, backgroundColor: AZUL,
+          tension: .3, pointRadius: 2, yAxisID: 'y' },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + pesos(c.parsed.y) } } },
+      scales: { y: { ticks: { callback: (v) => pesos(v) } } },
+    },
+  });
+
+  // ---- Distribución de gastos (dona) ----
+  const gastos = {{ d.gastos_cat|tojson }};
+  if (gastos.length && document.getElementById('g-gastos')) {
+    new Chart(document.getElementById('g-gastos'), {
+      type: 'doughnut',
+      data: { labels: gastos.map((g) => g.categoria),
+              datasets: [{ data: gastos.map((g) => g.total), backgroundColor: PALETA, borderWidth: 2 }] },
+      options: { cutout: '68%', maintainAspectRatio: false, plugins: { legend: { display: false },
+                 tooltip: { callbacks: { label: (c) => c.label + ': ' + pesos(c.parsed) } } } },
+    });
+    // Los puntos de la leyenda, del mismo color de cada pedazo
+    document.querySelectorAll('#leyenda-gastos .punto').forEach((p) => {
+      p.style.background = PALETA[+p.dataset.i % PALETA.length];
+    });
+  }
+
+  // ---- Ventas vs. gastos (últimos 6 meses) ----
+  const meses = {{ d.meses_barras|tojson }};
+  new Chart(document.getElementById('g-meses'), {
+    type: 'bar',
+    data: { labels: meses.map((m) => m.mes),
+            datasets: [{ label: 'Ventas', data: meses.map((m) => m.ventas), backgroundColor: VERDE, borderRadius: 4 },
+                       { label: 'Gastos', data: meses.map((m) => m.gastos), backgroundColor: AZUL, borderRadius: 4 }] },
+    options: { maintainAspectRatio: false,
+               plugins: { tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + pesos(c.parsed.y) } } },
+               scales: { y: { ticks: { callback: (v) => pesos(v) } } } },
+  });
+})();
+</script>
 {% endblock %}

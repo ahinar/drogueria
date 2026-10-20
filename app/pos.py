@@ -161,18 +161,18 @@ def index():
 
     categorias = db.execute(
         "SELECT id, nombre FROM catalogos WHERE tipo = 'categoria' AND activo = 1 "
-        "ORDER BY nombre COLLATE NOCASE"
+        "ORDER BY nombre COLLATE ES"
     ).fetchall()
 
     categorias_gasto = db.execute(
         "SELECT id, nombre FROM catalogos WHERE tipo = 'categoria_gasto' AND activo = 1 "
-        "ORDER BY nombre COLLATE NOCASE"
+        "ORDER BY nombre COLLATE ES"
     ).fetchall()
 
     # Categorías de "otro ingreso" (recargas, arriendo...), para la ventana del POS
     categorias_ingreso = [dict(f) for f in db.execute(
         "SELECT id, nombre FROM catalogos WHERE tipo = 'categoria_ingreso' AND activo = 1 "
-        "ORDER BY nombre COLLATE NOCASE")]
+        "ORDER BY nombre COLLATE ES")]
 
     config = obtener_config()
     return render_template("pos/index.html", caja=caja, resumen=resumen,
@@ -506,6 +506,10 @@ def api_cerrar_caja():
         db.execute("UPDATE cajas SET caja_menor_cierre_id = ? WHERE id = ?",
                    (mov_id, caja["id"]))
 
+    # Versión 1.1.6: el sobrante (ingreso) o faltante (gasto) queda en la contabilidad
+    from .cajas import registrar_diferencia
+    registrar_diferencia(db, caja["id"])
+
     db.commit()
     registrar("caja_cerrada", "cajas", caja["id"],
               f"numero={caja['numero']} contado={total} esperado={resumen['efectivo_esperado']} "
@@ -627,7 +631,7 @@ def _usos_de(ids):
     for fila in get_db().execute(
             "SELECT pu.producto_id, c.nombre FROM productos_usos pu "
             f"JOIN catalogos c ON c.id = pu.catalogo_id WHERE pu.producto_id IN ({marcas}) "
-            "ORDER BY c.nombre COLLATE NOCASE", ids):
+            "ORDER BY c.nombre COLLATE ES", ids):
         resultado.setdefault(fila["producto_id"], []).append(fila["nombre"])
     return resultado
 
@@ -660,20 +664,24 @@ def api_productos():
     #   (también el código de barras de sus presentaciones: sobre, caja...)
     #   Versión 1.1.3: también la CONCENTRACIÓN y el LABORATORIO, para distinguir
     #   productos que se llaman igual ("trazodona san fer").
+    #   Versión 1.1.6: sin importar TILDES ("codeina" = "Codeína"): PLANO() en app/nombres.py
+    from .nombres import plano
     for palabra in q.split():
-        sql += (" AND (p.nombre LIKE ? OR p.codigo LIKE ? OR p.codigo_barras LIKE ? "
-                "OR p.principio_activo LIKE ? OR p.concentracion LIKE ? "
+        sql += (" AND (PLANO(p.nombre) LIKE ? OR PLANO(p.codigo) LIKE ? OR PLANO(p.codigo_barras) LIKE ? "
+                "OR PLANO(p.principio_activo) LIKE ? OR PLANO(p.concentracion) LIKE ? "
                 "OR EXISTS (SELECT 1 FROM catalogos lb WHERE lb.id = p.laboratorio_id "
-                "           AND lb.nombre LIKE ?) "
+                "           AND PLANO(lb.nombre) LIKE ?) "
                 "OR EXISTS (SELECT 1 FROM producto_presentaciones pp WHERE pp.producto_id = p.id "
                 "           AND pp.codigo_barras = ?) "
+                "OR EXISTS (SELECT 1 FROM producto_principios ppr JOIN catalogos cpr ON cpr.id = ppr.catalogo_id "
+                "           WHERE ppr.producto_id = p.id AND PLANO(cpr.nombre) LIKE ?) "
                 "OR EXISTS (SELECT 1 FROM catalogos pa WHERE pa.id = p.principio_id "
-                "           AND pa.nombre LIKE ?) "
+                "           AND PLANO(pa.nombre) LIKE ?) "
                 "OR EXISTS (SELECT 1 FROM productos_usos pu "
                 "           JOIN catalogos u ON u.id = pu.catalogo_id "
                 "           WHERE pu.producto_id = p.id "
-                "           AND (u.nombre LIKE ? OR u.descripcion LIKE ?)))")
-        params += [f"%{palabra}%"] * 6 + [palabra] + [f"%{palabra}%"] * 3
+                "           AND (PLANO(u.nombre) LIKE ? OR PLANO(u.descripcion) LIKE ?)))")
+        params += [f"%{plano(palabra)}%"] * 6 + [palabra] + [f"%{plano(palabra)}%"] * 4
 
     if cat.isdigit():
         sql += " AND p.id IN (SELECT producto_id FROM productos_categorias WHERE catalogo_id = ?)"
@@ -685,7 +693,7 @@ def api_productos():
         params += ids
 
     # Los que tienen existencias primero; los que se llaman igual, juntos y por laboratorio
-    sql += " ORDER BY (stock > 0) DESC, p.nombre COLLATE NOCASE, laboratorio COLLATE NOCASE LIMIT 40"
+    sql += " ORDER BY (stock > 0) DESC, p.nombre COLLATE ES, laboratorio COLLATE ES LIMIT 40"
     filas = get_db().execute(sql, params).fetchall()
 
     usos = _usos_de([f["id"] for f in filas])
@@ -797,8 +805,7 @@ def api_producto_info(producto_id):
 
     categorias = [f["catalogo_id"] for f in db.execute(
         "SELECT catalogo_id FROM productos_categorias WHERE producto_id = ?", (producto_id,))]
-    principio = db.execute("SELECT nombre FROM catalogos WHERE id = ?",
-                           (p["principio_id"],)).fetchone() if p["principio_id"] else None
+    from . import principios
 
     # Presentaciones (unidad, sobre, caja...) con el margen de CADA una:
     # costo de la presentación = costo de 1 unidad x factor
@@ -827,7 +834,8 @@ def api_producto_info(producto_id):
         "stock_minimo": p["stock_minimo"] or 0,
         "categorias": categorias,
         "usos": _usos_de([producto_id]).get(producto_id, []),
-        "principio_activo": (principio["nombre"] if principio else None) or p["principio_activo"],
+        # Todos los principios activos: "Acetaminofén + Codeína" (versión 1.1.6)
+        "principio_activo": principios.texto_de(db, producto_id, " + ") or p["principio_activo"],
         "stock": stock,
         "presentaciones": lista_pres,
         # Cómo se vende normalmente (para decir "29 Sobre x 10 + 5 Tableta")

@@ -700,7 +700,7 @@
 
     // F2 = cobrar · F3 = enfocar buscador
     if (key === 'F2') { e.preventDefault(); if (carrito.length) abrirPago(); return; }
-    if (key === 'F3') { e.preventDefault(); inputBusqueda.focus(); return; }
+    if (key === 'F3') { e.preventDefault(); inputBusqueda.focus(); inputBusqueda.select(); return; }
 
     // Enter = cobrar
     if (key === 'Enter') { e.preventDefault(); if (carrito.length) abrirPago(); return; }
@@ -1893,6 +1893,16 @@
     } else {
       buscar(true);
     }
+  });
+  // Versión 1.1.6 (como el programa anterior): al hacer CLIC en el buscador viniendo
+  // de otra parte, se selecciona todo lo escrito. Si se escribe, reemplaza la
+  // búsqueda; si no, el texto se queda. Solo con el mouse: cuando el programa pasa
+  // solo al buscador (irAlBuscador) NO se selecciona, para no borrar la letra escrita.
+  inputBusqueda.addEventListener('mousedown', (e) => {
+    if (document.activeElement === inputBusqueda) return;   // ya estaba ahí: clic normal
+    e.preventDefault();                                     // evita que el clic quite la selección
+    inputBusqueda.focus();
+    inputBusqueda.select();
   });
   actualizarX();
   inputBusqueda.addEventListener('input', () => {

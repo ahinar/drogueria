@@ -151,7 +151,7 @@ def zonas_lista():
         "SELECT z.*, "
         "(SELECT COUNT(*) FROM temperatura_registros r WHERE r.zona_id = z.id) AS lecturas "
         "FROM zonas_temperatura z "
-        "ORDER BY z.activa DESC, z.nombre COLLATE NOCASE"
+        "ORDER BY z.activa DESC, z.nombre COLLATE ES"
     ).fetchall()
     return render_template("temperaturas/zonas_lista.html", zonas=filas)
 

@@ -14,7 +14,9 @@
   {% if config_negocio and config_negocio.logo_ruta %}
     <link rel="icon" href="{{ url_for('static', filename=config_negocio.logo_ruta) }}">
   {% else %}
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💊</text></svg>">
+    {# Ícono de la ventana: la cruz verde de Fervifarma en PNG (versión 1.1.6). Antes era un 💊
+       dibujado como SVG, que Chrome en Windows no siempre usa para la ventana del programa. #}
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='img/app-192.png') }}">
   {% endif %}
 
   {# Va en el <head> (no en ui.js) porque los scripts de cada página lo usan
@@ -29,6 +31,93 @@
       if (m) return parseFloat(m[1].replace(',', '.'));
     }
     return cantidad;
+  };
+
+  // ===== Orden de las listas (versión 1.1.6, igual que app/nombres.py) =====
+  // Comparar como en el diccionario: sin tildes ni mayúsculas ("Ácido" va con la A).
+  window.compararNombres = function (a, b) {
+    return String(a || '').localeCompare(String(b || ''), 'es', { sensitivity: 'base' });
+  };
+  // Unidades: "Unidad" primero y después por tamaño (Sello x 4, Caja x 10, Sello x 10...)
+  window.compararUnidades = function (a, b) {
+    const esUnidad = (u) => String(u.nombre || '').trim().toLowerCase() === 'unidad' ? 0 : 1;
+    return (esUnidad(a) - esUnidad(b)) ||
+      (window.cantidadDeUnidad(a.nombre, a.cantidad) - window.cantidadDeUnidad(b.nombre, b.cantidad)) ||
+      window.compararNombres(a.nombre, b.nombre);
+  };
+  // Mete una opción NUEVA (creada con el botón +) en su lugar de la lista, no al final.
+  // Las opciones vacías del principio ("— Seleccionar —") se quedan arriba.
+  window.insertarOrdenado = function (sel, opcion, esUnidad) {
+    const datos = (o) => ({ nombre: o.textContent.trim(), cantidad: o.dataset.cantidad });
+    const nueva = datos(opcion);
+    const siguiente = Array.from(sel.options).find(function (o) {
+      if (o.value === '' || o === opcion) return false;
+      return esUnidad ? window.compararUnidades(datos(o), nueva) > 0
+                      : window.compararNombres(o.textContent.trim(), nueva.nombre) > 0;
+    });
+    sel.insertBefore(opcion, siguiente || null);
+  };
+
+  // ===== Campo de VARIOS nombres separados por comas, con sugerencias (versión 1.1.6) =====
+  // Lo usan los principios activos: "acetaminofén, codeína". Mientras se escribe
+  // el nombre que va después de la última coma, se muestran los que ya existen
+  // (sin importar tildes ni mayúsculas). Clic o Enter = se pone ese y una coma.
+  // input = el campo de texto; opciones = lista de nombres ['Acetaminofén', ...]
+  window.campoConComas = function (input, opciones) {
+    if (!input || input.dataset.comas) return;
+    input.dataset.comas = '1';
+    input.setAttribute('autocomplete', 'off');
+    const plano = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const lista = document.createElement('div');
+    lista.className = 'comas-sugerencias';
+    lista.hidden = true;
+    input.insertAdjacentElement('afterend', lista);
+    let elegida = -1;
+    function partes() { return input.value.split(','); }
+    function pintar() {
+      const p = partes();
+      const actual = plano(p[p.length - 1]);
+      const ya = p.slice(0, -1).map(plano);
+      const encontrados = actual ? opciones.filter((o) => plano(o).includes(actual) && !ya.includes(plano(o))).slice(0, 8) : [];
+      elegida = encontrados.length ? 0 : -1;
+      lista.innerHTML = '';
+      encontrados.forEach(function (o, i) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = o;
+        if (i === 0) b.classList.add('activa');
+        b.addEventListener('mousedown', (e) => { e.preventDefault(); poner(o); });
+        lista.appendChild(b);
+      });
+      lista.hidden = !encontrados.length;
+    }
+    function poner(nombre) {
+      const p = partes();
+      p[p.length - 1] = ' ' + nombre;
+      input.value = p.map((x) => x.trim()).filter(Boolean).join(', ') + ', ';
+      lista.hidden = true;
+      input.focus();
+    }
+    input.addEventListener('input', pintar);
+    input.addEventListener('keydown', function (e) {
+      const botones = lista.querySelectorAll('button');
+      if (lista.hidden || !botones.length) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        elegida = (elegida + (e.key === 'ArrowDown' ? 1 : -1) + botones.length) % botones.length;
+        botones.forEach((b, i) => b.classList.toggle('activa', i === elegida));
+      } else if (e.key === 'Enter' && elegida >= 0) {
+        e.preventDefault();                     // no enviar el formulario: escoger la sugerencia
+        poner(botones[elegida].textContent);
+      } else if (e.key === 'Escape') {
+        lista.hidden = true;
+      }
+    });
+    input.addEventListener('blur', function () {
+      setTimeout(() => { lista.hidden = true; }, 150);
+      // Al salir, se quita la coma suelta del final
+      input.value = input.value.split(',').map((x) => x.trim()).filter(Boolean).join(', ');
+    });
   };
 
   // Versión 1.1.3: etiqueta del LABORATORIO para los resultados de búsqueda.

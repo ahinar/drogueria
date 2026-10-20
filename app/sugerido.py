@@ -89,7 +89,7 @@ def calcular(cobertura=15, dias_sin_rotacion=60, hoy=None):
         FROM productos p
         LEFT JOIN unidades_medida u ON u.id = p.unidad_venta_id
         WHERE p.activo = 1
-        ORDER BY p.nombre COLLATE NOCASE
+        ORDER BY p.nombre COLLATE ES
         """,
         {"hoy": hoy_txt, "desde_ventas": desde_ventas}).fetchall()
 

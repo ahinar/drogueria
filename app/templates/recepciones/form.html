@@ -54,6 +54,13 @@
           <input type="file" name="foto" accept="image/*,.pdf">
         </label>
       </div>
+      {# Versión 1.1.6: casi todas las facturas traen el costo ANTES de IVA y el IVA aparte.
+         Si esta factura trae los costos con el IVA ya incluido, se marca aquí. #}
+      <label class="switch-linea" style="margin-top:.4rem">
+        <input type="checkbox" name="precios_con_iva" id="precios-con-iva" value="1"
+               {% if valores_previos and valores_previos.precios_con_iva %}checked{% endif %}>
+        <span>Los costos de esta factura <strong>ya incluyen el IVA</strong></span>
+      </label>
     </fieldset>
 
     <fieldset>
@@ -110,7 +117,12 @@
                        value="{{ lp.factor_otro }}" {% if lp.presentacion_id != 'otra' %}hidden{% endif %}>
                 <small class="linea-equivale suave"></small></td>
               <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="{{ lp.costo_unitario }}" required>
-                {# Total de la línea = cantidad × costo (lo llena recalcularTotales, más abajo) #}
+                {# IVA de la línea (versión 1.1.6): se llena solo con el IVA de la ficha del producto #}
+                <label class="linea-iva-campo">IVA
+                  <select name="linea_iva" class="linea-iva" aria-label="IVA de la línea">
+                    {%- for t in (0, 5, 19) %}<option value="{{ t }}" {% if (lp.iva_tarifa|float) == t %}selected{% endif %}>{{ t }} %</option>{% endfor -%}
+                  </select></label>
+                {# Total de la línea = cantidad × costo, con IVA (lo llena recalcularTotales, más abajo) #}
                 <small class="linea-total-txt"></small></td>
               <td><input type="number" step="0.1" name="linea_temperatura_ingreso"
                          class="input-temp-ingreso"
@@ -153,6 +165,10 @@
               <input type="number" name="linea_factor_otro" class="linea-otro" min="2" step="1" placeholder="¿Cuántas trae?" hidden>
               <small class="linea-equivale suave"></small></td>
             <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="" placeholder="0">
+              <label class="linea-iva-campo">IVA
+                  <select name="linea_iva" class="linea-iva" aria-label="IVA de la línea">
+                    {%- for t in (0, 5, 19) %}<option value="{{ t }}" {% if (0|float) == t %}selected{% endif %}>{{ t }} %</option>{% endfor -%}
+                  </select></label>
               <small class="linea-total-txt"></small></td>
             <td><input type="number" step="0.1" name="linea_temperatura_ingreso"
                        class="input-temp-ingreso" style="display:none"></td>
@@ -185,8 +201,17 @@
           <span>Unidades de inventario recibidas:</span>
           <strong id="total-unidades">0</strong>
         </div>
+        {# Versión 1.1.6: como en la factura, para comparar de un vistazo #}
+        <div class="total-linea">
+          <span>Subtotal (sin IVA):</span>
+          <strong id="total-subtotal">$0</strong>
+        </div>
+        <div class="total-linea">
+          <span>IVA:</span>
+          <strong id="total-iva">$0</strong>
+        </div>
         <div class="total-linea total-grande">
-          <span>Valor total del inventario:</span>
+          <span>Total de la factura:</span>
           <strong id="total-valor">$0</strong>
         </div>
       </div>
@@ -230,7 +255,7 @@
           <input type="text" id="dt-registro" autocomplete="off" placeholder="Ej: INVIMA-2024M-12345"></label>
         <label>Vence registro
           <input type="date" id="dt-registro-vence"></label>
-        <label>Laboratorio
+        <label>Laboratorio o marca
           {# El "+" crea un laboratorio nuevo sin salir de aquí (versión 1.1.3) #}
           <div class="campo-con-boton">
             <select id="dt-laboratorio"><option value="">— Sin dato —</option>
@@ -239,9 +264,9 @@
           </div></label>
         <label>Concentración
           <input type="text" id="dt-concentracion" placeholder="Ej: 500 mg"></label>
-        <label>Principio activo
-          <select id="dt-principio"><option value="">— Sin dato —</option>
-            {% for p in principios %}<option value="{{ p['id'] }}">{{ p['nombre'] }}</option>{% endfor %}</select></label>
+        <label class="campo-comas">Principio(s) activo(s)
+          {# Varios separados por comas, con sugerencias (versión 1.1.6) #}
+          <input type="text" id="dt-principio" placeholder="Ej: acetaminofén, codeína" spellcheck="false"></label>
         <label>Forma farmacéutica
           <select id="dt-forma"><option value="">— Sin dato —</option>
             {% for f in formas %}<option value="{{ f['id'] }}">{{ f['nombre'] }}</option>{% endfor %}</select></label>
@@ -288,9 +313,9 @@
         </label>
       </div>
       <div class="modal-grid-2">
-        <label>Laboratorio *
+        <label>Laboratorio o marca <small class="suave">(opcional)</small>
           <div class="campo-con-boton">
-            <select id="np-laboratorio" required>
+            <select id="np-laboratorio">
               <option value="">— Seleccionar —</option>
               {% for l in laboratorios %}
                 <option value="{{ l['id'] }}">{{ l['nombre'] }}</option>
@@ -371,6 +396,8 @@
 
 <script>
   // Todas las unidades de medida (para la columna UdM de cada línea: CAJA X 12, SELLO X 10…)
+  // ¿La droguería declara IVA? (Configuración, versión 1.1.6). Cambia qué costo por unidad se muestra.
+  const DECLARA_IVA = {{ 'true' if config_negocio and config_negocio.get('declara_iva') == 'si' else 'false' }};
   const UNIDADES = [{% for u in unidades %}{ id: {{ u['id'] }}, nombre: {{ u['nombre']|tojson }}, cantidad: {{ u['cantidad'] or 1 }} }{% if not loop.last %}, {% endif %}{% endfor %}];
 (function () {
   const body = document.getElementById('lineas-body');
@@ -524,6 +551,7 @@
       if (!json.ok) { window.avisar(json.error || 'No se pudo crear.', 'error'); sel.value = anterior; return; }
       if (!UNIDADES.some(function (u) { return u.id === json.id; })) {
         UNIDADES.push({ id: json.id, nombre: json.nombre, cantidad: parseFloat(json.cantidad) || 1 });
+        UNIDADES.sort(window.compararUnidades);     // en su lugar por tamaño (versión 1.1.6)
       }
       // Que aparezca en TODAS las líneas, y queda escogida en esta
       body.querySelectorAll('.linea-pres').forEach(function (s) {
@@ -555,7 +583,14 @@
     }
     const factor = factorLinea(tr);
     const cant = parseFloat(tr.querySelector('input[name="linea_cantidad_recibida"]').value) || 0;
-    const costo = parseFloat(tr.querySelector('input[name="linea_costo"]').value) || 0;
+    // Costo CON IVA (versión 1.1.6): es lo que de verdad cuesta cada sello o tableta
+    // mientras la droguería no declare IVA. Si la factura ya lo incluye, queda igual.
+    const tasaIva = (parseFloat((tr.querySelector('.linea-iva') || {}).value) || 0) / 100;
+    const yaIncluye = document.getElementById('precios-con-iva') && document.getElementById('precios-con-iva').checked;
+    const costoEscrito = parseFloat(tr.querySelector('input[name="linea_costo"]').value) || 0;
+    const conIva = yaIncluye ? costoEscrito : costoEscrito * (1 + tasaIva);
+    // Si la droguería DECLARA IVA (Configuración), el costo que cuenta es SIN IVA
+    const costo = DECLARA_IVA ? conIva / (1 + tasaIva) : conIva;
     const base = sel.dataset.base || 'unidades';
     const total = cant * factor;                                   // en unidades de inventario
     const ventaFactor = parseFloat(sel.dataset.ventaFactor) || 1;
@@ -600,7 +635,20 @@
     actualizarHint(wrap);
     ocultarPanel();
     const tr = wrap.closest('tr');
-    if (tr) { ajustarRequeridos(tr); llenarPresentaciones(tr, p, presentacionId); }
+    if (tr) {
+      ajustarRequeridos(tr);
+      llenarPresentaciones(tr, p, presentacionId);
+      // IVA de la ficha del producto (versión 1.1.6). Si la factura dice otro, se cambia a mano.
+      const selIva = tr.querySelector('.linea-iva');
+      if (selIva) {
+        const t = String(+(p.iva || 0));
+        if (!Array.from(selIva.options).some((o) => o.value === t)) {
+          const o = document.createElement('option'); o.value = t; o.textContent = t + ' %'; selIva.appendChild(o);
+        }
+        selIva.value = t;
+      }
+      recalcularTotales();
+    }
   }
 
   function ocultarPanel() {
@@ -642,6 +690,7 @@
              + ' data-vence="' + (p.maneja_vencimiento ? '1' : '0') + '"'
              + ' data-frio="' + (p.cadena_frio ? '1' : '0') + '"'
              + ' data-control="' + (p.control_especial ? '1' : '0') + '"'
+             + ' data-iva="' + (p.iva || 0) + '"'                    // IVA de la ficha (versión 1.1.6)
              // presentaciones codificadas (así un nombre con comillas no rompe el HTML)
              + ' data-pres="' + encodeURIComponent(JSON.stringify(p.presentaciones || [])) + '">'
              + '<div class="resultado-codigo">' + escaparHTML(p.codigo) + '</div>'
@@ -751,6 +800,7 @@
       maneja_vencimiento: item.dataset.vence === '1' ? 1 : 0,
       cadena_frio: item.dataset.frio === '1' ? 1 : 0,
       control_especial: item.dataset.control === '1' ? 1 : 0,
+      iva: parseFloat(item.dataset.iva) || 0,
       presentaciones: JSON.parse(decodeURIComponent(item.dataset.pres || '%5B%5D')),
     };
     seleccionarProducto(wrap, p);
@@ -929,6 +979,8 @@
 
   // ===== "✎ Completar datos": INVIMA, laboratorio... del producto de la línea =====
   const modalTec = document.getElementById('modal-tecnicos');
+  // Principios activos con sugerencias mientras se escribe (versión 1.1.6, ver base.html)
+  window.campoConComas(document.getElementById('dt-principio'), {{ principios|map(attribute='nombre')|list|tojson }});
   let tecLinea = null;                 // la línea (tr) que se está completando
   const dt = (id) => document.getElementById(id);
   function errorTec(t) { dt('dt-error').textContent = t || ''; dt('dt-error').style.display = t ? 'block' : 'none'; }
@@ -951,7 +1003,7 @@
       dt('dt-registro-vence').value = p.registro_vence || '';
       dt('dt-laboratorio').value = p.laboratorio_id || '';
       dt('dt-concentracion').value = p.concentracion || '';
-      dt('dt-principio').value = p.principio_id || '';
+      dt('dt-principio').value = p.principios || '';
       dt('dt-forma').value = p.forma_farmaceutica_id || '';
       modalTec.classList.remove('modal-oculto');
       (p.registro_sanitario ? dt('dt-laboratorio') : dt('dt-registro')).focus();
@@ -973,7 +1025,7 @@
     fd.append('registro_vence', dt('dt-registro-vence').value);
     fd.append('laboratorio_id', dt('dt-laboratorio').value);
     fd.append('concentracion', dt('dt-concentracion').value.trim());
-    fd.append('principio_id', dt('dt-principio').value);
+    fd.append('principios', dt('dt-principio').value);
     fd.append('forma_farmaceutica_id', dt('dt-forma').value);
     this.disabled = true;
     try {
@@ -1013,10 +1065,7 @@
       op.value = id;
       op.textContent = nombre;
       // Se mete en orden alfabético (después de "— Sin dato —" / "— Seleccionar —")
-      const siguiente = Array.from(sel.options).slice(1).find(function (o) {
-        return o.textContent.localeCompare(nombre, 'es', { sensitivity: 'base' }) > 0;
-      });
-      sel.insertBefore(op, siguiente || null);
+      window.insertarOrdenado(sel, op, false);
     });
   }
   async function refrescarLaboratorios() {
@@ -1062,7 +1111,7 @@
   npGuardar.addEventListener('click', async function () {
     const nombre = npNombre.value.trim();
     if (!nombre) { npError.textContent = 'El nombre es obligatorio.'; npError.style.display = 'block'; return; }
-    if (!npLaboratorio.value) { npError.textContent = 'El laboratorio es obligatorio.'; npError.style.display = 'block'; return; }
+    // El laboratorio o marca es opcional desde la versión 1.1.6
     if ((npFrio.checked || npControl.checked) && !npRegistro.value.trim()) {
       npError.textContent = 'Cadena de frío o control especial exige registro INVIMA.';
       npError.style.display = 'block';
@@ -1128,32 +1177,50 @@
   });
 
     // ===== Totales de la recepción =====
+  // Casilla «Los costos de esta factura ya incluyen el IVA» (versión 1.1.6)
+  const $incluyeIva = document.getElementById('precios-con-iva');
+  if ($incluyeIva) $incluyeIva.addEventListener('change', () => recalcularTotales());
+
   function recalcularTotales() {
     let unidades = 0;
     let valor = 0;
+    let subtotal = 0;
+    let ivaTotal = 0;
     let lineas = 0;
     body.querySelectorAll('tr.linea').forEach(function (tr) {
       const cant = parseFloat(tr.querySelector('input[name="linea_cantidad_recibida"]').value) || 0;
       const costo = parseFloat(tr.querySelector('input[name="linea_costo"]').value) || 0;
-      // Total de ESTA línea, debajo del costo (versión 1.1.3):
-      // 4 Unidad × $10.058,2 = $40.232,8  (hasta 2 decimales, formato colombiano)
+      // IVA de la línea (versión 1.1.6). Si la casilla «ya incluyen IVA» está marcada,
+      // el costo escrito YA trae el IVA: se saca de adentro. Si no, se suma.
+      //   sin incluir: 4 × $10.000 = $40.000 + IVA 19 % ($7.600) = $47.600
+      //   incluido:    4 × $11.900 = $47.600 (de los cuales $7.600 son IVA)
+      const tasa = (parseFloat((tr.querySelector('.linea-iva') || {}).value) || 0) / 100;
+      const incluyeIva = $incluyeIva && $incluyeIva.checked;
+      const bruto = cant * costo;
+      const sinIva = incluyeIva ? bruto / (1 + tasa) : bruto;
+      const ivaLinea = sinIva * tasa;
+      const fmt = (x) => '$' + x.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      // Total de ESTA línea, debajo del costo (versión 1.1.3; con IVA desde la 1.1.6)
       const txt = tr.querySelector('.linea-total-txt');
       if (txt) {
         txt.textContent = cant > 0 && costo > 0
-          ? 'Total: $' + (cant * costo).toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+          ? 'Total: ' + fmt(sinIva + ivaLinea) + (ivaLinea > 0 ? ' (IVA ' + fmt(ivaLinea) + ')' : '')
           : '';
       }
       const hidden = tr.querySelector('.linea-producto-id');
       if (!hidden || !hidden.value) return;
       unidades += cant * factorLinea(tr);     // en unidades de inventario (3 cajas x 100 = 300)
-      valor += cant * costo;                  // el costo es por presentación (por caja)
+      subtotal += sinIva;                     // el costo es por presentación (por caja)
+      ivaTotal += ivaLinea;
+      valor += sinIva + ivaLinea;
       lineas += 1;
     });
     document.getElementById('total-lineas').textContent = lineas;
     document.getElementById('total-unidades').textContent = unidades.toFixed(2);
-    document.getElementById('total-valor').textContent = '$' + valor.toLocaleString('es-CO', {
-      minimumFractionDigits: 0, maximumFractionDigits: 0
-    });
+    const pesos0 = (x) => '$' + x.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    document.getElementById('total-subtotal').textContent = pesos0(subtotal);
+    document.getElementById('total-iva').textContent = pesos0(ivaTotal);
+    document.getElementById('total-valor').textContent = pesos0(valor);
   }
 
   // Recalcular cuando cambia cualquier cantidad o costo
@@ -1167,6 +1234,12 @@
 
   // Al cambiar "Viene en" (Tableta / Caja x 100): recalcular totales y la equivalencia
   body.addEventListener('change', function (e) {
+    // Cambió el IVA de una línea (versión 1.1.6): recalcular el total y el costo por unidad
+    if (e.target.classList.contains('linea-iva')) {
+      recalcularTotales();
+      equivalenciaLinea(e.target.closest('tr'));
+      return;
+    }
     if (e.target.classList.contains('linea-pres')) {
       if (e.target.value === 'nueva') { crearUnidadDesdeLinea(e.target); return; }
       e.target.dataset.anterior = e.target.value;

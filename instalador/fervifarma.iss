@@ -63,9 +63,12 @@ Name: "alarrancar"; Description: "Abrir Fervifarma al prender el computador"; Gr
 Source: "..\dist\Fervifarma\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{userprograms}\Fervifarma"; Filename: "{app}\Fervifarma.exe"
-Name: "{userdesktop}\Fervifarma"; Filename: "{app}\Fervifarma.exe"; Tasks: escritorio
-Name: "{userstartup}\Fervifarma"; Filename: "{app}\Fervifarma.exe"; Tasks: alarrancar
+; AppUserModelID (versión 1.1.6): la "identidad" del programa para la barra de tareas.
+; Es la MISMA que le pone icono_ventana.py a la ventana: así Windows junta la ventana
+; con este acceso directo y muestra el ícono de Fervifarma (antes salía el de Chrome).
+Name: "{userprograms}\Fervifarma"; Filename: "{app}\Fervifarma.exe"; AppUserModelID: "Fervifarma.Programa"
+Name: "{userdesktop}\Fervifarma"; Filename: "{app}\Fervifarma.exe"; AppUserModelID: "Fervifarma.Programa"; Tasks: escritorio
+Name: "{userstartup}\Fervifarma"; Filename: "{app}\Fervifarma.exe"; AppUserModelID: "Fervifarma.Programa"; Tasks: alarrancar
 
 [Run]
 Filename: "{app}\Fervifarma.exe"; Description: "Abrir Fervifarma ahora"; Flags: nowait postinstall skipifsilent

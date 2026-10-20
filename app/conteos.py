@@ -170,7 +170,7 @@ def lista():
     ).fetchall()
     categorias = db.execute(
         "SELECT id, nombre FROM catalogos WHERE tipo = 'categoria' AND activo = 1 "
-        "ORDER BY nombre COLLATE NOCASE"
+        "ORDER BY nombre COLLATE ES"
     ).fetchall()
     return render_template("conteos/lista.html", conteos=conteos, categorias=categorias,
                            abierto=_conteo_abierto())
@@ -216,8 +216,9 @@ def contar(conteo_id):
         return redirect(url_for("conteos.revisar", conteo_id=conteo_id))
     db = get_db()
     # Para la ventana "Crear producto" (cuando lo encontrado no existe en el sistema)
-    unidades = db.execute("SELECT id, nombre, cantidad FROM unidades_medida WHERE activo = 1 "
-                          "ORDER BY cantidad, nombre").fetchall()
+    from .nombres import orden_unidades          # "Unidad" primero y después por tamaño
+    unidades = orden_unidades(db.execute(
+        "SELECT id, nombre, cantidad FROM unidades_medida WHERE activo = 1").fetchall())
     laboratorios = db.execute("SELECT id, nombre FROM catalogos WHERE tipo = 'laboratorio' AND activo = 1 "
                               "ORDER BY nombre").fetchall()
     return render_template("conteos/contar.html", conteo=conteo, resumen=_resumen(conteo),
@@ -501,7 +502,7 @@ def _lineas_detalle(conteo_id):
         "SELECT cl.*, p.codigo, p.nombre, p.concentracion, "
         "       (cl.cantidad_contada - cl.cantidad_sistema) AS diferencia "
         "FROM conteo_lineas cl JOIN productos p ON p.id = cl.producto_id "
-        "WHERE cl.conteo_id = ? ORDER BY p.nombre COLLATE NOCASE, cl.vencimiento",
+        "WHERE cl.conteo_id = ? ORDER BY p.nombre COLLATE ES, cl.vencimiento",
         (conteo_id,),
     ).fetchall()
 
@@ -528,7 +529,7 @@ def revisar(conteo_id):
             + _filtro_alcance(conteo) +
             " AND l.id NOT IN (SELECT lote_id FROM conteo_lineas WHERE conteo_id = ? "
             "                  AND lote_id IS NOT NULL) "
-            "ORDER BY p.nombre COLLATE NOCASE LIMIT 200",
+            "ORDER BY p.nombre COLLATE ES LIMIT 200",
             (conteo_id,),
         ).fetchall()
 

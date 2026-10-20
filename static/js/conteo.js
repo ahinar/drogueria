@@ -442,7 +442,7 @@
     mostrarErrorCP('');
     const form = $('form-crear-producto');
     if (!$('cp-nombre').value.trim()) { mostrarErrorCP('Escribe el nombre.'); return; }
-    if (!$('cp-laboratorio').value) { mostrarErrorCP('Escoge el laboratorio.'); return; }
+    // El laboratorio o marca es opcional desde la versión 1.1.6
     if (!$('cp-precio').value.trim()) { mostrarErrorCP('Escribe el precio de venta.'); return; }
     const datos = new FormData(form);
     datos.append('_csrf', csrf());

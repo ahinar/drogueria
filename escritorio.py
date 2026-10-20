@@ -28,6 +28,10 @@ PARA QUÉ (para aprender):
       Solo revisa que el PC principal conteste y abre la ventana apuntando
       a él. Si no contesta, muestra un mensaje con "Reintentar".
 
+    ÍCONO EN LA BARRA DE TAREAS (versión 1.1.6, ver icono_ventana.py):
+    - Antes salía el ícono de Chrome, porque la ventana la abre Chrome. Ahora un
+      "vigilante" le dice a Windows que esa ventana es Fervifarma y le pone su ícono.
+
     Los errores quedan escritos en  <datos>/logs/fervifarma.log  (ver config.py).
 """
 import logging
@@ -42,6 +46,7 @@ import webbrowser
 from pathlib import Path
 
 import config
+import icono_ventana
 
 URL = f"http://127.0.0.1:{config.PORT}"
 
@@ -152,7 +157,14 @@ def abrir_ventana(esperar=True, url=URL):
              "--no-first-run", "--no-default-browser-check", "--disable-features=Translate"]
     proceso = subprocess.Popen(orden)
     if esperar:
+        icono_ventana.vigilar()                    # ícono de Fervifarma mientras la ventana esté abierta
         proceso.wait()                             # aquí se queda mientras la ventana esté abierta
+    else:
+        # Este lanzador se va a cerrar enseguida: se queda 20 segundos poniéndole
+        # el ícono a la ventana nueva y después termina
+        vigilante = icono_ventana.vigilar(segundos=20)
+        if vigilante:
+            vigilante.join()
     return True
 
 
@@ -191,6 +203,7 @@ def abrir_conectado():
 
 def main():
     preparar_registro()
+    icono_ventana.identidad_del_proceso()          # este proceso también es "Fervifarma" para Windows
     logging.info("Abriendo Fervifarma (datos en %s, modo %s)", config.DATA_DIR, config.EQUIPO["modo"])
     if URL_PRINCIPAL:
         abrir_conectado()

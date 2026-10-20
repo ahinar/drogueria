@@ -2950,3 +2950,143 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   font-size: 1.45rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
 }
 .pos-busqueda .pos-busqueda-caja .pos-limpiar-busqueda[hidden] { display: none; }
+
+/* Buscar repetidos (versión 1.1.6): un recuadro por grupo */
+.repetido-grupo {
+  background: var(--fondo-tarjeta, #fff); border: 1px solid #e3e8ec; border-radius: .6rem;
+  padding: 1rem 1.1rem; margin: 0 0 1rem;
+}
+
+/* Campo de varios nombres con comas y sus sugerencias (versión 1.1.6) */
+.campo-comas { position: relative; }
+.comas-sugerencias {
+  position: absolute; left: 0; right: 0; z-index: 30; margin-top: .15rem;
+  background: #fff; border: 1px solid #c8d2da; border-radius: .4rem;
+  box-shadow: 0 6px 18px rgba(0,0,0,.12); max-height: 260px; overflow-y: auto;
+}
+.comas-sugerencias[hidden] { display: none; }
+.comas-sugerencias button {
+  display: block; width: 100%; text-align: left; padding: .45rem .7rem;
+  border: none; background: transparent; cursor: pointer; font: inherit; color: inherit;
+}
+.comas-sugerencias button.activa, .comas-sugerencias button:hover { background: var(--acento-suave); }
+
+/* IVA de cada línea de la recepción (versión 1.1.6), debajo del costo */
+.linea-iva-campo {
+  display: flex; align-items: center; gap: .3rem; margin-top: .25rem;
+  font-size: .75rem; color: #5b6b79; font-weight: 600;
+}
+.linea-iva-campo select { padding: .1rem .3rem; font-size: .8rem; width: auto; min-width: 4.2rem; }
+
+/* =====================================================================
+   DASHBOARD DE CONTABILIDAD Y SESIONES DE CAJA (versión 1.1.6)
+   Tarjetas de colores, paneles blancos, gráficos y la diferencia de caja
+   en azul (cuadró), rojo (faltó) y verde (sobró).
+   ===================================================================== */
+.dash-cabecera { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.dash-cabecera h1 { margin: .1rem 0 .2rem; }
+.dash-modulo { margin: 0; font-weight: 700; color: var(--acento-fuerte); display: flex; align-items: center; gap: .4rem; }
+.dash-modulo svg { width: 1.2rem; height: 1.2rem; }
+.dash-periodo label { display: flex; align-items: center; gap: .5rem; font-weight: 600; }
+.dash-periodo select { min-width: 12rem; }
+
+.dash-tarjetas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.dash-tarjeta {
+  display: flex; flex-direction: column; gap: .2rem; padding: 1rem 1.1rem; border-radius: .8rem;
+  border: 1px solid; text-decoration: none; color: #1e293b; transition: transform .1s, box-shadow .1s;
+}
+.dash-tarjeta:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(15, 23, 42, .08); }
+.dash-ingresos { background: #f0fdf4; border-color: #bbf7d0; }
+.dash-costo    { background: #fef2f2; border-color: #fecaca; }
+.dash-gastos   { background: #eff6ff; border-color: #bfdbfe; }
+.dash-utilidad { background: #faf5ff; border-color: #e9d5ff; }
+.dash-tarjeta-ico { font-size: 1.6rem; line-height: 1; }
+.dash-tarjeta-titulo { font-weight: 700; font-size: .92rem; color: #334155; }
+.dash-tarjeta-valor { font-size: 1.65rem; font-weight: 800; letter-spacing: -.02em; }
+.dash-tarjeta-valor.negativo { color: #b91c1c; }
+.dash-var { font-weight: 700; font-size: .9rem; }
+.dash-var small { font-weight: 400; color: #64748b; }
+.dash-var.bien { color: #15803d; }
+.dash-var.mal  { color: #b91c1c; }
+.dash-tarjeta-detalle { font-size: .8rem; color: #64748b; }
+.dash-ver { margin-top: .3rem; font-size: .82rem; font-weight: 600; color: var(--acento-fuerte); }
+
+.dash-fila { display: grid; gap: 1rem; margin-bottom: 1rem; }
+.dash-fila-3 { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) minmax(0, .8fr); }
+.dash-fila-2 { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.dash-panel {
+  background: #fff; border: 1px solid #e3e8ec; border-radius: .8rem; padding: 1rem 1.1rem; min-width: 0;
+  margin-bottom: 1rem;
+}
+.dash-fila .dash-panel { margin-bottom: 0; }
+.dash-panel h2 { font-size: 1.05rem; margin: 0 0 .6rem; display: flex; align-items: center; gap: .45rem; }
+.dash-panel h2 svg { width: 1.15rem; height: 1.15rem; }
+.dash-nota { font-size: .8rem; margin: -.3rem 0 .5rem; }
+.dash-grafico { position: relative; height: 260px; }
+.dash-grafico-bajo { height: 190px; }
+
+.dash-dona-caja { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.dash-dona { position: relative; width: 190px; height: 190px; flex-shrink: 0; }
+.dash-dona-centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.dash-dona-centro strong { font-size: 1.05rem; }
+.dash-dona-centro small { color: #64748b; font-size: .75rem; }
+.dash-leyenda { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 150px; font-size: .85rem; }
+.dash-leyenda li { display: flex; align-items: center; gap: .45rem; padding: .25rem 0; }
+.dash-leyenda li strong { margin-left: auto; }
+.dash-leyenda .punto { width: .7rem; height: .7rem; border-radius: 50%; flex-shrink: 0; background: #94a3b8; }
+
+.dash-acciones { display: flex; flex-direction: column; gap: .45rem; }
+.dash-acciones a {
+  display: block; padding: .55rem .75rem; border: 1px solid #e3e8ec; border-radius: .5rem;
+  text-decoration: none; color: inherit; font-weight: 600; font-size: .9rem;
+}
+.dash-acciones a:hover { background: var(--acento-suave); border-color: var(--acento-anillo); }
+
+.dash-tabla { width: 100%; font-size: .87rem; }
+.dash-tabla th { white-space: nowrap; }
+.der { text-align: right; }
+.dash-etiqueta { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .75rem; font-weight: 700; }
+.dash-etiqueta.ingreso { background: #dcfce7; color: #166534; }
+.dash-etiqueta.egreso  { background: #fee2e2; color: #991b1b; }
+.dash-resumen { width: 100%; font-size: .9rem; border-collapse: collapse; margin-top: .6rem; }
+.dash-resumen td { padding: .3rem .2rem; border-bottom: 1px solid #f1f5f9; }
+.dash-resumen-total td { font-weight: 800; background: #f0fdf4; }
+.dash-ver-todas { margin-left: auto; font-size: .82rem; font-weight: 600; }
+
+.dash-mini { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+.dash-mini-tarjeta {
+  display: flex; flex-direction: column; gap: .15rem; padding: .85rem 1rem; background: #fff;
+  border: 1px solid #e3e8ec; border-radius: .8rem; text-decoration: none; color: inherit;
+}
+a.dash-mini-tarjeta:hover { border-color: var(--acento-anillo); }
+.dash-mini-tarjeta span { font-weight: 700; font-size: .88rem; color: #334155; }
+.dash-mini-tarjeta strong { font-size: 1.35rem; }
+.dash-mini-tarjeta small { color: #64748b; font-size: .78rem; }
+
+.dash-alerta { display: flex; flex-direction: column; gap: .1rem; padding: .6rem .75rem; border-radius: .55rem;
+  margin-bottom: .5rem; text-decoration: none; color: inherit; border: 1px solid; }
+.dash-alerta.rojo     { background: #fef2f2; border-color: #fecaca; }
+.dash-alerta.amarillo { background: #fffbeb; border-color: #fde68a; }
+.dash-alerta small { color: #64748b; }
+
+/* Diferencia de caja */
+.dif { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-weight: 800; font-size: .85rem; white-space: nowrap; }
+.dif-cuadra  { background: #dbeafe; color: #1d4ed8; }   /* azul: cuadró */
+.dif-falta   { background: #fee2e2; color: #b91c1c; }   /* rojo: faltó (−) */
+.dif-sobra   { background: #dcfce7; color: #15803d; }   /* verde: sobró (+) */
+.dif-abierta { background: #f1f5f9; color: #475569; }
+strong.dif-falta, strong.dif-sobra { background: none; padding: 0; }
+.fila-clic { cursor: pointer; }
+.fila-clic:hover td { background: var(--acento-suave); }
+.filtros-linea { display: flex; gap: .7rem; align-items: flex-end; flex-wrap: wrap; margin: .4rem 0 1rem; }
+.filtros-linea label { display: flex; flex-direction: column; gap: .2rem; font-weight: 600; font-size: .85rem; }
+.tabla-scroll { overflow-x: auto; }
+.tabla-cajas td { vertical-align: top; }
+
+@media (max-width: 1100px) {
+  .dash-tarjetas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dash-fila-3, .dash-fila-2 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .dash-tarjetas { grid-template-columns: minmax(0, 1fr); }
+}

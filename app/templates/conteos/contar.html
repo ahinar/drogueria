@@ -119,8 +119,8 @@
       <div class="cnt-modal-grid">
         <label>Código de barras
           <input type="text" name="codigo_barras" id="cp-barras"></label>
-        <label>Laboratorio *
-          <select name="laboratorio_id" id="cp-laboratorio" required>
+        <label>Laboratorio o marca <small class="suave">(opcional)</small>
+          <select name="laboratorio_id" id="cp-laboratorio">
             <option value="">— Seleccionar —</option>
             {% for l in laboratorios %}<option value="{{ l['id'] }}">{{ l['nombre'] }}</option>{% endfor %}
           </select></label>

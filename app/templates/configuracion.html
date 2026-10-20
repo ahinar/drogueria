@@ -43,6 +43,16 @@
         <label>{{ titulo }} <input type="{{ tipo }}" name="{{ clave }}" value="{{ valores[clave] }}"></label>
       {% endif %}
     {% endfor %}
+    {# Versión 1.1.6: cambia cómo se calcula el costo de lo que se recibe con IVA #}
+    <label>¿La droguería declara IVA ante la DIAN?
+      <select name="declara_iva">
+        <option value="no" {% if valores['declara_iva'] != 'si' %}selected{% endif %}>No: el IVA de las compras es parte del costo</option>
+        <option value="si" {% if valores['declara_iva'] == 'si' %}selected{% endif %}>Sí: el IVA de las compras se descuenta</option>
+      </select>
+      <small class="suave">Con «No», la utilidad se calcula con el costo <strong>con IVA</strong>. Con «Sí», con el costo
+        <strong>sin IVA</strong>, y el dashboard de contabilidad muestra el IVA estimado a pagar. Aplica a las
+        recepciones que se guarden desde que lo cambies. Si tienes dudas, pregúntale a tu contador.</small>
+    </label>
   </fieldset>
 
   <fieldset>

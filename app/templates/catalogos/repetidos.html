@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block titulo %}Catálogos · Repetidos{% endblock %}
+{% block contenido %}
+{#
+  BUSCAR REPETIDOS (versión 1.1.6) — ver catalogos.grupos_repetidos y unir_repetidos.
+  Cada grupo son registros con el MISMO nombre escrito distinto ("SAN FER" / "Sanfer").
+  Se escoge cuál queda (sale marcado el más usado) y "Unir" pasa todo a ese.
+#}
+<h1><span class="ico-emoji">🔍</span> Buscar repetidos</h1>
+<p class="suave">Nombres iguales escritos de otra forma (mayúsculas, tildes o espacios). Escoge cuál queda y dale
+  <strong>Unir</strong>: todos los productos, gastos y demás pasan a ese, y los otros se borran.</p>
+<p><a href="{{ url_for('catalogos.index') }}">← Volver a Catálogos</a></p>
+
+{% if not grupos %}
+  <div class="aviso ok">✅ No hay repetidos. Todo está en orden.</div>
+{% endif %}
+
+{% for g in grupos %}
+<form method="post" action="{{ url_for('catalogos.unir_repetidos') }}" class="tarjeta repetido-grupo">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <input type="hidden" name="tipo" value="{{ g.tipo }}">
+  <h2 style="font-size:1rem;margin:0 0 .5rem">{{ g.titulo }}</h2>
+  <table class="tabla">
+    <thead><tr><th>Queda</th><th>Nombre</th><th>Se usa en</th><th>Estado</th></tr></thead>
+    <tbody>
+    {% for i in g['items'] %}
+      <tr>
+        <td><input type="radio" name="queda" value="{{ i.id }}" {% if loop.first %}checked{% endif %}
+                   aria-label="Que quede {{ i.nombre }}">
+            <input type="hidden" name="ids" value="{{ i.id }}"></td>
+        <td><strong>{{ i.nombre }}</strong></td>
+        <td>{{ i.usos }} registro{{ 's' if i.usos != 1 else '' }}</td>
+        <td>{{ 'Activo' if i.activo else 'Desactivado' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="acciones"><button type="submit" class="boton">🔗 Unir en el escogido</button></div>
+</form>
+{% endfor %}
+{% endblock %}

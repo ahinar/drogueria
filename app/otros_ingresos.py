@@ -37,7 +37,7 @@ def _categorias():
     """Categorías activas de otros ingresos (Administración → Catálogos)."""
     return get_db().execute(
         "SELECT id, nombre FROM catalogos WHERE tipo = 'categoria_ingreso' AND activo = 1 "
-        "ORDER BY nombre COLLATE NOCASE").fetchall()
+        "ORDER BY nombre COLLATE ES").fetchall()
 
 
 def _ingreso_o_404(ingreso_id):

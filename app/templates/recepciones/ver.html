@@ -88,7 +88,9 @@
           {% else %}{{ '%g' % l['cantidad_recibida'] }} {{ l['unidad_nombre'] or '' }}{% endif %}</td>
       <td>{% if l['factor'] and l['factor'] != 1 %}{{ (l['costo_unitario'] * l['factor'])|pesos }} c/{{ l['presentacion'] }}<br>
             <small class="suave">{{ l['costo_unitario']|pesos }} c/u</small>
-          {% else %}{{ l['costo_unitario']|pesos }}{% endif %}</td>
+          {% else %}{{ l['costo_unitario']|pesos }}{% endif %}
+          {# IVA de la línea (versión 1.1.6) #}
+          {% if l['iva_tarifa'] %}<br><small class="suave">IVA {{ '%g' % l['iva_tarifa'] }} %</small>{% endif %}</td>
       <td>{% if l['temperatura_ingreso'] is not none %}{{ l['temperatura_ingreso'] }} °C{% else %}—{% endif %}</td>
       <td>{{ empaques.get(l['estado_empaque'], l['estado_empaque']) }}</td>
       <td>
@@ -101,6 +103,20 @@
     {% endfor %}
   </tbody>
 </table>
+
+{# Totales como en la factura (versión 1.1.6): subtotal sin IVA + IVA = total #}
+{% set ns = namespace(sub=0, iva=0) %}
+{% for l in lineas %}
+  {% set sin = (l['costo_sin_iva'] if l['costo_sin_iva'] is not none else l['costo_unitario']) * l['cantidad_recibida'] %}
+  {% set con = (l['costo_con_iva'] if l['costo_con_iva'] is not none else l['costo_unitario']) * l['cantidad_recibida'] %}
+  {% set ns.sub = ns.sub + sin %}{% set ns.iva = ns.iva + (con - sin) %}
+{% endfor %}
+<div class="totales-recepcion" style="max-width:420px;margin-left:auto">
+  <div class="total-linea"><span>Subtotal (sin IVA):</span><strong>{{ ns.sub|pesos }}</strong></div>
+  <div class="total-linea"><span>IVA:</span><strong>{{ ns.iva|pesos }}</strong></div>
+  <div class="total-linea total-grande"><span>Total de la factura:</span><strong>{{ (ns.sub + ns.iva)|pesos }}</strong></div>
+  {% if rec['precios_con_iva'] %}<small class="suave">Los costos de esta factura venían con el IVA incluido.</small>{% endif %}
+</div>
 
 {% if rec['foto_ruta'] %}
 <h2 class="titulo-seccion">Adjunto</h2>

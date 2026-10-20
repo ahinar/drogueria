@@ -57,6 +57,10 @@ DEFAULTS = {
     "tirilla_modo": "navegador",
     # Tirilla directa: "si" = con tildes y ñ; "no" = sin tildes (si la impresora las imprime raras)
     "tirilla_tildes": "si",
+    # ¿La droguería declara IVA ante la DIAN? (versión 1.1.6)
+    #   "no" = el IVA de las compras es parte del COSTO (la utilidad usa el costo con IVA)
+    #   "si" = el IVA de las compras se descuenta (la utilidad usa el costo sin IVA)
+    "declara_iva": "no",
 }
 
 MODOS_TIRILLA = {
@@ -116,6 +120,7 @@ def ver():
         # Tirilla del POS: por el navegador o directa (app/tirilla_directa.py)
         nuevos["tirilla_modo"] = "directa" if request.form.get("tirilla_modo") == "directa" else "navegador"
         nuevos["tirilla_tildes"] = "no" if request.form.get("tirilla_tildes") == "no" else "si"
+        nuevos["declara_iva"] = "si" if request.form.get("declara_iva") == "si" else "no"
 
         # Manejar subida de logo
         archivo_logo = request.files.get("logo")

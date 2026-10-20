@@ -142,7 +142,7 @@ def resumen(hoy=None, todos=False, q=""):
     if q:
         sql += " AND (nombre LIKE ? OR documento LIKE ? OR telefono LIKE ?)"
         params += [f"%{q}%"] * 3
-    clientes = db.execute(sql + " ORDER BY nombre COLLATE NOCASE", params).fetchall()
+    clientes = db.execute(sql + " ORDER BY nombre COLLATE ES", params).fetchall()
 
     filas = []
     rangos = [{"texto": t, "total": 0.0} for t, _, _ in RANGOS]
@@ -441,7 +441,7 @@ def api_clientes():
         sql += " AND (nombre LIKE ? OR documento LIKE ? OR telefono LIKE ?)"
         params += [f"%{q}%"] * 3
     salida = []
-    for c in get_db().execute(sql + " ORDER BY nombre COLLATE NOCASE LIMIT 200", params):
+    for c in get_db().execute(sql + " ORDER BY nombre COLLATE ES LIMIT 200", params):
         debe = saldo(c["id"])
         if request.args.get("con_saldo") and debe <= 0.5:
             continue
