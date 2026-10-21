@@ -11,6 +11,10 @@
     <label>NIT * <input type="text" name="nit" required value="{{ proveedor['nit'] if proveedor else '' }}"></label>
     <label>Razón social * <input type="text" name="razon_social" required value="{{ proveedor['razon_social'] if proveedor else '' }}"></label>
     <label>Nombre comercial <input type="text" name="nombre_comercial" value="{{ proveedor['nombre_comercial'] if proveedor and proveedor['nombre_comercial'] else '' }}"></label>
+    {# Versión 1.1.7: con este plazo la recepción calcula cuándo vence cada factura (Cuentas por pagar) #}
+    <label>Plazo de pago (días)
+      <input type="number" name="plazo_dias" min="0" step="1" value="{{ proveedor['plazo_dias'] if proveedor else 0 }}">
+      <small class="suave">0 = se le paga de contado. Ej: 30 = la factura vence a los 30 días.</small></label>
   </fieldset>
 
   <fieldset>

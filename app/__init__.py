@@ -92,6 +92,10 @@ def create_app(test_config=None):
     app.register_blueprint(apariencia.bp)     # tema (colores) de cada usuario
     app.register_blueprint(otros_ingresos.bp) # plata que entra y no es venta
     app.register_blueprint(cartera.bp)        # ventas a crédito y abonos (cuentas por cobrar)
+    # Versión 1.1.7: Bancos (Nequi y Davivienda) y Cuentas por pagar a proveedores
+    from . import bancos, cuentas_pagar
+    app.register_blueprint(bancos.bp)
+    app.register_blueprint(cuentas_pagar.bp)
     # Fase 4 (calidad): gestión documental. Ver app/documentos.py
     from . import documentos
     app.register_blueprint(documentos.bp)

@@ -415,6 +415,23 @@ def calcular_alertas(rol):
                     "url": url_for("cartera.cliente_ver", cliente_id=f["cliente"]["id"]),
                 }, url=url_for("cartera.index"), boton="Ver cartera")
 
+    # ------------------------------------------------------------------
+    # Facturas de proveedores vencidas o que vencen en 3 días (versión 1.1.7)
+    # ------------------------------------------------------------------
+    if jefe:
+        limite = (hoy + timedelta(days=3)).isoformat()
+        filas = get_db().execute(
+            "SELECT r.id, r.numero, r.factura_numero, r.total_pagar, r.pago_vence, p.razon_social "
+            "FROM recepciones r JOIN proveedores p ON p.id = r.proveedor_id "
+            "WHERE r.pago_estado = 'pendiente' AND r.pago_vence <= ? ORDER BY r.pago_vence", (limite,)).fetchall()
+        agregar("cxp_vencidas", "rojo", "🧾", "Facturas de proveedores por pagar ya",
+                "Vencidas o que vencen en los próximos 3 días.",
+                filas, lambda f: {
+                    "texto": f"{f['razon_social']} · factura {f['factura_numero'] or f['numero']}",
+                    "detalle": f"{_pesos(f['total_pagar'])} · vence {f['pago_vence']}",
+                    "url": url_for("cuentas_pagar.pagar", rec_id=f["id"]),
+                }, url=url_for("cuentas_pagar.index"), boton="Ver cuentas por pagar")
+
     # Rojas primero; dentro de cada color se respeta el orden de arriba
     alertas.sort(key=lambda a: 0 if a["nivel"] == "rojo" else 1)
     return alertas

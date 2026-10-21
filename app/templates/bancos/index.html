@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block titulo %}Bancos{% endblock %}
+{% block contenido %}
+{#
+  BANCOS (versión 1.1.7): saldo de Nequi y Davivienda, junto a la caja menor.
+  Datos: app/bancos.py → index(). Los saldos se calculan solos con las ventas,
+  gastos, abonos, pagos a proveedores... que tienen esa forma de pago.
+#}
+<div class="dash-cabecera">
+  <div>
+    <p class="dash-modulo">{{ ico("banco", "🏦") }} Contabilidad</p>
+    <h1>Bancos</h1>
+    <p class="suave">Cuánta plata hay en Nequi, Davivienda y la caja menor. Las ventas, gastos, abonos y pagos
+      a proveedores por Nequi o Davivienda se suman solos.</p>
+  </div>
+</div>
+
+{# ===== Tarjetas: total y cada cuenta ===== #}
+<div class="dash-tarjetas">
+  <div class="dash-tarjeta dash-utilidad">
+    <span class="dash-tarjeta-ico">💰</span>
+    <span class="dash-tarjeta-titulo">Total de la plata</span>
+    <span class="dash-tarjeta-valor {% if total < 0 %}negativo{% endif %}">{{ total|pesos }}</span>
+    <span class="dash-tarjeta-detalle">caja menor + Nequi + Davivienda (sin contar la caja del POS abierta)</span>
+  </div>
+  <a class="dash-tarjeta dash-ingresos" href="{{ url_for('caja_menor.index') }}">
+    <span class="dash-tarjeta-ico">💵</span>
+    <span class="dash-tarjeta-titulo">Caja menor (efectivo)</span>
+    <span class="dash-tarjeta-valor {% if caja_menor < 0 %}negativo{% endif %}">{{ caja_menor|pesos }}</span>
+    <span class="dash-ver">Ver caja menor →</span>
+  </a>
+  {% for c in cuentas %}
+  <a class="dash-tarjeta {{ 'dash-costo' if c.clave == 'davivienda' else 'dash-gastos' }}" href="{{ url_for('bancos.cuenta', clave=c.clave) }}">
+    <span class="dash-tarjeta-ico">{{ '🟣' if c.clave == 'nequi' else '🔴' }}</span>
+    <span class="dash-tarjeta-titulo">{{ c.nombre }}</span>
+    <span class="dash-tarjeta-valor {% if c.saldo < 0 %}negativo{% endif %}">{{ c.saldo|pesos }}</span>
+    <span class="dash-tarjeta-detalle">Este mes: entró {{ c.entra_mes|pesos }} · salió {{ c.sale_mes|pesos }}</span>
+    <span class="dash-ver">Ver movimientos →</span>
+  </a>
+  {% endfor %}
+</div>
+
+{# ===== Avisos ===== #}
+{% for c in cuentas if not c.actualizado_en %}
+<div class="dash-alerta amarillo">
+  <strong>⚠ {{ c.nombre }}: falta el saldo con el que arrancó</strong>
+  <small>La cuenta empieza el {{ c.fecha_inicial }} (el día de la primera venta). Entra a
+    <a href="{{ url_for('bancos.cuenta', clave=c.clave) }}">{{ c.nombre }}</a> y escribe cuánta plata había ese día.
+    Si no lo sabes, usa <strong>Cuadrar</strong> con el saldo de hoy y escoge «plata personal».</small>
+</div>
+{% endfor %}
+{% if sin_cuenta.n %}
+<div class="dash-alerta amarillo">
+  <strong>⚠ {{ sin_cuenta.n }} movimiento(s) por «Transferencia» sin cuenta ({{ sin_cuenta.total|pesos }})</strong>
+  <small>No se sabe si fue Nequi o Davivienda, así que no suman en ninguna. Corrígelos en
+    <a href="{{ url_for('contabilidad.gastos_lista') }}">Gastos</a> u
+    <a href="{{ url_for('otros_ingresos.lista') }}">Otros ingresos</a> escogiendo la cuenta.</small>
+</div>
+{% endif %}
+
+{# ===== Formularios: traslado, plata del dueño, cuadrar ===== #}
+<div class="dash-fila dash-fila-3 bancos-formas">
+  <section class="dash-panel">
+    <h2>🔁 Trasladar plata</h2>
+    <p class="dash-nota suave">Consignar efectivo, sacar plata del banco o pasar de una cuenta a otra.</p>
+    <form method="post" action="{{ url_for('bancos.traslado') }}" class="formulario-mini"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label>Sale de
+        <select name="origen" required>{% for k, v in lugares.items() %}<option value="{{ k }}">{{ v }}</option>{% endfor %}</select></label>
+      <label>Llega a
+        <select name="destino" required>{% for k, v in lugares.items() %}<option value="{{ k }}" {% if loop.index == 3 %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label>
+      <label>Valor <input type="number" name="monto" min="1" step="1" required placeholder="0"></label>
+      <label>Fecha <input type="date" name="fecha" value="{{ hoy }}" max="{{ hoy }}"></label>
+      <label>Nota <input type="text" name="descripcion" placeholder="Ej: consignación del fin de semana"></label>
+      <button type="submit" class="boton">Registrar traslado</button>
+    </form>
+  </section>
+
+  <section class="dash-panel">
+    <h2>👤 Plata personal del dueño</h2>
+    <p class="dash-nota suave">Las cuentas también son personales. Lo personal <strong>no es gasto</strong> de la droguería.</p>
+    <form method="post" action="{{ url_for('bancos.dueno') }}" class="formulario-mini"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label>Cuenta
+        <select name="cuenta">{% for c in cuentas %}<option value="{{ c.clave }}">{{ c.nombre }}</option>{% endfor %}</select></label>
+      <label>Qué fue
+        <select name="tipo">
+          <option value="retiro_dueno">Retiro: saqué plata para mí</option>
+          <option value="aporte_dueno">Aporte: metí plata mía</option>
+        </select></label>
+      <label>Valor <input type="number" name="monto" min="1" step="1" required placeholder="0"></label>
+      <label>Fecha <input type="date" name="fecha" value="{{ hoy }}" max="{{ hoy }}"></label>
+      <label>Nota <input type="text" name="descripcion" placeholder="Ej: mercado, pago tarjeta personal"></label>
+      <button type="submit" class="boton">Registrar</button>
+    </form>
+  </section>
+
+  <section class="dash-panel">
+    <h2>✔ Cuadrar con la app</h2>
+    <p class="dash-nota suave">Escribe el saldo que dice la app del banco. Si no coincide, escoge qué fue la diferencia.</p>
+    <form method="post" action="{{ url_for('bancos.cuadrar') }}" class="formulario-mini"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label>Cuenta
+        <select name="cuenta">{% for c in cuentas %}<option value="{{ c.clave }}">{{ c.nombre }} (programa: {{ c.saldo|pesos }})</option>{% endfor %}</select></label>
+      <label>Saldo en la app <input type="number" name="saldo_app" step="1" required placeholder="0"></label>
+      <fieldset class="opciones-radio">
+        <legend>Si no coincide, la diferencia fue…</legend>
+        <label><input type="radio" name="explicacion" value="dueno" checked> Plata personal (retiro o aporte del dueño)</label>
+        <label><input type="radio" name="explicacion" value="banco"> Cobros o abonos del banco (4×1000, cuota de manejo, intereses)</label>
+      </fieldset>
+      <button type="submit" class="boton">Cuadrar</button>
+    </form>
+  </section>
+</div>
+
+{# ===== Últimos movimientos de cada cuenta ===== #}
+<div class="dash-fila dash-fila-2">
+  {% for c in cuentas %}
+  <section class="dash-panel">
+    <h2>{{ c.nombre }}: últimos movimientos
+      <a class="dash-ver-todas" href="{{ url_for('bancos.cuenta', clave=c.clave) }}">Ver todos →</a></h2>
+    <table class="tabla dash-tabla">
+      <thead><tr><th>Fecha</th><th>Concepto</th><th class="der">Valor</th></tr></thead>
+      <tbody>
+      {% for m in c.ultimos %}
+        <tr>
+          <td>{{ m.fecha|fecha_hora }}</td>
+          <td>{{ m.concepto }}</td>
+          <td class="der">{% if m.entra %}<span class="bancos-entra">+{{ m.entra|pesos }}</span>{% else %}<span class="bancos-sale">−{{ m.sale|pesos }}</span>{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3" class="suave">Sin movimientos todavía.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

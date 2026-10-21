@@ -254,7 +254,7 @@ def _registrar_devolucion_cliente(venta):
         if forma != "credito":
             db.execute(
                 "INSERT INTO caja_movimientos (caja_id, fecha, tipo, forma_pago, monto, motivo, usuario_id, "
-                "usuario_nombre, creado_en) VALUES (?,?, 'salida', ?,?,?,?,?,?)",
+                "usuario_nombre, creado_en, origen) VALUES (?,?, 'salida', ?,?,?,?,?,?, 'devolucion')",
                 (caja["id"], ahora(), forma, tot_total, f"Devolución {numero} (venta {venta['consecutivo']})",
                  g.user["id"], g.user["nombre"], ahora()))
         db.commit()

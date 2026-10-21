@@ -223,6 +223,10 @@ def calcular(desde, hasta):
         "SELECT COALESCE(SUM(monto), 0) FROM caja_menor_movimientos "
         "WHERE tipo = 'retiro' AND retiro_dueno = 1 AND fecha >= ? AND fecha < ?",
         (ini, fin)).fetchone()[0]
+    # Versión 1.1.7: también lo que el dueño saca de Nequi o Davivienda (app/bancos.py)
+    retiros += db.execute(
+        "SELECT COALESCE(SUM(CASE WHEN tipo = 'retiro_dueno' THEN monto ELSE 0 END), 0) "
+        "FROM bancos_movimientos WHERE anulado = 0 AND fecha >= ? AND fecha < ?", (ini, fin)).fetchone()[0]
 
     # ---- 2.4b Otros ingresos (plata que entra y no es venta) ----
     # Ej: comisión de recargas, arriendo. Se suman DESPUÉS de los gastos,

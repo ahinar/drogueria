@@ -118,6 +118,22 @@
   {% if rec['precios_con_iva'] %}<small class="suave">Los costos de esta factura venían con el IVA incluido.</small>{% endif %}
 </div>
 
+{# Versión 1.1.7: cómo va el pago de esta factura (ver app/cuentas_pagar.py) #}
+<div class="pago-estado pago-{{ rec['pago_estado'] }}">
+  {% if rec['pago_estado'] == 'pagada' and pago %}
+    ✔ <strong>Pagada</strong> el {{ pago['fecha']|fecha_hora }} · {{ pago['monto']|pesos }} desde {{ origenes_pago[pago['origen']].split(' (')[0] }}
+  {% elif rec['pago_estado'] == 'pendiente' %}
+    🧾 <strong>Se debe</strong> {{ rec['total_pagar']|pesos }} · vence el {{ rec['pago_vence'] }}
+    {% if g.user['rol'] in ('administrador', 'director_tecnico') %}
+      · <a href="{{ url_for('cuentas_pagar.pagar', rec_id=rec['id']) }}">Registrar pago</a>{% endif %}
+  {% elif rec['pago_estado'] == 'por_revisar' %}
+    🔎 <strong>Pago por revisar</strong> (factura de antes de la versión 1.1.7) ·
+    <a href="{{ url_for('cuentas_pagar.index', ver='por_revisar') }}">revisar en Cuentas por pagar</a>
+  {% else %}
+    No hay que pagarla (recepción rechazada o sin valor).
+  {% endif %}
+</div>
+
 {% if rec['foto_ruta'] %}
 <h2 class="titulo-seccion">Adjunto</h2>
 <img src="{{ url_for('static', filename=rec['foto_ruta']) }}"

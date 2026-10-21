@@ -54,7 +54,18 @@ def _leer_formulario():
         "concepto_vence": request.form.get("concepto_vence", "").strip() or None,
         "certificaciones": request.form.get("certificaciones", "").strip() or None,
         "observaciones": request.form.get("observaciones", "").strip() or None,
+        # Versión 1.1.7: en cuántos días se le paga normalmente (0 = de contado).
+        # La recepción usa este plazo para calcular cuándo vence la factura.
+        "plazo_dias": _entero(request.form.get("plazo_dias")),
     }
+
+
+def _entero(texto):
+    """'30' -> 30. Vacío o mal escrito -> 0."""
+    try:
+        return max(0, int((texto or "0").strip()))
+    except ValueError:
+        return 0
 
 
 def _validar(datos):
@@ -79,12 +90,12 @@ def nuevo():
                 cur = db.execute(
                     "INSERT INTO proveedores (nit, razon_social, nombre_comercial, contacto, telefono, correo, "
                     "direccion, ciudad, concepto_sanitario, concepto_vence, certificaciones, observaciones, "
-                    "activo, creado_en) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 1, ?)",
+                    "activo, creado_en, plazo_dias) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 1, ?, ?)",
                     (datos["nit"], datos["razon_social"], datos["nombre_comercial"], datos["contacto"],
                      datos["telefono"], datos["correo"], datos["direccion"], datos["ciudad"],
                      datos["concepto_sanitario"], datos["concepto_vence"], datos["certificaciones"],
-                     datos["observaciones"], ahora()),
+                     datos["observaciones"], ahora(), datos["plazo_dias"]),
                 )
                 db.commit()
                 registrar("proveedor_creado", "proveedores", cur.lastrowid,
@@ -112,11 +123,11 @@ def editar(prov_id):
                 db.execute(
                     "UPDATE proveedores SET nit=?, razon_social=?, nombre_comercial=?, contacto=?, telefono=?, "
                     "correo=?, direccion=?, ciudad=?, concepto_sanitario=?, concepto_vence=?, certificaciones=?, "
-                    "observaciones=?, actualizado_en=? WHERE id=?",
+                    "observaciones=?, actualizado_en=?, plazo_dias=? WHERE id=?",
                     (datos["nit"], datos["razon_social"], datos["nombre_comercial"], datos["contacto"],
                      datos["telefono"], datos["correo"], datos["direccion"], datos["ciudad"],
                      datos["concepto_sanitario"], datos["concepto_vence"], datos["certificaciones"],
-                     datos["observaciones"], ahora(), prov_id),
+                     datos["observaciones"], ahora(), datos["plazo_dias"], prov_id),
                 )
                 db.commit()
                 registrar("proveedor_editado", "proveedores", prov_id, f"NIT={datos['nit']}")

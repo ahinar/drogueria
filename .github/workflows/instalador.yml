@@ -25,9 +25,11 @@ jobs:
   instalador:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      # Versión 1.1.7: herramientas actualizadas a versiones que corren en Node 24
+      # (GitHub avisaba que Node 20 está obsoleto). Solo cambió eso: se usan igual.
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -72,14 +74,14 @@ jobs:
           & $iscc "/DVersion=${{ steps.version.outputs.version }}" instalador\fervifarma.iss
 
       - name: Guardar el instalador (para descargar desde esta ejecución)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Fervifarma-Instalador-${{ steps.version.outputs.version }}
           path: dist/Fervifarma-Instalador-*.exe
 
       - name: Agregar el instalador a la publicación (Releases)
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/Fervifarma-Instalador-*.exe
           name: Fervifarma ${{ steps.version.outputs.version }}

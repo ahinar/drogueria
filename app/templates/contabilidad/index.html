@@ -93,6 +93,8 @@
       <a href="{{ url_for('contabilidad.gastos_nuevo') }}">➕ Registrar gasto</a>
       <a href="{{ url_for('otros_ingresos.nuevo') }}">➕ Registrar otro ingreso</a>
       <a href="{{ url_for('contabilidad.cajas') }}">💵 Sesiones de caja</a>
+      <a href="{{ url_for('cuentas_pagar.index') }}">🧾 Cuentas por pagar</a>
+      <a href="{{ url_for('bancos.index') }}">🏦 Bancos (Nequi y Davivienda)</a>
       <a href="{{ url_for('reportes.utilidades_ver', mes=mes or None) }}">📈 Utilidades (estado de resultados)</a>
       <a href="{{ url_for('reportes.ventas_ver') }}">🛒 Reporte de ventas</a>
       <a href="{{ url_for('reportes.gastos_ver') }}">🧾 Reporte de gastos</a>
@@ -153,6 +155,19 @@
     <span>🚚 Compras del período (recepciones)</span>
     <strong>{{ d.compras.total|pesos }}</strong>
     <small>{{ d.compras.n }} recepción(es) · con IVA</small>
+  </a>
+  {# Versión 1.1.7: lo que se les debe a los proveedores (app/cuentas_pagar.py) #}
+  <a class="dash-mini-tarjeta" href="{{ url_for('cuentas_pagar.index') }}">
+    <span>🧾 Le debo a proveedores</span>
+    <strong>{{ d.cxp.total|pesos }}</strong>
+    <small>{{ d.cxp.n }} factura(s){% if d.cxp.vencido %} · <span class="bancos-sale">{{ d.cxp.vencido|pesos }} vencido</span>{% endif %}
+      {% if d.cxp.por_revisar %} · {{ d.cxp.por_revisar }} por revisar{% endif %}</small>
+  </a>
+  {# Versión 1.1.7: plata en caja menor + bancos (app/bancos.py) #}
+  <a class="dash-mini-tarjeta" href="{{ url_for('bancos.index') }}">
+    <span>🏦 Plata disponible</span>
+    <strong>{{ d.plata.total|pesos }}</strong>
+    <small>Caja menor {{ d.plata.caja_menor|pesos }}{% for c in d.plata.cuentas %} · {{ c.nombre }} {{ c.saldo|pesos }}{% endfor %}</small>
   </a>
   {% if d.iva %}
   <div class="dash-mini-tarjeta dash-iva">

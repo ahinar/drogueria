@@ -22,15 +22,22 @@ TIPOS = {
     "apertura_pos": ("Apertura de POS",  "🛒", "out"),
     "cierre_pos":   ("Cierre de POS",    "🏁", "in"),
     "gasto":        ("Gasto pagado",     "💸", "out"),
+    # Versión 1.1.7 (ver app/bancos.py y app/cuentas_pagar.py)
+    "pago_proveedor": ("Pago a proveedor", "🚚", "out"),
+    "a_banco":      ("Consignado al banco", "🏦", "out"),
+    "de_banco":     ("Traído del banco",  "🏦", "in"),
 }
+# Qué tipos SUMAN y cuáles RESTAN al saldo (se usan en saldo_actual)
+ENTRAN = ("aporte", "cierre_pos", "de_banco")
+SALEN = ("retiro", "apertura_pos", "gasto", "pago_proveedor", "a_banco")
 
 def saldo_actual(db=None):
     """Devuelve el saldo actual de la caja menor."""
     db = db or get_db()
     fila = db.execute(
         "SELECT "
-        "COALESCE(SUM(CASE WHEN tipo IN ('aporte', 'cierre_pos') THEN monto ELSE 0 END), 0) AS entradas, "
-        "COALESCE(SUM(CASE WHEN tipo IN ('retiro', 'apertura_pos', 'gasto') THEN monto ELSE 0 END), 0) AS salidas "
+        f"COALESCE(SUM(CASE WHEN tipo IN {ENTRAN} THEN monto ELSE 0 END), 0) AS entradas, "
+        f"COALESCE(SUM(CASE WHEN tipo IN {SALEN} THEN monto ELSE 0 END), 0) AS salidas "
         "FROM caja_menor_movimientos"
     ).fetchone()
     return float(fila["entradas"] or 0) - float(fila["salidas"] or 0)

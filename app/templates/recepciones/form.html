@@ -28,7 +28,7 @@
           <select name="proveedor_id" required>
             <option value="">— Seleccionar —</option>
             {% for p in proveedores %}
-              <option value="{{ p['id'] }}"
+              <option value="{{ p['id'] }}" data-plazo="{{ p['plazo_dias'] or 0 }}"
                 {% if valores_previos and valores_previos.proveedor_id == p['id']|string %}selected{% endif %}>
                 {{ p['razon_social'] }} ({{ p['nit'] }})
               </option>
@@ -66,19 +66,27 @@
     <fieldset>
       <legend>Líneas de la recepción</legend>
 
+      {# LÍNEAS EN UNA SOLA FILA (versión 1.1.7, pedido de Fernando): como en el programa anterior,
+         cada dato en su columna (Cantidad | UdM | Costo | IVA | Importe) y nada apilado debajo.
+         Debajo del producto solo queda una línea pequeñita: el registro INVIMA y "Completar datos".
+         Los anchos de cada columna están en app.css (busca "RECEPCIÓN EN UNA LÍNEA"). #}
+      <div class="tabla-recepcion-caja">
       <table class="tabla tabla-recepcion" id="tabla-lineas">
         <thead>
           <tr>
-            <th style="width:22%">Producto</th>
-            <th style="width:9%">Lote</th>
-            <th style="width:10%">Vence</th>
-            <th style="width:18%">Cantidad · UdM *</th>
-            <th style="width:8%">Costo por UdM *</th>
-            <th style="width:6%">Temp. °C</th>
-            <th style="width:8%">Empaque</th>
-            <th style="width:9%">Resultado</th>
-            <th style="width:7%">Motivo</th>
-            <th style="width:3%"></th>
+            <th class="c-prod">Producto</th>
+            <th class="c-lote">Lote</th>
+            <th class="c-vence">Vence</th>
+            <th class="c-cant">Cant. *</th>
+            <th class="c-udm">UdM *</th>
+            <th class="c-costo">Costo UdM *</th>
+            <th class="c-iva">IVA</th>
+            <th class="c-importe">Importe</th>
+            <th class="c-temp" title="Temperatura al recibir (solo cadena de frío)">T °C</th>
+            <th class="c-empaque">Empaque</th>
+            <th class="c-resultado">Resultado</th>
+            <th class="c-motivo">Motivo</th>
+            <th class="c-quitar"></th>
           </tr>
         </thead>
         <tbody id="lineas-body">
@@ -99,31 +107,32 @@
                          data-control="{{ lp.control_especial }}">
                   <button type="button" class="btn-mas btn-nuevo-producto" title="Crear producto nuevo">+</button>
                 </div>
-                <small class="hint-rs {% if not lp.registro_sanitario %}sin-rs{% endif %}">
-                  {% if lp.registro_sanitario %}RS: {{ lp.registro_sanitario }}{% else %}<span class="ico-emoji">⚠</span> SIN registro INVIMA{% endif %}
-                </small>
-                {# Completar INVIMA, laboratorio, concentración... sin salir de la recepción #}
-                <button type="button" class="btn-tecnicos">✎ Completar datos</button>
+                <div class="linea-sub">
+                  <small class="hint-rs {% if not lp.registro_sanitario %}sin-rs{% endif %}">
+                    {% if lp.registro_sanitario %}RS: {{ lp.registro_sanitario }}{% else %}<span class="ico-emoji">⚠</span> SIN registro INVIMA{% endif %}
+                  </small>
+                  {# Completar INVIMA, laboratorio, concentración... sin salir de la recepción #}
+                  <button type="button" class="btn-tecnicos">✎ Completar datos</button>
+                </div>
               </td>
               <td><input type="text" name="linea_lote" value="{{ lp.lote }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
               <td><input type="date" name="linea_vencimiento" value="{{ lp.vencimiento }}" {% if lp.maneja_vencimiento %}required{% endif %}></td>
-              <td><div class="cant-udm">{# cantidad y UdM en la misma línea #}
-                <input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="{{ lp.cantidad_recibida }}" required>
+              <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="{{ lp.cantidad_recibida }}" required></td>
+              <td>
                 {# "Viene en": Tableta, Sobre x 10, Caja x 100 (ver recepciones._leer_lineas_formulario) #}
                 <select name="linea_presentacion" class="linea-pres" aria-label="Unidad en que llegó" data-actual="{{ lp.presentacion_id }}">
                   {% for o in lp.presentaciones %}<option value="{{ o.id }}" data-factor="{{ o.factor }}"{% if o.defecto %} data-defecto="1"{% endif %}{% if o.cuenta %} data-cuenta="{{ o.cuenta }}"{% endif %} {% if o.id == lp.presentacion_id %}selected{% endif %}>{{ o.nombre }}</option>{% endfor %}
-                </select></div>
+                </select>
                 <input type="number" name="linea_factor_otro" class="linea-otro" min="2" step="1" placeholder="¿Cuántas trae?"
                        value="{{ lp.factor_otro }}" {% if lp.presentacion_id != 'otra' %}hidden{% endif %}>
                 <small class="linea-equivale suave"></small></td>
-              <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="{{ lp.costo_unitario }}" required>
-                {# IVA de la línea (versión 1.1.6): se llena solo con el IVA de la ficha del producto #}
-                <label class="linea-iva-campo">IVA
-                  <select name="linea_iva" class="linea-iva" aria-label="IVA de la línea">
-                    {%- for t in (0, 5, 19) %}<option value="{{ t }}" {% if (lp.iva_tarifa|float) == t %}selected{% endif %}>{{ t }} %</option>{% endfor -%}
-                  </select></label>
-                {# Total de la línea = cantidad × costo, con IVA (lo llena recalcularTotales, más abajo) #}
-                <small class="linea-total-txt"></small></td>
+              <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="{{ lp.costo_unitario }}" required></td>
+              {# IVA de la línea (versión 1.1.6): se llena solo con el IVA de la ficha del producto #}
+              <td><select name="linea_iva" class="linea-iva" aria-label="IVA de la línea">
+                  {%- for t in (0, 5, 19) %}<option value="{{ t }}" {% if (lp.iva_tarifa|float) == t %}selected{% endif %}>{{ t }} %</option>{% endfor -%}
+                </select></td>
+              {# Importe = cantidad × costo, con IVA (lo llena recalcularTotales, más abajo) #}
+              <td class="c-importe"><span class="linea-total-txt"></span></td>
               <td><input type="number" step="0.1" name="linea_temperatura_ingreso"
                          class="input-temp-ingreso"
                          value="{{ lp.temperatura_ingreso if lp.temperatura_ingreso else '' }}"></td>
@@ -142,7 +151,7 @@
                 </select>
               </td>
               <td><input type="text" name="linea_motivo" value="{{ lp.motivo_rechazo }}"></td>
-              <td><button type="button" class="peligro btn-quitar-linea">✕</button></td>
+              <td><button type="button" class="peligro btn-quitar-linea" title="Quitar esta línea">✕</button></td>
             </tr>
             {% endfor %}
           {% else %}
@@ -153,23 +162,24 @@
                 <input type="hidden" name="linea_producto_id" class="linea-producto-id">
                 <button type="button" class="btn-mas btn-nuevo-producto" title="Crear producto nuevo">+</button>
               </div>
-              <small class="hint-rs">RS: —</small>
-              <button type="button" class="btn-tecnicos" hidden>✎ Completar datos</button>
+              <div class="linea-sub">
+                <small class="hint-rs">RS: —</small>
+                <button type="button" class="btn-tecnicos" hidden>✎ Completar datos</button>
+              </div>
             </td>
             <td><input type="text" name="linea_lote"></td>
             <td><input type="date" name="linea_vencimiento"></td>
-            <td><div class="cant-udm">
-              <input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="" placeholder="0">
-              <select name="linea_presentacion" class="linea-pres" aria-label="Viene en"><option value="" data-factor="1">—</option></select></div>
+            <td><input type="number" name="linea_cantidad_recibida" step="0.01" min="0.01" value="" placeholder="0"></td>
+            <td>
+              <select name="linea_presentacion" class="linea-pres" aria-label="Viene en"><option value="" data-factor="1">—</option></select>
               {# Solo se ve con "Otra caja…": cuántas unidades trae (ej. 300). Siempre se envía, para que las listas cuadren #}
               <input type="number" name="linea_factor_otro" class="linea-otro" min="2" step="1" placeholder="¿Cuántas trae?" hidden>
               <small class="linea-equivale suave"></small></td>
-            <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="" placeholder="0">
-              <label class="linea-iva-campo">IVA
-                  <select name="linea_iva" class="linea-iva" aria-label="IVA de la línea">
-                    {%- for t in (0, 5, 19) %}<option value="{{ t }}" {% if (0|float) == t %}selected{% endif %}>{{ t }} %</option>{% endfor -%}
-                  </select></label>
-              <small class="linea-total-txt"></small></td>
+            <td><input type="number" name="linea_costo" step="0.01" min="0.01" value="" placeholder="0"></td>
+            <td><select name="linea_iva" class="linea-iva" aria-label="IVA de la línea">
+                {%- for t in (0, 5, 19) %}<option value="{{ t }}" {% if (0|float) == t %}selected{% endif %}>{{ t }} %</option>{% endfor -%}
+              </select></td>
+            <td class="c-importe"><span class="linea-total-txt"></span></td>
             <td><input type="number" step="0.1" name="linea_temperatura_ingreso"
                        class="input-temp-ingreso" style="display:none"></td>
             <td>
@@ -187,11 +197,12 @@
               </select>
             </td>
             <td><input type="text" name="linea_motivo"></td>
-            <td><button type="button" class="peligro btn-quitar-linea">✕</button></td>
+            <td><button type="button" class="peligro btn-quitar-linea" title="Quitar esta línea">✕</button></td>
           </tr>
           {% endif %}
         </tbody>
       </table>
+      </div>
             <div class="totales-recepcion" id="totales-recepcion">
         <div class="total-linea">
           <span>Total líneas:</span>
@@ -219,6 +230,29 @@
       <button type="button" id="btn-agregar-linea" class="boton secundario" style="margin-top:.5rem">
         + Agregar línea
       </button>
+    </fieldset>
+
+    {# ===== PAGO DE LA FACTURA (versión 1.1.7, ver app/cuentas_pagar.py) =====
+       - A crédito: queda en Cuentas por pagar con la fecha de vencimiento (fecha de hoy +
+         el plazo del proveedor, que se llena solo al escoger el proveedor).
+       - De contado: el pago queda registrado ya, sacando la plata de donde se diga. #}
+    {% set vp = valores_previos or {} %}
+    <fieldset class="pago-factura">
+      <legend>Pago de la factura</legend>
+      <div class="pago-factura-fila">
+        <label class="pago-modo"><input type="radio" name="pago_modo" value="credito" {% if vp.get('pago_modo', 'credito') == 'credito' %}checked{% endif %}>
+          <span><strong>A crédito</strong> — se paga después</span></label>
+        <label class="pago-campo" id="pago-campo-vence">Vence el
+          <input type="date" name="pago_vence" id="pago-vence" value="{{ vp.get('pago_vence', '') }}"></label>
+        <label class="pago-modo"><input type="radio" name="pago_modo" value="contado" {% if vp.get('pago_modo') == 'contado' %}checked{% endif %}>
+          <span><strong>De contado</strong> — ya se pagó</span></label>
+        <label class="pago-campo" id="pago-campo-origen">La plata salió de
+          <select name="pago_origen">
+            <option value="">— Escoger —</option>
+            {% for k, v in origenes_pago.items() %}<option value="{{ k }}" {% if vp.get('pago_origen') == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+          </select></label>
+      </div>
+      <small class="suave" id="pago-ayuda">El valor a pagar es el <strong>Total de la factura</strong> (sin las líneas rechazadas).</small>
     </fieldset>
 
     <label style="margin-top:1rem">Observaciones generales
@@ -1178,6 +1212,41 @@
 
     // ===== Totales de la recepción =====
   // Casilla «Los costos de esta factura ya incluyen el IVA» (versión 1.1.6)
+  // ===== Pago de la factura (versión 1.1.7) =====
+  // Al escoger el proveedor, la fecha de vencimiento = hoy + su plazo (días). Si su plazo
+  // es 0 (de contado), se marca "De contado". Solo se ve el campo de la opción escogida.
+  (function () {
+    const selProv = document.querySelector('select[name="proveedor_id"]');
+    const vence = document.getElementById('pago-vence');
+    const modos = document.querySelectorAll('input[name="pago_modo"]');
+    const campoVence = document.getElementById('pago-campo-vence');
+    const campoOrigen = document.getElementById('pago-campo-origen');
+    if (!selProv || !vence) return;
+    function mostrar() {
+      const modo = (document.querySelector('input[name="pago_modo"]:checked') || {}).value;
+      campoVence.hidden = modo !== 'credito';
+      campoOrigen.hidden = modo !== 'contado';
+      vence.required = modo === 'credito';
+      campoOrigen.querySelector('select').required = modo === 'contado';
+    }
+    function porProveedor(cambio) {
+      const opt = selProv.options[selProv.selectedIndex];
+      const plazo = parseInt((opt && opt.dataset.plazo) || '0', 10);
+      if (!opt || !opt.value) return;
+      const d = new Date();
+      d.setDate(d.getDate() + (plazo || 30));
+      if (cambio || !vence.value) vence.value = d.toISOString().slice(0, 10);
+      if (cambio) {
+        document.querySelector('input[name="pago_modo"][value="' + (plazo > 0 ? 'credito' : 'contado') + '"]').checked = true;
+      }
+      mostrar();
+    }
+    selProv.addEventListener('change', function () { porProveedor(true); });
+    modos.forEach(function (r) { r.addEventListener('change', mostrar); });
+    porProveedor(false);
+    mostrar();
+  })();
+
   const $incluyeIva = document.getElementById('precios-con-iva');
   if ($incluyeIva) $incluyeIva.addEventListener('change', () => recalcularTotales());
 
@@ -1200,12 +1269,12 @@
       const sinIva = incluyeIva ? bruto / (1 + tasa) : bruto;
       const ivaLinea = sinIva * tasa;
       const fmt = (x) => '$' + x.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-      // Total de ESTA línea, debajo del costo (versión 1.1.3; con IVA desde la 1.1.6)
+      // Importe de ESTA línea, en su propia columna (versión 1.1.7). Con IVA incluido;
+      // al pasar el mouse por encima dice cuánto de eso es IVA.
       const txt = tr.querySelector('.linea-total-txt');
       if (txt) {
-        txt.textContent = cant > 0 && costo > 0
-          ? 'Total: ' + fmt(sinIva + ivaLinea) + (ivaLinea > 0 ? ' (IVA ' + fmt(ivaLinea) + ')' : '')
-          : '';
+        txt.textContent = cant > 0 && costo > 0 ? fmt(sinIva + ivaLinea) : '';
+        txt.title = ivaLinea > 0 ? 'Sin IVA ' + fmt(sinIva) + ' + IVA ' + fmt(ivaLinea) : 'Sin IVA';
       }
       const hidden = tr.querySelector('.linea-producto-id');
       if (!hidden || !hidden.value) return;

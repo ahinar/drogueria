@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block titulo %}{{ c.nombre }}{% endblock %}
+{% block contenido %}
+{#
+  EXTRACTO DE UNA CUENTA (versión 1.1.7): como el de la app del banco.
+  Cada fila muestra lo que entró o salió y el SALDO después de ese movimiento.
+  Datos: app/bancos.py → cuenta().
+#}
+<div class="dash-cabecera">
+  <div>
+    <p class="dash-modulo"><a href="{{ url_for('bancos.index') }}">{{ ico("banco", "🏦") }} Bancos</a></p>
+    <h1>{{ c.nombre }} <span class="bancos-saldo-hoy {% if c.saldo < 0 %}negativo{% endif %}">{{ c.saldo|pesos }}</span></h1>
+    <p class="suave">Arrancó el {{ c.fecha_inicial }} con {{ c.saldo_inicial|pesos }}.</p>
+  </div>
+  <form method="get" class="dash-periodo">
+    <label>Período
+      <select name="mes" onchange="this.form.submit()">
+        {% for m in meses %}<option value="{{ m }}" {% if m == mes %}selected{% endif %}>{{ m }}</option>{% endfor %}
+        <option value="todo" {% if mes == 'todo' %}selected{% endif %}>Todo desde el arranque</option>
+      </select></label>
+  </form>
+</div>
+
+<div class="dash-mini">
+  <div class="dash-mini-tarjeta"><span>Saldo al empezar</span><strong>{{ inicial|pesos }}</strong></div>
+  <div class="dash-mini-tarjeta"><span>Entró</span><strong class="bancos-entra">+{{ entra|pesos }}</strong></div>
+  <div class="dash-mini-tarjeta"><span>Salió</span><strong class="bancos-sale">−{{ sale|pesos }}</strong></div>
+  <div class="dash-mini-tarjeta"><span>Saldo al terminar</span><strong>{{ final|pesos }}</strong></div>
+</div>
+
+<section class="dash-panel">
+  <div class="tabla-scroll">
+  <table class="tabla dash-tabla">
+    <thead><tr><th>Fecha</th><th>Concepto</th><th class="der">Entra</th><th class="der">Sale</th><th class="der">Saldo</th><th></th></tr></thead>
+    <tbody>
+    {% for m in filas %}
+      <tr>
+        <td>{{ m.fecha|fecha_hora }}</td>
+        <td>
+          {# Enlace a lo que originó el movimiento, para revisarlo #}
+          {% if m.ref == 'venta' %}<a href="{{ url_for('pos.comprobante', venta_id=m.ref_id) }}" target="_blank">{{ m.concepto }}</a>
+          {% elif m.ref == 'pago_proveedor' %}<a href="{{ url_for('recepciones.ver', rec_id=m.ref_id) }}">{{ m.concepto }}</a>
+          {% elif m.ref == 'gasto' %}<a href="{{ url_for('contabilidad.gastos_editar', gasto_id=m.ref_id) }}">{{ m.concepto }}</a>
+          {% elif m.ref == 'otro_ingreso' %}<a href="{{ url_for('otros_ingresos.editar', ingreso_id=m.ref_id) }}">{{ m.concepto }}</a>
+          {% elif m.ref == 'abono' %}<a href="{{ url_for('cartera.cliente_ver', cliente_id=m.ref_id) }}">{{ m.concepto }}</a>
+          {% elif m.ref == 'devolucion' %}<a href="{{ url_for('devoluciones.ver', dev_id=m.ref_id) }}">{{ m.concepto }}</a>
+          {% elif m.ref == 'caja' %}<a href="{{ url_for('contabilidad.caja_detalle', caja_id=m.ref_id) }}">{{ m.concepto }}</a>
+          {% else %}{{ m.concepto }}{% endif %}
+        </td>
+        <td class="der">{% if m.entra %}<span class="bancos-entra">+{{ m.entra|pesos }}</span>{% endif %}</td>
+        <td class="der">{% if m.sale %}<span class="bancos-sale">−{{ m.sale|pesos }}</span>{% endif %}</td>
+        <td class="der"><strong {% if m.saldo < 0 %}class="bancos-sale"{% endif %}>{{ m.saldo|pesos }}</strong></td>
+        <td>
+          {% if m.ref == 'banco' and g.user.rol == 'administrador' %}
+          <form method="post" action="{{ url_for('bancos.anular', mov_id=m.ref_id) }}"
+                data-confirmar="¿Anular este movimiento? Si es un traslado, se anulan las dos partes."><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <button type="submit" class="boton-mini peligro" title="Anular">✕</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="suave">Sin movimientos en este período.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% if g.user.rol == 'administrador' %}
+<details class="dash-panel" {% if not c.actualizado_en %}open{% endif %}>
+  <summary><strong>Saldo de arranque</strong> — con cuánto arrancó la cuenta</summary>
+  <p class="suave">La cuenta empieza a contar el día de la primera venta con el programa. Escribe la plata que había
+    en {{ c.nombre }} <strong>ese día, antes de las ventas</strong> (míralo en el extracto del banco).</p>
+  <form method="post" action="{{ url_for('bancos.arranque', clave=c.clave) }}" class="filtros-linea"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <label>Desde el <input type="date" name="fecha_inicial" value="{{ c.fecha_inicial }}"></label>
+    <label>Había <input type="number" name="saldo_inicial" step="1" value="{{ c.saldo_inicial|int }}"></label>
+    <button type="submit" class="boton">Guardar</button>
+  </form>
+</details>
+{% endif %}
+{% endblock %}

@@ -87,7 +87,7 @@ def _productos():
 
 def _proveedores():
     return get_db().execute(
-        "SELECT id, nit, razon_social FROM proveedores WHERE activo = 1 "
+        "SELECT id, nit, razon_social, plazo_dias FROM proveedores WHERE activo = 1 "
         "ORDER BY razon_social COLLATE ES"
     ).fetchall()
 
@@ -124,6 +124,8 @@ def _contexto_form(rec=None):
         "estados": ESTADOS,
         "empaques": EMPAQUES,
         "resultados": RESULTADOS,
+        # Versión 1.1.7: de dónde puede salir la plata si la factura se paga de contado
+        "origenes_pago": __import__("app.cuentas_pagar", fromlist=["ORIGENES"]).ORIGENES,
         "numero_sugerido": _siguiente_numero() if not rec else None,
         "recepcion": rec,
         "lineas": _lineas_de(rec["id"]) if rec else [],
@@ -411,6 +413,13 @@ def nueva():
         lineas, errores = _leer_lineas_formulario()
         error_cabecera = None
 
+        # Pago de la factura (versión 1.1.7): a crédito (con vencimiento) o de contado
+        pago_modo = request.form.get("pago_modo", "credito")
+        pago_vence = request.form.get("pago_vence", "").strip()
+        pago_origen = request.form.get("pago_origen", "").strip()
+        from .cuentas_pagar import ORIGENES as ORIGENES_PAGO, registrar_pago, total_de_lineas
+        caja_abierta = get_db().execute("SELECT 1 FROM cajas WHERE estado = 'abierta'").fetchone()
+
         if not factura and not remision:
             error_cabecera = "Debes indicar el número de factura o el número de remisión."
         elif not lineas:
@@ -419,6 +428,10 @@ def nueva():
             # Todos los errores de una vez (versión 1.1.3). Antes solo salía el primero:
             # se corregía y al guardar aparecía el siguiente.
             error_cabecera = errores[0] if len(errores) == 1 else errores
+        elif pago_modo == "contado" and pago_origen not in ORIGENES_PAGO:
+            error_cabecera = "La factura es de contado: escoge de dónde salió la plata."
+        elif pago_modo == "contado" and pago_origen == "caja_pos" and not caja_abierta:
+            error_cabecera = "No hay caja del POS abierta: escoge otro lugar de donde salió la plata."
 
         if not error_cabecera:
             db = get_db()
@@ -454,6 +467,29 @@ def nueva():
                          l["observaciones"], l["temperatura_ingreso"], l["presentacion"], l["factor"],
                          l["iva_tarifa"], l["costo_sin_iva"], l["costo_con_iva"]),
                     )
+
+                # ---- Pago de la factura (versión 1.1.7) ----
+                total_pagar = total_de_lineas(lineas)
+                if total_pagar <= 0:
+                    estado_pago, vence = "no_aplica", None
+                elif pago_modo == "contado":
+                    estado_pago, vence = "pagada", None
+                else:
+                    # Sin fecha escrita: hoy + el plazo del proveedor (30 días si no tiene)
+                    if not pago_vence:
+                        from .cuentas_pagar import vence_sugerido
+                        plazo = db.execute("SELECT plazo_dias FROM proveedores WHERE id = ?",
+                                           (int(proveedor_id),)).fetchone()
+                        pago_vence = vence_sugerido(ahora(), (plazo["plazo_dias"] if plazo else 0) or 30)
+                    estado_pago, vence = "pendiente", pago_vence
+                db.execute("UPDATE recepciones SET total_pagar = ?, pago_estado = ?, pago_vence = ? WHERE id = ?",
+                           (total_pagar, estado_pago, vence, rec_id))
+                if estado_pago == "pagada":
+                    rec_fila = db.execute("SELECT * FROM recepciones WHERE id = ?", (rec_id,)).fetchone()
+                    _, error_pago = registrar_pago(db, rec_fila, total_pagar, ahora(), pago_origen,
+                                                   "Pagada de contado al recibir")
+                    if error_pago:
+                        raise ValueError(error_pago)
                 db.commit()
 
                 archivo = request.files.get("foto")
@@ -468,6 +504,7 @@ def nueva():
                 flash(f"Recepción {numero} creada en cuarentena. Pendiente de aprobación.", "ok")
                 return redirect(url_for("recepciones.ver", rec_id=rec_id))
             except Exception as e:
+                db.rollback()          # que no quede nada a medias (ni la recepción ni el pago)
                 error_cabecera = f"Error al guardar: {e}"
 
         valores_previos = {
@@ -478,6 +515,7 @@ def nueva():
             "temperatura_llegada": temperatura,
             "observaciones": observaciones or "",
             "precios_con_iva": bool(request.form.get("precios_con_iva")),
+            "pago_modo": pago_modo, "pago_vence": pago_vence, "pago_origen": pago_origen,
         }
         return render_template(
             "recepciones/form.html",
@@ -499,8 +537,12 @@ def ver(rec_id):
     proveedor = get_db().execute(
         "SELECT * FROM proveedores WHERE id = ?", (rec["proveedor_id"],)
     ).fetchone()
+    # Versión 1.1.7: el pago de esta factura (si ya se pagó)
+    from .cuentas_pagar import ORIGENES
+    pago = get_db().execute("SELECT * FROM pagos_proveedores WHERE recepcion_id = ? AND anulado = 0 "
+                            "ORDER BY id DESC LIMIT 1", (rec_id,)).fetchone()
     return render_template("recepciones/ver.html",
-                           rec=rec, lineas=lineas, proveedor=proveedor,
+                           rec=rec, lineas=lineas, proveedor=proveedor, pago=pago, origenes_pago=ORIGENES,
                            estados=ESTADOS, empaques=EMPAQUES, resultados=RESULTADOS)
 
 
@@ -583,6 +625,9 @@ def rechazar(rec_id):
         "actualizado_en = ? WHERE id = ?",
         (g.user["id"], g.user["nombre"], ahora(), motivo, ahora(), rec_id),
     )
+    # Versión 1.1.7: una recepción rechazada no se paga (si ya se había pagado, queda como estaba)
+    db.execute("UPDATE recepciones SET pago_estado = 'no_aplica' WHERE id = ? "
+               "AND pago_estado IN ('pendiente', 'por_revisar')", (rec_id,))
     db.commit()
     registrar("recepcion_rechazada", "recepciones", rec_id,
               f"numero={rec['numero']} motivo={motivo}")

@@ -237,6 +237,8 @@ class TestRecepcionObligatorios113(BaseVentas):
 
     def test_pantalla_marca_obligatorios(self):
         html = self.c.get("/recepciones/nueva").get_data(as_text=True)
-        self.assertIn("Cantidad · UdM *", html)
-        self.assertIn("Costo por UdM *", html)
+        # Versión 1.1.7: cada dato en su columna (Cant. | UdM | Costo UdM), todos obligatorios
+        self.assertIn("Cant. *", html)
+        self.assertIn("UdM *", html)
+        self.assertIn("Costo UdM *", html)
         self.assertIn("Escribe la cantidad recibida (mayor a 0).", html)

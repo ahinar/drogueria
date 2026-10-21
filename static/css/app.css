@@ -3090,3 +3090,117 @@ strong.dif-falta, strong.dif-sobra { background: none; padding: 0; }
 @media (max-width: 560px) {
   .dash-tarjetas { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* =====================================================================
+   RECEPCIÓN EN UNA LÍNEA (versión 1.1.7, pedido de Fernando)
+   Cada línea de la recepción ocupa UNA fila, como en el programa anterior:
+   Producto | Lote | Vence | Cant. | UdM | Costo | IVA | Importe | T °C | Empaque | Resultado | Motivo | ✕
+   table-layout: fixed = cada columna tiene un ancho fijo (abajo) y el Producto
+   se queda con lo que sobre. En pantallas angostas la tabla se desliza de lado.
+   ===================================================================== */
+.tabla-recepcion-caja { overflow-x: auto; }
+/* Un fieldset por defecto se estira hasta lo que mida la tabla; con min-width: 0 se queda
+   del ancho de la pantalla y es la tabla la que se desliza de lado (pantallas pequeñas) */
+fieldset:has(> .tabla-recepcion-caja) { min-width: 0; }
+#tabla-lineas { table-layout: fixed; width: 100%; min-width: 1250px; }
+#tabla-lineas th { font-size: .72rem; padding: .35rem .2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#tabla-lineas td { padding: .25rem .15rem; vertical-align: top; }
+#tabla-lineas .c-lote      { width: 5.6rem; }
+#tabla-lineas .c-vence     { width: 8.4rem; }
+#tabla-lineas .c-cant      { width: 3.8rem; }
+#tabla-lineas .c-udm       { width: 7.2rem; }
+#tabla-lineas .c-costo     { width: 5.8rem; }
+#tabla-lineas .c-iva       { width: 4.3rem; }
+#tabla-lineas .c-importe   { width: 6rem; text-align: right; }
+#tabla-lineas .c-temp      { width: 3.3rem; }
+#tabla-lineas .c-empaque   { width: 5.8rem; }
+#tabla-lineas .c-resultado { width: 6.6rem; }
+#tabla-lineas .c-motivo    { width: 5.4rem; }
+#tabla-lineas .c-quitar    { width: 2.2rem; }
+#tabla-lineas input, #tabla-lineas select,
+.moderno #tabla-lineas select { height: 30px; min-height: 0; padding: .2rem .3rem; font-size: .8rem; margin: 0; line-height: 1.2; }
+#tabla-lineas select { padding-right: .1rem; }
+/* Sin las flechitas de los números: ocupan espacio y nadie las usa */
+#tabla-lineas input[type=number]::-webkit-inner-spin-button,
+#tabla-lineas input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+#tabla-lineas input[type=number] { -moz-appearance: textfield; appearance: textfield; text-align: right; }
+/* La fecha (dd/mm/aaaa + calendario) ocupa toda su columna */
+#tabla-lineas .fecha-campo { display: flex; width: 100%; }
+#tabla-lineas .fecha-campo .fecha-texto { flex: 1 1 auto; width: auto; min-width: 0; }
+/* Importe: a la altura de los campos, alineado a la derecha */
+#tabla-lineas .linea-total-txt { display: block; margin: 0; line-height: 30px; text-align: right; font-size: .82rem; }
+/* Debajo del producto: UNA línea pequeñita con el INVIMA y "Completar datos" */
+#tabla-lineas .linea-sub { display: flex; align-items: baseline; gap: .35rem; margin-top: .1rem; white-space: nowrap; overflow: hidden; }
+#tabla-lineas .linea-sub .hint-rs { display: inline; margin: 0; font-size: .68rem; overflow: hidden; text-overflow: ellipsis; }
+#tabla-lineas .linea-sub .btn-tecnicos { margin: 0; padding: 0; font-size: .68rem; flex-shrink: 0; }
+/* "= 300 Tableta · $50 c/u": solo sale cuando la compra viene en caja; letra pequeña */
+#tabla-lineas .linea-equivale { display: block; margin-top: .1rem; font-size: .66rem; line-height: 1.2; white-space: normal; }
+#tabla-lineas .linea-otro { margin-top: .2rem; }
+#tabla-lineas .btn-quitar-linea { width: 100%; height: 30px; padding: 0; }
+
+/* =====================================================================
+   BANCOS Y CUENTAS POR PAGAR (versión 1.1.7)
+   ===================================================================== */
+.bancos-entra { color: #15803d; font-weight: 700; }
+.bancos-sale  { color: #b91c1c; font-weight: 700; }
+.bancos-saldo-hoy { font-size: 1.3rem; margin-left: .5rem; color: var(--acento-fuerte); }
+.bancos-saldo-hoy.negativo { color: #b91c1c; }
+.dash-tarjetas a.dash-tarjeta, .dash-tarjetas div.dash-tarjeta { min-width: 0; }
+.formulario-mini { display: flex; flex-direction: column; gap: .5rem; }
+.formulario-mini label { display: flex; flex-direction: column; gap: .2rem; font-weight: 600; font-size: .85rem; }
+.formulario-mini .boton, .formulario-mini button { align-self: flex-start; }
+.opciones-radio { border: 1px solid #e3e8ec; border-radius: .5rem; padding: .4rem .7rem; margin: 0; }
+.opciones-radio legend { font-size: .8rem; font-weight: 700; padding: 0 .3rem; }
+.opciones-radio label { flex-direction: row !important; align-items: flex-start; gap: .4rem !important; font-weight: 400 !important; }
+.opciones-radio input { margin-top: .2rem; }
+.boton-mini { padding: .15rem .45rem; font-size: .8rem; line-height: 1.2; border-radius: .3rem; min-height: 0; height: auto; }
+details.dash-panel > summary { cursor: pointer; }
+/* Pestañas de Cuentas por pagar */
+.pestanas-cxp { display: flex; gap: .3rem; border-bottom: 2px solid #e3e8ec; margin: 0 0 1rem; flex-wrap: wrap; }
+.pestanas-cxp a { padding: .5rem 1rem; text-decoration: none; color: inherit; font-weight: 600;
+  border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.pestanas-cxp a.activa { border-bottom-color: var(--acento); color: var(--acento-fuerte); }
+.cxp-pronto { background: #fef3c7; color: #92400e; }
+.cxp-acciones { white-space: nowrap; }
+.cxp-acciones .boton { padding: .3rem .8rem; }
+.cxp-vence { display: inline-block; position: relative; vertical-align: middle; }
+.cxp-vence summary { list-style: none; cursor: pointer; padding: .2rem .4rem; }
+.cxp-vence summary::-webkit-details-marker { display: none; }
+.cxp-vence[open] form { position: absolute; right: 0; z-index: 5; background: #fff; border: 1px solid #e3e8ec;
+  border-radius: .5rem; padding: .5rem; display: flex; gap: .4rem; box-shadow: 0 6px 18px rgba(15,23,42,.12); }
+.cxp-revisar { display: flex; gap: .6rem; flex-wrap: wrap; }
+.cxp-revisar form { display: flex; gap: .3rem; align-items: center; flex-wrap: wrap; }
+.cxp-revisar input, .cxp-revisar select { width: auto; height: 32px; min-height: 0; padding: .2rem .4rem; font-size: .82rem; }
+.cxp-revisar .boton { padding: .3rem .7rem; font-size: .82rem; }
+.cxp-pagar { max-width: 640px; display: flex; flex-direction: column; gap: .8rem; }
+.cxp-pagar-datos { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+.cxp-pagar label { display: flex; flex-direction: column; gap: .25rem; font-weight: 600; }
+.cxp-origenes { border: 1px solid #e3e8ec; border-radius: .6rem; padding: .5rem .8rem; display: flex; flex-direction: column; gap: .3rem; }
+.cxp-origenes legend { font-weight: 700; padding: 0 .3rem; }
+.cxp-origen { flex-direction: row !important; align-items: center; gap: .6rem !important; padding: .45rem .5rem;
+  border-radius: .4rem; cursor: pointer; font-weight: 500 !important; }
+.cxp-origen:hover { background: var(--acento-suave); }
+.cxp-origen input { width: auto; margin: 0; }
+.cxp-origen-saldo { margin-left: auto; font-size: .85rem; color: #475569; }
+.cxp-origen.deshabilitado { opacity: .5; cursor: not-allowed; }
+/* Recepción: cómo se paga la factura */
+.pago-factura-fila { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; align-items: center; }
+.pago-modo { display: flex !important; flex-direction: row !important; align-items: center; gap: .4rem; font-weight: 400 !important; }
+.pago-modo input { width: auto; margin: 0; }
+.pago-campo { display: flex !important; flex-direction: row !important; align-items: center; gap: .4rem; font-weight: 600; margin: 0; }
+.pago-campo[hidden] { display: none !important; }
+.pago-campo input, .pago-campo select { width: auto; }
+.pago-estado { max-width: 420px; margin: .6rem 0 0 auto; padding: .6rem .8rem; border-radius: .5rem; border: 1px solid #e3e8ec; font-size: .9rem; }
+.pago-estado.pago-pagada { background: #f0fdf4; border-color: #bbf7d0; }
+.pago-estado.pago-pendiente { background: #fffbeb; border-color: #fde68a; }
+.pago-estado.pago-por_revisar { background: #eff6ff; border-color: #bfdbfe; }
+@media (max-width: 560px) { .cxp-pagar-datos { grid-template-columns: 1fr; } }
+/* Campos de los formularios de Bancos y Cuentas por pagar: del mismo alto que el resto del programa */
+.formulario-mini input:not([type=radio]):not([type=checkbox]), .formulario-mini select,
+.cxp-pagar input:not([type=radio]), .cxp-pagar select, .filtros-linea input, .pago-campo input, .pago-campo select {
+  min-height: 38px; padding: .4rem .6rem; border: 1px solid #c8d2da; border-radius: .4rem; font-size: .92rem;
+  box-sizing: border-box; background: #fff;
+}
+.formulario-mini .fecha-campo, .cxp-pagar .fecha-campo { display: flex; width: 100%; }
+.formulario-mini .fecha-campo .fecha-texto, .cxp-pagar .fecha-campo .fecha-texto { flex: 1; width: auto; }
+.formulario-mini .fecha-boton, .cxp-pagar .fecha-boton, .filtros-linea .fecha-boton { min-height: 38px; }

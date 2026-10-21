@@ -235,7 +235,7 @@ def registrar_abono(cliente_id, monto_texto, forma, observaciones=""):
         if en_caja:
             db.execute(
                 "INSERT INTO caja_movimientos (caja_id, fecha, tipo, forma_pago, monto, motivo, usuario_id, "
-                "usuario_nombre, creado_en) VALUES (?,?, 'ingreso', ?,?,?,?,?,?)",
+                "usuario_nombre, creado_en, origen) VALUES (?,?, 'ingreso', ?,?,?,?,?,?, 'cartera')",
                 (caja["id"], ahora(), forma, monto, f"Abono {numero} · {cliente['nombre']}",
                  g.user["id"], g.user["nombre"], ahora()))
         db.commit()
@@ -413,7 +413,7 @@ def anular_abono(abono_id):
         if caja is not None:
             db.execute(
                 "INSERT INTO caja_movimientos (caja_id, fecha, tipo, forma_pago, monto, motivo, usuario_id, "
-                "usuario_nombre, creado_en) VALUES (?,?, 'salida', ?,?,?,?,?,?)",
+                "usuario_nombre, creado_en, origen) VALUES (?,?, 'salida', ?,?,?,?,?,?, 'cartera')",
                 (caja["id"], ahora(), a["forma_pago"], a["monto"], f"Anulación abono {a['numero']}",
                  g.user["id"], g.user["nombre"], ahora()))
         db.commit()

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titulo %}Pagar factura{% endblock %}
+{% block contenido %}
+{#
+  PAGAR UNA FACTURA (versión 1.1.7). Se paga completa. Se escoge de dónde sale
+  la plata y al lado se ve cuánto hay en cada lugar. Ver cuentas_pagar.pagar().
+#}
+<p><a href="{{ url_for('cuentas_pagar.index') }}">← Volver a Cuentas por pagar</a></p>
+<h1>🧾 Pagar factura {{ rec.factura_numero or rec.remision_numero or rec.numero }}</h1>
+<p class="suave">{{ rec.proveedor_nombre }} · llegó el {{ rec.fecha[:10] }}
+  {% if rec.pago_vence %} · vence el {{ rec.pago_vence }}
+    {% if dias is not none and dias < 0 %}<span class="dif dif-falta">vencida hace {{ -dias }} día(s)</span>{% endif %}{% endif %}
+  · <a href="{{ url_for('recepciones.ver', rec_id=rec.id) }}">ver la recepción</a></p>
+
+<form method="post" class="dash-panel cxp-pagar"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <div class="cxp-pagar-datos">
+    <label>Valor a pagar <input type="number" name="monto" min="1" step="0.01" value="{{ '%.0f'|format(rec.total_pagar) }}" required></label>
+    <label>Fecha del pago <input type="date" name="fecha" value="{{ hoy }}" max="{{ hoy }}"></label>
+  </div>
+
+  <fieldset class="cxp-origenes">
+    <legend>¿De dónde sale la plata?</legend>
+    {% for k, v in origenes.items() %}
+      {% set s = saldos.get(k) %}
+      <label class="cxp-origen {% if k == 'caja_pos' and not caja %}deshabilitado{% endif %}">
+        <input type="radio" name="origen" value="{{ k }}" required {% if k == 'caja_pos' and not caja %}disabled{% endif %}>
+        <span class="cxp-origen-nombre">{{ v }}</span>
+        <span class="cxp-origen-saldo {% if s is not none and s < rec.total_pagar %}bancos-sale{% endif %}">
+          {% if k == 'caja_pos' and not caja %}no hay caja abierta
+          {% elif s is not none %}hay {{ s|pesos }}{% endif %}</span>
+      </label>
+    {% endfor %}
+  </fieldset>
+
+  <label>Nota (opcional) <input type="text" name="observaciones" placeholder="Ej: transferencia #12345"></label>
+  <button type="submit" class="boton">✔ Registrar pago</button>
+</form>
+{% endblock %}

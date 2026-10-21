@@ -499,6 +499,32 @@ Notas:
 | 1.1.4 | 2026-10-18 | Todo lo de 1.1.3 (su instalador no se armó) + fechas en líneas agregadas de la recepción (28 → 2028, calendario) + prueba de limpieza que fallaba los lunes |
 | 1.1.5 | 2026-10-19 | POS como el programa anterior: cursor en el producto agregado (números = cantidad, Suprimir con Deshacer), búsqueda que no se borra con X, lector reconocido por velocidad, numerito en las tarjetas, búsqueda más rápida |
 | 1.1.6 | 2026-10-19 | (Junta lo planeado para 1.1.6 y 1.1.7) Clic en el buscador del POS selecciona todo; ícono propio en la barra de tareas; varios principios activos con comas; catálogos en orden alfabético (tildes bien) y UdM por tamaño; laboratorio opcional («Laboratorio o marca»); sin repetidos + «Buscar repetidos»; IVA por línea en la recepción y «¿La droguería declara IVA?»; dashboard contable nuevo; Sesiones de caja (azul / rojo − / verde +) y sobrantes/faltantes automáticos en la contabilidad |
+| 1.1.7 | 2026-10-20 | Recepción en una sola línea por producto; BANCOS (Nequi y Davivienda: saldo automático, traslados, plata del dueño, cuadre); CUENTAS POR PAGAR a proveedores (crédito/contado, pago desde caja menor, POS, Nequi o Davivienda; facturas viejas «por revisar»); acciones de GitHub en Node 24 |
+
+### Versión 1.1.7 — recepción en una línea, Bancos y Cuentas por pagar (2026-10-20)
+- Pruebas: `tests/test_version_117.py` (incluye una que revisa que TODO formulario POST lleve `_csrf`).
+- **Recepción en una línea**: columnas propias Cant. | UdM | Costo | IVA | Importe (`#tabla-lineas`,
+  `table-layout: fixed`, anchos en app.css «RECEPCIÓN EN UNA LÍNEA»). Debajo del producto solo una línea
+  pequeña (INVIMA + Completar datos). En pantallas angostas la tabla se desliza dentro de su caja.
+- **Migración 38**: `cuentas_bancarias` (nequi, davivienda; `fecha_inicial` = día de la primera venta),
+  `bancos_movimientos` (traslados y retiro/aporte del dueño), `caja_movimientos.origen` (manual/cartera/
+  devolucion/gasto/otro_ingreso/proveedor), caja menor reconstruida con tipos `pago_proveedor`, `a_banco`,
+  `de_banco`; `proveedores.plazo_dias`; `recepciones.total_pagar/pago_estado/pago_vence`; `pagos_proveedores`.
+- **Bancos** (`app/bancos.py`): el saldo NO se copia: se suma cada vez con un UNION de ventas (y partes de
+  pagos mixtos), abonos, devoluciones, otros ingresos, gastos, movimientos manuales de la caja POS, pagos a
+  proveedores y `bancos_movimientos`, filtrando por forma de pago = clave de la cuenta. Cuadrar: diferencia
+  → retiro/aporte del dueño o gasto «Gastos bancarios» / otro ingreso «Intereses bancarios». Retiros del
+  dueño en bancos se suman a «retiros del dueño» (informativo) de Utilidades. Aviso de gastos/ingresos/abonos
+  con forma «transferencia» (no se sabe a qué cuenta).
+- **Cuentas por pagar** (`app/cuentas_pagar.py`): la recepción pregunta crédito (vence = hoy + plazo del
+  proveedor; 30 si no tiene) o contado (de dónde salió la plata). Pago completo (Fernando no hace abonos).
+  El pago NO es gasto (la mercancía se vuelve costo al venderse): solo saca plata (caja menor, salida de
+  efectivo de la caja POS, Nequi/Davivienda o «otro»). Anular devuelve la plata. Recepciones de antes →
+  `por_revisar`: «Ya estaba pagada» (solo Nequi/Davivienda/otro, para no tocar el efectivo de hoy) o «Se
+  debe». Rechazar recepción → `no_aplica`. Dashboard: «Le debo a proveedores», «Plata disponible», pagos en
+  el flujo de caja; alerta `cxp_vencidas` (vencidas o a 3 días).
+- **GitHub Actions**: checkout@v5, setup-python@v6, upload-artifact@v6, action-gh-release@v3 (las primeras en
+  Node 24; mismas entradas).
 
 ### Versión 1.1.6 — catálogos, IVA, dashboard contable y sesiones de caja (2026-10-19)
 - Fernando pidió juntar las listas de 1.1.6 y 1.1.7 en una sola versión. Pruebas: `tests/test_version_116.py`.

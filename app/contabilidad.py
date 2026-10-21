@@ -55,7 +55,7 @@ def index():
 def _datos_dashboard(db, mes=None):
     """Arma todo lo que muestra el dashboard. Cada parte está explicada abajo."""
     from datetime import timedelta
-    from . import cartera, utilidades
+    from . import cartera, cuentas_pagar, utilidades
     from .alertas import calcular_alertas
     from .cajas import resumen_sesion
     from .configuracion import obtener_config
@@ -109,10 +109,14 @@ def _datos_dashboard(db, mes=None):
         for f in db.execute(sql, (ini, fin)):
             if f["dia"] in dias:
                 dias[f["dia"]]["entradas"] += f["t"] or 0
-    for f in db.execute("SELECT substr(fecha, 1, 10) AS dia, SUM(monto) AS t FROM gastos "
-                        "WHERE activo = 1 AND fecha >= ? AND fecha < ? GROUP BY dia", (ini, fin)):
-        if f["dia"] in dias:
-            dias[f["dia"]]["salidas"] += f["t"] or 0
+    # Sale: gastos y (desde la versión 1.1.7) los pagos a proveedores
+    for sql in ("SELECT substr(fecha, 1, 10) AS dia, SUM(monto) AS t FROM gastos "
+                "WHERE activo = 1 AND fecha >= ? AND fecha < ? GROUP BY dia",
+                "SELECT substr(fecha, 1, 10) AS dia, SUM(monto) AS t FROM pagos_proveedores "
+                "WHERE anulado = 0 AND fecha >= ? AND fecha < ? GROUP BY dia"):
+        for f in db.execute(sql, (ini, fin)):
+            if f["dia"] in dias:
+                dias[f["dia"]]["salidas"] += f["t"] or 0
     saldo, flujo = 0.0, []
     for dia, v in dias.items():
         saldo += v["entradas"] - v["salidas"]
@@ -149,6 +153,8 @@ def _datos_dashboard(db, mes=None):
         "  UNION ALL SELECT a.fecha, 'Abono ' || a.numero || ' · ' || COALESCE(cl.nombre, ''), 'Cartera', 'ingreso', "
         "         a.monto, a.forma_pago FROM cartera_abonos a LEFT JOIN clientes cl ON cl.id = a.cliente_id "
         "         WHERE a.anulado = 0"
+        "  UNION ALL SELECT pp.fecha, 'Pago a ' || pr.razon_social, 'Proveedores', 'egreso', pp.monto, pp.origen "
+        "         FROM pagos_proveedores pp JOIN proveedores pr ON pr.id = pp.proveedor_id WHERE pp.anulado = 0"
         ") ORDER BY fecha DESC LIMIT 8")]
 
     # ---- 6. Cartera, compras del período e IVA ----
@@ -172,7 +178,8 @@ def _datos_dashboard(db, mes=None):
     cajas = [resumen_sesion(db, c) for c in db.execute("SELECT * FROM cajas ORDER BY abierta_en DESC, id DESC LIMIT 5").fetchall()]
 
     # ---- 8. Alertas que tienen que ver con plata e inventario ----
-    claves = ("lotes_vencidos", "lotes_por_vencer", "agotados", "cartera_vencida", "caja_vieja", "precio_maximo")
+    claves = ("cxp_vencidas", "lotes_vencidos", "lotes_por_vencer", "agotados", "cartera_vencida", "caja_vieja",
+              "precio_maximo")
     alertas = [a for a in calcular_alertas(g.user["rol"]) if a["clave"] in claves][:4]
 
     return {
@@ -182,7 +189,20 @@ def _datos_dashboard(db, mes=None):
         "compras": {"total": compras["total"], "n": compras["n"]},
         "declara_iva": declara, "iva": iva,
         "cajas": cajas, "alertas": alertas,
+        # Versión 1.1.7: lo que se les debe a proveedores y la plata en bancos + caja menor
+        "cxp": cuentas_pagar.resumen(db),
+        "plata": _plata_disponible(db),
     }
+
+
+def _plata_disponible(db):
+    """Caja menor + Nequi + Davivienda (ver app/bancos.py)."""
+    from .bancos import cuentas
+    from .caja_menor import saldo_actual
+    lista = cuentas(db)
+    cm = saldo_actual(db)
+    return {"total": cm + sum(c["saldo"] for c in lista), "caja_menor": cm,
+            "cuentas": [{"nombre": c["nombre"], "saldo": c["saldo"]} for c in lista]}
 
 
 # ============================================================

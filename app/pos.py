@@ -346,7 +346,7 @@ def api_gasto():
     if origen == "pos" and forma_pago == "efectivo":
         db.execute(
             "INSERT INTO caja_movimientos (caja_id, fecha, tipo, forma_pago, monto, motivo, "
-            "usuario_id, usuario_nombre, creado_en) VALUES (?,?,?,?,?,?,?,?,?)",
+            "usuario_id, usuario_nombre, creado_en, origen) VALUES (?,?,?,?,?,?,?,?,?, 'gasto')",
             (caja["id"], ahora(), "salida", "efectivo", monto,
              f"Gasto: {descripcion}", g.user["id"], g.user["nombre"], ahora()),
         )
@@ -411,7 +411,7 @@ def api_otro_ingreso():
     if forma_pago == "efectivo":
         db.execute(
             "INSERT INTO caja_movimientos (caja_id, fecha, tipo, forma_pago, monto, motivo, "
-            "usuario_id, usuario_nombre, creado_en) VALUES (?,?, 'ingreso', 'efectivo', ?,?,?,?,?)",
+            "usuario_id, usuario_nombre, creado_en, origen) VALUES (?,?, 'ingreso', 'efectivo', ?,?,?,?,?, 'otro_ingreso')",
             (caja["id"], ahora(), monto, f"Otro ingreso: {descripcion}",
              g.user["id"], g.user["nombre"], ahora()),
         )

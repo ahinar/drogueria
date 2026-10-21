@@ -1350,6 +1350,135 @@ MIGRATIONS = [
         ALTER TABLE cajas ADD COLUMN diferencia_ingreso_id INTEGER;
         """,
     ),
+    # Versión 1.1.7: BANCOS (Nequi y Davivienda) y CUENTAS POR PAGAR a proveedores.
+    # Ver app/bancos.py y app/cuentas_pagar.py (ahí está explicado para aprender).
+    (
+        38,
+        """
+        -- ===== 1. Cuentas de banco =====
+        -- Una fila por cuenta. "clave" es la misma palabra que se usa en forma_pago
+        -- ('nequi', 'davivienda'): así el programa sabe qué ventas, gastos, abonos...
+        -- entraron o salieron por esa cuenta. Arrancan el día de la PRIMERA venta
+        -- (pedido de Fernando); saldo_inicial = lo que había ese día (se escribe en Bancos).
+        CREATE TABLE cuentas_bancarias (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            clave TEXT NOT NULL UNIQUE,
+            nombre TEXT NOT NULL,
+            saldo_inicial REAL NOT NULL DEFAULT 0,
+            fecha_inicial TEXT NOT NULL,
+            activa INTEGER NOT NULL DEFAULT 1,
+            creado_en TEXT NOT NULL,
+            actualizado_en TEXT
+        );
+        INSERT INTO cuentas_bancarias (clave, nombre, fecha_inicial, creado_en)
+            SELECT 'nequi', 'Nequi', COALESCE((SELECT substr(MIN(fecha), 1, 10) FROM ventas), date('now', 'localtime')),
+                   datetime('now', 'localtime');
+        INSERT INTO cuentas_bancarias (clave, nombre, fecha_inicial, creado_en)
+            SELECT 'davivienda', 'Davivienda', COALESCE((SELECT substr(MIN(fecha), 1, 10) FROM ventas), date('now', 'localtime')),
+                   datetime('now', 'localtime');
+
+        -- Movimientos que SOLO existen en el banco (los demás salen de ventas, gastos, etc.):
+        --   traslado_entrada / traslado_salida: mover plata entre cuentas o con la caja menor
+        --   aporte_dueno / retiro_dueno: plata personal (las cuentas también son personales)
+        CREATE TABLE bancos_movimientos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cuenta_id INTEGER NOT NULL,
+            fecha TEXT NOT NULL,
+            tipo TEXT NOT NULL CHECK (tipo IN ('traslado_entrada', 'traslado_salida', 'aporte_dueno', 'retiro_dueno')),
+            monto REAL NOT NULL CHECK (monto > 0),
+            descripcion TEXT,
+            traslado_ref TEXT,
+            caja_menor_mov_id INTEGER,
+            anulado INTEGER NOT NULL DEFAULT 0,
+            anulado_en TEXT,
+            anulado_por_nombre TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            FOREIGN KEY (cuenta_id) REFERENCES cuentas_bancarias (id)
+        );
+        CREATE INDEX idx_bancos_mov_cuenta ON bancos_movimientos (cuenta_id, fecha);
+
+        -- ===== 2. Movimientos de la caja POS: de dónde vienen =====
+        -- Los abonos de cartera y las devoluciones quedan en su propia tabla Y en
+        -- caja_movimientos. Para no contarlos dos veces en Bancos, se marca el origen.
+        ALTER TABLE caja_movimientos ADD COLUMN origen TEXT NOT NULL DEFAULT 'manual';
+        UPDATE caja_movimientos SET origen = 'cartera'
+            WHERE motivo LIKE 'Abono %' OR motivo LIKE 'Anulación abono %';
+        UPDATE caja_movimientos SET origen = 'devolucion' WHERE motivo LIKE 'Devolución %';
+        UPDATE caja_movimientos SET origen = 'gasto' WHERE motivo LIKE 'Gasto: %';
+        UPDATE caja_movimientos SET origen = 'otro_ingreso' WHERE motivo LIKE 'Otro ingreso: %';
+
+        -- ===== 3. Caja menor: tipos nuevos =====
+        -- pago_proveedor (sale), a_banco (sale: consignar), de_banco (entra: retirar del banco).
+        -- SQLite no deja cambiar la regla CHECK: se crea la tabla de nuevo y se copian los datos.
+        CREATE TABLE caja_menor_movimientos_nueva (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha TEXT NOT NULL,
+            tipo TEXT NOT NULL CHECK (tipo IN ('aporte', 'retiro', 'apertura_pos', 'cierre_pos', 'gasto',
+                                               'pago_proveedor', 'a_banco', 'de_banco')),
+            monto REAL NOT NULL DEFAULT 0,
+            motivo TEXT,
+            caja_id INTEGER,
+            gasto_id INTEGER,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            retiro_dueno INTEGER NOT NULL DEFAULT 0
+        );
+        INSERT INTO caja_menor_movimientos_nueva (id, fecha, tipo, monto, motivo, caja_id, gasto_id,
+                                                  usuario_id, usuario_nombre, creado_en, retiro_dueno)
+            SELECT id, fecha, tipo, monto, motivo, caja_id, gasto_id, usuario_id, usuario_nombre,
+                   creado_en, retiro_dueno FROM caja_menor_movimientos;
+        DROP TABLE caja_menor_movimientos;
+        ALTER TABLE caja_menor_movimientos_nueva RENAME TO caja_menor_movimientos;
+        CREATE INDEX idx_caja_menor_fecha ON caja_menor_movimientos (fecha);
+        CREATE INDEX idx_caja_menor_tipo ON caja_menor_movimientos (tipo);
+
+        -- ===== 4. Cuentas por pagar =====
+        -- Plazo normal de pago de cada proveedor (0 = de contado)
+        ALTER TABLE proveedores ADD COLUMN plazo_dias INTEGER NOT NULL DEFAULT 0;
+        -- Cada recepción (factura) sabe cuánto hay que pagar y si ya se pagó:
+        --   por_revisar = recepciones de antes de esta versión: Fernando las revisa una por una
+        --   pendiente   = se debe (a crédito), vence en pago_vence
+        --   pagada      = ya se pagó (ver pagos_proveedores)
+        --   no_aplica   = recepción rechazada o sin valor
+        ALTER TABLE recepciones ADD COLUMN total_pagar REAL NOT NULL DEFAULT 0;
+        ALTER TABLE recepciones ADD COLUMN pago_estado TEXT NOT NULL DEFAULT 'por_revisar'
+            CHECK (pago_estado IN ('por_revisar', 'pendiente', 'pagada', 'no_aplica'));
+        ALTER TABLE recepciones ADD COLUMN pago_vence TEXT;
+        -- Valor a pagar = cantidad × costo con IVA de las líneas que NO se rechazaron
+        UPDATE recepciones SET total_pagar = (
+            SELECT COALESCE(SUM(cantidad_recibida * COALESCE(costo_con_iva, costo_unitario)), 0)
+            FROM recepcion_lineas WHERE recepcion_id = recepciones.id AND resultado <> 'rechazado');
+        UPDATE recepciones SET pago_estado = 'no_aplica' WHERE estado = 'rechazada' OR total_pagar <= 0;
+
+        -- Los pagos. origen = de dónde salió la plata
+        CREATE TABLE pagos_proveedores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recepcion_id INTEGER NOT NULL,
+            proveedor_id INTEGER NOT NULL,
+            fecha TEXT NOT NULL,
+            monto REAL NOT NULL CHECK (monto > 0),
+            origen TEXT NOT NULL CHECK (origen IN ('caja_menor', 'caja_pos', 'nequi', 'davivienda', 'otro')),
+            caja_id INTEGER,
+            caja_menor_mov_id INTEGER,
+            caja_mov_id INTEGER,
+            observaciones TEXT,
+            anulado INTEGER NOT NULL DEFAULT 0,
+            anulado_motivo TEXT,
+            anulado_en TEXT,
+            anulado_por_nombre TEXT,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            FOREIGN KEY (recepcion_id) REFERENCES recepciones (id),
+            FOREIGN KEY (proveedor_id) REFERENCES proveedores (id)
+        );
+        CREATE INDEX idx_pagos_prov_recepcion ON pagos_proveedores (recepcion_id);
+        CREATE INDEX idx_pagos_prov_fecha ON pagos_proveedores (fecha);
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

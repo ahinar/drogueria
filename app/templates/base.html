@@ -232,6 +232,16 @@
          href="{{ url_for('caja_menor.index') }}" title="Caja menor">
         <span class="ico">{{ ico("billete", "💵") }}</span><span class="txt">Caja menor</span>
       </a>
+      <!-- Versión 1.1.7: saldo de Nequi y Davivienda (app/bancos.py) -->
+      <a class="sidebar-link {% if ep.startswith('bancos.') %}activo{% endif %}"
+         href="{{ url_for('bancos.index') }}" title="Bancos (Nequi y Davivienda)">
+        <span class="ico">{{ ico("banco", "🏦") }}</span><span class="txt">Bancos</span>
+      </a>
+      <!-- Versión 1.1.7: lo que se les debe a los proveedores (app/cuentas_pagar.py) -->
+      <a class="sidebar-link {% if ep.startswith('cuentas_pagar.') %}activo{% endif %}"
+         href="{{ url_for('cuentas_pagar.index') }}" title="Cuentas por pagar (proveedores)">
+        <span class="ico">{{ ico("factura", "🧾") }}</span><span class="txt">Cuentas por pagar</span>
+      </a>
       {% endif %}
 
       <!-- ===== Calidad (desplegable, como Administración; se abre sola si estás en una

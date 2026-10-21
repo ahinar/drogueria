@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block titulo %}Cuentas por pagar{% endblock %}
+{% block contenido %}
+{#
+  CUENTAS POR PAGAR (versión 1.1.7): lo que la droguería les debe a los proveedores.
+  Tres pestañas: Por pagar | Por revisar (facturas de antes) | Pagadas.
+  Datos: app/cuentas_pagar.py → index().
+#}
+<div class="dash-cabecera">
+  <div>
+    <p class="dash-modulo">{{ ico("factura", "🧾") }} Contabilidad</p>
+    <h1>Cuentas por pagar</h1>
+    <p class="suave">Facturas de proveedores que se deben y las que ya se pagaron. El pago saca la plata de donde
+      usted diga (caja menor, caja del POS, Nequi o Davivienda). No es un gasto: la mercancía se vuelve costo cuando se vende.</p>
+  </div>
+  <form method="get" class="dash-periodo">
+    <input type="hidden" name="ver" value="{{ ver }}">
+    <label>Proveedor
+      <select name="proveedor" onchange="this.form.submit()">
+        <option value="">Todos</option>
+        {% for p in proveedores %}<option value="{{ p.id }}" {% if p.id|string == proveedor %}selected{% endif %}>{{ p.razon_social }}</option>{% endfor %}
+      </select></label>
+  </form>
+</div>
+
+<div class="dash-tarjetas">
+  <div class="dash-tarjeta dash-gastos">
+    <span class="dash-tarjeta-ico">🧾</span>
+    <span class="dash-tarjeta-titulo">Le debo a proveedores</span>
+    <span class="dash-tarjeta-valor">{{ r.total|pesos }}</span>
+    <span class="dash-tarjeta-detalle">{{ r.n }} factura(s) por pagar</span>
+  </div>
+  <div class="dash-tarjeta dash-costo">
+    <span class="dash-tarjeta-ico">⛔</span>
+    <span class="dash-tarjeta-titulo">Vencido</span>
+    <span class="dash-tarjeta-valor">{{ r.vencido|pesos }}</span>
+    <span class="dash-tarjeta-detalle">{{ r.n_vencidas }} factura(s) ya pasaron la fecha</span>
+  </div>
+  <div class="dash-tarjeta dash-utilidad">
+    <span class="dash-tarjeta-ico">⏳</span>
+    <span class="dash-tarjeta-titulo">Vence en 7 días</span>
+    <span class="dash-tarjeta-valor">{{ r.pronto|pesos }}</span>
+    <span class="dash-tarjeta-detalle">{{ r.n_pronto }} factura(s)</span>
+  </div>
+  <a class="dash-tarjeta dash-ingresos" href="{{ url_for('cuentas_pagar.index', ver='por_revisar') }}">
+    <span class="dash-tarjeta-ico">🔎</span>
+    <span class="dash-tarjeta-titulo">Por revisar</span>
+    <span class="dash-tarjeta-valor">{{ r.por_revisar }}</span>
+    <span class="dash-tarjeta-detalle">facturas de antes de esta versión ({{ r.por_revisar_total|pesos }})</span>
+  </a>
+</div>
+
+<nav class="pestanas-cxp">
+  <a href="{{ url_for('cuentas_pagar.index', ver='por_pagar', proveedor=proveedor or None) }}" class="{% if ver == 'por_pagar' %}activa{% endif %}">Por pagar ({{ pendientes|length }})</a>
+  <a href="{{ url_for('cuentas_pagar.index', ver='por_revisar', proveedor=proveedor or None) }}" class="{% if ver == 'por_revisar' %}activa{% endif %}">Por revisar ({{ por_revisar|length }})</a>
+  <a href="{{ url_for('cuentas_pagar.index', ver='pagadas', proveedor=proveedor or None) }}" class="{% if ver == 'pagadas' %}activa{% endif %}">Pagadas</a>
+</nav>
+
+{% if ver == 'por_pagar' %}
+<div class="dash-fila dash-fila-2 cxp-fila">
+  <section class="dash-panel">
+    <div class="tabla-scroll">
+    <table class="tabla dash-tabla">
+      <thead><tr><th>Proveedor</th><th>Factura</th><th>Llegó</th><th>Vence</th><th class="der">Valor</th><th></th></tr></thead>
+      <tbody>
+      {% for f in pendientes %}
+        <tr>
+          <td>{{ f.proveedor_nombre }}</td>
+          <td><a href="{{ url_for('recepciones.ver', rec_id=f.id) }}">{{ f.factura_numero or f.remision_numero or f.numero }}</a></td>
+          <td>{{ f.fecha[:10] }}</td>
+          <td>
+            {{ f.pago_vence or '—' }}<br>
+            {% if f.dias is none %}<small class="suave">sin fecha</small>
+            {% elif f.dias < 0 %}<span class="dif dif-falta">vencida hace {{ -f.dias }} día{{ 's' if f.dias != -1 }}</span>
+            {% elif f.dias == 0 %}<span class="dif dif-falta">vence HOY</span>
+            {% elif f.dias <= 7 %}<span class="dif cxp-pronto">en {{ f.dias }} día{{ 's' if f.dias != 1 }}</span>
+            {% else %}<small class="suave">en {{ f.dias }} días</small>{% endif %}
+          </td>
+          <td class="der"><strong>{{ f.total_pagar|pesos }}</strong></td>
+          <td class="cxp-acciones">
+            <a class="boton" href="{{ url_for('cuentas_pagar.pagar', rec_id=f.id) }}">Pagar</a>
+            <details class="cxp-vence">
+              <summary title="Cambiar la fecha de vencimiento">📅</summary>
+              <form method="post" action="{{ url_for('cuentas_pagar.cambiar_vence', rec_id=f.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <input type="date" name="vence" value="{{ f.pago_vence }}" required>
+                <button type="submit" class="boton secundario">Cambiar</button>
+              </form>
+            </details>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="suave">No se le debe nada a ningún proveedor. 🎉</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+  <section class="dash-panel">
+    <h2>Por proveedor</h2>
+    <table class="dash-resumen">
+      {% for p in por_proveedor %}
+      <tr><td><a href="{{ url_for('cuentas_pagar.index', proveedor=p.id) }}">{{ p.razon_social }}</a>
+            <br><small class="suave">{{ p.n }} factura(s){% if p.vencido %} · <span class="bancos-sale">{{ p.vencido|pesos }} vencido</span>{% endif %}</small></td>
+          <td class="der"><strong>{{ p.total|pesos }}</strong></td></tr>
+      {% else %}
+      <tr><td class="suave">Sin deudas.</td></tr>
+      {% endfor %}
+    </table>
+  </section>
+</div>
+
+{% elif ver == 'por_revisar' %}
+<section class="dash-panel">
+  <h2>🔎 Facturas de antes de esta versión</h2>
+  <p class="suave">El programa no sabía si estas facturas se pagaron. Revísalas una por una:
+    <strong>«Ya estaba pagada»</strong> (con la fecha y cómo se pagó) o <strong>«Se debe»</strong> (con la fecha en que vence).
+    Para las que ya se pagaron no aparecen la caja menor ni la del POS: esa plata salió hace días y descontarla hoy
+    dañaría el saldo de hoy. Si se pagó en efectivo, escoge «Otro».</p>
+  <div class="tabla-scroll">
+  <table class="tabla dash-tabla">
+    <thead><tr><th>Proveedor</th><th>Factura</th><th>Llegó</th><th class="der">Valor</th><th>¿Qué pasó con esta factura?</th></tr></thead>
+    <tbody>
+    {% for f in por_revisar %}
+      <tr>
+        <td>{{ f.proveedor_nombre }}</td>
+        <td><a href="{{ url_for('recepciones.ver', rec_id=f.id) }}">{{ f.factura_numero or f.remision_numero or f.numero }}</a></td>
+        <td>{{ f.fecha[:10] }}</td>
+        <td class="der"><strong>{{ f.total_pagar|pesos }}</strong></td>
+        <td>
+          <div class="cxp-revisar">
+            <form method="post" action="{{ url_for('cuentas_pagar.revisar', rec_id=f.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <input type="hidden" name="accion" value="pagada">
+              <input type="date" name="fecha" value="{{ f.fecha[:10] }}" max="{{ hoy }}" title="Fecha en que se pagó">
+              <select name="origen" title="Cómo se pagó">
+                {% for k in origenes_antiguos %}<option value="{{ k }}" {% if k == 'otro' %}selected{% endif %}>{{ 'Efectivo / otro' if k == 'otro' else origenes[k] }}</option>{% endfor %}
+              </select>
+              <button type="submit" class="boton">✔ Ya estaba pagada</button>
+            </form>
+            <form method="post" action="{{ url_for('cuentas_pagar.revisar', rec_id=f.id) }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+              <input type="hidden" name="accion" value="pendiente">
+              <input type="date" name="vence" value="{{ f.vence_sug }}" title="Fecha en que vence" required>
+              <button type="submit" class="boton secundario">Se debe</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="suave">No hay facturas por revisar. ✔</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% else %}
+<section class="dash-panel">
+  <h2>Pagos registrados</h2>
+  <div class="tabla-scroll">
+  <table class="tabla dash-tabla">
+    <thead><tr><th>Fecha del pago</th><th>Proveedor</th><th>Factura</th><th>De dónde salió</th><th class="der">Valor</th><th>Registró</th><th></th></tr></thead>
+    <tbody>
+    {% for p in pagos %}
+      <tr {% if p.anulado %}class="suave"{% endif %}>
+        <td>{{ p.fecha|fecha_hora }}</td>
+        <td>{{ p.proveedor_nombre }}</td>
+        <td><a href="{{ url_for('recepciones.ver', rec_id=p.recepcion_id) }}">{{ p.factura_numero or p.remision_numero or p.numero }}</a></td>
+        <td>{{ origenes[p.origen].split(' (')[0] }}</td>
+        <td class="der">{% if p.anulado %}<s>{{ p.monto|pesos }}</s>{% else %}<strong>{{ p.monto|pesos }}</strong>{% endif %}</td>
+        <td>{{ p.usuario_nombre or '—' }}{% if p.anulado %}<br><small>Anulado: {{ p.anulado_motivo }}</small>{% endif %}</td>
+        <td>
+          {% if not p.anulado and g.user.rol == 'administrador' %}
+          <form method="post" action="{{ url_for('cuentas_pagar.anular', pago_id=p.id) }}"
+                data-confirmar="¿Anular este pago? La factura vuelve a «por pagar» y la plata vuelve a donde salió."><input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="motivo" value="Anulado desde Cuentas por pagar">
+            <button type="submit" class="boton-mini peligro" title="Anular el pago">✕</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="suave">Todavía no hay pagos registrados.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
