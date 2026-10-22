@@ -1055,6 +1055,27 @@ def api_abrir_cajon():
         if ok else _json_error(error)
 
 
+@bp.route("/api/abrir-cajon-apertura", methods=["POST"])
+@login_required
+@roles_required("administrador", "director_tecnico", "auxiliar")
+def api_abrir_cajon_apertura():
+    """Abre el cajón monedero ANTES de abrir la caja (versión 1.1.8, pedido de Fernando).
+
+    En la mañana la caja del programa está cerrada y el cajón físico también:
+    para contar la plata con la que se empieza hay que abrirlo. El botón
+    "Abrir cajón" del POS (api_abrir_cajon, arriba) solo sirve con la caja abierta,
+    por eso la pantalla "Abrir caja" usa este otro, que funciona con la caja cerrada.
+    Lo puede usar quien pueda abrir caja, y queda en la bitácora (motivo=apertura).
+    """
+    from . import cajon
+    cfg = obtener_config()
+    ok, error = cajon.abrir(cfg.get("impresora_tirillas"), cfg.get("cajon_orden") or "estandar")
+    registrar("cajon_abierto", "cajas", None, "motivo=apertura (contar antes de abrir caja)"
+              + ("" if ok else f" error={error}"))
+    return jsonify({"ok": True, "impresora": cajon.impresora_usada(cfg.get("impresora_tirillas"))}) \
+        if ok else _json_error(error)
+
+
 @bp.route("/api/cobrar", methods=["POST"])
 @login_required
 @roles_required("administrador", "director_tecnico", "auxiliar")

@@ -273,3 +273,36 @@ class TestCamposYConteo(Base118):
     def test_version(self):
         from app.version import VERSION
         self.assertEqual(VERSION, "1.1.8")
+
+
+class TestAbrirCajonAntesDeAbrirCaja(Base118):
+    """Versión 1.1.8: en la mañana la caja está cerrada y el cajón físico también.
+    La pantalla "Abrir caja" tiene su propio botón "Abrir cajón" para poder contar."""
+
+    def test_abre_el_cajon_con_la_caja_cerrada_y_queda_en_bitacora(self):
+        from unittest import mock
+        with mock.patch("app.cajon.abrir", return_value=(True, "")) as abrir:
+            r = self.post(self.c, "/pos/api/abrir-cajon-apertura")
+        self.assertTrue(r.get_json()["ok"])
+        abrir.assert_called_once()
+        bit = self.uno("SELECT detalle FROM bitacora WHERE accion = 'cajon_abierto'")
+        self.assertIn("motivo=apertura", bit["detalle"])
+
+    def test_si_la_impresora_falla_avisa(self):
+        from unittest import mock
+        with mock.patch("app.cajon.abrir", return_value=(False, "No encuentro la impresora")):
+            j = self.post(self.c, "/pos/api/abrir-cajon-apertura").get_json()
+        self.assertFalse(j["ok"])
+
+    def test_el_auxiliar_tambien_puede(self):
+        from unittest import mock
+        self.crear_usuario(self.c, "auxi", "auxiliar")
+        aux = self.cliente()
+        self.entrar(aux, "auxi")
+        with mock.patch("app.cajon.abrir", return_value=(True, "")):
+            self.assertTrue(self.post(aux, "/pos/api/abrir-cajon-apertura").get_json()["ok"])
+
+    def test_boton_en_la_pantalla_abrir_caja(self):
+        html = self.c.get("/pos/abrir-caja").get_data(as_text=True)
+        self.assertIn('id="btn-abrir-cajon-apertura"', html)
+        self.assertIn("/pos/api/abrir-cajon-apertura", html)

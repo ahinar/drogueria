@@ -500,7 +500,7 @@ Notas:
 | 1.1.5 | 2026-10-19 | POS como el programa anterior: cursor en el producto agregado (números = cantidad, Suprimir con Deshacer), búsqueda que no se borra con X, lector reconocido por velocidad, numerito en las tarjetas, búsqueda más rápida |
 | 1.1.6 | 2026-10-19 | (Junta lo planeado para 1.1.6 y 1.1.7) Clic en el buscador del POS selecciona todo; ícono propio en la barra de tareas; varios principios activos con comas; catálogos en orden alfabético (tildes bien) y UdM por tamaño; laboratorio opcional («Laboratorio o marca»); sin repetidos + «Buscar repetidos»; IVA por línea en la recepción y «¿La droguería declara IVA?»; dashboard contable nuevo; Sesiones de caja (azul / rojo − / verde +) y sobrantes/faltantes automáticos en la contabilidad |
 | 1.1.7 | 2026-10-20 | Recepción en una sola línea por producto; BANCOS (Nequi y Davivienda: saldo automático, traslados, plata del dueño, cuadre); CUENTAS POR PAGAR a proveedores (crédito/contado, pago desde caja menor, POS, Nequi o Davivienda; facturas viejas «por revisar»); acciones de GitHub en Node 24 |
-| 1.1.8 | 2026-10-21 | RECEPCIÓN EN ESPERA (guardar a medias y seguir otro día); Acta de recepción con 20+ productos por hoja; foto del producto desde la recepción (Nuevo producto y Completar datos); fotos .jfif; en los campos de números el 0 desaparece al dar clic y el campo se pone azul; el conteo de efectivo no se borra hasta cerrar/abrir la caja (botón Limpiar) |
+| 1.1.8 | 2026-10-21 | RECEPCIÓN EN ESPERA (guardar a medias y seguir otro día); Acta de recepción con 20+ productos por hoja; foto del producto desde la recepción (Nuevo producto y Completar datos); fotos .jfif; en los campos de números el 0 desaparece al dar clic y el campo se pone azul; el conteo de efectivo no se borra hasta cerrar/abrir la caja (botón Limpiar); botón «Abrir cajón» en la pantalla Abrir caja |
 
 ### Versión 1.1.8 — recepción en espera, Acta compacta, fotos y conteo que no se borra (2026-10-21)
 - Pedidos de Fernando del 20 y 21 de octubre. Pruebas: `tests/test_version_118.py`.
@@ -531,6 +531,9 @@ Notas:
   `detalle` y `confirmado`). Abrir «Contar» ya no pone todo en 0; el modal de cierre recupera el contado.
   Se borra: apertura al cargar el POS con caja abierta; cierre al cerrar la caja (y los de cajas viejas).
   Botón «Limpiar» para empezar de cero.
+- **Abrir cajón antes de abrir caja**: botón «🔓 Abrir cajón» en `pos/abrir_caja.html` →
+  `POST /pos/api/abrir-cajon-apertura` (administrador, director técnico y auxiliar; funciona con la caja
+  CERRADA, a diferencia de `/pos/api/abrir-cajon`). Bitácora `cajon_abierto` con `motivo=apertura`.
 
 ### Versión 1.1.7 — recepción en una línea, Bancos y Cuentas por pagar (2026-10-20)
 - Pruebas: `tests/test_version_117.py` (incluye una que revisa que TODO formulario POST lleve `_csrf`).

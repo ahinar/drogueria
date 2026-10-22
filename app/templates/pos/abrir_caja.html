@@ -36,8 +36,15 @@
         <button type="button" class="boton secundario" id="btn-contar-apertura" style="white-space:nowrap">
           <span class="ico-emoji">🧮</span> Contar
         </button>
+        {# Versión 1.1.8: abrir el cajón físico para poder contar la plata ANTES de
+           abrir la caja (ver pos.api_abrir_cajon_apertura y el script de abajo) #}
+        <button type="button" class="boton secundario" id="btn-abrir-cajon-apertura" style="white-space:nowrap"
+                title="Abre el cajón monedero (sin imprimir) para contar la plata">
+          <span class="ico-emoji">🔓</span> Abrir cajón
+        </button>
       </div>
     </label>
+    <input type="hidden" id="url-abrir-cajon-apertura" value="{{ url_for('pos.api_abrir_cajon_apertura') }}">
 
     <div id="aviso-sobregiro" style="display:none;background:#fff4e5;border-left:4px solid #e68b1c;padding:.7rem .9rem;border-radius:.3rem;margin-top:.6rem">
       <strong><span class="ico-emoji">⚠</span> Saldo insuficiente en caja menor</strong>
@@ -136,6 +143,28 @@
     jsonInput.value = JSON.stringify(guardado.detalle || {});
   }
   calcularTotal();
+
+  // ---- Versión 1.1.8: botón "Abrir cajón" (la caja todavía está cerrada) ----
+  // Le pide al programa que mande la orden de abrir a la impresora de tirillas.
+  // El programa no puede saber si el cajón se abrió de verdad: solo que la orden
+  // llegó a la impresora; por eso el aviso dice a cuál impresora le llegó.
+  document.getElementById('btn-abrir-cajon-apertura').addEventListener('click', async function () {
+    const boton = this;
+    const datos = new FormData();
+    datos.append('_csrf', document.querySelector('input[name="_csrf"]').value);
+    boton.disabled = true;
+    try {
+      const resp = await fetch(document.getElementById('url-abrir-cajon-apertura').value,
+                               { method: 'POST', body: datos, credentials: 'same-origin' });
+      const json = await resp.json();
+      if (json.ok) window.avisar('Orden de abrir el cajón enviada a «' + (json.impresora || 'la impresora') + '».', 'ok');
+      else window.avisar('Cajón: ' + (json.error || 'no se pudo abrir.'), 'error');
+    } catch (e) {
+      window.avisar('Cajón: error de conexión.', 'error');
+    } finally {
+      boton.disabled = false;
+    }
+  });
 
   btnAbrir.addEventListener('click', function () {
     calcularTotal();                      // muestra el total de lo que ya se llevaba contado
