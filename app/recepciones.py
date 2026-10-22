@@ -1,4 +1,5 @@
 """Recepción técnica: ingreso de mercancía, cuarentena, aprobación, PDF."""
+import json
 import os
 import sqlite3
 from datetime import datetime
@@ -136,6 +137,11 @@ def _guardar_foto(archivo, rec_id):
     if not archivo or not archivo.filename:
         return None
     ext = os.path.splitext(archivo.filename)[1].lower()
+    # Versión 1.1.8: una foto ".jfif" (o .jpe, .pjpeg, .pjp) es una foto JPG con otro
+    # nombre (así las guarda Windows al bajarlas de internet): se guarda como ".jpg".
+    from .utils_imagenes import EXT_JPG_OTROS
+    if ext in EXT_JPG_OTROS:
+        ext = ".jpg"
     if ext not in (".jpg", ".jpeg", ".png", ".webp", ".pdf"):
         return None
     from .utils_imagenes import carpeta_uploads
@@ -146,20 +152,25 @@ def _guardar_foto(archivo, rec_id):
     return f"uploads/recepciones/{rec_id}{ext}"
 
 
-def _lineas_previas_formulario():
-    """Lee las líneas del formulario tal cual (sin validar) para repintarlas al fallar."""
-    prod_ids = request.form.getlist("linea_producto_id")
-    lotes = request.form.getlist("linea_lote")
-    vencimientos = request.form.getlist("linea_vencimiento")
-    cant_rec = request.form.getlist("linea_cantidad_recibida")
-    costos = request.form.getlist("linea_costo")
-    temps_ing = request.form.getlist("linea_temperatura_ingreso")
-    empaques = request.form.getlist("linea_empaque")
-    resultados = request.form.getlist("linea_resultado")
-    motivos = request.form.getlist("linea_motivo")
-    presentaciones = request.form.getlist("linea_presentacion")
-    factores_otros = request.form.getlist("linea_factor_otro")
-    ivas = request.form.getlist("linea_iva")            # IVA % de cada línea (versión 1.1.6)
+def _lineas_previas_formulario(form=None):
+    """Lee las líneas del formulario tal cual (sin validar) para repintarlas al fallar.
+
+    form: de dónde se leen. Por defecto, lo que llegó del navegador (request.form).
+    Versión 1.1.8: también puede ser una recepción EN ESPERA (lo guardado otro día).
+    """
+    form = request.form if form is None else form
+    prod_ids = form.getlist("linea_producto_id")
+    lotes = form.getlist("linea_lote")
+    vencimientos = form.getlist("linea_vencimiento")
+    cant_rec = form.getlist("linea_cantidad_recibida")
+    costos = form.getlist("linea_costo")
+    temps_ing = form.getlist("linea_temperatura_ingreso")
+    empaques = form.getlist("linea_empaque")
+    resultados = form.getlist("linea_resultado")
+    motivos = form.getlist("linea_motivo")
+    presentaciones = form.getlist("linea_presentacion")
+    factores_otros = form.getlist("linea_factor_otro")
+    ivas = form.getlist("linea_iva")            # IVA % de cada línea (versión 1.1.6)
 
     db = get_db()
     lineas = []
@@ -393,8 +404,13 @@ def lista():
         sql += " WHERE " + " AND ".join(cond)
     sql += " ORDER BY r.id DESC LIMIT 200"
     filas = get_db().execute(sql, params).fetchall()
+    # Versión 1.1.8: las recepciones EN ESPERA (a medias) van arriba, con "Continuar"
+    en_espera = get_db().execute(
+        "SELECT e.*, p.razon_social AS proveedor_nombre FROM recepciones_espera e "
+        "LEFT JOIN proveedores p ON p.id = e.proveedor_id "
+        "ORDER BY COALESCE(e.actualizado_en, e.creado_en) DESC").fetchall()
     return render_template("recepciones/lista.html", filas=filas, q=q, filtro=filtro,
-                           estados=ESTADOS)
+                           estados=ESTADOS, en_espera=en_espera)
 
 
 # ---------- Nueva ----------
@@ -403,6 +419,15 @@ def lista():
 @login_required
 def nueva():
     if request.method == "POST":
+        # Versión 1.1.8: si esta recepción venía "en espera", aquí llega su número
+        # (campo oculto espera_id). Al guardarla de verdad, la espera se borra.
+        espera_id = request.form.get("espera_id", "").strip()
+        espera_id = int(espera_id) if espera_id.isdigit() else None
+        # Botón "Guardar en espera": guarda lo escrito hasta ahora SIN revisar nada
+        # y SIN tocar el inventario. Se sigue después con "Continuar".
+        if request.form.get("accion") == "espera":
+            return _guardar_en_espera(espera_id)
+
         proveedor_id = request.form.get("proveedor_id", "").strip()
         factura = request.form.get("factura_numero", "").strip() or None
         remision = request.form.get("remision_numero", "").strip() or None
@@ -490,6 +515,10 @@ def nueva():
                                                    "Pagada de contado al recibir")
                     if error_pago:
                         raise ValueError(error_pago)
+                # Versión 1.1.8: la recepción venía "en espera": ya quedó guardada de
+                # verdad, así que la espera se borra (en el mismo commit: o todo o nada).
+                if espera_id:
+                    db.execute("DELETE FROM recepciones_espera WHERE id = ?", (espera_id,))
                 db.commit()
 
                 archivo = request.files.get("foto")
@@ -500,7 +529,8 @@ def nueva():
                         db.commit()
 
                 registrar("recepcion_creada", "recepciones", rec_id,
-                          f"numero={numero} proveedor={proveedor_id}")
+                          f"numero={numero} proveedor={proveedor_id}"
+                          + (f" (venía en espera #{espera_id})" if espera_id else ""))
                 flash(f"Recepción {numero} creada en cuarentena. Pendiente de aprobación.", "ok")
                 return redirect(url_for("recepciones.ver", rec_id=rec_id))
             except Exception as e:
@@ -523,8 +553,141 @@ def nueva():
             error_cabecera=error_cabecera,
             valores_previos=valores_previos,
             lineas_previas=_lineas_previas_formulario(),
+            espera=_espera_o_none(espera_id),
+        )
+
+    # ---- Versión 1.1.8: CONTINUAR una recepción que quedó en espera ----
+    # /recepciones/nueva?espera=3 abre el formulario con todo lo que se había escrito.
+    espera_txt = request.args.get("espera", "")
+    if espera_txt.isdigit():
+        fila = _espera_o_none(int(espera_txt))
+        if fila is None:
+            flash("Esa recepción en espera ya no existe (quizá ya se terminó o se descartó).", "error")
+            return redirect(url_for("recepciones.lista"))
+        form = _form_de_espera(fila)
+        return render_template(
+            "recepciones/form.html",
+            **_contexto_form(),
+            valores_previos=_valores_previos(form),
+            lineas_previas=_lineas_previas_formulario(form),
+            espera=fila,
         )
     return render_template("recepciones/form.html", **_contexto_form())
+
+
+# ---------- Versión 1.1.8: RECEPCIONES EN ESPERA ----------
+# Cómo funciona (para aprender):
+#   1. En el formulario, el botón "Guardar en espera" manda TODO lo escrito.
+#   2. _guardar_en_espera() lo convierte en texto JSON y lo guarda en la tabla
+#      recepciones_espera (no en "recepciones": todavía no es una recepción).
+#      No se revisa nada (puede haber líneas a medias) y no se toca el inventario.
+#   3. En Recepciones aparece la lista "En espera" con el botón "Continuar".
+#   4. Continuar abre /recepciones/nueva?espera=ID: _form_de_espera() vuelve a
+#      armar el formulario con lo guardado y la pantalla lo pinta igualito.
+#   5. Al darle "Guardar recepción" se crea la recepción normal (cuarentena,
+#      Acta, pago...) y la espera se borra.
+
+def _espera_o_none(espera_id):
+    """La fila de recepciones_espera con ese id (o None si no hay)."""
+    if not espera_id:
+        return None
+    return get_db().execute(
+        "SELECT e.*, p.razon_social AS proveedor_nombre FROM recepciones_espera e "
+        "LEFT JOIN proveedores p ON p.id = e.proveedor_id WHERE e.id = ?", (espera_id,)).fetchone()
+
+
+def _form_de_espera(fila):
+    """Vuelve a armar el formulario (con varias líneas) a partir del JSON guardado.
+
+    Se guarda así: {"linea_lote": ["L1", "L2"], "proveedor_id": ["3"], ...}
+    (cada campo con la lista de sus valores, porque las líneas repiten el nombre).
+    MultiDict es el mismo tipo de objeto que request.form: así el resto del
+    código lo lee igual que si acabara de llegar del navegador.
+    """
+    from werkzeug.datastructures import MultiDict
+    try:
+        datos = json.loads(fila["datos"] or "{}")
+    except ValueError:
+        datos = {}
+    return MultiDict([(campo, valor) for campo, valores in datos.items() for valor in valores])
+
+
+def _valores_previos(form):
+    """Los datos generales (proveedor, factura, pago...) para volver a pintarlos."""
+    numero = (form.get("numero") or "").strip()
+    # Mientras estuvo en espera pudieron guardarse otras recepciones: si su número
+    # ya lo tiene otra, se le pone el siguiente libre.
+    if not numero or get_db().execute("SELECT 1 FROM recepciones WHERE numero = ?", (numero,)).fetchone():
+        numero = _siguiente_numero()
+    return {
+        "numero": numero,
+        "proveedor_id": (form.get("proveedor_id") or "").strip(),
+        "factura_numero": (form.get("factura_numero") or "").strip(),
+        "remision_numero": (form.get("remision_numero") or "").strip(),
+        "temperatura_llegada": (form.get("temperatura_llegada") or "").strip(),
+        "observaciones": (form.get("observaciones") or "").strip(),
+        "precios_con_iva": bool(form.get("precios_con_iva")),
+        "pago_modo": form.get("pago_modo", "credito"),
+        "pago_vence": (form.get("pago_vence") or "").strip(),
+        "pago_origen": (form.get("pago_origen") or "").strip(),
+    }
+
+
+def _guardar_en_espera(espera_id):
+    """Guarda lo escrito en el formulario como recepción EN ESPERA y vuelve a la lista."""
+    form = request.form
+    # Todos los campos con todos sus valores (las líneas repiten nombre), menos los
+    # de control: la clave de seguridad (_csrf), el botón y el número de la espera.
+    datos = {campo: form.getlist(campo) for campo in form.keys()
+             if campo not in ("_csrf", "accion", "espera_id")}
+    total_lineas = sum(1 for pid in form.getlist("linea_producto_id") if pid.strip().isdigit())
+    proveedor = (form.get("proveedor_id") or "").strip()
+    proveedor = int(proveedor) if proveedor.isdigit() else None
+    factura = ((form.get("factura_numero") or "").strip()
+               or (form.get("remision_numero") or "").strip() or None)
+
+    if not total_lineas and not proveedor and not factura:
+        flash("No hay nada escrito para guardar en espera.", "error")
+        return redirect(url_for("recepciones.nueva"))
+
+    db = get_db()
+    texto = json.dumps(datos, ensure_ascii=False)
+    if espera_id and _espera_o_none(espera_id):
+        # Ya estaba en espera (se continuó y se vuelve a dejar en espera): se actualiza
+        db.execute("UPDATE recepciones_espera SET proveedor_id = ?, factura_numero = ?, total_lineas = ?, "
+                   "datos = ?, actualizado_por_nombre = ?, actualizado_en = ? WHERE id = ?",
+                   (proveedor, factura, total_lineas, texto, g.user["nombre"], ahora(), espera_id))
+    else:
+        cur = db.execute("INSERT INTO recepciones_espera (proveedor_id, factura_numero, total_lineas, datos, "
+                         "creado_por, creado_por_nombre, creado_en) VALUES (?,?,?,?,?,?,?)",
+                         (proveedor, factura, total_lineas, texto, g.user["id"], g.user["nombre"], ahora()))
+        espera_id = cur.lastrowid
+    db.commit()
+    registrar("recepcion_en_espera", "recepciones_espera", espera_id,
+              f"factura={factura or '—'} lineas={total_lineas}")
+
+    flash(f"Recepción guardada EN ESPERA con {total_lineas} línea(s). Todavía no entró nada al "
+          f"inventario. Para seguir, dale «Continuar» en la lista de abajo.", "ok")
+    archivo = request.files.get("foto")
+    if archivo and archivo.filename:
+        flash("La foto del empaque/factura no se guarda en espera: adjúntala cuando termines.", "error")
+    return redirect(url_for("recepciones.lista"))
+
+
+@bp.route("/espera/<int:espera_id>/descartar", methods=["POST"])
+@login_required
+def descartar_espera(espera_id):
+    """Borra una recepción en espera (por ejemplo, si se metió por error)."""
+    fila = _espera_o_none(espera_id)
+    if fila is None:
+        abort(404)
+    db = get_db()
+    db.execute("DELETE FROM recepciones_espera WHERE id = ?", (espera_id,))
+    db.commit()
+    registrar("recepcion_espera_descartada", "recepciones_espera", espera_id,
+              f"factura={fila['factura_numero'] or '—'} lineas={fila['total_lineas']}")
+    flash("Recepción en espera descartada.", "ok")
+    return redirect(url_for("recepciones.lista"))
 
 
 # ---------- Ver detalle ----------
@@ -863,6 +1026,13 @@ def api_crear_producto():
         registrar("producto_creado_rapido", "productos", nuevo_id,
                   f"código={codigo} nombre={nombre} (desde recepción)")
 
+        # ---- Versión 1.1.8: FOTO DEL PRODUCTO desde la recepción ----
+        # Si en la ventana "Nuevo producto" escogieron una foto, se guarda igual
+        # que en la ficha del producto (carpeta uploads/productos, máx. 5 MB).
+        # Si la foto falla (formato raro, muy pesada), el producto SÍ queda creado
+        # y solo se avisa: así no se pierde lo demás que se escribió.
+        aviso_foto = _guardar_foto_producto(nuevo_id)
+
         lab = db.execute("SELECT nombre FROM catalogos WHERE id = ?", (laboratorio_id,)).fetchone() \
             if laboratorio_id else None
         return jsonify({
@@ -880,9 +1050,40 @@ def api_crear_producto():
             "presentaciones": _presentaciones_simples(nuevo_id),
             "unidad": (db.execute("SELECT nombre FROM unidades_medida WHERE id = ?",
                                   (int(unidad_venta_id),)).fetchone() or {"nombre": ""})["nombre"],
+            "aviso": aviso_foto,          # None si la foto se guardó bien (o no había foto)
         })
     except sqlite3.IntegrityError:
         return jsonify({"ok": False, "error": "Ya existe un producto con ese código."}), 400
+
+
+def _guardar_foto_producto(producto_id):
+    """Guarda (o quita) la foto del producto que llegó en el formulario.
+
+    Versión 1.1.8. Lo usan "Nuevo producto" y "Completar datos" de la recepción.
+      - campo "imagen": la foto nueva (reemplaza la anterior, que se borra del disco)
+      - campo "imagen_accion" = "eliminar": quitar la foto que tenía
+    Devuelve None si todo bien, o el texto del problema para avisarle a la persona.
+    """
+    from .utils_imagenes import eliminar_imagen, guardar_imagen
+    db = get_db()
+    anterior = db.execute("SELECT imagen FROM productos WHERE id = ?", (producto_id,)).fetchone()
+    anterior = anterior["imagen"] if anterior else None
+    archivo = request.files.get("imagen")
+    if archivo and archivo.filename:
+        ruta, error = guardar_imagen(archivo, "productos", max_px=1200, max_bytes=5 * 1024 * 1024)
+        if error:
+            return f"El producto quedó guardado, pero la foto no: {error}"
+        db.execute("UPDATE productos SET imagen = ? WHERE id = ?", (ruta, producto_id))
+        db.commit()
+        if anterior:
+            eliminar_imagen(anterior)            # la foto vieja ya no sirve
+        registrar("producto_imagen", "productos", producto_id, "foto cargada desde recepción")
+    elif request.form.get("imagen_accion") == "eliminar" and anterior:
+        db.execute("UPDATE productos SET imagen = NULL WHERE id = ?", (producto_id,))
+        db.commit()
+        eliminar_imagen(anterior)
+        registrar("producto_imagen", "productos", producto_id, "foto quitada desde recepción")
+    return None
 
 
 # ---------- Completar los datos técnicos del producto desde la recepción ----------
@@ -897,12 +1098,14 @@ _CAMPOS_TECNICOS = ("laboratorio_id", "principio_id", "forma_farmaceutica_id",
 def _tecnicos_de(producto_id):
     p = get_db().execute(
         "SELECT p.id, p.nombre, p.laboratorio_id, p.principio_id, p.forma_farmaceutica_id, p.concentracion, "
-        "p.registro_sanitario, p.registro_vence, p.cadena_frio, p.control_especial, "
+        "p.registro_sanitario, p.registro_vence, p.cadena_frio, p.control_especial, p.imagen, "
         "(SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS laboratorio "
         "FROM productos p WHERE p.id = ?", (producto_id,)).fetchone()
     if not p:
         return None
     datos = dict(p)
+    # Versión 1.1.8: dirección de la foto para mostrarla en "Completar datos"
+    datos["imagen_url"] = url_for("static", filename=p["imagen"]) if p["imagen"] else ""
     # Varios principios activos, como se escriben: "Acetaminofén, Codeína" (versión 1.1.6)
     from .principios import texto_de
     datos["principios"] = texto_de(get_db(), producto_id)
@@ -955,7 +1158,10 @@ def api_datos_tecnicos(producto_id):
                   "desde recepción: " + ", ".join(f"{c}={nuevos[c]}" for c in cambios))
     else:
         db.commit()
-    return jsonify({"ok": True, "producto": _tecnicos_de(producto_id), "cambios": len(cambios)})
+    # Versión 1.1.8: también se puede poner, cambiar o quitar la FOTO del producto
+    aviso_foto = _guardar_foto_producto(producto_id)
+    return jsonify({"ok": True, "producto": _tecnicos_de(producto_id), "cambios": len(cambios),
+                    "aviso": aviso_foto})
 
 
 @bp.route("/api/crear-unidad", methods=["POST"])
@@ -1039,25 +1245,26 @@ def pdf(rec_id):
     temp_llegada = f"{rec['temperatura_llegada']} °C" if rec["temperatura_llegada"] is not None else "—"
     estado_txt = ESTADOS.get(rec["estado"], rec["estado"])
 
+    # Versión 1.1.8: los datos generales van en 2 filas (antes 4) para que quepan
+    # más productos en la primera hoja. Cada fila tiene 4 parejas "Etiqueta: dato".
     datos_gen = [
-        ["Fecha y hora:", fecha_dt, "Estado:", estado_txt],
-        ["Proveedor:", proveedor["razon_social"] if proveedor else "—",
-         "NIT proveedor:", proveedor["nit"] if proveedor else "—"],
-        ["Factura N°:", rec["factura_numero"] or "—",
-         "Remisión N°:", rec["remision_numero"] or "—"],
-        ["Temperatura de llegada:", temp_llegada, "Recibido por:", recibido],
+        ["Fecha:", fecha_dt, "Proveedor:", proveedor["razon_social"] if proveedor else "—",
+         "NIT:", proveedor["nit"] if proveedor else "—", "Estado:", estado_txt],
+        ["Factura N°:", rec["factura_numero"] or "—", "Remisión N°:", rec["remision_numero"] or "—",
+         "T° llegada:", temp_llegada, "Recibido por:", recibido],
     ]
-    tabla_gen = Table(datos_gen, colWidths=[3.5 * cm, 8 * cm, 3.5 * cm, 10 * cm])
+    tabla_gen = Table(datos_gen, colWidths=[1.8 * cm, 3.6 * cm, 2.0 * cm, 8.1 * cm,
+                                            1.6 * cm, 3.0 * cm, 2.2 * cm, 4.8 * cm])
     tabla_gen.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#555")),
-        ("TEXTCOLOR", (2, 0), (2, -1), colors.HexColor("#555")),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+        # Las etiquetas (columnas 0, 2, 4 y 6) en gris
+        *[("TEXTCOLOR", (c, 0), (c, -1), colors.HexColor("#555")) for c in (0, 2, 4, 6)],
     ]))
     elementos.append(tabla_gen)
-    elementos.append(Spacer(1, 8))
+    elementos.append(Spacer(1, 4))
 
     # ===== TABLA DE LÍNEAS =====
     elementos.append(Paragraph("DETALLE DE PRODUCTOS RECIBIDOS", seccion))
@@ -1070,17 +1277,22 @@ def pdf(rec_id):
     ]
     data = [[Paragraph(f"<b>{h}</b>", celda_head) for h in encabezados]]
 
+    # ---- Versión 1.1.8: AL MENOS 20 PRODUCTOS POR HOJA (pedido de Fernando) ----
+    # Antes cada producto ocupaba 3 renglones (nombre / concentración / laboratorio,
+    # uno debajo del otro) y cabían unos 13 por hoja. Ahora todo va SEGUIDO en el
+    # mismo renglón, separado por " · ", y la columna del producto es más ancha.
+    # Así cada producto ocupa 1 renglón (2 si el nombre es muy largo).
     hoy = _dt.now().date()
     for i, l in enumerate(lineas, 1):
         producto_txt = f"<b>{l['producto_nombre']}</b>"
         if l["concentracion"]:
-            producto_txt += f"<br/>{l['concentracion']}"
+            producto_txt += f" {l['concentracion']}"
         if l["lab_nombre"]:
-            producto_txt += f"<br/><i>{l['lab_nombre']}</i>"
+            producto_txt += f" · <i>{l['lab_nombre']}</i>"
 
         forma_txt = l["forma_nombre"] or "—"
         if l["unidad_nombre"]:
-            forma_txt += f"<br/><i>{l['unidad_nombre']}</i>"
+            forma_txt += f" · <i>{l['unidad_nombre']}</i>"
 
         vida_txt = "—"
         if l["vencimiento"]:
@@ -1092,7 +1304,7 @@ def pdf(rec_id):
                 else:
                     pct = min(100, (dias / 730) * 100)
                     color = "#0d6b3d" if pct >= 75 else ("#a67c00" if pct >= 50 else "#b3261e")
-                    vida_txt = f'<font color="{color}"><b>{pct:.0f}%</b></font><br/>{dias} días'
+                    vida_txt = f'<font color="{color}"><b>{pct:.0f}%</b></font> {dias} d'
             except (ValueError, TypeError):
                 pass
 
@@ -1107,7 +1319,7 @@ def pdf(rec_id):
             conds.append("⚠ FNE")
         if l["requiere_formula"]:
             conds.append("℞ Fórmula")
-        cond_txt = "<br/>".join(conds) if conds else "—"
+        cond_txt = " ".join(conds) if conds else "—"       # seguidas, en un solo renglón
 
         data.append([
             Paragraph(str(i), celda_chica),
@@ -1124,11 +1336,15 @@ def pdf(rec_id):
             Paragraph(RESULTADOS.get(l["resultado"], l["resultado"]), celda_chica),
         ])
 
+    # Anchos de las 12 columnas (la hoja acostada deja 27,1 cm). La del producto
+    # pasó de 4,2 a 6,8 cm para que el nombre, la concentración y el laboratorio
+    # quepan en un solo renglón; la del registro INVIMA, de 2,4 a 3,2 cm, para
+    # que el número no se parta en dos renglones.
     tabla = Table(
         data,
-        colWidths=[0.6 * cm, 4.2 * cm, 2.8 * cm, 2.6 * cm, 2.4 * cm, 1.8 * cm,
-                   1.7 * cm, 1.5 * cm, 1.3 * cm, 1.5 * cm, 2.0 * cm, 1.6 * cm],
-        repeatRows=1,
+        colWidths=[0.6 * cm, 6.8 * cm, 2.7 * cm, 2.6 * cm, 3.2 * cm, 1.8 * cm,
+                   1.6 * cm, 1.5 * cm, 1.2 * cm, 1.4 * cm, 2.0 * cm, 1.6 * cm],
+        repeatRows=1,          # el encabezado de la tabla se repite en cada hoja
     )
     tabla.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#dbe6ef")),
@@ -1137,8 +1353,9 @@ def pdf(rec_id):
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f4f7f9")]),
         ("LEFTPADDING", (0, 0), (-1, -1), 2.5),
         ("RIGHTPADDING", (0, 0), (-1, -1), 2.5),
-        ("TOPPADDING", (0, 0), (-1, -1), 2.5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
+        # Menos espacio arriba y abajo de cada renglón (antes 2,5): caben más por hoja
+        ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5),
         ("ALIGN", (0, 0), (0, -1), "CENTER"),
         ("ALIGN", (8, 0), (8, -1), "RIGHT"),
     ]))

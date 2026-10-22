@@ -561,3 +561,72 @@ document.addEventListener('wheel', function (e) {
     campo.blur();
   }
 }, { passive: true });
+
+/* =====================================================================
+   EL 0 DESAPARECE AL DAR CLIC (versión 1.1.8, pedido de Fernando)
+   ---------------------------------------------------------------------
+   Problema: en el conteo de efectivo (y en otros campos de números) el
+   campo muestra "0". Al darle clic y escribir, el 0 se quedaba adelante:
+   salía "02" o "012" en vez de "2" o "12".
+
+   Ahora, en TODO el programa:
+     1. El campo sigue mostrando el 0 mientras no lo toques.
+     2. Al darle clic (o llegar con Tab), el 0 DESAPARECE y el campo se
+        pone AZUL (clase "campo-num-activo", el color está en app.css).
+     3. Si te sales sin escribir nada, vuelve a aparecer el 0.
+
+   ¿Qué campos? Los de números: <input type="number"> y los de texto que
+   piden números en el celular (inputmode="numeric" o "decimal").
+
+   ¿Por qué se escucha en el "document" y en fase de captura (el true del
+   final)? Porque así funciona también en los campos que se crean después
+   (filas nuevas, ventanas), y porque este código corre ANTES que el de
+   cada pantalla: cuando la pantalla lee el campo al salir, ya tiene su 0.
+   ===================================================================== */
+(function () {
+  'use strict';
+
+  // ¿Es un campo de números?
+  function esCampoNumero(el) {
+    if (!el || el.tagName !== 'INPUT' || el.readOnly || el.disabled) return false;
+    if (el.type === 'number') return true;
+    const modo = (el.getAttribute('inputmode') || '').toLowerCase();
+    return el.type === 'text' && (modo === 'numeric' || modo === 'decimal');
+  }
+
+  // ¿El valor es un cero? ("0", "00", "0.00", "0,0"...)
+  function esCero(valor) {
+    return /^\s*0+([.,]0*)?\s*$/.test(valor || '');
+  }
+
+  // 1) Entró al campo: se pone azul y, si tiene un 0, se borra
+  document.addEventListener('focus', function (e) {
+    const campo = e.target;
+    if (!esCampoNumero(campo)) return;
+    campo.classList.add('campo-num-activo');
+    if (esCero(campo.value)) {
+      campo.dataset.ceroOculto = campo.value;   // se recuerda cómo estaba ("0" o "0.00")
+      campo.value = '';
+    }
+  }, true);
+
+  // 2) Antes de que la pantalla revise el cambio: si quedó vacío, vuelve el 0.
+  //    (Algunas pantallas guardan al cambiar el valor; así nunca leen un campo vacío.)
+  function devolverCero(campo) {
+    if (campo.dataset.ceroOculto !== undefined) {
+      if (campo.value.trim() === '') campo.value = campo.dataset.ceroOculto;
+      delete campo.dataset.ceroOculto;
+    }
+  }
+  document.addEventListener('change', function (e) {
+    if (esCampoNumero(e.target) && e.target.value.trim() === '') devolverCero(e.target);
+  }, true);
+
+  // 3) Salió del campo: deja de estar azul y, si no escribió nada, vuelve el 0
+  document.addEventListener('blur', function (e) {
+    const campo = e.target;
+    if (!esCampoNumero(campo)) return;
+    campo.classList.remove('campo-num-activo');
+    devolverCero(campo);
+  }, true);
+})();

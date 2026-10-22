@@ -1479,6 +1479,31 @@ MIGRATIONS = [
         CREATE INDEX idx_pagos_prov_fecha ON pagos_proveedores (fecha);
         """,
     ),
+    # Versión 1.1.8: RECEPCIONES EN ESPERA (pedido de Fernando).
+    # Una factura con muchísimas líneas no alcanza a meterse de una sola vez.
+    # Con "Guardar en espera" se guarda TODO lo escrito hasta ahí (tal cual, como
+    # texto JSON en la columna "datos") y se sigue otro día con "Continuar".
+    # Es una tabla APARTE de "recepciones" a propósito: mientras está en espera
+    # no es una recepción todavía, no tiene número REC-, no entra al inventario,
+    # no queda en Cuentas por pagar ni saca plata de ningún lado.
+    # Al darle "Guardar recepción" se crea la recepción normal y la espera se borra.
+    (
+        39,
+        """
+        CREATE TABLE recepciones_espera (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            proveedor_id INTEGER,                 -- puede estar vacío si aún no se escogió
+            factura_numero TEXT,
+            total_lineas INTEGER NOT NULL DEFAULT 0,
+            datos TEXT NOT NULL,                  -- todo el formulario, en JSON
+            creado_por INTEGER,
+            creado_por_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            actualizado_por_nombre TEXT,
+            actualizado_en TEXT
+        );
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

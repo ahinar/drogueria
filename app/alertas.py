@@ -377,6 +377,22 @@ def calcular_alertas(rol):
             }, url_for("recepciones.lista", filtro="cuarentena"), "Ver recepciones")
 
     # ------------------------------------------------------------------
+    # 7b. RECEPCIONES EN ESPERA (versión 1.1.8): facturas que se empezaron a
+    #     meter y quedaron a medias. Esa mercancía todavía NO está en el inventario.
+    # ------------------------------------------------------------------
+    filas = db.execute(
+        "SELECT e.id, e.factura_numero, e.total_lineas, COALESCE(e.actualizado_en, e.creado_en) AS fecha, "
+        "p.razon_social FROM recepciones_espera e LEFT JOIN proveedores p ON p.id = e.proveedor_id "
+        "ORDER BY fecha").fetchall()
+    agregar("recepciones_espera", "amarillo", "⏸", "Recepciones en espera (a medias)",
+            "Se guardaron para terminarlas después. Esa mercancía todavía no entra al inventario.",
+            filas, lambda f: {
+                "texto": f"{f['razon_social'] or 'Sin proveedor'} · factura {f['factura_numero'] or '—'}",
+                "detalle": f"{f['total_lineas']} línea(s) · {_fecha(f['fecha'])}",
+                "url": url_for("recepciones.nueva", espera=f["id"]),
+            }, url_for("recepciones.lista"), "Ver recepciones")
+
+    # ------------------------------------------------------------------
     # 8. PRODUCTOS SIN PRECIO DE VENTA (típico después de importar el Excel)
     # ------------------------------------------------------------------
     if jefe:

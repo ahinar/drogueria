@@ -3,8 +3,20 @@
 {% block contenido %}
 <h1><span class="ico-emoji">📦</span> Nueva recepción técnica</h1>
 
+{# Versión 1.1.8: se está CONTINUANDO una recepción que quedó en espera #}
+{% if espera %}
+<div class="aviso aviso-espera">
+  <span class="ico-emoji">⏸</span> Continuando una recepción <strong>en espera</strong>
+  ({{ espera['total_lineas'] }} línea(s) guardadas el {{ (espera['actualizado_en'] or espera['creado_en'])[:16] }}
+  por {{ espera['actualizado_por_nombre'] or espera['creado_por_nombre'] or '—' }}).
+  Sigue agregando líneas. Si tampoco alcanzas hoy, vuelve a darle <strong>Guardar en espera</strong>.
+</div>
+{% endif %}
+
 <form method="post" enctype="multipart/form-data" class="form-tabs">
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  {# Versión 1.1.8: número de la recepción en espera que se está continuando (si es el caso) #}
+  <input type="hidden" name="espera_id" value="{{ espera['id'] if espera else '' }}">
 
   <section class="tab-panel activo">
     {% if error_cabecera %}
@@ -51,7 +63,7 @@
                  value="{{ valores_previos.temperatura_llegada if valores_previos else '' }}">
         </label>
         <label>Foto del empaque/factura (opcional)
-          <input type="file" name="foto" accept="image/*,.pdf">
+          <input type="file" name="foto" accept="image/*,.jfif,.pdf">
         </label>
       </div>
       {# Versión 1.1.6: casi todas las facturas traen el costo ANTES de IVA y el IVA aparte.
@@ -262,6 +274,12 @@
 
   <div class="acciones acciones-form">
     <button type="submit"><span class="ico-emoji">💾</span> Guardar recepción</button>
+    {# Versión 1.1.8: GUARDAR EN ESPERA (factura muy larga que no alcanza a meterse hoy).
+       - name="accion" value="espera": así el programa sabe que es este botón (ver recepciones.nueva).
+       - formnovalidate: no exige los campos obligatorios, porque puede quedar a medias. #}
+    <button type="submit" name="accion" value="espera" class="boton secundario" formnovalidate
+            title="Guarda lo que llevas sin meter nada al inventario. La sigues otro día desde Recepciones.">
+      <span class="ico-emoji">⏸</span> Guardar en espera</button>
     <a class="boton secundario" href="{{ url_for('recepciones.lista') }}">Cancelar</a>
   </div>
 </form>
@@ -304,6 +322,19 @@
         <label>Forma farmacéutica
           <select id="dt-forma"><option value="">— Sin dato —</option>
             {% for f in formas %}<option value="{{ f['id'] }}">{{ f['nombre'] }}</option>{% endfor %}</select></label>
+      </div>
+      {# Versión 1.1.8: FOTO DEL PRODUCTO sin salir de la recepción (opcional).
+         Se ve la foto antes de guardar. Acepta JPG, JFIF, PNG, WEBP... (máx. 5 MB).
+         El código está en el script de abajo: busca "fotoRapida". #}
+      <div class="modal-seccion">Foto del producto <small class="suave">(opcional)</small></div>
+      <div class="foto-rapida" id="dt-foto">
+        <div class="foto-rapida-marco"><img alt="Foto del producto" hidden><span class="foto-rapida-vacia ico-emoji">📷</span></div>
+        <div class="foto-rapida-botones">
+          <label class="boton secundario foto-escoger">📷 Poner o cambiar foto
+            <input type="file" accept="image/*,.jfif" hidden></label>
+          <button type="button" class="boton secundario foto-quitar" hidden>Quitar foto</button>
+          <small class="suave">JPG, JFIF, PNG o WEBP · máximo 5 MB</small>
+        </div>
       </div>
       <p class="suave" style="margin:.4rem 0 0">Quedan guardados en la ficha del producto.</p>
       <p id="dt-error" class="aviso error" style="display:none;margin-top:.6rem"></p>
@@ -418,6 +449,19 @@
         </label>
       </div>
 
+      {# Versión 1.1.8: FOTO DEL PRODUCTO sin salir de la recepción (opcional).
+         Se ve la foto antes de guardar. Acepta JPG, JFIF, PNG, WEBP... (máx. 5 MB).
+         El código está en el script de abajo: busca "fotoRapida". #}
+      <div class="modal-seccion">Foto del producto <small class="suave">(opcional)</small></div>
+      <div class="foto-rapida" id="np-foto">
+        <div class="foto-rapida-marco"><img alt="Foto del producto" hidden><span class="foto-rapida-vacia ico-emoji">📷</span></div>
+        <div class="foto-rapida-botones">
+          <label class="boton secundario foto-escoger">📷 Escoger foto
+            <input type="file" accept="image/*,.jfif" hidden></label>
+          <button type="button" class="boton secundario foto-quitar" hidden>Quitar foto</button>
+          <small class="suave">JPG, JFIF, PNG o WEBP · máximo 5 MB</small>
+        </div>
+      </div>
       <p id="np-error" class="aviso error" style="display:none;margin-top:1rem"></p>
     </div>
 
@@ -972,6 +1016,51 @@
   const npCancelar = document.getElementById('np-cancelar');
   const npNuevoLab = document.getElementById('np-nuevo-lab');
 
+  // ===== FOTO DEL PRODUCTO en "Nuevo producto" y "Completar datos" (versión 1.1.8) =====
+  // fotoRapida('np-foto') prepara uno de los cuadritos de foto de las ventanas:
+  //   - al escoger un archivo, se ve de una vez (URL.createObjectURL = vista previa
+  //     del archivo que está en el computador, antes de subirlo);
+  //   - "Quitar foto" la quita (si ya tenía una guardada, se borra al darle Guardar);
+  //   - agregarA(datos) mete la foto (o la orden de quitarla) en lo que se envía.
+  function fotoRapida(id) {
+    const caja = document.getElementById(id);
+    const img = caja.querySelector('img');
+    const vacia = caja.querySelector('.foto-rapida-vacia');
+    const archivo = caja.querySelector('input[type="file"]');
+    const quitar = caja.querySelector('.foto-quitar');
+    let borrar = false;          // true = quitar la foto que ya tenía guardada
+    let vistaPrevia = null;
+    function mostrar(src) {
+      img.hidden = !src;
+      if (src) img.src = src; else img.removeAttribute('src');
+      vacia.hidden = !!src;
+      quitar.hidden = !src;
+    }
+    archivo.addEventListener('change', function () {
+      const f = archivo.files[0];
+      if (!f) return;
+      if (vistaPrevia) URL.revokeObjectURL(vistaPrevia);   // libera la vista previa anterior
+      vistaPrevia = URL.createObjectURL(f);
+      borrar = false;
+      mostrar(vistaPrevia);
+    });
+    quitar.addEventListener('click', function () {
+      archivo.value = '';
+      borrar = true;
+      mostrar('');
+    });
+    return {
+      // Al abrir la ventana: muestra la foto que ya tiene (o ninguna)
+      reiniciar: function (src) { archivo.value = ''; borrar = false; mostrar(src || ''); },
+      agregarA: function (datos) {
+        if (archivo.files[0]) datos.append('imagen', archivo.files[0]);
+        else if (borrar) datos.append('imagen_accion', 'eliminar');
+      },
+    };
+  }
+  const fotoNP = fotoRapida('np-foto');      // ventana "Nuevo producto"
+  const fotoDT = fotoRapida('dt-foto');      // ventana "Completar datos"
+
   let wrapOrigen = null;
 
   body.addEventListener('click', function (e) {
@@ -996,6 +1085,7 @@
       npFrio.checked = false;
       npControl.checked = false;
       npManejaVence.checked = true;
+      fotoNP.reiniciar('');                    // sin foto (versión 1.1.8)
       npError.style.display = 'none';
       refrescarLaboratorios();                 // por si crearon laboratorios después de abrir la página
       modal.classList.remove('modal-oculto');
@@ -1039,6 +1129,7 @@
       dt('dt-concentracion').value = p.concentracion || '';
       dt('dt-principio').value = p.principios || '';
       dt('dt-forma').value = p.forma_farmaceutica_id || '';
+      fotoDT.reiniciar(p.imagen_url);          // la foto que ya tiene (versión 1.1.8)
       modalTec.classList.remove('modal-oculto');
       (p.registro_sanitario ? dt('dt-laboratorio') : dt('dt-registro')).focus();
     } catch (err) {
@@ -1061,6 +1152,7 @@
     fd.append('concentracion', dt('dt-concentracion').value.trim());
     fd.append('principios', dt('dt-principio').value);
     fd.append('forma_farmaceutica_id', dt('dt-forma').value);
+    fotoDT.agregarA(fd);                       // foto nueva o "quitar foto" (versión 1.1.8)
     this.disabled = true;
     try {
       const r = await fetch('/recepciones/api/producto/' + hidden.value + '/tecnicos',
@@ -1073,6 +1165,7 @@
       actualizarHint(tecLinea.querySelector('.buscar-producto-wrap'));
       cerrarTec();
       window.avisar('Datos guardados en la ficha de ' + j.producto.nombre + '.', 'ok');
+      if (j.aviso) window.avisar(j.aviso, 'error');
     } catch (err) {
       errorTec('Error de conexión: ' + err.message);
     } finally {
@@ -1169,6 +1262,7 @@
     if (npFormula.checked) datos.append('requiere_formula', '1');
     if (npFrio.checked) datos.append('cadena_frio', '1');
     if (npControl.checked) datos.append('control_especial', '1');
+    fotoNP.agregarA(datos);                    // la foto, si escogieron una (versión 1.1.8)
 
     npGuardar.disabled = true;
     npGuardar.textContent = 'Creando…';
@@ -1201,6 +1295,7 @@
       };
       seleccionarProducto(wrap, p);
       cerrarModal();
+      if (json.aviso) window.avisar(json.aviso, 'error');   // ej. la foto pesaba mucho
     } catch (e) {
       npError.textContent = 'Error de conexión: ' + e.message;
       npError.style.display = 'block';

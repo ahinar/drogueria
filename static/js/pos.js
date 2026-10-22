@@ -142,11 +142,34 @@
 
   const formatoCOP = (n) => '$ ' + Number(n || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });
 
+  // ------------------------------------------------------------
+  // Versión 1.1.8: EL CONTEO DE EFECTIVO NO SE BORRA
+  // Lo contado para cerrar ESTA caja se guarda con el nombre "cierre-<id de la caja>"
+  // (ver _modal_conteo.html). Si se cierra la ventana para revisar algo, al volver
+  // sigue ahí. Se borra solo cuando la caja se cierra de verdad.
+  // ------------------------------------------------------------
+  const cajaIdActual = (document.getElementById('pos-caja-id') || {}).value || '';
+  const claveCierre = 'cierre-' + cajaIdActual;
+  let conteoGuardado = null;
+  if (window.conteoEfectivo && cajaIdActual) {
+    window.conteoEfectivo.limpiar('apertura');                  // la caja ya está abierta
+    window.conteoEfectivo.limpiarViejos('cierre-', claveCierre); // cierres de cajas pasadas
+    conteoGuardado = window.conteoEfectivo.usar(claveCierre);
+  }
+
   async function abrirModalCierre() {
     if (!modalCierre) return;
     cierreError.style.display = 'none';
-    cierreContadoValor = 0;
-    cierreContadoInput.value = '';
+    // Antes aquí el contado volvía a $0. Ahora, si ya se había contado (o escrito) el
+    // efectivo, se vuelve a poner: así se puede salir a revisar y volver sin perderlo.
+    const previo = window.conteoEfectivo ? window.conteoEfectivo.cargar(claveCierre) : conteoGuardado;
+    if (previo && previo.confirmado != null) {
+      cierreContadoValor = Number(previo.confirmado) || 0;
+      cierreContadoInput.value = formatoCOP(cierreContadoValor);
+    } else {
+      cierreContadoValor = 0;
+      cierreContadoInput.value = '';
+    }
     cierreObservaciones.value = '';
 
     // Cargar resumen desde el servidor
@@ -231,6 +254,8 @@
     const digitos = (cierreContadoInput.value || '').replace(/[^0-9]/g, '');
     cierreContadoValor = digitos ? parseInt(digitos, 10) : 0;
     actualizarDiferencia();
+    // Versión 1.1.8: lo escrito a mano también se guarda (null = no ha escrito nada)
+    if (window.conteoEfectivo) window.conteoEfectivo.guardar({ confirmado: digitos ? cierreContadoValor : null });
   }
   if (cierreContadoInput) {
     cierreContadoInput.addEventListener('input', leerContado);
@@ -246,9 +271,9 @@
 
   if (btnContarCierre) {
     btnContarCierre.addEventListener('click', () => {
-      // Abrir modal de conteo
-      document.querySelectorAll('#modal-conteo .conteo-input').forEach(i => i.value = 0);
-      document.getElementById('conteo-total-valor').textContent = '$ 0';
+      // Abrir modal de conteo. Versión 1.1.8: YA NO se ponen los billetes en 0:
+      // se ve lo que se llevaba contado (para empezar de cero está "Limpiar").
+      calcularTotalConteo();
       document.getElementById('modal-conteo').classList.remove('modal-oculto');
     });
   }
@@ -280,6 +305,8 @@
           cierreError.style.display = 'block';
           return;
         }
+        // Versión 1.1.8: la caja ya se cerró: ahora sí se borra su conteo guardado
+        if (window.conteoEfectivo) window.conteoEfectivo.limpiar(claveCierre);
         // Redirigir a la confirmación
         const urlConfirm = document.getElementById('url-cierre-confirmacion').value.replace('/0', '/' + json.caja_id);
         window.location.href = urlConfirm;
@@ -335,6 +362,8 @@
       cierreContadoValor = calcularTotalConteo();
       cierreContadoInput.value = formatoCOP(cierreContadoValor);
       actualizarDiferencia();
+      // Versión 1.1.8: se recuerda el total confirmado (por si se sale y vuelve)
+      if (window.conteoEfectivo) window.conteoEfectivo.guardar({ confirmado: cierreContadoValor });
       modalConteo.classList.add('modal-oculto');
     });
   }

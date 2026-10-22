@@ -500,6 +500,37 @@ Notas:
 | 1.1.5 | 2026-10-19 | POS como el programa anterior: cursor en el producto agregado (números = cantidad, Suprimir con Deshacer), búsqueda que no se borra con X, lector reconocido por velocidad, numerito en las tarjetas, búsqueda más rápida |
 | 1.1.6 | 2026-10-19 | (Junta lo planeado para 1.1.6 y 1.1.7) Clic en el buscador del POS selecciona todo; ícono propio en la barra de tareas; varios principios activos con comas; catálogos en orden alfabético (tildes bien) y UdM por tamaño; laboratorio opcional («Laboratorio o marca»); sin repetidos + «Buscar repetidos»; IVA por línea en la recepción y «¿La droguería declara IVA?»; dashboard contable nuevo; Sesiones de caja (azul / rojo − / verde +) y sobrantes/faltantes automáticos en la contabilidad |
 | 1.1.7 | 2026-10-20 | Recepción en una sola línea por producto; BANCOS (Nequi y Davivienda: saldo automático, traslados, plata del dueño, cuadre); CUENTAS POR PAGAR a proveedores (crédito/contado, pago desde caja menor, POS, Nequi o Davivienda; facturas viejas «por revisar»); acciones de GitHub en Node 24 |
+| 1.1.8 | 2026-10-21 | RECEPCIÓN EN ESPERA (guardar a medias y seguir otro día); Acta de recepción con 20+ productos por hoja; foto del producto desde la recepción (Nuevo producto y Completar datos); fotos .jfif; en los campos de números el 0 desaparece al dar clic y el campo se pone azul; el conteo de efectivo no se borra hasta cerrar/abrir la caja (botón Limpiar) |
+
+### Versión 1.1.8 — recepción en espera, Acta compacta, fotos y conteo que no se borra (2026-10-21)
+- Pedidos de Fernando del 20 y 21 de octubre. Pruebas: `tests/test_version_118.py`.
+- **Recepción EN ESPERA** (migración 39, tabla `recepciones_espera`): botón «⏸ Guardar en espera»
+  (`name="accion" value="espera"`, `formnovalidate`) guarda TODO el formulario como JSON
+  (`{campo: [valores]}`), sin validar y sin crear recepción, número REC-, lotes ni pago. Lista «En espera»
+  arriba de Recepciones con «Continuar» (`/recepciones/nueva?espera=ID`, repinta con
+  `_form_de_espera` → `MultiDict` → `_valores_previos` + `_lineas_previas_formulario(form)`) y «Descartar».
+  Campo oculto `espera_id`: al guardar la recepción de verdad se borra la espera en el mismo commit; si
+  hay error, la espera sigue. Si el número REC- quedó ocupado, se sugiere el siguiente. La foto de la
+  factura no se guarda en espera (se avisa). Alerta amarilla `recepciones_espera` en Inicio.
+- **Acta de recepción en PDF**: cada producto en UN renglón (nombre + concentración · laboratorio; forma ·
+  presentación; vida útil y condiciones seguidas), columna producto 6,8 cm e INVIMA 3,2 cm, relleno 1,5,
+  datos generales en 2 filas. Con 45 líneas: 37 en la 1.ª hoja y ~44 en las siguientes (antes ~13).
+- **Foto del producto desde la recepción**: cuadro «Foto del producto» (`fotoRapida()` en form.html, vista
+  previa con `URL.createObjectURL`) en «Nuevo producto» y «Completar datos». `_guardar_foto_producto()`
+  (campo `imagen` o `imagen_accion=eliminar`; borra la foto vieja). Si la foto falla, el producto se guarda
+  igual y vuelve `aviso`. `api/producto/<id>/tecnicos` GET trae `imagen_url`.
+- **Fotos .jfif** (y .jpe, .pjpeg, .pjp): `utils_imagenes.EXT_JPG_OTROS`, se guardan como `.jpg`; también en
+  la foto de la recepción y en Documentos. Los selectores de archivo dicen `accept="image/*,.jfif"`.
+- **El 0 desaparece al dar clic** (`static/js/ui.js`, en todo el programa): campos `type=number` o
+  `inputmode=numeric|decimal`; focus (captura) → clase `campo-num-activo` (azul, al final de app.css con
+  `!important` para ganarle a moderno.css) y si vale 0 se vacía (`data-cero-oculto`); change/blur en
+  captura → si quedó vacío vuelve el 0 ANTES de que la pantalla lo lea (así la toma de inventario nunca
+  guarda un campo vacío).
+- **El conteo de efectivo no se borra**: `window.conteoEfectivo` (script en `pos/_modal_conteo.html`) guarda
+  cada cambio en `localStorage` (`fervifarma.conteoEfectivo.apertura` / `.cierre-<caja_id>`, con
+  `detalle` y `confirmado`). Abrir «Contar» ya no pone todo en 0; el modal de cierre recupera el contado.
+  Se borra: apertura al cargar el POS con caja abierta; cierre al cerrar la caja (y los de cajas viejas).
+  Botón «Limpiar» para empezar de cero.
 
 ### Versión 1.1.7 — recepción en una línea, Bancos y Cuentas por pagar (2026-10-20)
 - Pruebas: `tests/test_version_117.py` (incluye una que revisa que TODO formulario POST lleve `_csrf`).

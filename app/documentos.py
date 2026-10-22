@@ -71,7 +71,8 @@ REVISION = {
 # Archivos que se aceptan. Las FOTOS y los PDF los guarda guardar_documento()
 # (el mismo de los certificados de calibración). Word y Excel se guardan tal
 # cual, revisando que por dentro sean de verdad de ese tipo.
-EXT_FOTO_PDF = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}
+# Versión 1.1.8: también ".jfif" y sus primos (son fotos JPG; ver utils_imagenes.EXT_JPG_OTROS)
+EXT_FOTO_PDF = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".jfif", ".jpe", ".pjpeg", ".pjp"}
 EXT_OFFICE = {
     # extensión: cómo empieza el archivo por dentro ("firma" del formato)
     ".docx": b"PK\x03\x04", ".xlsx": b"PK\x03\x04", ".odt": b"PK\x03\x04", ".ods": b"PK\x03\x04",

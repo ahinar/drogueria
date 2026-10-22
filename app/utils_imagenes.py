@@ -12,7 +12,14 @@ EXT_DIRECTAS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 # Extensiones que se convierten a PNG automáticamente
 EXT_CONVERTIR = {".tif", ".tiff", ".bmp", ".heic", ".heif"}
 
-EXT_ACEPTADAS = EXT_DIRECTAS | EXT_CONVERTIR
+# Versión 1.1.8: otros nombres de la MISMA foto JPG.
+# Windows guarda muchas fotos bajadas de internet como ".jfif" (y a veces
+# ".jpe", ".pjpeg" o ".pjp"). Por dentro son una foto JPG normal: solo cambia
+# la terminación del nombre. Antes salía "Formato no soportado: .jfif".
+# Ahora se aceptan y se guardan con la terminación ".jpg" de siempre.
+EXT_JPG_OTROS = {".jfif", ".jpe", ".pjpeg", ".pjp"}
+
+EXT_ACEPTADAS = EXT_DIRECTAS | EXT_CONVERTIR | EXT_JPG_OTROS
 
 
 def carpeta_uploads():
@@ -57,7 +64,7 @@ def guardar_imagen(archivo, subcarpeta, max_px=1200, max_bytes=5 * 1024 * 1024,
 
     ext_original = Path(archivo.filename).suffix.lower()
     if ext_original not in EXT_ACEPTADAS:
-        return None, f"Formato no soportado: {ext_original}. Usa JPG, PNG, WEBP, GIF o TIFF."
+        return None, f"Formato no soportado: {ext_original}. Usa JPG (o JFIF), PNG, WEBP, GIF o TIFF."
 
     # Verificar tamaño
     archivo.seek(0, os.SEEK_END)
@@ -79,6 +86,8 @@ def guardar_imagen(archivo, subcarpeta, max_px=1200, max_bytes=5 * 1024 * 1024,
     # Determinar formato de salida
     if forzar_extension:
         ext_salida = forzar_extension.lower()
+    elif ext_original in EXT_JPG_OTROS:
+        ext_salida = ".jpg"          # foto.jfif -> se guarda como xxxx.jpg (versión 1.1.8)
     elif ext_original in EXT_CONVERTIR:
         ext_salida = ".png"
     else:
