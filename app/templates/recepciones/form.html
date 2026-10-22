@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% block titulo %}Nueva recepción{% endblock %}
 {% block contenido %}
-<h1><span class="ico-emoji">📦</span> Nueva recepción técnica</h1>
+<h1><span class="ico-emoji">📦</span> {% if espera %}Recepción abierta · continuar recibiendo{% else %}Nueva recepción técnica{% endif %}</h1>
 
-{# Versión 1.1.8: se está CONTINUANDO una recepción que quedó en espera #}
+{# Versión 1.1.8/1.1.9: se está CONTINUANDO una recepción ABIERTA (sin confirmar) #}
 {% if espera %}
 <div class="aviso aviso-espera">
-  <span class="ico-emoji">⏸</span> Continuando una recepción <strong>en espera</strong>
+  <span class="ico-emoji">▶</span> Continuando una recepción <strong>abierta</strong>
   ({{ espera['total_lineas'] }} línea(s) guardadas el {{ (espera['actualizado_en'] or espera['creado_en'])[:16] }}
   por {{ espera['actualizado_por_nombre'] or espera['creado_por_nombre'] or '—' }}).
-  Sigue agregando líneas. Si tampoco alcanzas hoy, vuelve a darle <strong>Guardar en espera</strong>.
+  Sigue agregando líneas: todo se guarda solo. Cuando termines, dale <strong>Confirmar recepción</strong>.
 </div>
 {% endif %}
 
@@ -17,6 +17,8 @@
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
   {# Versión 1.1.8: número de la recepción en espera que se está continuando (si es el caso) #}
   <input type="hidden" name="espera_id" value="{{ espera['id'] if espera else '' }}">
+  {# Versión 1.1.9: clave al azar de ESTA pantalla (para el guardado automático, ver recepciones.api_borrador) #}
+  <input type="hidden" name="borrador_token" value="{{ borrador_token or '' }}">
 
   <section class="tab-panel activo">
     {% if error_cabecera %}
@@ -273,14 +275,20 @@
   </section>
 
   <div class="acciones acciones-form">
-    <button type="submit"><span class="ico-emoji">💾</span> Guardar recepción</button>
-    {# Versión 1.1.8: GUARDAR EN ESPERA (factura muy larga que no alcanza a meterse hoy).
+    {# Versión 1.1.9 (pedido de Fernando): la recepción solo se CIERRA al confirmarla.
+       Mientras tanto queda ABIERTA y se guarda sola (como el conteo de inventario). #}
+    <button type="submit" id="btn-confirmar-recepcion"
+            data-confirmar="¿Confirmar la recepción? Queda en cuarentena para aprobarla y ya no se le pueden agregar líneas.">
+      <span class="ico-emoji">✔</span> Confirmar recepción</button>
+    {# GUARDAR Y SEGUIR DESPUÉS (antes «Guardar en espera», versión 1.1.8):
        - name="accion" value="espera": así el programa sabe que es este botón (ver recepciones.nueva).
        - formnovalidate: no exige los campos obligatorios, porque puede quedar a medias. #}
     <button type="submit" name="accion" value="espera" class="boton secundario" formnovalidate
-            title="Guarda lo que llevas sin meter nada al inventario. La sigues otro día desde Recepciones.">
-      <span class="ico-emoji">⏸</span> Guardar en espera</button>
-    <a class="boton secundario" href="{{ url_for('recepciones.lista') }}">Cancelar</a>
+            title="Queda ABIERTA sin meter nada al inventario. La sigues después con «Continuar recibiendo».">
+      <span class="ico-emoji">⏸</span> Guardar y seguir después</button>
+    <a class="boton secundario" href="{{ url_for('recepciones.lista') }}">Salir</a>
+    {# Aquí se ve si el guardado automático ya guardó lo último (lo llena el script) #}
+    <small id="borrador-estado" class="borrador-estado suave">{% if espera %}✔ Recepción abierta guardada{% endif %}</small>
   </div>
 </form>
 
@@ -302,6 +310,7 @@
       <p class="suave" id="dt-nombre"></p>
     </div>
     <div class="modal-body">
+      <div class="modal-con-foto">
       <div class="modal-grid-2">
         <label>Registro INVIMA
           <input type="text" id="dt-registro" autocomplete="off" placeholder="Ej: INVIMA-2024M-12345"></label>
@@ -323,17 +332,15 @@
           <select id="dt-forma"><option value="">— Sin dato —</option>
             {% for f in formas %}<option value="{{ f['id'] }}">{{ f['nombre'] }}</option>{% endfor %}</select></label>
       </div>
-      {# Versión 1.1.8: FOTO DEL PRODUCTO sin salir de la recepción (opcional).
-         Se ve la foto antes de guardar. Acepta JPG, JFIF, PNG, WEBP... (máx. 5 MB).
-         El código está en el script de abajo: busca "fotoRapida". #}
-      <div class="modal-seccion">Foto del producto <small class="suave">(opcional)</small></div>
-      <div class="foto-rapida" id="dt-foto">
-        <div class="foto-rapida-marco"><img alt="Foto del producto" hidden><span class="foto-rapida-vacia ico-emoji">📷</span></div>
-        <div class="foto-rapida-botones">
-          <label class="boton secundario foto-escoger">📷 Poner o cambiar foto
+        {# FOTO DEL PRODUCTO (versión 1.1.8; arriba a la derecha desde la 1.1.9, pedido de Fernando,
+           como en la ficha del producto). Dar clic en el cuadro también abre la foto.
+           Acepta JPG, JFIF, PNG, WEBP... (máx. 5 MB). El código: busca "fotoRapida" abajo. #}
+        <div class="foto-rapida foto-arriba" id="dt-foto">
+          <label class="foto-rapida-marco" title="Escoger foto del producto (opcional)">
+            <img alt="Foto del producto" hidden><span class="foto-rapida-vacia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg><small>Clic para poner foto</small></span>
             <input type="file" accept="image/*,.jfif" hidden></label>
+          <small class="suave">Foto (opcional)</small>
           <button type="button" class="boton secundario foto-quitar" hidden>Quitar foto</button>
-          <small class="suave">JPG, JFIF, PNG o WEBP · máximo 5 MB</small>
         </div>
       </div>
       <p class="suave" style="margin:.4rem 0 0">Quedan guardados en la ficha del producto.</p>
@@ -355,7 +362,9 @@
     </div>
 
     <div class="modal-body">
-      <!-- ===== Identificación ===== -->
+      <!-- ===== Identificación (con la foto a la derecha, versión 1.1.9) ===== -->
+      <div class="modal-con-foto">
+      <div>
       <div class="modal-seccion">Identificación</div>
       <div class="modal-grid-2">
         <label>Nombre *
@@ -376,6 +385,18 @@
         <label>Concentración
           <input type="text" id="np-concentracion" placeholder="Ej: 500 mg">
         </label>
+      </div>
+      </div>
+        {# FOTO DEL PRODUCTO (versión 1.1.8; arriba a la derecha desde la 1.1.9, pedido de Fernando,
+           como en la ficha del producto). Dar clic en el cuadro también abre la foto.
+           Acepta JPG, JFIF, PNG, WEBP... (máx. 5 MB). El código: busca "fotoRapida" abajo. #}
+        <div class="foto-rapida foto-arriba" id="np-foto">
+          <label class="foto-rapida-marco" title="Escoger foto del producto (opcional)">
+            <img alt="Foto del producto" hidden><span class="foto-rapida-vacia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg><small>Clic para poner foto</small></span>
+            <input type="file" accept="image/*,.jfif" hidden></label>
+          <small class="suave">Foto (opcional)</small>
+          <button type="button" class="boton secundario foto-quitar" hidden>Quitar foto</button>
+        </div>
       </div>
       <div class="modal-grid-2">
         <label>Laboratorio o marca <small class="suave">(opcional)</small>
@@ -449,19 +470,6 @@
         </label>
       </div>
 
-      {# Versión 1.1.8: FOTO DEL PRODUCTO sin salir de la recepción (opcional).
-         Se ve la foto antes de guardar. Acepta JPG, JFIF, PNG, WEBP... (máx. 5 MB).
-         El código está en el script de abajo: busca "fotoRapida". #}
-      <div class="modal-seccion">Foto del producto <small class="suave">(opcional)</small></div>
-      <div class="foto-rapida" id="np-foto">
-        <div class="foto-rapida-marco"><img alt="Foto del producto" hidden><span class="foto-rapida-vacia ico-emoji">📷</span></div>
-        <div class="foto-rapida-botones">
-          <label class="boton secundario foto-escoger">📷 Escoger foto
-            <input type="file" accept="image/*,.jfif" hidden></label>
-          <button type="button" class="boton secundario foto-quitar" hidden>Quitar foto</button>
-          <small class="suave">JPG, JFIF, PNG o WEBP · máximo 5 MB</small>
-        </div>
-      </div>
       <p id="np-error" class="aviso error" style="display:none;margin-top:1rem"></p>
     </div>
 
@@ -958,14 +966,92 @@
   // Al darle Guardar (submit) ya no pregunta, porque ahí sí se quiere salir.
   const formRecepcion = document.querySelector('form.form-tabs');
   let hayCambios = false;
+
+  // ===== GUARDADO AUTOMÁTICO (versión 1.1.9, pedido de Fernando) =====
+  // Como en el conteo de inventario: mientras se recibe, la recepción se guarda
+  // SOLA como "abierta" (sin confirmar), 3 segundos después del último cambio.
+  // Así nada se pierde si se cierra la ventana o se va la luz, y en Recepciones
+  // aparece con «Continuar recibiendo». Solo se cierra con «Confirmar recepción».
+  //   - Se manda TODO el formulario a /recepciones/api/borrador (menos la foto).
+  //   - La primera vez el programa contesta el número de la recepción abierta
+  //     (espera_id) y se guarda en el campo oculto: las siguientes la actualizan.
+  //   - Al salir de la página con cambios sin guardar se manda con sendBeacon
+  //     (un envío que el navegador termina aunque la página ya se esté cerrando).
   if (formRecepcion) {
-    formRecepcion.addEventListener('input', function () { hayCambios = true; });
-    formRecepcion.addEventListener('change', function () { hayCambios = true; });
-    formRecepcion.addEventListener('submit', function () { hayCambios = false; });
+    const estado = document.getElementById('borrador-estado');
+    const campoEspera = formRecepcion.querySelector('input[name="espera_id"]');
+    let temporizador = null;
+    let guardando = false;
+    let confirmando = false;            // ya se le dio Confirmar: no guardar más borradores
+    let fallo = false;                  // el último guardado automático no se pudo hacer
+
+    function datosBorrador() {
+      const fd = new FormData(formRecepcion);
+      fd.delete('foto');                // la foto de la factura solo se sube al confirmar
+      fd.delete('accion');
+      return fd;
+    }
+    async function guardarBorrador() {
+      temporizador = null;
+      if (confirmando) return;
+      if (guardando) { programar(); return; }     // hay uno en camino: se intenta después
+      guardando = true;
+      hayCambios = false;
+      if (estado) estado.textContent = 'Guardando…';
+      try {
+        const r = await fetch('/recepciones/api/borrador', {
+          method: 'POST', body: datosBorrador(), credentials: 'same-origin' });
+        const j = await r.json();
+        fallo = false;
+        if (j.ok && j.espera_id) {
+          campoEspera.value = j.espera_id;
+          if (estado) estado.textContent = '✔ Guardado automáticamente ' + j.hora;
+        } else if (estado) {
+          estado.textContent = j.confirmada ? 'Esta recepción ya se confirmó.' : '';
+        }
+      } catch (err) {
+        hayCambios = true;              // no se pudo: se reintenta con el próximo cambio
+        fallo = true;
+        if (estado) estado.textContent = '⚠ No se pudo guardar (¿sin conexión?). Se reintenta solo.';
+      } finally {
+        guardando = false;
+      }
+    }
+    function programar() {
+      if (confirmando) return;
+      hayCambios = true;
+      if (estado && !guardando) estado.textContent = 'Cambios sin guardar…';
+      clearTimeout(temporizador);
+      temporizador = setTimeout(guardarBorrador, 3000);
+    }
+    function esCampoFoto(e) { return e.target && e.target.type === 'file'; }
+    formRecepcion.addEventListener('input', function (e) { if (!esCampoFoto(e)) programar(); });
+    formRecepcion.addEventListener('change', function (e) { if (!esCampoFoto(e)) programar(); });
+    // Las líneas que se quitan con la ✕ también cuentan como cambio
+    formRecepcion.addEventListener('click', function (e) {
+      if (e.target.closest('.btn-quitar-linea')) setTimeout(programar, 0);
+    });
+    formRecepcion.addEventListener('submit', function (e) {
+      // Si salió la pregunta «¿Confirmar…?» (base.html), este primer envío se detuvo:
+      // no se hace nada hasta que digan que sí (ahí el formulario se envía otra vez).
+      if (e.defaultPrevented) return;
+      clearTimeout(temporizador);
+      hayCambios = false;
+      // «Confirmar recepción» (el botón sin name="accion"): de aquí en adelante no más borradores
+      if (!(e.submitter && e.submitter.name === 'accion')) confirmando = true;
+    });
+    // Si el guardado automático está FALLANDO (sin conexión) y se intenta salir,
+    // el navegador pregunta «¿Salir del sitio?» para no perder lo escrito.
     window.addEventListener('beforeunload', function (e) {
-      if (!hayCambios) return;
+      if (!(hayCambios && fallo && !confirmando)) return;
       e.preventDefault();
-      e.returnValue = '';          // así lo piden los navegadores para mostrar la pregunta
+      e.returnValue = '';               // así lo piden los navegadores para mostrar la pregunta
+    });
+    // Al salir (cerrar, recargar, ir a otro menú) con cambios sin guardar: se mandan
+    window.addEventListener('pagehide', function () {
+      if (hayCambios && !confirmando && navigator.sendBeacon) {
+        navigator.sendBeacon('/recepciones/api/borrador', datosBorrador());
+      }
     });
   }
 

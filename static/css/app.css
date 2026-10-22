@@ -3250,3 +3250,23 @@ input.campo-num-activo:focus {
 .foto-rapida-botones { display: flex; flex-direction: column; gap: .35rem; align-items: flex-start; }
 .foto-rapida .foto-escoger { cursor: pointer; margin: 0; }
 .foto-rapida [hidden] { display: none !important; }   /* que "hidden" gane sobre los estilos de las ventanas */
+
+/* Versión 1.1.9: la FOTO arriba a la derecha en «Nuevo producto» y «Completar datos»
+   (como en la ficha del producto). modal-con-foto = campos a la izquierda | foto a la derecha. */
+.modal-con-foto { display: grid; grid-template-columns: minmax(0, 1fr) 128px; gap: 1rem; align-items: start; }
+.foto-arriba { flex-direction: column; align-items: center; gap: .3rem; margin-top: .4rem; }
+.foto-arriba .foto-rapida-marco { width: 120px; height: 120px; cursor: pointer; transition: border-color .15s; }
+.foto-arriba .foto-rapida-marco:hover { border-color: var(--acento); background: var(--acento-suave); }
+.foto-arriba .foto-quitar { padding: .2rem .6rem; font-size: .78rem; }
+@media (max-width: 560px) {
+  .modal-con-foto { grid-template-columns: 1fr; }
+  .modal-con-foto .foto-arriba { order: -1; }          /* en el celular, la foto queda encima */
+}
+/* El cuadro vacío: dibujo de cámara + "Clic para poner foto" (se ve en todos los temas) */
+.foto-arriba .foto-rapida-vacia { display: flex; flex-direction: column; align-items: center; gap: .2rem;
+  opacity: 1; font-size: .72rem; color: #64748b; text-align: center; line-height: 1.2; padding: .3rem; }
+.foto-arriba .foto-rapida-vacia svg { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 1.6;
+  stroke-linejoin: round; }
+
+/* Versión 1.1.9: aviso del guardado automático de la recepción, junto a los botones */
+.borrador-estado { align-self: center; font-size: .82rem; }

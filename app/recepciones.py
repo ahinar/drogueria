@@ -427,6 +427,13 @@ def nueva():
         # y SIN tocar el inventario. Se sigue después con "Continuar".
         if request.form.get("accion") == "espera":
             return _guardar_en_espera(espera_id)
+        # Versión 1.1.9: si esta pantalla ya confirmó su recepción (doble clic, o
+        # volver atrás y darle otra vez), no se crea una segunda recepción igual.
+        token = _token_de(request.form)
+        ya = _ya_confirmada(token)
+        if ya:
+            flash(f"Esa recepción ya estaba confirmada: {ya['numero']}.", "ok")
+            return redirect(url_for("recepciones.ver", rec_id=ya["id"]))
 
         proveedor_id = request.form.get("proveedor_id", "").strip()
         factura = request.form.get("factura_numero", "").strip() or None
@@ -507,8 +514,8 @@ def nueva():
                                            (int(proveedor_id),)).fetchone()
                         pago_vence = vence_sugerido(ahora(), (plazo["plazo_dias"] if plazo else 0) or 30)
                     estado_pago, vence = "pendiente", pago_vence
-                db.execute("UPDATE recepciones SET total_pagar = ?, pago_estado = ?, pago_vence = ? WHERE id = ?",
-                           (total_pagar, estado_pago, vence, rec_id))
+                db.execute("UPDATE recepciones SET total_pagar = ?, pago_estado = ?, pago_vence = ?, "
+                           "borrador_token = ? WHERE id = ?", (total_pagar, estado_pago, vence, token, rec_id))
                 if estado_pago == "pagada":
                     rec_fila = db.execute("SELECT * FROM recepciones WHERE id = ?", (rec_id,)).fetchone()
                     _, error_pago = registrar_pago(db, rec_fila, total_pagar, ahora(), pago_origen,
@@ -517,8 +524,9 @@ def nueva():
                         raise ValueError(error_pago)
                 # Versión 1.1.8: la recepción venía "en espera": ya quedó guardada de
                 # verdad, así que la espera se borra (en el mismo commit: o todo o nada).
-                if espera_id:
-                    db.execute("DELETE FROM recepciones_espera WHERE id = ?", (espera_id,))
+                # (1.1.9: también la que guardó el guardado automático, por su clave)
+                db.execute("DELETE FROM recepciones_espera WHERE id = ? OR (token IS NOT NULL AND token = ?)",
+                           (espera_id or 0, token or ""))
                 db.commit()
 
                 archivo = request.files.get("foto")
@@ -531,7 +539,7 @@ def nueva():
                 registrar("recepcion_creada", "recepciones", rec_id,
                           f"numero={numero} proveedor={proveedor_id}"
                           + (f" (venía en espera #{espera_id})" if espera_id else ""))
-                flash(f"Recepción {numero} creada en cuarentena. Pendiente de aprobación.", "ok")
+                flash(f"Recepción {numero} CONFIRMADA. Quedó en cuarentena, pendiente de aprobación.", "ok")
                 return redirect(url_for("recepciones.ver", rec_id=rec_id))
             except Exception as e:
                 db.rollback()          # que no quede nada a medias (ni la recepción ni el pago)
@@ -554,6 +562,7 @@ def nueva():
             valores_previos=valores_previos,
             lineas_previas=_lineas_previas_formulario(),
             espera=_espera_o_none(espera_id),
+            borrador_token=token or _token_nuevo(),
         )
 
     # ---- Versión 1.1.8: CONTINUAR una recepción que quedó en espera ----
@@ -565,17 +574,33 @@ def nueva():
             flash("Esa recepción en espera ya no existe (quizá ya se terminó o se descartó).", "error")
             return redirect(url_for("recepciones.lista"))
         form = _form_de_espera(fila)
+        # Las abiertas de la versión 1.1.8 no tenían clave: se les pone una
+        token = fila["token"]
+        if not token:
+            token = _token_nuevo()
+            get_db().execute("UPDATE recepciones_espera SET token = ? WHERE id = ?", (token, fila["id"]))
+            get_db().commit()
         return render_template(
             "recepciones/form.html",
             **_contexto_form(),
             valores_previos=_valores_previos(form),
             lineas_previas=_lineas_previas_formulario(form),
             espera=fila,
+            borrador_token=token,
         )
-    return render_template("recepciones/form.html", **_contexto_form())
+    return render_template("recepciones/form.html", **_contexto_form(), borrador_token=_token_nuevo())
 
 
-# ---------- Versión 1.1.8: RECEPCIONES EN ESPERA ----------
+def _token_nuevo():
+    """Clave al azar para una pantalla de recepción nueva (ej. '9f2c41d07ab35e10')."""
+    import secrets
+    return secrets.token_hex(8)
+
+
+# ---------- Versión 1.1.8: RECEPCIONES EN ESPERA (desde la 1.1.9: «ABIERTAS») ----------
+# Desde la 1.1.9 funciona como el conteo de inventario: la recepción queda ABIERTA
+# y se GUARDA SOLA mientras se recibe (api_borrador, más abajo). En la lista sale
+# «Continuar recibiendo» y solo se cierra al darle «Confirmar recepción».
 # Cómo funciona (para aprender):
 #   1. En el formulario, el botón "Guardar en espera" manda TODO lo escrito.
 #   2. _guardar_en_espera() lo convierte en texto JSON y lo guarda en la tabla
@@ -633,9 +658,26 @@ def _valores_previos(form):
     }
 
 
-def _guardar_en_espera(espera_id):
-    """Guarda lo escrito en el formulario como recepción EN ESPERA y vuelve a la lista."""
-    form = request.form
+def _token_de(form):
+    """La clave al azar de la pantalla de recepción (versión 1.1.9, ver migración 40)."""
+    return (form.get("borrador_token") or "").strip()[:40] or None
+
+
+def _ya_confirmada(token):
+    """La recepción que ya se confirmó desde esta misma pantalla (o None)."""
+    if not token:
+        return None
+    return get_db().execute("SELECT id, numero FROM recepciones WHERE borrador_token = ?", (token,)).fetchone()
+
+
+def _guardar_borrador(form, espera_id, token):
+    """Guarda lo escrito como recepción ABIERTA (sin confirmar). No hace commit.
+
+    Versión 1.1.9: lo usan el botón «Guardar y seguir después» y el guardado
+    AUTOMÁTICO que hace la pantalla mientras se va recibiendo.
+    Devuelve (id de la recepción abierta, número de líneas), o (None, 0) si no
+    hay nada escrito todavía (ni proveedor, ni factura, ni productos).
+    """
     # Todos los campos con todos sus valores (las líneas repiten nombre), menos los
     # de control: la clave de seguridad (_csrf), el botón y el número de la espera.
     datos = {campo: form.getlist(campo) for campo in form.keys()
@@ -645,33 +687,78 @@ def _guardar_en_espera(espera_id):
     proveedor = int(proveedor) if proveedor.isdigit() else None
     factura = ((form.get("factura_numero") or "").strip()
                or (form.get("remision_numero") or "").strip() or None)
-
     if not total_lineas and not proveedor and not factura:
-        flash("No hay nada escrito para guardar en espera.", "error")
-        return redirect(url_for("recepciones.nueva"))
+        return None, 0
 
     db = get_db()
     texto = json.dumps(datos, ensure_ascii=False)
-    if espera_id and _espera_o_none(espera_id):
-        # Ya estaba en espera (se continuó y se vuelve a dejar en espera): se actualiza
+    # ¿Ya existe esta recepción abierta? Por su número, o por la clave de la pantalla
+    # (si el primer guardado automático todavía no le había avisado el número).
+    fila = _espera_o_none(espera_id) if espera_id else None
+    if fila is None and token:
+        fila = db.execute("SELECT * FROM recepciones_espera WHERE token = ?", (token,)).fetchone()
+    if fila is not None:
         db.execute("UPDATE recepciones_espera SET proveedor_id = ?, factura_numero = ?, total_lineas = ?, "
-                   "datos = ?, actualizado_por_nombre = ?, actualizado_en = ? WHERE id = ?",
-                   (proveedor, factura, total_lineas, texto, g.user["nombre"], ahora(), espera_id))
-    else:
-        cur = db.execute("INSERT INTO recepciones_espera (proveedor_id, factura_numero, total_lineas, datos, "
-                         "creado_por, creado_por_nombre, creado_en) VALUES (?,?,?,?,?,?,?)",
-                         (proveedor, factura, total_lineas, texto, g.user["id"], g.user["nombre"], ahora()))
-        espera_id = cur.lastrowid
-    db.commit()
-    registrar("recepcion_en_espera", "recepciones_espera", espera_id,
-              f"factura={factura or '—'} lineas={total_lineas}")
+                   "datos = ?, token = COALESCE(token, ?), actualizado_por_nombre = ?, actualizado_en = ? "
+                   "WHERE id = ?",
+                   (proveedor, factura, total_lineas, texto, token, g.user["nombre"], ahora(), fila["id"]))
+        return fila["id"], total_lineas
+    cur = db.execute("INSERT INTO recepciones_espera (proveedor_id, factura_numero, total_lineas, datos, "
+                     "token, creado_por, creado_por_nombre, creado_en) VALUES (?,?,?,?,?,?,?,?)",
+                     (proveedor, factura, total_lineas, texto, token, g.user["id"], g.user["nombre"], ahora()))
+    return cur.lastrowid, total_lineas
 
-    flash(f"Recepción guardada EN ESPERA con {total_lineas} línea(s). Todavía no entró nada al "
-          f"inventario. Para seguir, dale «Continuar» en la lista de abajo.", "ok")
+
+def _guardar_en_espera(espera_id):
+    """Botón «Guardar y seguir después»: guarda la recepción ABIERTA y vuelve a la lista."""
+    token = _token_de(request.form)
+    ya = _ya_confirmada(token)
+    if ya:
+        flash(f"Esta recepción ya se había confirmado ({ya['numero']}).", "ok")
+        return redirect(url_for("recepciones.ver", rec_id=ya["id"]))
+    espera_id, total_lineas = _guardar_borrador(request.form, espera_id, token)
+    if espera_id is None:
+        flash("No hay nada escrito para guardar.", "error")
+        return redirect(url_for("recepciones.nueva"))
+    get_db().commit()
+    registrar("recepcion_en_espera", "recepciones_espera", espera_id, f"lineas={total_lineas}")
+
+    flash(f"Recepción ABIERTA guardada con {total_lineas} línea(s). Todavía no entró nada al "
+          f"inventario. Para seguir, dale «Continuar recibiendo» en la lista de abajo.", "ok")
     archivo = request.files.get("foto")
     if archivo and archivo.filename:
-        flash("La foto del empaque/factura no se guarda en espera: adjúntala cuando termines.", "error")
+        flash("La foto del empaque/factura no se guarda mientras la recepción está abierta: "
+              "adjúntala al confirmar.", "error")
     return redirect(url_for("recepciones.lista"))
+
+
+@bp.route("/api/borrador", methods=["POST"])
+@login_required
+def api_borrador():
+    """GUARDADO AUTOMÁTICO (versión 1.1.9), como el conteo de inventario.
+
+    La pantalla de recepción llama aquí sola, unos segundos después de cada cambio
+    (y al salir de la página). Así nada se pierde aunque se cierre la ventana o se
+    vaya la luz: queda como recepción ABIERTA hasta que se le dé «Confirmar recepción».
+    Devuelve el número de la recepción abierta para que la pantalla lo recuerde.
+    """
+    form = request.form
+    token = _token_de(form)
+    if _ya_confirmada(token):
+        # Llegó tarde: la recepción ya se confirmó. No se crea otra abierta.
+        return jsonify({"ok": False, "confirmada": True})
+    espera_txt = (form.get("espera_id") or "").strip()
+    espera_id, total_lineas = _guardar_borrador(form, int(espera_txt) if espera_txt.isdigit() else None, token)
+    if espera_id is None:
+        return jsonify({"ok": True, "vacia": True})
+    get_db().commit()
+    # Justo en ese instante se pudo haber confirmado (dos pedidos al tiempo): si ya
+    # está confirmada, la abierta que se acaba de guardar sobra y se borra.
+    if _ya_confirmada(token):
+        get_db().execute("DELETE FROM recepciones_espera WHERE id = ?", (espera_id,))
+        get_db().commit()
+        return jsonify({"ok": False, "confirmada": True})
+    return jsonify({"ok": True, "espera_id": espera_id, "lineas": total_lineas, "hora": ahora()[11:16]})
 
 
 @bp.route("/espera/<int:espera_id>/descartar", methods=["POST"])

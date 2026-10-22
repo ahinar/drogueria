@@ -501,6 +501,26 @@ Notas:
 | 1.1.6 | 2026-10-19 | (Junta lo planeado para 1.1.6 y 1.1.7) Clic en el buscador del POS selecciona todo; ícono propio en la barra de tareas; varios principios activos con comas; catálogos en orden alfabético (tildes bien) y UdM por tamaño; laboratorio opcional («Laboratorio o marca»); sin repetidos + «Buscar repetidos»; IVA por línea en la recepción y «¿La droguería declara IVA?»; dashboard contable nuevo; Sesiones de caja (azul / rojo − / verde +) y sobrantes/faltantes automáticos en la contabilidad |
 | 1.1.7 | 2026-10-20 | Recepción en una sola línea por producto; BANCOS (Nequi y Davivienda: saldo automático, traslados, plata del dueño, cuadre); CUENTAS POR PAGAR a proveedores (crédito/contado, pago desde caja menor, POS, Nequi o Davivienda; facturas viejas «por revisar»); acciones de GitHub en Node 24 |
 | 1.1.8 | 2026-10-21 | RECEPCIÓN EN ESPERA (guardar a medias y seguir otro día); Acta de recepción con 20+ productos por hoja; foto del producto desde la recepción (Nuevo producto y Completar datos); fotos .jfif; en los campos de números el 0 desaparece al dar clic y el campo se pone azul; el conteo de efectivo no se borra hasta cerrar/abrir la caja (botón Limpiar); botón «Abrir cajón» en la pantalla Abrir caja |
+| 1.1.9 | 2026-10-22 | Recepción ABIERTA que se guarda sola (como el conteo) hasta «Confirmar recepción»; «Continuar recibiendo»; foto arriba en «Nuevo producto» y «Completar datos»; el 0 vuelve al dar Enter |
+
+### Versión 1.1.9 — recepción abierta hasta confirmar, foto arriba (2026-10-22)
+- Pedido de Fernando: que la recepción funcione como el conteo de inventario. Pruebas: `tests/test_version_119.py`.
+- **Recepción ABIERTA con guardado automático**: 3 s después de cada cambio la pantalla manda todo el formulario
+  (menos la foto) a `POST /recepciones/api/borrador` → `_guardar_borrador()` (la misma función del botón
+  «⏸ Guardar y seguir después», antes «Guardar en espera»). Al salir con cambios pendientes: `sendBeacon`
+  en `pagehide`. Indicador `#borrador-estado` junto a los botones.
+- **Migración 40**: `recepciones_espera.token` y `recepciones.borrador_token`. Cada pantalla trae un
+  `borrador_token` al azar (`_token_nuevo`): el borrador se busca por `espera_id` o por token (así el
+  primer guardado y el siguiente no crean dos); al confirmar se guarda el token en la recepción y se borran
+  las abiertas con ese id o token. Si ya hay recepción con ese token: el borrador se ignora
+  (`confirmada: true`) y un segundo «Confirmar» redirige a la ya creada (sin duplicar).
+- Botón principal **«✔ Confirmar recepción»** (con pregunta `data-confirmar`; el script respeta
+  `e.defaultPrevented` para no dejar de guardar si dicen Cancelar). Lista **«Recepciones abiertas»** con
+  **«▶ Continuar recibiendo»**; título «Recepción abierta · continuar recibiendo»; alerta renombrada.
+- **Foto arriba** (hecho en el otro chat, revisado aquí): `modal-con-foto` (campos | cuadro de 120 px que se
+  toca para escoger la foto) en «Nuevo producto» y «Completar datos».
+- **El 0 vuelve al dar Enter** (`ui.js`, listener `submit` en captura → `devolverCero` en los campos con
+  `data-cero-oculto`).
 
 ### Versión 1.1.8 — recepción en espera, Acta compacta, fotos y conteo que no se borra (2026-10-21)
 - Pedidos de Fernando del 20 y 21 de octubre. Pruebas: `tests/test_version_118.py`.

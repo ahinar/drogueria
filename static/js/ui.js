@@ -629,4 +629,13 @@ document.addEventListener('wheel', function (e) {
     campo.classList.remove('campo-num-activo');
     devolverCero(campo);
   }, true);
+
+  // 4) Versión 1.1.9: se le dio ENTER (o Guardar) estando todavía dentro del campo.
+  //    El formulario se envía ANTES de salir del campo, así que el 0 todavía no había
+  //    vuelto y se mandaba vacío. Ahora, justo antes de enviar, vuelven todos los 0.
+  document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!form || !form.querySelectorAll) return;
+    form.querySelectorAll('[data-cero-oculto]').forEach(devolverCero);
+  }, true);
 })();

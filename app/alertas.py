@@ -384,8 +384,9 @@ def calcular_alertas(rol):
         "SELECT e.id, e.factura_numero, e.total_lineas, COALESCE(e.actualizado_en, e.creado_en) AS fecha, "
         "p.razon_social FROM recepciones_espera e LEFT JOIN proveedores p ON p.id = e.proveedor_id "
         "ORDER BY fecha").fetchall()
-    agregar("recepciones_espera", "amarillo", "⏸", "Recepciones en espera (a medias)",
-            "Se guardaron para terminarlas después. Esa mercancía todavía no entra al inventario.",
+    agregar("recepciones_espera", "amarillo", "⏸", "Recepciones abiertas (sin confirmar)",
+            "Dale «Continuar recibiendo» y, al terminar, «Confirmar recepción». "
+            "Esa mercancía todavía no entra al inventario.",
             filas, lambda f: {
                 "texto": f"{f['razon_social'] or 'Sin proveedor'} · factura {f['factura_numero'] or '—'}",
                 "detalle": f"{f['total_lineas']} línea(s) · {_fecha(f['fecha'])}",

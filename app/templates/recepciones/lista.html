@@ -16,11 +16,12 @@
 </form>
 
 {# ===== Versión 1.1.8: RECEPCIONES EN ESPERA (a medias) =====
-   Facturas que se empezaron a meter y se guardaron con "Guardar en espera".
+   Facturas que se empezaron a meter y siguen ABIERTAS (sin confirmar). Desde la 1.1.9
+   se guardan solas mientras se reciben, como el conteo de inventario.
    Todavía no son recepciones: no tienen número REC- ni entraron al inventario. #}
 {% if en_espera %}
 <section class="espera-caja">
-  <h2><span class="ico-emoji">⏸</span> En espera <small class="suave">— a medias, todavía no entran al inventario</small></h2>
+  <h2><span class="ico-emoji">⏸</span> Recepciones abiertas <small class="suave">— sin confirmar, todavía no entran al inventario</small></h2>
   <table class="tabla">
     <thead>
       <tr><th>Proveedor</th><th>Factura</th><th>Líneas</th><th>Guardada</th><th>Por</th><th></th></tr>
@@ -34,11 +35,11 @@
         <td><small>{{ (e['actualizado_en'] or e['creado_en'])[:16] }}</small></td>
         <td>{{ e['actualizado_por_nombre'] or e['creado_por_nombre'] or '—' }}</td>
         <td class="espera-acciones">
-          <a class="boton" href="{{ url_for('recepciones.nueva', espera=e['id']) }}">▶ Continuar</a>
+          <a class="boton" href="{{ url_for('recepciones.nueva', espera=e['id']) }}">▶ Continuar recibiendo</a>
           <form method="post" action="{{ url_for('recepciones.descartar_espera', espera_id=e['id']) }}">
             <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
             <button type="submit" class="boton secundario"
-                    data-confirmar="¿Descartar esta recepción en espera? Se borra todo lo que se había escrito.">Descartar</button>
+                    data-confirmar="¿Descartar esta recepción abierta? Se borra todo lo que se había escrito.">Descartar</button>
           </form>
         </td>
       </tr>

@@ -138,7 +138,8 @@ class TestRecepcionEnEspera(Base118):
         self.guardar_en_espera([self.linea(1), self.linea(2)], observaciones="faltan 30 líneas")
         e = self.uno("SELECT id FROM recepciones_espera")
         html = self.c.get("/recepciones/").get_data(as_text=True)
-        self.assertIn("En espera", html)
+        self.assertIn("Recepciones abiertas", html)          # 1.1.9: antes «En espera»
+        self.assertIn("Continuar recibiendo", html)
         self.assertIn(f"/recepciones/nueva?espera={e['id']}", html)
         html = self.c.get(f"/recepciones/nueva?espera={e['id']}").get_data(as_text=True)
         for texto in ("LOTE-01", "LOTE-02", "faltan 30 líneas", 'value="F-200"',
@@ -272,7 +273,8 @@ class TestCamposYConteo(Base118):
 
     def test_version(self):
         from app.version import VERSION
-        self.assertEqual(VERSION, "1.1.8")
+        # 1.1.8 o una posterior (no se fija el número exacto: así no falla en cada versión nueva)
+        self.assertGreaterEqual(tuple(int(x) for x in VERSION.split(".")), (1, 1, 8))
 
 
 class TestAbrirCajonAntesDeAbrirCaja(Base118):

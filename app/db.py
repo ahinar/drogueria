@@ -1504,6 +1504,21 @@ MIGRATIONS = [
         );
         """,
     ),
+    # Versión 1.1.9: la recepción queda ABIERTA y se guarda SOLA mientras se recibe
+    # (como el conteo de inventario) hasta darle "Confirmar recepción".
+    # "token" = una clave al azar de cada pantalla de recepción. Sirve para que un
+    # guardado automático que llega tarde (después de confirmar) no cree una
+    # recepción abierta repetida: si ya hay una recepción confirmada con ese token,
+    # el guardado automático se ignora. Ver recepciones.api_borrador.
+    (
+        40,
+        """
+        ALTER TABLE recepciones_espera ADD COLUMN token TEXT;
+        ALTER TABLE recepciones ADD COLUMN borrador_token TEXT;
+        CREATE INDEX idx_recepciones_espera_token ON recepciones_espera (token);
+        CREATE INDEX idx_recepciones_borrador_token ON recepciones (borrador_token);
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:
