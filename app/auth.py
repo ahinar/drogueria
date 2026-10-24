@@ -65,10 +65,31 @@ def es_ruta_segura(destino):
     return not partes.scheme and not partes.netloc and destino.startswith("/") and not destino.startswith("//")
 
 
+def es_pedido_api():
+    """¿Este pedido lo hizo una pantalla por detrás (fetch), esperando JSON?
+
+    Versión 1.1.11. Las direcciones de datos del programa tienen "/api/" (ej.
+    /pos/api/cobrar). Para esas, los errores se contestan en JSON y no con una
+    página web, así la pantalla puede mostrar un mensaje claro.
+    """
+    return "/api/" in request.path or request.accept_mimetypes.best == "application/json"
+
+
+def respuesta_api_error(mensaje, codigo, sesion=False):
+    """Error en JSON: {"ok": false, "error": "...", "sesion": true si hay que volver a entrar}."""
+    from flask import jsonify
+    return jsonify({"ok": False, "error": mensaje, "sesion": sesion}), codigo
+
+
 def login_required(vista):
     @wraps(vista)
     def envoltura(*args, **kwargs):
         if g.user is None:
+            if es_pedido_api():
+                # Antes devolvía la pantalla de Ingresar (HTML) y el POS no la entendía
+                return respuesta_api_error(
+                    "Tu sesión se cerró (pasó mucho tiempo o se le dio «Salir»). Recarga la página con F5, "
+                    "entra otra vez y vuelve a intentarlo: esto NO se guardó.", 401, sesion=True)
             siguiente = request.path if request.method == "GET" and request.path != "/" else None
             return redirect(url_for("auth.login", next=siguiente))
         return vista(*args, **kwargs)
@@ -81,6 +102,10 @@ def roles_required(*roles):
         @wraps(vista)
         def envoltura(*args, **kwargs):
             if g.user is None:
+                if es_pedido_api():
+                    return respuesta_api_error(
+                        "Tu sesión se cerró. Recarga la página con F5, entra otra vez y vuelve a intentarlo: "
+                        "esto NO se guardó.", 401, sesion=True)
                 return redirect(url_for("auth.login"))
             if g.user["rol"] not in roles:
                 abort(403)
@@ -116,6 +141,21 @@ def verificar_csrf():
         esperado = session.get("_csrf")
         recibido = request.form.get("_csrf", "")
         if not esperado or not hmac.compare_digest(esperado, recibido):
+            # Versión 1.1.11: la clave de seguridad de la página quedó VIEJA. Pasa si se
+            # volvió a entrar al programa en otra ventana mientras esta seguía abierta
+            # (el POS al cobrar dijo "Unexpected token '<'..."). Si la persona sigue con su
+            # sesión, se le manda la clave nueva y la pantalla lo reintenta sola (base.html,
+            # "reintento con la clave nueva"). Es seguro: otra página de internet no puede
+            # leer esta respuesta, y como no se hizo nada, reintentar no repite nada.
+            if es_pedido_api():
+                if g.get("user") is None:
+                    return respuesta_api_error(
+                        "Tu sesión se cerró. Recarga la página con F5, entra otra vez y vuelve a intentarlo: "
+                        "esto NO se guardó.", 401, sesion=True)
+                from flask import jsonify
+                return jsonify({"ok": False, "csrf_nuevo": csrf_token(),
+                                "error": "La página tenía una clave de seguridad vieja. Vuelve a intentarlo "
+                                         "(o recarga con F5): esto NO se guardó."}), 400
             abort(400)
 
 

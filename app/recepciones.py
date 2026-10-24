@@ -950,26 +950,19 @@ def api_buscar_productos():
 
     # Cada palabra puede estar en el nombre, la concentración o el LABORATORIO
     # (ver app/busqueda.py): "trazodona san fer 50" encuentra ese producto exacto.
-    from .busqueda import ORDEN_NOMBRE_LAB, condicion_palabras, palabras
+    from .busqueda import ORDEN_NOMBRE_LAB, condicion_palabras, orden_relevancia
     cond, params = condicion_palabras(q)
-    primera = palabras(q)[0]
+    # Orden: lo más parecido a lo escrito de primero (código exacto, nombre que empieza
+    # por lo escrito, palabra que empieza, nombre que lo contiene...). Ver
+    # busqueda.orden_relevancia (versión 1.1.11; antes la regla estaba solo aquí).
+    orden, orden_params = orden_relevancia(q)
     filas = get_db().execute(
         _SELECT_BUSQUEDA + "WHERE p.activo = 1" + cond + " "
-        # Orden de los resultados:
-        #   0 = el código o código de barras exacto
-        #   1 = el NOMBRE empieza por lo escrito      (MELOXICAM 15 MG)
-        #   2 = el NOMBRE contiene lo escrito          (MEBLAINEX MELOXICAM)
-        #   3 = lo demás (coincide por laboratorio, principio activo...)
-        "ORDER BY "
-        "  CASE WHEN p.codigo = ? THEN 0 "
-        "       WHEN p.codigo_barras = ? THEN 0 "
-        "       WHEN p.nombre LIKE ? THEN 1 "
-        "       WHEN p.nombre LIKE ? THEN 2 "
-        "       ELSE 3 END, " + ORDEN_NOMBRE_LAB + " "
+        "ORDER BY " + orden + ", " + ORDEN_NOMBRE_LAB + " "
         # 40 resultados (la lista tiene barra para bajar). Antes eran 8: si había
         # muchos "MELOXICAM ...", el "MEBLAINEX MELOXICAM" quedaba por fuera.
         "LIMIT 40",
-        params + [q, q, f"{primera}%", f"%{primera}%"],
+        params + orden_params,
     ).fetchall()
     return jsonify({"ok": True, "resultados": [_fila_a_dict(f) for f in filas]})
 

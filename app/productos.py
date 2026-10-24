@@ -199,8 +199,12 @@ def lista():
 
     if cond:
         sql += " WHERE " + " AND ".join(cond)
-    from .busqueda import ORDEN_NOMBRE_LAB
-    sql += " ORDER BY " + ORDEN_NOMBRE_LAB          # los que se llaman igual quedan juntos, por laboratorio
+    # Lo más parecido a lo buscado de primero (versión 1.1.11, ver busqueda.orden_relevancia);
+    # después por nombre: los que se llaman igual quedan juntos, por laboratorio
+    from .busqueda import ORDEN_NOMBRE_LAB, orden_relevancia
+    orden, orden_params = orden_relevancia(q)
+    sql += " ORDER BY " + orden + ", " + ORDEN_NOMBRE_LAB
+    params += orden_params
     filas = get_db().execute(sql, params).fetchall()
 
     respuesta = render_template("productos/lista.html", productos=filas, q=q, filtro=filtro,

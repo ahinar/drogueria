@@ -143,16 +143,30 @@ def create_app(test_config=None):
     def _version_global():
         return {"version_programa": VERSION}
 
+    # ---- Versión 1.1.11: las pantallas que piden datos por detrás (/api/...) reciben
+    # SIEMPRE una respuesta en JSON, también cuando hay un error. Antes recibían una
+    # página web de error y el POS mostraba "Unexpected token '<' ... is not valid JSON"
+    # (pasó al cobrar con la sesión cerrada). Ahora el POS muestra el mensaje claro.
+    from .auth import es_pedido_api, respuesta_api_error
+
     @app.errorhandler(400)
     def error_400(_e):
+        if es_pedido_api():
+            return respuesta_api_error(
+                "La sesión se renovó o se venció (por ejemplo, se volvió a entrar en otra ventana). "
+                "Recarga la página con F5 y vuelve a intentarlo: esto NO se guardó.", 400, sesion=True)
         return render_template("error.html", codigo=400, mensaje="Solicitud no válida o sesión vencida. Vuelve a intentarlo."), 400
 
     @app.errorhandler(403)
     def error_403(_e):
+        if es_pedido_api():
+            return respuesta_api_error("Tu usuario no tiene permiso para hacer esto.", 403)
         return render_template("error.html", codigo=403, mensaje="No tienes permiso para ver esta página."), 403
 
     @app.errorhandler(404)
     def error_404(_e):
+        if es_pedido_api():
+            return respuesta_api_error("Eso ya no existe (quizá se borró). Recarga la página con F5.", 404)
         return render_template("error.html", codigo=404, mensaje="La página no existe."), 404
 
     # ---- Base de datos ocupada ("database is locked") ----
@@ -175,6 +189,14 @@ def create_app(test_config=None):
 
     @app.errorhandler(500)
     def error_500(_e):
+        from flask import request
+        # Queda escrito en el archivo de errores (fervifarma.log) con la página donde pasó
+        log.error("Error interno en %s %s: %r", request.method, request.path,
+                  getattr(_e, "original_exception", _e))
+        if es_pedido_api():
+            return respuesta_api_error(
+                "Ocurrió un error interno y no se pudo terminar. Antes de volver a intentarlo, revisa si quedó "
+                "guardado (por ejemplo, en las ventas del turno). El detalle quedó en el archivo de errores.", 500)
         return render_template("error.html", codigo=500, mensaje="Ocurrió un error interno. Avisa al administrador."), 500
 
     # Los respaldos automáticos los hace el "reloj de respaldos" (backup_utils.py),

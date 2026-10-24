@@ -266,8 +266,11 @@ def api_buscar(conteo_id):
         extra_sql, extra_params = condicion_palabras(q)
         sql += extra_sql
         params += extra_params
-    from .busqueda import ORDEN_NOMBRE_LAB
-    sql += " ORDER BY " + ORDEN_NOMBRE_LAB
+    # Lo más parecido a lo escrito de primero (versión 1.1.11, ver busqueda.orden_relevancia)
+    from .busqueda import ORDEN_NOMBRE_LAB, orden_relevancia
+    orden, orden_params = orden_relevancia("" if exacto else q)
+    sql += " ORDER BY " + orden + ", " + ORDEN_NOMBRE_LAB
+    params += orden_params
     productos = db.execute(sql, params).fetchall()
     if not productos:
         return jsonify({"ok": True, "productos": [], "hay_mas": False, "exacto": False,

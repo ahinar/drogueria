@@ -22,6 +22,46 @@
   {# Va en el <head> (no en ui.js) porque los scripts de cada página lo usan
      apenas cargan, antes de que llegue ui.js al final de la página. #}
   <script>
+  // ------------------------------------------------------------------
+  // REINTENTO CON LA CLAVE NUEVA (versión 1.1.11)
+  // Cada página trae una "clave de seguridad" (_csrf). Si se vuelve a entrar al
+  // programa en OTRA ventana, la clave cambia y esta página queda con la vieja: al
+  // cobrar, el programa la rechaza. Ahora el programa contesta con la clave nueva
+  // (csrf_nuevo): aquí se cambia en toda la página y el pedido se repite UNA vez,
+  // solo. La persona ni se entera. (Ver auth.verificar_csrf.)
+  // ------------------------------------------------------------------
+  //
+  // Además, si un pedido de datos (/api/...) recibe una PÁGINA WEB en vez de datos
+  // (la pantalla de Ingresar, o una página de error), se cambia por un mensaje claro
+  // en JSON. Así ninguna pantalla vuelve a mostrar "Unexpected token '<'".
+  // ------------------------------------------------------------------
+  (function () {
+    const fetchOriginal = window.fetch.bind(window);
+    function direccion(url) { return String((url && url.url) || url || ''); }
+    function comoJSON(resp, url) {
+      const tipo = resp.headers.get('content-type') || '';
+      if (tipo.indexOf('json') >= 0 || direccion(url).indexOf('/api/') < 0) return resp;
+      const alIngreso = resp.redirected && resp.url.indexOf('/login') >= 0;
+      const mensaje = (alIngreso || resp.status === 401)
+        ? 'Tu sesión se cerró. Recarga la página con F5, entra otra vez y vuelve a intentarlo: esto NO se guardó.'
+        : 'El programa respondió con un error (código ' + resp.status + '). Recarga la página con F5 y, '
+          + 'antes de repetirlo, revisa si quedó guardado.';
+      return new Response(JSON.stringify({ ok: false, error: mensaje, sesion: alIngreso || resp.status === 401 }),
+                          { status: resp.status, headers: { 'Content-Type': 'application/json' } });
+    }
+    window.fetch = async function (url, opciones) {
+      const resp = await fetchOriginal(url, opciones);
+      const cuerpo = opciones && opciones.body;
+      if (resp.status !== 400 || !(cuerpo instanceof FormData) || !cuerpo.has('_csrf')) return comoJSON(resp, url);
+      let datos = null;
+      try { datos = await resp.clone().json(); } catch (e) { return comoJSON(resp, url); }
+      if (!datos || !datos.csrf_nuevo) return resp;
+      document.querySelectorAll('input[name="_csrf"]').forEach(function (i) { i.value = datos.csrf_nuevo; });
+      cuerpo.set('_csrf', datos.csrf_nuevo);
+      return comoJSON(await fetchOriginal(url, opciones), url);   // segundo y último intento
+    };
+  })();
+
   // Cuántas unidades trae una unidad de medida: su cantidad, o si quedó en 1,
   // lo que diga el nombre ("CAJA X 12" -> 12). Igual que presentaciones.cantidad_efectiva
   window.cantidadDeUnidad = function (nombre, cantidad) {
@@ -506,6 +546,7 @@
       setTimeout(() => btnAceptar.focus(), 50);
     });
   };
+
 
   // ------------------------------------------------------------------
   // CONFIRMAR ANTES DE ENVIAR UN FORMULARIO, con la ventana del programa

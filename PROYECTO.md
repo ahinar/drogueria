@@ -503,9 +503,9 @@ Notas:
 | 1.1.8 | 2026-10-21 | RECEPCIÓN EN ESPERA (guardar a medias y seguir otro día); Acta de recepción con 20+ productos por hoja; foto del producto desde la recepción (Nuevo producto y Completar datos); fotos .jfif; en los campos de números el 0 desaparece al dar clic y el campo se pone azul; el conteo de efectivo no se borra hasta cerrar/abrir la caja (botón Limpiar); botón «Abrir cajón» en la pantalla Abrir caja |
 | 1.1.9 | 2026-10-22 | Recepción ABIERTA que se guarda sola (como el conteo) hasta «Confirmar recepción»; «Continuar recibiendo»; foto arriba en «Nuevo producto» y «Completar datos»; el 0 vuelve al dar Enter |
 | 1.1.10 | 2026-10-23 | Igual a 1.1.9 (su instalador no se armó en GitHub: faltaba pypdf para una prueba) |
-| 1.1.11 | 2026-10-24 | Toma de inventario: si el producto no tiene costo (inventario inicial), se estima con el precio de venta − margen de Configuración (30 %) |
+| 1.1.11 | 2026-10-24 | Toma de inventario: si el producto no tiene costo (inventario inicial), se estima con el precio de venta − margen de Configuración (30 %). POS: ya no sale «Unexpected token '<'» al cobrar (clave de seguridad vieja se renueva sola; sesión cerrada o error interno → mensaje claro). Búsqueda con lo más parecido de primero (TAM → TAMPONES antes que aceTAMinofen) |
 
-### Versión 1.1.11 — costo estimado en la toma de inventario (2026-10-24)
+### Versión 1.1.11 — costo estimado en el conteo, cobro sin «Unexpected token», búsqueda por parecido (2026-10-24)
 - Pedido de Fernando: en el inventario inicial ningún producto tiene compras registradas y el conteo pedía el
   costo de cada lote encontrado (sacar facturas y dividir). `conteos._costo_sugerido(producto, opciones)`:
   1) último lote con costo, 2) `precio_compra` de la ficha, 3) **NUEVO** precio de venta de 1 unidad ×
@@ -513,6 +513,23 @@ Notas:
   factor (el más bajo). Margen en Configuración (`margen_costo_estimado`, 0–90, por defecto 30). La pantalla
   ya ocultaba el campo de costo cuando `costo_sugerido > 0`, así que deja de pedirlo. Sin precio de venta →
   sigue pidiendo el costo. Pruebas en `tests/test_conteos.py`.
+- **«Unexpected token '<' ... is not valid JSON» al cobrar** (mostrador, 24-oct, caja #1008; con F5 cobró
+  bien sin volver a entrar): la página del POS tenía la clave `_csrf` VIEJA (se volvió a entrar al programa en
+  otra ventana) → `verificar_csrf` hacía `abort(400)` y salía la página de error en HTML. Ahora:
+  - `auth.es_pedido_api()` ("/api/" en la dirección) y `respuesta_api_error()`: para /api/ los errores 400,
+    401 (sesión cerrada, en `login_required`/`roles_required`), 403, 404 y 500 contestan JSON
+    `{ok: false, error, sesion}`. El 500 queda en fervifarma.log con la dirección.
+  - Clave vieja con la sesión viva → 400 JSON con `csrf_nuevo`. En `base.html` (primer `<script>` del head)
+    `window.fetch` envuelto: si llega `csrf_nuevo` y el cuerpo es FormData con `_csrf`, cambia la clave en todos
+    los `input[name=_csrf]` y repite el pedido UNA vez (seguro: nada se guardó). Si un pedido a /api/ recibe
+    HTML (pantalla de Ingresar u otra), lo cambia por JSON con un mensaje claro.
+- **Búsqueda: lo más parecido de primero** (pedido de Fernando: "TAM" daba ACETAMINOFEN de primero y TAMPONES ni
+  salía si había más de 40 resultados). `busqueda.orden_relevancia(q)` → CASE con puestos: 0 código/barras
+  exacto, 1 nombre empieza por todo lo escrito, 2 por la primera palabra, 3 una palabra del nombre empieza
+  (separadores espacio / - ( +), 4 lo contiene, 5 lo demás. Sin nada escrito devuelve "NULL" (un "0" SQLite lo
+  toma como número de columna). Va ANTES del LIMIT 40 en el POS (después: stock > 0, nombre, laboratorio),
+  recepción (reemplaza su regla propia), toma de inventario y lista de productos.
+- Pruebas: `tests/test_version_1111.py`.
 
 ### Versión 1.1.10 — la 1.1.9 no se armó en GitHub (2026-10-23)
 - La publicación V.1.1.9 falló en «Pruebas del programa en Windows»: `test_version_118` lee el Acta con

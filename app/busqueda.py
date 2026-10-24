@@ -42,6 +42,45 @@ ORDEN_NOMBRE_LAB = (f"p.nombre COLLATE ES, {SQL_LAB} COLLATE ES, "
                     "p.concentracion COLLATE ES")
 
 
+def orden_relevancia(q):
+    """Lo MÁS PARECIDO a lo escrito, de primero (versión 1.1.11, pedido de Fernando).
+
+    Devuelve (texto SQL, parámetros) para ponerlo de PRIMERO en un ORDER BY:
+        sql += " ORDER BY " + orden + ", " + ORDEN_NOMBRE_LAB
+
+    Antes se ordenaba solo por nombre (A, B, C...): al escribir "TAM" salía de
+    primero ACETAMINOFEN (porque "aceTAMinofen" tiene "tam" adentro) y TAMPONES
+    quedaba de último, o ni aparecía si había más de 40 resultados.
+    Ahora cada producto recibe un "puesto" y se ordena por ese puesto:
+        0 = el código o el código de barras es exactamente lo escrito
+        1 = el NOMBRE empieza por todo lo escrito          "TAMPONES"        (tam)
+        2 = el NOMBRE empieza por la primera palabra       "TAMPONES OB"     (tam pon)
+        3 = una PALABRA del nombre empieza por lo escrito  "TOALLAS TAMAÑO"  (tam)
+        4 = el nombre tiene lo escrito en la mitad         "ACETAMINOFEN"    (tam)
+        5 = lo demás (lo encontró por laboratorio, principio activo, uso...)
+    Sin tildes ni mayúsculas (PLANO, ver app/nombres.py).
+    """
+    from .nombres import plano
+    q = (q or "").strip()
+    if not q:
+        # Sin nada escrito no hay "más parecido": NULL no cambia el orden. (Ojo: un número
+        # solo, como "0", SQLite lo entiende como "ordenar por la columna 0" y da error.)
+        return "NULL", []
+    todo = plano(q)
+    primera = plano(palabras(q)[0])
+    # El nombre con un espacio adelante y los signos (+ / - paréntesis) cambiados por espacios,
+    # para encontrar palabras que EMPIEZAN por lo escrito: "% tam%"
+    nombre_palabras = ("PLANO(' ' || REPLACE(REPLACE(REPLACE(REPLACE(p.nombre, '/', ' '), '-', ' '), "
+                       "'(', ' '), '+', ' '))")
+    sql = ("CASE WHEN p.codigo = ? OR p.codigo_barras = ? THEN 0 "
+           "WHEN PLANO(p.nombre) LIKE ? THEN 1 "
+           "WHEN PLANO(p.nombre) LIKE ? THEN 2 "
+           f"WHEN {nombre_palabras} LIKE ? THEN 3 "
+           "WHEN PLANO(p.nombre) LIKE ? THEN 4 "
+           "ELSE 5 END")
+    return sql, [q, q, todo + "%", primera + "%", "% " + primera + "%", "%" + primera + "%"]
+
+
 def palabras(q):
     """Parte lo escrito en palabras sueltas: "  Trazodona  san fer " → ["Trazodona", "san", "fer"]."""
     return [x for x in (q or "").split() if x]

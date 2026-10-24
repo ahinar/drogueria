@@ -692,8 +692,13 @@ def api_productos():
         sql += f" AND p.id IN ({','.join('?' * len(ids))})"
         params += ids
 
-    # Los que tienen existencias primero; los que se llaman igual, juntos y por laboratorio
-    sql += " ORDER BY (stock > 0) DESC, p.nombre COLLATE ES, laboratorio COLLATE ES LIMIT 40"
+    # Orden (versión 1.1.11): lo más parecido a lo escrito de primero (TAMPONES antes
+    # que aceTAMinofen, ver busqueda.orden_relevancia); después los que tienen
+    # existencias; los que se llaman igual, juntos y por laboratorio.
+    from .busqueda import orden_relevancia
+    orden, orden_params = orden_relevancia(q)
+    sql += f" ORDER BY {orden}, (stock > 0) DESC, p.nombre COLLATE ES, laboratorio COLLATE ES LIMIT 40"
+    params += orden_params
     filas = get_db().execute(sql, params).fetchall()
 
     usos = _usos_de([f["id"] for f in filas])
