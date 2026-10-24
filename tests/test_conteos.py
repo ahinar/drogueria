@@ -158,10 +158,31 @@ class TestLotesEncontrados(BaseConteo):
         # La jeringa (id 2) no maneja vencimiento: puede ir sin lote
         self.assertTrue(self.contar(5, producto_id="2", costo="100").get_json()["ok"])
 
-    def test_exige_costo(self):
+    def test_sin_costo_lo_estima_del_precio_de_venta(self):
+        # Versión 1.1.11 (inventario inicial): sin compras ni costo en la ficha, el costo
+        # se estima con el precio de venta ($1.000) menos el margen de Configuración (30 %)
         self.crear_conteo()
         j = self.contar(5, producto_id="1", lote="X", vencimiento="2028-01-01").get_json()
-        self.assertFalse(j["ok"])   # sin costo y sin compras previas
+        self.assertTrue(j["ok"], j)
+        self.assertEqual(round(self.uno("SELECT costo_unitario FROM conteo_lineas")["costo_unitario"]), 700)
+
+    def test_margen_de_configuracion(self):
+        con = self.db()
+        con.execute("INSERT OR REPLACE INTO config (clave, valor) VALUES ('margen_costo_estimado', '40')")
+        con.commit()
+        con.close()
+        self.crear_conteo()
+        self.contar(5, producto_id="1", lote="X", vencimiento="2028-01-01")
+        self.assertEqual(round(self.uno("SELECT costo_unitario FROM conteo_lineas")["costo_unitario"]), 600)
+
+    def test_exige_costo_si_no_tiene_precio(self):
+        con = self.db()
+        con.execute("UPDATE productos SET precio_venta = 0 WHERE id = 1")
+        con.commit()
+        con.close()
+        self.crear_conteo()
+        j = self.contar(5, producto_id="1", lote="X", vencimiento="2028-01-01").get_json()
+        self.assertFalse(j["ok"])   # sin costo, sin compras y sin precio: hay que escribirlo
 
     def test_lote_que_ya_existe_se_cuenta_sobre_el_existente(self):
         self.lote(1, "L1", FUTURO, 10)

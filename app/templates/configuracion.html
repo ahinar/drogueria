@@ -53,6 +53,13 @@
         <strong>sin IVA</strong>, y el dashboard de contabilidad muestra el IVA estimado a pagar. Aplica a las
         recepciones que se guarden desde que lo cambies. Si tienes dudas, pregúntale a tu contador.</small>
     </label>
+    {# Versión 1.1.11: para el inventario inicial (ver conteos._costo_sugerido) #}
+    <label>Margen para estimar costos en la toma de inventario (%)
+      <input type="number" name="margen_costo_estimado" min="0" max="90" step="0.5" value="{{ valores['margen_costo_estimado'] }}">
+      <small class="suave">Si al contar un producto no se sabe su costo (no hay compras registradas ni costo en la
+        ficha), se calcula: <strong>precio de venta − este margen</strong>. Ej: con 30 %, un producto que vende a
+        $1.000 queda con costo $700. Cuando llegue una compra nueva, ese lote tendrá su costo real.</small>
+    </label>
   </fieldset>
 
   <fieldset>

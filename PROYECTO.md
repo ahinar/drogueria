@@ -503,6 +503,16 @@ Notas:
 | 1.1.8 | 2026-10-21 | RECEPCIÓN EN ESPERA (guardar a medias y seguir otro día); Acta de recepción con 20+ productos por hoja; foto del producto desde la recepción (Nuevo producto y Completar datos); fotos .jfif; en los campos de números el 0 desaparece al dar clic y el campo se pone azul; el conteo de efectivo no se borra hasta cerrar/abrir la caja (botón Limpiar); botón «Abrir cajón» en la pantalla Abrir caja |
 | 1.1.9 | 2026-10-22 | Recepción ABIERTA que se guarda sola (como el conteo) hasta «Confirmar recepción»; «Continuar recibiendo»; foto arriba en «Nuevo producto» y «Completar datos»; el 0 vuelve al dar Enter |
 | 1.1.10 | 2026-10-23 | Igual a 1.1.9 (su instalador no se armó en GitHub: faltaba pypdf para una prueba) |
+| 1.1.11 | 2026-10-24 | Toma de inventario: si el producto no tiene costo (inventario inicial), se estima con el precio de venta − margen de Configuración (30 %) |
+
+### Versión 1.1.11 — costo estimado en la toma de inventario (2026-10-24)
+- Pedido de Fernando: en el inventario inicial ningún producto tiene compras registradas y el conteo pedía el
+  costo de cada lote encontrado (sacar facturas y dividir). `conteos._costo_sugerido(producto, opciones)`:
+  1) último lote con costo, 2) `precio_compra` de la ficha, 3) **NUEVO** precio de venta de 1 unidad ×
+  (1 − margen). `_precio_de_una_unidad`: precio de la unidad suelta o, si no tiene, precio de la presentación ÷
+  factor (el más bajo). Margen en Configuración (`margen_costo_estimado`, 0–90, por defecto 30). La pantalla
+  ya ocultaba el campo de costo cuando `costo_sugerido > 0`, así que deja de pedirlo. Sin precio de venta →
+  sigue pidiendo el costo. Pruebas en `tests/test_conteos.py`.
 
 ### Versión 1.1.10 — la 1.1.9 no se armó en GitHub (2026-10-23)
 - La publicación V.1.1.9 falló en «Pruebas del programa en Windows»: `test_version_118` lee el Acta con

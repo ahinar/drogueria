@@ -61,6 +61,9 @@ DEFAULTS = {
     #   "no" = el IVA de las compras es parte del COSTO (la utilidad usa el costo con IVA)
     #   "si" = el IVA de las compras se descuenta (la utilidad usa el costo sin IVA)
     "declara_iva": "no",
+    # Versión 1.1.11: margen para ESTIMAR el costo en la toma de inventario cuando el
+    # producto no tiene ninguno (inventario inicial). costo ≈ precio de venta × (1 − margen)
+    "margen_costo_estimado": "30",
 }
 
 MODOS_TIRILLA = {
@@ -121,6 +124,12 @@ def ver():
         nuevos["tirilla_modo"] = "directa" if request.form.get("tirilla_modo") == "directa" else "navegador"
         nuevos["tirilla_tildes"] = "no" if request.form.get("tirilla_tildes") == "no" else "si"
         nuevos["declara_iva"] = "si" if request.form.get("declara_iva") == "si" else "no"
+        # Margen para estimar costos del inventario inicial (0 a 90 %; si escriben algo raro, 30)
+        try:
+            margen = float((request.form.get("margen_costo_estimado") or "30").replace(",", "."))
+        except ValueError:
+            margen = 30.0
+        nuevos["margen_costo_estimado"] = f"{min(90.0, max(0.0, margen)):g}"
 
         # Manejar subida de logo
         archivo_logo = request.files.get("logo")

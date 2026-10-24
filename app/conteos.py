@@ -332,7 +332,7 @@ def api_buscar(conteo_id):
             "unidad": p["unidad_nombre"] or "unidades",
             "paquete": _paquete(opciones_de.get(p["id"], []), p["venta_defecto_unidad_id"]),
             "maneja_vencimiento": bool(p["maneja_vencimiento"]),
-            "costo_sugerido": _costo_sugerido(p),
+            "costo_sugerido": _costo_sugerido(p, opciones_de.get(p["id"], [])),
             "lotes": filas,
         })
 
@@ -347,13 +347,52 @@ def api_buscar(conteo_id):
     })
 
 
-def _costo_sugerido(producto):
-    """Costo para proponer en un lote nuevo: última compra o, si no hay, el de la ficha."""
+def _costo_sugerido(producto, opciones=None):
+    """Costo de 1 unidad para un lote encontrado en el conteo. En este orden:
+
+      1. el de la última compra (el lote más reciente con costo);
+      2. el de la ficha del producto (precio_compra);
+      3. Versión 1.1.11 (pedido de Fernando, inventario inicial): si no hay ninguno,
+         se ESTIMA con el precio de venta: costo = precio × (1 − margen).
+         El margen se escoge en Configuración (por defecto 30 %).
+         Ej: vende la tableta a $1.000 con margen 30 %  →  costo $700.
+         Es la misma cuenta de "Calcular sugerido" de la ficha, pero al revés.
+
+    Devuelve 0 si tampoco tiene precio de venta (ahí sí hay que escribir el costo).
+    opciones: las presentaciones del producto, si ya se tienen (para no buscarlas otra vez).
+    """
     fila = get_db().execute(
         "SELECT costo_unitario FROM lotes WHERE producto_id = ? AND costo_unitario > 0 "
         "ORDER BY id DESC LIMIT 1", (producto["id"],)
     ).fetchone()
-    return fila["costo_unitario"] if fila else (producto["precio_compra"] or 0)
+    if fila:
+        return fila["costo_unitario"]
+    if producto["precio_compra"]:
+        return producto["precio_compra"]
+    precio = _precio_de_una_unidad(producto["id"], opciones)
+    if precio <= 0:
+        return 0
+    from .configuracion import obtener_config
+    try:
+        margen = float(str(obtener_config().get("margen_costo_estimado") or "30").replace(",", "."))
+    except ValueError:
+        margen = 30.0
+    margen = min(90.0, max(0.0, margen))
+    return round(precio * (1 - margen / 100), 2)
+
+
+def _precio_de_una_unidad(producto_id, opciones=None):
+    """Precio de venta de UNA unidad de inventario (una tableta, un frasco...).
+
+    Si la unidad suelta no tiene precio (ej. solo se vende el Sello x 10 a $5.000),
+    se divide el de la presentación: $5.000 ÷ 10 = $500.
+    """
+    from . import presentaciones as pres
+    if opciones is None:
+        opciones = pres.presentaciones_de([producto_id]).get(producto_id, [])
+    precios = [o["precio"] / o["factor"] for o in opciones if o["precio"] > 0 and o["factor"] > 0]
+    principal = next((o["precio"] for o in opciones if o["factor"] == 1 and o["precio"] > 0), 0)
+    return principal or (min(precios) if precios else 0)
 
 
 # =====================================================================
