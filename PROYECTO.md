@@ -502,6 +502,13 @@ Notas:
 | 1.1.7 | 2026-10-20 | Recepción en una sola línea por producto; BANCOS (Nequi y Davivienda: saldo automático, traslados, plata del dueño, cuadre); CUENTAS POR PAGAR a proveedores (crédito/contado, pago desde caja menor, POS, Nequi o Davivienda; facturas viejas «por revisar»); acciones de GitHub en Node 24 |
 | 1.1.8 | 2026-10-21 | RECEPCIÓN EN ESPERA (guardar a medias y seguir otro día); Acta de recepción con 20+ productos por hoja; foto del producto desde la recepción (Nuevo producto y Completar datos); fotos .jfif; en los campos de números el 0 desaparece al dar clic y el campo se pone azul; el conteo de efectivo no se borra hasta cerrar/abrir la caja (botón Limpiar); botón «Abrir cajón» en la pantalla Abrir caja |
 | 1.1.9 | 2026-10-22 | Recepción ABIERTA que se guarda sola (como el conteo) hasta «Confirmar recepción»; «Continuar recibiendo»; foto arriba en «Nuevo producto» y «Completar datos»; el 0 vuelve al dar Enter |
+| 1.1.10 | 2026-10-23 | Igual a 1.1.9 (su instalador no se armó en GitHub: faltaba pypdf para una prueba) |
+
+### Versión 1.1.10 — la 1.1.9 no se armó en GitHub (2026-10-23)
+- La publicación V.1.1.9 falló en «Pruebas del programa en Windows»: `test_version_118` lee el Acta con
+  `pypdf`, que estaba instalada aquí pero no en GitHub (no está en requirements.txt porque el programa no la
+  usa). Se agregó `pypdf` a la línea `pip install` del workflow (solo pruebas). El programa es igual a 1.1.9.
+  Para revisar este tipo de falla: simular que falta la librería con `sys.modules['pypdf'] = None`.
 
 ### Versión 1.1.9 — recepción abierta hasta confirmar, foto arriba (2026-10-22)
 - Pedido de Fernando: que la recepción funcione como el conteo de inventario. Pruebas: `tests/test_version_119.py`.

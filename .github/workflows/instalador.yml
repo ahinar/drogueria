@@ -36,7 +36,9 @@ jobs:
       - name: Instalar librerías
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt pyinstaller pytest
+          # pypdf: solo para las PRUEBAS (lee el Acta en PDF para contar los productos por hoja,
+          # versión 1.1.8). El programa no la usa, así que no va en requirements.txt ni en el instalador.
+          python -m pip install -r requirements.txt pyinstaller pytest pypdf
 
       - name: Versión del programa (app/version.py)
         id: version
