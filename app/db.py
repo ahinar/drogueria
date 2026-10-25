@@ -1519,6 +1519,25 @@ MIGRATIONS = [
         CREATE INDEX idx_recepciones_borrador_token ON recepciones (borrador_token);
         """,
     ),
+    # Versión 1.1.12: botón «Entendido» en la alerta de PRODUCTOS AGOTADOS del Inicio.
+    # Cada fila = "ya vi que este producto se agotó, no me lo vuelvas a mostrar".
+    # Cuando el producto vuelve a tener existencias, su fila se borra sola (alertas.py):
+    # si se agota otra vez, vuelve a salir. El reporte de Sugerido de compra no cambia.
+    (
+        41,
+        """
+        CREATE TABLE alertas_vistas (
+            clave TEXT NOT NULL,                  -- qué alerta (por ahora solo 'agotados')
+            producto_id INTEGER NOT NULL,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            PRIMARY KEY (clave, producto_id)
+        );
+        -- Pedido sugerido (versión 1.1.12): el proveedor que Fernando escogió a mano para
+        -- un producto. Vacío = automático (el que le vendió más barato la última vez).
+        ALTER TABLE productos ADD COLUMN proveedor_preferido_id INTEGER;
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

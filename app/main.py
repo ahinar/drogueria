@@ -1,7 +1,7 @@
 """Home / Dashboard principal."""
 from datetime import datetime, date
 from datetime import timedelta
-from flask import Blueprint, g, render_template
+from flask import Blueprint, flash, g, redirect, render_template, request, url_for
 
 from .alertas import calcular_alertas
 from .auth import login_required
@@ -178,3 +178,27 @@ def inicio():
         "ultimas_temperaturas": ultimas_temperaturas,
     }
     return render_template("inicio.html", **contexto)
+
+@bp.route("/alertas/entendido", methods=["POST"])
+@login_required
+def alerta_entendido():
+    """Botón «Entendido» de las alertas del Inicio (versión 1.1.12).
+
+    Por ahora solo en «Productos agotados»: el producto deja de salir en esa alerta
+    hasta que vuelva a tener existencias (ver alertas.py, tabla alertas_vistas).
+    No cambia nada del producto ni del reporte de Sugerido de compra.
+    """
+    from .audit import registrar
+    from .db import ahora
+    clave = request.form.get("clave", "")
+    producto = request.form.get("producto_id", "")
+    if clave == "agotados" and producto.isdigit():
+        db = get_db()
+        fila = db.execute("SELECT nombre FROM productos WHERE id = ?", (int(producto),)).fetchone()
+        if fila:
+            db.execute("INSERT OR REPLACE INTO alertas_vistas (clave, producto_id, usuario_nombre, creado_en) "
+                       "VALUES (?, ?, ?, ?)", (clave, int(producto), g.user["nombre"], ahora()))
+            db.commit()
+            registrar("alerta_entendido", "productos", int(producto), f"agotado: {fila['nombre']}")
+            flash(f"Listo: «{fila['nombre']}» ya no sale en Agotados hasta que vuelva a llegar.", "ok")
+    return redirect(url_for("main.inicio"))

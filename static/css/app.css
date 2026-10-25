@@ -3270,3 +3270,19 @@ input.campo-num-activo:focus {
 
 /* Versión 1.1.9: aviso del guardado automático de la recepción, junto a los botones */
 .borrador-estado { align-self: center; font-size: .82rem; }
+
+/* Versión 1.1.12: botón «Entendido» dentro de una alerta del Inicio */
+.alerta-items li { position: relative; }
+.alerta-entendido { display: inline-block; margin-left: .4rem; }
+.alerta-entendido .boton-mini { font-size: .72rem; padding: .05rem .45rem; }
+
+/* Versión 1.1.12: proveedor de cada producto en el pedido sugerido */
+.sug-prov { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .5rem; margin-top: .25rem; }
+.sug-prov-tag { font-size: .72rem; font-weight: 700; padding: .05rem .45rem; border-radius: 999px;
+  background: #dcfce7; color: #166534; }
+.sug-prov-tag.manual { background: #e0e7ff; color: #3730a3; }
+.sug-prov small { font-size: .72rem; }
+/* Selector pequeño (el estilo general de los <select> lo hacía grande): se fuerza con !important */
+.sug-tabla select.sug-prov-select { width: auto !important; max-width: 22rem !important; font-size: .76rem !important;
+  padding: .1rem 1.4rem .1rem .4rem !important; height: auto !important; min-height: 0 !important;
+  background-color: #f8fafc !important; border-radius: 6px !important; }

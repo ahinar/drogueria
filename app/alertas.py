@@ -326,6 +326,14 @@ def calcular_alertas(rol):
     #    Solo productos con "stock mínimo" definido: así un producto que no
     #    se maneja (mínimo 0) no llena el panel de avisos.
     # ------------------------------------------------------------------
+    # Versión 1.1.12: «Entendido» en los agotados (tabla alertas_vistas). Si un producto
+    # que se había marcado como visto ya volvió a tener existencias, la marca se borra:
+    # así, si se vuelve a agotar, la alerta sale otra vez.
+    db.execute(f"DELETE FROM alertas_vistas WHERE clave = 'agotados' AND producto_id IN "
+               f"(SELECT p.id FROM productos p WHERE {SQL_STOCK} > 0)", {"hoy": hoy_txt})
+    db.commit()
+    vistos = {f["producto_id"] for f in db.execute(
+        "SELECT producto_id FROM alertas_vistas WHERE clave = 'agotados'")}
     filas = db.execute(
         f"SELECT p.id, p.nombre, p.stock_minimo, {SQL_STOCK} AS stock FROM productos p "
         "WHERE p.activo = 1 AND p.stock_minimo > 0 "
@@ -337,8 +345,10 @@ def calcular_alertas(rol):
         "url": url_for("inventario.kardex", producto_id=f["id"]),
     }
     agregar("agotados", "rojo", "📭", "Productos agotados",
-            "Tienen stock mínimo definido y no queda nada para vender. Pídelos al proveedor.",
-            [f for f in filas if f["stock"] <= 0], item_stock)
+            "Tienen stock mínimo definido y no queda nada para vender. Pídelos al proveedor. "
+            "«Entendido» lo quita de aquí hasta que vuelva a llegar y se agote otra vez.",
+            [f for f in filas if f["stock"] <= 0 and f["id"] not in vistos],
+            lambda f: dict(item_stock(f), entendido=f["id"]))      # entendido = botón (inicio.html)
     agregar("stock_minimo", "amarillo", "📉", "Productos en o por debajo del stock mínimo",
             "Inclúyelos en el próximo pedido.",
             [f for f in filas if f["stock"] > 0], item_stock)

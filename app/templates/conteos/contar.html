@@ -157,5 +157,8 @@
 {% endblock %}
 
 {% block scripts_extra %}
+{# Versión 1.1.12: botón ✏️ de cada producto = la misma ventana "Editar producto" del POS #}
+{% include "pos/_modal_editar_producto.html" %}
+<script src="{{ url_for('static', filename='js/editar_producto.js') }}"></script>
 <script src="{{ url_for('static', filename='js/conteo.js') }}"></script>
 {% endblock %}

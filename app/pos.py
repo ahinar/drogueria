@@ -175,7 +175,11 @@ def index():
         "ORDER BY nombre COLLATE ES")]
 
     config = obtener_config()
-    return render_template("pos/index.html", caja=caja, resumen=resumen,
+    # Unidades de medida para la ventana "Editar producto" (presentaciones, versión 1.1.12)
+    from .nombres import orden_unidades
+    unidades = orden_unidades(db.execute(
+        "SELECT id, nombre, cantidad FROM unidades_medida WHERE activo = 1").fetchall())
+    return render_template("pos/index.html", caja=caja, resumen=resumen, unidades=unidades,
                            cajon_modo=config.get("cajon_modo") or "no",
                            tirilla_modo=config.get("tirilla_modo") or "navegador",
                            categorias=categorias,
@@ -836,6 +840,8 @@ def api_producto_info(producto_id):
         "cadena_frio": bool(p["cadena_frio"]),
         "control_especial": bool(p["control_especial"]),
         "maneja_vencimiento": bool(p["maneja_vencimiento"]),
+        # Para la sección "Cómo se vende" de la ventana Editar (versión 1.1.12)
+        "vende_suelto": bool(p["vende_suelto"]), "unidad_venta_id": p["unidad_venta_id"],
         "stock_minimo": p["stock_minimo"] or 0,
         "categorias": categorias,
         "usos": _usos_de([producto_id]).get(producto_id, []),
@@ -899,15 +905,20 @@ def api_producto_editar(producto_id):
 
     nombre = (f.get("nombre") or "").strip()
     codigo_barras = (f.get("codigo_barras") or "").strip() or None
-    precio_venta = numero("precio_venta")
-    precio_maximo = numero("precio_maximo")
+    # Versión 1.1.12: la ventana trae la sección "CÓMO SE VENDE" (precio de la unidad,
+    # si se vende suelta, las otras presentaciones y cuál vende el POS por defecto).
+    # Se guarda con las MISMAS reglas que la ficha completa (presentaciones.validar y
+    # presentaciones.guardar). Sin ese campo, funciona como antes (formato viejo).
+    formato_nuevo = f.get("formato") == "presentaciones"
+    precio_venta = numero("precio_unidad" if formato_nuevo else "precio_venta")
+    precio_maximo = numero("maximo_unidad" if formato_nuevo else "precio_maximo")
     # ¿Cómo se vende normalmente? (0 = por la unidad; otro = Sobre x 10, etc.)
     opciones = pres.presentaciones_de([producto_id]).get(producto_id, [])
     defecto_id = pres.id_por_defecto(opciones, p["venta_defecto_unidad_id"])
     defecto = next((o for o in opciones if o["id"] == defecto_id), None)
     # Precios de las demás presentaciones que vinieron en el formulario
     otros_precios = {}
-    for o in opciones:
+    for o in ([] if formato_nuevo else opciones):
         if o["id"] == defecto_id or f"precio_pres_{o['id']}" not in f:
             continue
         valor = numero(f"precio_pres_{o['id']}")
@@ -924,11 +935,35 @@ def api_producto_editar(producto_id):
     maneja_vencimiento = 1 if f.get("maneja_vencimiento") else 0
     categorias = sorted({int(x) for x in f.getlist("categorias") if x.isdigit()})
 
+    # ---- Formato nuevo: presentaciones, suelto y por defecto (versión 1.1.12) ----
+    if formato_nuevo:
+        vende_suelto = 1 if f.get("vende_suelto") else 0
+        filas_pres = pres.leer_del_formulario(f)          # pres_unidad_id[], pres_factor[], pres_precio[]...
+        errores_pres = pres.validar(filas_pres, p["unidad_venta_id"], producto_id, codigo_barras)
+        if errores_pres:
+            return _json_error(" ".join(errores_pres))
+        defecto_txt = (f.get("venta_defecto") or "").strip()
+        defecto_fila = next((x for x in filas_pres if defecto_txt.isdigit() and x["unidad_id"] == int(defecto_txt)),
+                            None)
+        if not vende_suelto:
+            # Si la unidad NO se vende suelta, el POS vende una presentación (ej. el sello):
+            # la que se marcó, o la más pequeña. El precio de 1 unidad sale de ella.
+            if defecto_fila is None and filas_pres:
+                defecto_fila = min(filas_pres, key=lambda x: x["factor"])
+            if defecto_fila is None:
+                return _json_error("Si la unidad no se vende suelta, agrega la presentación en que se vende "
+                                   "(ej. Sello x 10).")
+            precio_venta = round(defecto_fila["precio"] / defecto_fila["factor"], 2)
+            precio_maximo = (round(defecto_fila["maximo"] / defecto_fila["factor"], 2)
+                             if defecto_fila["maximo"] else None)
+        venta_defecto_uid = defecto_fila["unidad_id"] if defecto_fila else None
+
     # ---- Validaciones (si algo falla, no se guarda NADA) ----
     if not nombre:
         return _json_error("El nombre es obligatorio.")
     if precio_venta in (None, "error") or precio_venta <= 0:
-        return _json_error("El precio de venta debe ser un número mayor a cero.")
+        return _json_error("El precio de la unidad debe ser un número mayor a cero." if formato_nuevo
+                           else "El precio de venta debe ser un número mayor a cero.")
     if precio_maximo == "error" or (precio_maximo is not None and precio_maximo < 0):
         return _json_error("El precio máximo no es válido.")
     if precio_maximo and precio_venta > precio_maximo + 0.01:
@@ -966,7 +1001,10 @@ def api_producto_editar(producto_id):
     # ---- Traducir los precios a como se guardan ----
     # Lo escrito arriba es el precio de lo que se vende normalmente.
     pres_cambios = []                       # (id de presentación, precio, máximo) a guardar
-    if defecto and defecto_id != pres.PRINCIPAL and defecto["factor"] > 1:
+    if formato_nuevo:
+        # Ya está todo: precio de 1 unidad arriba y las presentaciones se guardan completas abajo
+        precio_unidad, precio_maximo_unidad = precio_venta, precio_maximo
+    elif defecto and defecto_id != pres.PRINCIPAL and defecto["factor"] > 1:
         factor = defecto["factor"]
         pres_cambios.append((defecto_id, precio_venta, precio_maximo))
         precio_maximo_unidad = round(precio_maximo / factor, 2) if precio_maximo else None
@@ -1025,6 +1063,17 @@ def api_producto_editar(producto_id):
         else:
             db.execute("UPDATE producto_presentaciones SET precio_venta = ? WHERE id = ? AND producto_id = ?",
                        (valor, pid_pres, producto_id))
+    if formato_nuevo:
+        # Presentaciones completas (las borra y las vuelve a crear, como la ficha) y cómo se vende
+        texto_pres = pres.guardar(db, producto_id, filas_pres, ahora())
+        db.execute("UPDATE productos SET vende_suelto = ?, venta_defecto_unidad_id = ? WHERE id = ?",
+                   (vende_suelto, venta_defecto_uid, producto_id))
+        if bool(p["vende_suelto"]) != bool(vende_suelto):
+            cambios.append(f"vende suelto: {'sí' if vende_suelto else 'no'}")
+        if (p["venta_defecto_unidad_id"] or None) != (venta_defecto_uid or None):
+            cambios.append(f"se vende por defecto: unidad {venta_defecto_uid or 'principal'}")
+        if texto_pres:
+            cambios.append(texto_pres.strip())
     db.execute("DELETE FROM productos_categorias WHERE producto_id = ?", (producto_id,))
     for cid in categorias:
         db.execute("INSERT OR IGNORE INTO productos_categorias (producto_id, catalogo_id) "

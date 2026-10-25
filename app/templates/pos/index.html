@@ -235,5 +235,7 @@
 
 {% block scripts_extra %}
 <script src="{{ url_for('static', filename='js/pos.js') }}"></script>
+{# Versión 1.1.12: la ventana "Editar producto" tiene su propio archivo (también la usa el conteo) #}
+<script src="{{ url_for('static', filename='js/editar_producto.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pos_carrito.js') }}"></script>
 {% endblock %}

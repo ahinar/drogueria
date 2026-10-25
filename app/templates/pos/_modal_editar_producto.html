@@ -3,11 +3,17 @@
      ---------------------------------------------------------------------
      Solo existe para administrador y director técnico. Es una edición
      rápida: el resto de la ficha (INVIMA, laboratorio, usos...) se edita
-     en el módulo Productos. pos_carrito.js (sección 8c) la llena y la
+     en el módulo Productos. static/js/editar_producto.js la llena y la
      envía a /pos/api/producto/<id>/editar.
+     Versión 1.1.12: se usa también en la TOMA DE INVENTARIO (botón ✏️) y trae
+     la sección "Cómo se vende" (unidad, presentaciones y cuál vende el POS).
+     Necesita en la página las listas "categorias" y "unidades".
      ===================================================================== -->
 {% if g.user.rol in ('administrador', 'director_tecnico') %}
-<div id="modal-editar-producto" class="modal-oculto">
+<div id="modal-editar-producto" class="modal-oculto"
+     data-url-info="{{ url_for('pos.api_producto_info', producto_id=0) }}"
+     data-url-editar="{{ url_for('pos.api_producto_editar', producto_id=0) }}"
+     data-estaticos="{{ url_for('static', filename='') }}">
   <div class="modal-caja modal-editar-producto" role="dialog" aria-labelledby="editar-titulo">
 
     <div class="info-barra">
@@ -33,23 +39,52 @@
           <span><input type="checkbox" name="maneja_vencimiento" id="editar-maneja-lotes" value="1"> Por lote y vencimiento</span>
         </label>
 
-        <!-- PRECIO de lo que se vende normalmente. Si el producto se vende por
-             "Sobre x 10", aquí va el precio del SOBRE (y el JS pone ese nombre en
-             la etiqueta: "Precio de venta · Sobre x 10"). Si se vende por unidad,
-             el de la unidad. -->
-        <label class="editar-fila">
-          <span>Precio de venta *<small id="editar-precio-unidad" class="editar-unidad"></small></span>
-          <input type="text" name="precio_venta" id="editar-precio" inputmode="decimal" required>
-        </label>
-
-        <label class="editar-fila">
-          <span>Precio máximo<small id="editar-maximo-unidad" class="editar-unidad"></small></span>
-          <input type="text" name="precio_maximo" id="editar-precio-maximo" inputmode="decimal" placeholder="Sin tope">
-        </label>
-
-        <!-- Los demás precios: la unidad suelta (si se vende suelto) y las otras
-             presentaciones (caja...). pos_carrito.js arma estas filas según el producto. -->
-        <div id="editar-otros-precios"></div>
+        <!-- ===== CÓMO SE VENDE (versión 1.1.12) =====
+             Primera fila: la UNIDAD con la que se cuenta el inventario (tableta, frasco...),
+             su precio y si se vende suelta. Debajo, las OTRAS PRESENTACIONES (Sello x 10,
+             Caja x 100...): cuántas unidades trae cada una, su precio, su precio máximo y
+             su código de barras. "Por defecto" = lo que vende el POS al tocar la tarjeta.
+             editar_producto.js arma las filas; se guarda igual que la ficha completa. -->
+        <input type="hidden" name="formato" value="presentaciones">
+        <div class="editar-venta">
+          <div class="editar-venta-titulo">Cómo se vende <small class="suave" id="editar-se-cuenta"></small></div>
+          <div class="editar-venta-caja">
+          <table class="editar-pres-tabla">
+            <thead><tr><th title="Lo que vende el POS al tocar la tarjeta">Por defecto</th><th>Presentación</th>
+              <th>Trae</th><th>Precio *</th><th>Precio máx.</th><th>Código de barras</th><th></th></tr></thead>
+            <tbody id="editar-pres-filas">
+              <tr class="editar-pres-base">
+                <td><input type="radio" name="venta_defecto" value="" id="editar-defecto-base" aria-label="Por defecto"></td>
+                <td><strong id="editar-base-nombre">Unidad</strong>
+                  <label class="editar-suelto"><input type="checkbox" name="vende_suelto" id="editar-suelto" value="1"> se vende suelta</label></td>
+                <td>1</td>
+                <td><input type="text" name="precio_unidad" id="editar-precio" inputmode="decimal" aria-label="Precio de la unidad"></td>
+                <td><input type="text" name="maximo_unidad" id="editar-precio-maximo" inputmode="decimal" placeholder="—" aria-label="Precio máximo de la unidad"></td>
+                <td class="suave"><small>el de arriba</small></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+          </div>
+          <button type="button" class="boton secundario boton-mini" id="editar-pres-agregar">+ Agregar presentación</button>
+          <small class="suave editar-venta-nota">Si la unidad no se vende suelta, su precio sale de la presentación
+            por defecto (ej. Sello x 10 a $4.000 → $400 cada una).</small>
+          <!-- Molde de una fila de presentación (se copia al darle "+ Agregar") -->
+          <template id="editar-pres-molde">
+            <tr class="editar-pres-fila">
+              <td><input type="radio" name="venta_defecto" value="" aria-label="Por defecto"></td>
+              <td><select name="pres_unidad_id" aria-label="Presentación">
+                <option value="">— Escoger —</option>
+                {% for u in unidades or [] %}<option value="{{ u['id'] }}">{{ u['nombre'] }}</option>{% endfor %}
+              </select></td>
+              <td><input type="number" name="pres_factor" min="2" step="any" aria-label="Cuántas trae" placeholder="10"></td>
+              <td><input type="number" name="pres_precio" min="0" step="any" aria-label="Precio"></td>
+              <td><input type="number" name="pres_maximo" min="0" step="any" placeholder="—" aria-label="Precio máximo"></td>
+              <td><input type="text" name="pres_barras" aria-label="Código de barras"></td>
+              <td><button type="button" class="editar-pres-quitar" title="Quitar esta presentación">✕</button></td>
+            </tr>
+          </template>
+        </div>
 
         <div class="editar-fila">
           <span>IVA</span>

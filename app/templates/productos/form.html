@@ -82,10 +82,15 @@
             <span>Cambiar imagen</span>
           </label>
         </div>
+        {# Versión 1.1.12: el botón «Eliminar» de verdad quita la foto. Antes no hacía nada porque
+           faltaba este campo oculto: al darle Eliminar se llena con "eliminar" y, al GUARDAR,
+           el programa borra la foto (productos.editar, "_imagen_accion"). #}
+        <input type="hidden" name="_imagen_accion" id="imagen-accion" value="">
         {% if producto and producto['imagen'] %}
         <button type="button" id="btn-eliminar-imagen" class="boton-chico peligro" style="margin-top:.4rem;width:100%">
           <span class="ico-emoji">🗑️</span> Eliminar
         </button>
+        <small class="suave" id="imagen-se-quita" hidden>La foto se quita al darle <strong>Guardar</strong>.</small>
         {% endif %}
       </div>
       </div>
@@ -939,23 +944,46 @@
       if (e.key === 'ArrowRight') { e.preventDefault(); irA(document.getElementById('prod-siguiente')); }
     });
 
-    // ===== Preview de imagen del producto =====
+    // ===== Foto del producto: vista previa y «Eliminar» =====
     const inputImagen = document.getElementById('imagen-input');
-    const preview = document.getElementById('imagen-preview');
+    const accionImagen = document.getElementById('imagen-accion');
+    const btnEliminarImagen = document.getElementById('btn-eliminar-imagen');
+    const avisoSeQuita = document.getElementById('imagen-se-quita');
+    // Cambia lo que se ve en el cuadro de la foto (se busca cada vez: el elemento se reemplaza)
+    function ponerEnCuadro(nuevo) {
+      const actual = document.getElementById('imagen-preview');
+      nuevo.id = 'imagen-preview';
+      actual.parentElement.replaceChild(nuevo, actual);
+    }
     if (inputImagen) {
       inputImagen.addEventListener('change', function () {
         const file = this.files[0];
         if (!file) return;
+        // Escogió una foto nueva: ya no se trata de "eliminar", sino de cambiarla
+        if (accionImagen) accionImagen.value = '';
+        if (avisoSeQuita) avisoSeQuita.hidden = true;
+        if (btnEliminarImagen) btnEliminarImagen.hidden = false;
         const reader = new FileReader();
         reader.onload = function (e) {
-          // Reemplazar por un <img>
           const nueva = document.createElement('img');
           nueva.src = e.target.result;
-          nueva.id = 'imagen-preview';
           nueva.alt = 'Vista previa';
-          preview.parentElement.replaceChild(nueva, preview);
+          ponerEnCuadro(nueva);
         };
         reader.readAsDataURL(file);
+      });
+    }
+    // Versión 1.1.12: «Eliminar» deja el cuadro vacío y marca que se borre al Guardar
+    if (btnEliminarImagen) {
+      btnEliminarImagen.addEventListener('click', function () {
+        accionImagen.value = 'eliminar';
+        if (inputImagen) inputImagen.value = '';          // por si había escogido otra
+        const vacio = document.createElement('div');
+        vacio.className = 'imagen-placeholder';
+        vacio.textContent = '📷';
+        ponerEnCuadro(vacio);
+        btnEliminarImagen.hidden = true;
+        if (avisoSeQuita) avisoSeQuita.hidden = false;
       });
     }
 

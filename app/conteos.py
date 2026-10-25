@@ -221,8 +221,11 @@ def contar(conteo_id):
         "SELECT id, nombre, cantidad FROM unidades_medida WHERE activo = 1").fetchall())
     laboratorios = db.execute("SELECT id, nombre FROM catalogos WHERE tipo = 'laboratorio' AND activo = 1 "
                               "ORDER BY nombre").fetchall()
+    # Para la ventana "Editar producto" (botón ✏️, versión 1.1.12): sus categorías
+    categorias = db.execute("SELECT id, nombre FROM catalogos WHERE tipo = 'categoria' AND activo = 1 "
+                            "ORDER BY nombre COLLATE ES").fetchall()
     return render_template("conteos/contar.html", conteo=conteo, resumen=_resumen(conteo),
-                           unidades=unidades, laboratorios=laboratorios)
+                           unidades=unidades, laboratorios=laboratorios, categorias=categorias)
 
 
 @bp.route("/<int:conteo_id>/api/buscar")

@@ -19,8 +19,14 @@ LA IDEA (para aprender):
     Si un producto NO tiene ventas todavía (por ejemplo, las primeras semanas
     después del inventario inicial), se guía solo por el stock mínimo.
 
-    El proveedor sugerido es el de la ÚLTIMA compra aprobada de ese producto,
-    y el costo estimado es el de esa compra.
+    PROVEEDOR (versión 1.1.12, pedido de Fernando): el MÁS BARATO. Para cada
+    proveedor que alguna vez le vendió el producto se mira el ÚLTIMO precio que le
+    cobró, por unidad de inventario (tableta, frasco...: así se pueden comparar
+    aunque uno venda por caja y otro por sello) y CON IVA (lo que de verdad se paga).
+    Se sugiere el más barato y se muestran los otros con la fecha de ese precio.
+    Si Fernando escoge otro a mano, queda guardado en productos.proveedor_preferido_id
+    y se respeta hasta que vuelva a poner "Automático".
+    (Antes era siempre el de la última compra.)
 
 LISTAS QUE ARMA:
     - pedido:        lo que hay que pedir, agrupado por proveedor
@@ -48,6 +54,35 @@ def _presentacion_mayor(db):
             "SELECT pp.producto_id, u.nombre, pp.factor FROM producto_presentaciones pp "
             "JOIN unidades_medida u ON u.id = pp.unidad_id ORDER BY pp.factor"):
         salida[f["producto_id"]] = (f["nombre"], f["factor"])   # queda la de factor más alto
+    return salida
+
+
+def precios_por_proveedor(db):
+    """{producto_id: [{proveedor_id, proveedor, costo, fecha}, ...]} del más barato al más caro.
+
+    costo = el ÚLTIMO precio que cobró cada proveedor por UNA unidad de inventario,
+    con IVA (recepcion_lineas.costo_con_iva; las líneas viejas usan costo_unitario).
+    Cuentan las recepciones aprobadas o en cuarentena (no las rechazadas) y las
+    líneas que no se rechazaron.
+    """
+    ultimos = {}
+    for f in db.execute(
+            "SELECT rl.producto_id, r.proveedor_id, p.razon_social, r.fecha, "
+            "       COALESCE(rl.costo_con_iva, rl.costo_unitario) AS costo "
+            "FROM recepcion_lineas rl JOIN recepciones r ON r.id = rl.recepcion_id "
+            "JOIN proveedores p ON p.id = r.proveedor_id "
+            "WHERE r.estado IN ('aprobada', 'cuarentena') AND rl.resultado <> 'rechazado' "
+            "  AND COALESCE(rl.costo_con_iva, rl.costo_unitario) > 0 "
+            "ORDER BY r.fecha DESC, r.id DESC, rl.id DESC"):
+        clave = (f["producto_id"], f["proveedor_id"])
+        if clave not in ultimos:                      # la primera que aparece es la más reciente
+            ultimos[clave] = {"proveedor_id": f["proveedor_id"], "proveedor": f["razon_social"],
+                              "costo": float(f["costo"]), "fecha": f["fecha"][:10]}
+    salida = {}
+    for (producto_id, _), opcion in ultimos.items():
+        salida.setdefault(producto_id, []).append(opcion)
+    for opciones in salida.values():
+        opciones.sort(key=lambda o: (o["costo"], o["fecha"]))   # el más barato primero
     return salida
 
 
@@ -85,7 +120,7 @@ def calcular(cobertura=15, dias_sin_rotacion=60, hoy=None):
                (SELECT rl.costo_unitario FROM recepcion_lineas rl JOIN recepciones r ON r.id = rl.recepcion_id
                   WHERE rl.producto_id = p.id AND r.estado = 'aprobada'
                   ORDER BY r.fecha DESC, r.id DESC LIMIT 1) AS ultimo_costo,
-               p.precio_compra
+               p.precio_compra, p.proveedor_preferido_id
         FROM productos p
         LEFT JOIN unidades_medida u ON u.id = p.unidad_venta_id
         WHERE p.activo = 1
@@ -96,6 +131,7 @@ def calcular(cobertura=15, dias_sin_rotacion=60, hoy=None):
     proveedores = {f["id"]: dict(f) for f in db.execute(
         "SELECT id, razon_social, telefono, contacto FROM proveedores")}
     mayores = _presentacion_mayor(db)
+    precios = precios_por_proveedor(db)
 
     pedido, se_agota, bajo_minimo, sin_rotacion = {}, [], [], []
     for f in filas:
@@ -103,7 +139,17 @@ def calcular(cobertura=15, dias_sin_rotacion=60, hoy=None):
         minimo = float(f["stock_minimo"] or 0)
         diaria = float(f["vendido"]) / DIAS_HISTORIAL
         dias_alcanza = (stock / diaria) if diaria > 0 else None
-        costo = float(f["ultimo_costo"] or f["precio_compra"] or 0)
+        # ---- A quién pedirle (versión 1.1.12): el escogido a mano, o el más barato ----
+        opciones = precios.get(f["id"], [])
+        preferido = f["proveedor_preferido_id"]
+        if preferido and preferido in proveedores:
+            proveedor_id, eleccion = preferido, "manual"
+        elif opciones:
+            proveedor_id, eleccion = opciones[0]["proveedor_id"], "barato"
+        else:
+            proveedor_id, eleccion = f["proveedor_id"], "ultimo"    # nunca se ha comprado con precio
+        escogida = next((o for o in opciones if o["proveedor_id"] == proveedor_id), None)
+        costo = escogida["costo"] if escogida else float(f["ultimo_costo"] or f["precio_compra"] or 0)
 
         # ---- Cuánto pedir ----
         objetivo = max(diaria * cobertura, minimo)
@@ -119,6 +165,8 @@ def calcular(cobertura=15, dias_sin_rotacion=60, hoy=None):
             "ultima_venta": f["ultima_venta"],
             "motivo": ("ventas" if diaria > 0 else "mínimo"),   # por qué se sugiere
             "en_presentacion": None,
+            # Proveedores con su último precio (el más barato primero) y cuál se escogió
+            "opciones": opciones, "proveedor_id": proveedor_id or 0, "eleccion": eleccion,
         }
         if f["id"] in mayores and sugerido:
             nombre_pres, factor = mayores[f["id"]]
@@ -130,7 +178,7 @@ def calcular(cobertura=15, dias_sin_rotacion=60, hoy=None):
                 item["en_presentacion"] = f"≈ {texto} {nombre_pres}"
 
         if sugerido > 0:
-            prov = proveedores.get(f["proveedor_id"])
+            prov = proveedores.get(proveedor_id)
             clave = prov["id"] if prov else 0
             grupo = pedido.setdefault(clave, {
                 "proveedor": prov["razon_social"] if prov else "Sin proveedor (nunca se ha comprado)",

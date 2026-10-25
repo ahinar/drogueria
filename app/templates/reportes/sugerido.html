@@ -75,7 +75,21 @@
           <tr data-nombre="{{ i.nombre }}" data-unidad="{{ i.unidad }}" data-costo="{{ i.costo }}">
             <td>{{ i.nombre }}
               <small>{{ 'según ventas' if i.motivo == 'ventas' else 'según stock mínimo (' ~ cant(i.minimo) ~ ')' }}{% if i.en_presentacion %} · {{ i.en_presentacion }}{% endif %}</small>
-              <small class="sug-movil">hay {{ cant(i.stock) }}{% if i.dias_alcanza is not none %} · alcanza {{ cant(i.dias_alcanza) }} d{% endif %}</small></td>
+              <small class="sug-movil">hay {{ cant(i.stock) }}{% if i.dias_alcanza is not none %} · alcanza {{ cant(i.dias_alcanza) }} d{% endif %}</small>
+              {# Versión 1.1.12: a qué proveedor pedirle. Por defecto el MÁS BARATO (último precio de
+                 cada uno, por unidad y con IVA). Se puede cambiar: queda guardado para la próxima vez. #}
+              <div class="sug-prov no-imprimir">
+                {% if i.eleccion == 'barato' and i.opciones|length > 1 %}<span class="sug-prov-tag">💲 el más barato</span>
+                {% elif i.eleccion == 'manual' %}<span class="sug-prov-tag manual">✋ escogido por usted</span>{% endif %}
+                {% set otros = i.opciones|rejectattr('proveedor_id', 'equalto', i.proveedor_id)|list %}
+                {% if otros %}<small class="suave">Otros: {% for o in otros %}{{ o.proveedor }} {{ pesos(o.costo) }} ({{ o.fecha[8:10] }}/{{ o.fecha[5:7] }}){% if not loop.last %} · {% endif %}{% endfor %}</small>{% endif %}
+                <select class="sug-prov-select" data-producto="{{ i.id }}" aria-label="Proveedor para este producto">
+                  <option value="" {% if i.eleccion != 'manual' %}selected{% endif %}>Automático (el más barato)</option>
+                  {% for o in i.opciones %}<option value="{{ o.proveedor_id }}" {% if i.eleccion == 'manual' and o.proveedor_id == i.proveedor_id %}selected{% endif %}>{{ o.proveedor }} · {{ pesos(o.costo) }} c/u</option>{% endfor %}
+                  {% set con_precio = i.opciones|map(attribute='proveedor_id')|list %}
+                  {% for p in proveedores if p.id not in con_precio %}<option value="{{ p.id }}" {% if i.eleccion == 'manual' and p.id == i.proveedor_id %}selected{% endif %}>{{ p.razon_social }} (sin precio)</option>{% endfor %}
+                </select>
+              </div></td>
             <td class="num">{{ cant(i.stock) }}</td>
             <td class="num">{{ cant(i.diaria) if i.diaria else '—' }}</td>
             <td class="num">{% if i.dias_alcanza is not none %}{{ cant(i.dias_alcanza) }} d{% else %}—{% endif %}</td>

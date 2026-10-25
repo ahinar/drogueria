@@ -76,6 +76,15 @@
         <li>
           {% if it.url %}<a href="{{ it.url }}">{{ it.texto }}</a>{% else %}{{ it.texto }}{% endif %}
           {% if it.detalle %}<small>{{ it.detalle }}</small>{% endif %}
+          {# Versión 1.1.12: «Entendido» (por ahora en Productos agotados): ya lo vi, no me lo muestres más #}
+          {% if it.entendido %}
+          <form method="post" action="{{ url_for('main.alerta_entendido') }}" class="alerta-entendido">
+            <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+            <input type="hidden" name="clave" value="{{ a.clave }}">
+            <input type="hidden" name="producto_id" value="{{ it.entendido }}">
+            <button type="submit" class="boton-mini" title="Quitar de aquí hasta que vuelva a llegar y se agote otra vez">✔ Entendido</button>
+          </form>
+          {% endif %}
         </li>
         {% endfor %}
       </ul>

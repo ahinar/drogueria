@@ -404,3 +404,43 @@
 .editar-unidad { display: block; font-size: .8rem; font-weight: 600; color: var(--acento-fuerte, #0f766e); }
 #editar-otros-precios { display: flex; flex-direction: column; gap: .55rem; }
 #editar-otros-precios:empty { display: none; }
+
+/* =====================================================================
+   VERSIÓN 1.1.12: "CÓMO SE VENDE" en la ventana Editar producto
+   (unidad + otras presentaciones en una tablita) y botón ✏️ del conteo.
+   ===================================================================== */
+#modal-editar-producto .modal-caja { max-width: 860px; }      /* más ancha: cabe la tabla */
+#modal-editar-producto .editar-venta {
+  margin-top: .3rem; padding: .6rem .7rem; border: 1px solid #e6ebf0; border-radius: .4rem; background: #fafbfc;
+}
+#modal-editar-producto .editar-venta-titulo { font-weight: 700; margin-bottom: .35rem; }
+#modal-editar-producto .editar-venta-caja { overflow-x: auto; }
+#modal-editar-producto .editar-pres-tabla { width: 100%; border-collapse: collapse; font-size: .85rem; min-width: 560px; }
+#modal-editar-producto .editar-pres-tabla th {
+  text-align: left; font-size: .72rem; color: #5c6b78; font-weight: 600; padding: .2rem .3rem; white-space: nowrap;
+}
+#modal-editar-producto .editar-pres-tabla td { padding: .2rem .3rem; vertical-align: middle; }
+#modal-editar-producto .editar-pres-tabla tr + tr td { border-top: 1px solid #eef2f6; }
+#modal-editar-producto .editar-pres-tabla input[type="text"],
+#modal-editar-producto .editar-pres-tabla input[type="number"],
+#modal-editar-producto .editar-pres-tabla select {
+  width: 100%; min-width: 0; margin: 0; padding: .25rem .35rem; font-size: .85rem; height: 30px; min-height: 0;
+  border: 1px solid #c8d2da; border-radius: .25rem; background: #fff; box-shadow: none;
+}
+#modal-editar-producto .editar-pres-tabla input:disabled { background: #eef2f6; color: #8a97a3; }
+#modal-editar-producto .editar-pres-tabla input[type="radio"] { width: auto; height: auto; margin: 0 .3rem; }
+#modal-editar-producto .editar-pres-tabla td:nth-child(3) { width: 4.5rem; }
+#modal-editar-producto .editar-pres-tabla td:nth-child(4),
+#modal-editar-producto .editar-pres-tabla td:nth-child(5) { width: 6.5rem; }
+#modal-editar-producto .editar-suelto { display: flex !important; align-items: center; font-size: .78rem; color: #44525f; }
+#modal-editar-producto .editar-pres-quitar {
+  border: 0; background: transparent; color: #a11d1d; cursor: pointer; padding: .2rem .4rem; font-size: .9rem;
+}
+#modal-editar-producto #editar-pres-agregar { margin-top: .4rem; }
+#modal-editar-producto .editar-venta-nota { display: block; margin-top: .3rem; font-size: .75rem; }
+/* Botón ✏️ en la lista del conteo */
+.cnt-editar {
+  border: 1px solid #c8d2da; background: #fff; border-radius: .3rem; cursor: pointer;
+  padding: 0 .3rem; margin-left: .3rem; font-size: .8rem; line-height: 1.4; vertical-align: middle;
+}
+.cnt-editar:hover { background: var(--acento-suave); border-color: var(--acento); }

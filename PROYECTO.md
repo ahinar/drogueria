@@ -504,6 +504,33 @@ Notas:
 | 1.1.9 | 2026-10-22 | Recepción ABIERTA que se guarda sola (como el conteo) hasta «Confirmar recepción»; «Continuar recibiendo»; foto arriba en «Nuevo producto» y «Completar datos»; el 0 vuelve al dar Enter |
 | 1.1.10 | 2026-10-23 | Igual a 1.1.9 (su instalador no se armó en GitHub: faltaba pypdf para una prueba) |
 | 1.1.11 | 2026-10-24 | Toma de inventario: si el producto no tiene costo (inventario inicial), se estima con el precio de venta − margen de Configuración (30 %). POS: ya no sale «Unexpected token '<'» al cobrar (clave de seguridad vieja se renueva sola; sesión cerrada o error interno → mensaje claro). Búsqueda con lo más parecido de primero (TAM → TAMPONES antes que aceTAMinofen) |
+| 1.1.12 | 2026-10-25 | Botón «Eliminar» de la foto en la ficha funciona; agotados en Inicio con «✔ Entendido» (vuelve a salir si llega mercancía y se agota otra vez; el reporte no cambia); Pedido sugerido con el proveedor MÁS BARATO (último precio por unidad con IVA), otras opciones con fecha y cambio a mano; toma de inventario: barra azul que selecciona todo y el cursor vuelve a ella tras guardar; botón ✏️ con la ventana «Editar producto» del POS, ahora con «Cómo se vende» (unidad, suelta, presentaciones, por defecto) |
+
+### Versión 1.1.12 — foto, «Entendido» en agotados, proveedor más barato, inventario con ✏️ (2026-10-25)
+- **Foto en la ficha**: el botón «Eliminar» no hacía nada (el JS guardaba una referencia vieja a la vista previa y
+  no existía el campo oculto). Ahora `productos/form.html` tiene `_imagen_accion` (hidden) y `ponerEnCuadro()`
+  busca la vista previa por id cada vez; al Guardar, `productos.editar` borra el archivo y deja `imagen = NULL`.
+- **Agotados en Inicio → «✔ Entendido»** (Fernando no quería «No volver a pedir»). Migración 41:
+  `alertas_vistas (clave, producto_id, usuario_nombre, creado_en)`. `main.alerta_entendido` (POST
+  /alertas/entendido) guarda la marca; `alertas.py` borra solas las marcas de productos que vuelven a tener stock,
+  así que si se agota de nuevo vuelve a salir. El Sugerido de compra NO usa esta tabla (sigue igual).
+- **Pedido sugerido con el proveedor más barato**. `sugerido.precios_por_proveedor(db)`: último costo por unidad
+  de inventario con IVA (`COALESCE(costo_con_iva, costo_unitario)`) de cada proveedor en recepciones aprobadas o en
+  cuarentena (sin líneas rechazadas). Elección: `productos.proveedor_preferido_id` (migración 41, «✋ escogido por
+  usted») → el más barato («💲 el más barato») → el de la última compra. Debajo del producto: «Otros: proveedor $x
+  (dd/mm)» y un selector (POST /reportes/sugerido/proveedor, vacío = automático; `static/js/sugerido.js` recarga).
+- **Toma de inventario**: al dar clic en la barra se pone azul y selecciona todo (`conteo.js irAlBuscador`); al
+  guardar una cantidad con Enter, si hay búsqueda y la siguiente casilla es de otro producto, el cursor vuelve a la
+  barra listo para el siguiente código. Botón ✏️ por producto (solo administrador/DT) que abre la MISMA ventana
+  «Editar producto» del POS.
+- **Ventana «Editar producto»** sacada a `static/js/editar_producto.js` (`window.EditarProducto.abrir(id_o_datos,
+  {alGuardar})`), usada por el POS (`pos_carrito.js`) y el conteo. Nueva sección «Cómo se vende»: la unidad del
+  inventario (precio, máximo, «se vende suelta») y las presentaciones (unidad, trae, precio, máximo, código de
+  barras, ✕ quitar, + agregar), con «Por defecto» = lo que vende el POS. Se envía con `formato=presentaciones`;
+  `pos.api_producto_editar` usa `presentaciones.leer_del_formulario/validar/guardar` como la ficha completa (si no
+  se vende suelta, el precio de la unidad = precio de la presentación por defecto ÷ lo que trae). El formato viejo
+  (precio_venta + otros precios) sigue aceptándose. `api_producto_info` devuelve `vende_suelto` y `unidad_venta_id`.
+- Pruebas: `tests/test_version_1112.py` y `tests/test_sugerido.py` (más barato y escogido a mano).
 
 ### Versión 1.1.11 — costo estimado en el conteo, cobro sin «Unexpected token», búsqueda por parecido (2026-10-24)
 - Pedido de Fernando: en el inventario inicial ningún producto tiene compras registradas y el conteo pedía el

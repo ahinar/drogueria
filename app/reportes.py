@@ -613,8 +613,39 @@ def sugerido_ver():
                               dias_sin_rotacion=_entero("rotacion", (60, 90), 60))
     for grupo in datos["pedido"]:
         grupo["whatsapp"] = sugerido.telefono_whatsapp(grupo["telefono"])
-    return render_template("reportes/sugerido.html", d=datos,
+    # Todos los proveedores activos: para poder pasarle un producto a otro (versión 1.1.12)
+    from .db import get_db
+    proveedores = get_db().execute(
+        "SELECT id, razon_social FROM proveedores WHERE activo = 1 ORDER BY razon_social COLLATE ES").fetchall()
+    return render_template("reportes/sugerido.html", d=datos, proveedores=proveedores,
                            negocio=obtener_config().get("nombre_comercial") or "la droguería")
+
+
+@bp.route("/sugerido/proveedor", methods=["POST"])
+@login_required
+@roles_required("administrador", "director_tecnico")
+def sugerido_proveedor():
+    """Escoger a mano a qué proveedor pedirle un producto (versión 1.1.12).
+
+    proveedor_id vacío = «Automático»: vuelve a sugerir el más barato.
+    Queda guardado en el producto (productos.proveedor_preferido_id).
+    """
+    from flask import jsonify
+    from .audit import registrar
+    from .db import get_db
+    producto = (request.form.get("producto_id") or "").strip()
+    proveedor = (request.form.get("proveedor_id") or "").strip()
+    if not producto.isdigit():
+        return jsonify({"ok": False, "error": "Producto no válido."}), 400
+    db = get_db()
+    nuevo = int(proveedor) if proveedor.isdigit() else None
+    if nuevo and not db.execute("SELECT 1 FROM proveedores WHERE id = ?", (nuevo,)).fetchone():
+        return jsonify({"ok": False, "error": "Ese proveedor no existe."}), 400
+    db.execute("UPDATE productos SET proveedor_preferido_id = ? WHERE id = ?", (nuevo, int(producto)))
+    db.commit()
+    registrar("proveedor_preferido", "productos", int(producto),
+              f"proveedor_id={nuevo}" if nuevo else "automático (el más barato)")
+    return jsonify({"ok": True})
 
 
 # ============================================================

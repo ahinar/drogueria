@@ -61,6 +61,14 @@
     return resp.json();
   }
 
+  // Versión 1.1.12: botón ✏️ = ventana "Editar producto" del POS (static/js/editar_producto.js).
+  // Solo aparece si la ventana está en la página (administrador y director técnico).
+  const PUEDE_EDITAR = !!$('modal-editar-producto');
+  function botonEditar(p) {
+    return PUEDE_EDITAR ? ' <button type="button" class="cnt-editar" data-editar="' + p.id +
+      '" title="Editar producto (nombre, precios, presentaciones…)">✏️</button>' : '';
+  }
+
   const URL_BUSCAR = $('url-buscar').value;
   const URL_CONTAR = $('url-contar').value;
   const URL_QUITAR = $('url-quitar').value;
@@ -185,6 +193,7 @@
     return '<div class="cnt-fila' + (primera ? '' : ' cnt-mismo') + '" data-producto="' + p.id + '">' +
       '<div class="cnt-prod">' + (primera
         ? '<strong>' + esc(p.nombre) + (p.concentracion ? ' ' + esc(p.concentracion) : '') + '</strong>' +
+          botonEditar(p) +             // ✏️ (versión 1.1.12)
           window.chipLaboratorio(p.laboratorio) +
           '<span class="suave"> ' + esc(p.codigo) + (p.paquete ? ' · se vende por ' + esc(p.paquete.nombre)
             : ' · se cuenta en ' + esc(p.unidad || 'unidades')) + '</span>'
@@ -215,6 +224,7 @@
     return '<div class="cnt-fila cnt-fila-nueva' + (primera ? '' : ' cnt-mismo') + '" data-producto="' + p.id + '">' +
       '<div class="cnt-prod">' + (primera
         ? '<strong>' + esc(p.nombre) + (p.concentracion ? ' ' + esc(p.concentracion) : '') + '</strong>' +
+          botonEditar(p) +             // ✏️ (versión 1.1.12)
           window.chipLaboratorio(p.laboratorio) +
           '<span class="suave"> ' + esc(p.codigo) + '</span>' +
           (aviso0 ? '<br><span class="conteo-tag conteo-tag-cero">⚠ Está en 0 en el sistema</span>' : '')
@@ -356,8 +366,16 @@
     const siguiente = casillas[casillas.indexOf(e.target) + 1];
     // En "sellos", Enter solo pasa a "sueltas" (se guarda al terminar la fila)
     if (!e.target.classList.contains('conteo-paq')) guardarCasilla(e.target);
-    if (siguiente) { siguiente.focus(); siguiente.select(); }
-    else { buscador.focus(); buscador.select(); }   // último lote: volver al buscador
+    // Versión 1.1.12 (pedido de Fernando): si se buscó o escaneó un producto, al terminar
+    // SUS lotes el cursor vuelve a la barra de búsqueda (azul y con todo seleccionado), lista
+    // para escanear el siguiente. Si no hay búsqueda (se cuenta la lista de corrido), pasa
+    // a la siguiente casilla como antes.
+    const filaActual = e.target.closest('.cnt-fila');
+    const filaSiguiente = siguiente && siguiente.closest('.cnt-fila');
+    const mismoProducto = filaActual && filaSiguiente && filaSiguiente.dataset.producto === filaActual.dataset.producto;
+    const hayBusqueda = buscador.value.trim() !== '';
+    if (siguiente && (mismoProducto || !hayBusqueda)) { siguiente.focus(); siguiente.select(); }
+    else irAlBuscador();
   });
   // Salir de la casilla también guarda
   lista.addEventListener('focusout', (e) => {
@@ -369,6 +387,12 @@
 
   // Quitar lo contado / ingresar un producto sin lotes
   lista.addEventListener('click', async (e) => {
+    // ✏️ Editar producto: al guardar, la lista se vuelve a pintar con los datos nuevos
+    const editar = e.target.closest('.cnt-editar');
+    if (editar) {
+      window.EditarProducto.abrir(+editar.dataset.editar, { alGuardar: () => buscar(false) });
+      return;
+    }
     const quitarNueva = e.target.closest('.conteo-quitar-nueva');
     if (quitarNueva) {
       const fila = quitarNueva.closest('.cnt-fila');
@@ -625,6 +649,17 @@
   // ---------------------------------------------------------------
   // 6. BUSCADOR, FILTROS Y "CARGAR MÁS"
   // ---------------------------------------------------------------
+  // Versión 1.1.12: al darle CLIC a la barra (o llegar con Tab) se selecciona TODO lo
+  // escrito: lo que se escanee o escriba REEMPLAZA la búsqueda anterior, sin borrarla a
+  // mano. Se pone azul (conteo.css) para que se note que está lista. Igual que en el POS.
+  function irAlBuscador() { buscador.focus(); buscador.select(); }
+  buscador.addEventListener('mousedown', (e) => {
+    if (document.activeElement === buscador) return;   // ya estaba adentro: el clic funciona normal
+    e.preventDefault();                                  // si no, el clic quitaría la selección
+    irAlBuscador();
+  });
+  buscador.addEventListener('focus', () => buscador.select());
+
   let espera = null;
   buscador.addEventListener('input', () => {
     clearTimeout(espera);

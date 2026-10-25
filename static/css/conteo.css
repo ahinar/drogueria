@@ -47,6 +47,11 @@
   position: sticky; top: 0; z-index: 5; padding: .6rem 0; background: #f4f6f8;
   display: flex; gap: .8rem; align-items: center; flex-wrap: wrap;
 }
+/* Versión 1.1.12: la barra se pone AZUL cuando está lista para escanear o escribir */
+.conteo-buscador input[type="search"]:focus {
+  background: #eff6ff !important; border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .25) !important; outline: none;
+}
 .conteo-buscador input[type="search"] {
   flex: 1 1 22rem; padding: .6rem .8rem; font-size: 1rem;
   border: 1px solid #c8d2da; border-radius: .4rem;

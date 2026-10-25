@@ -88,20 +88,39 @@ class TestCalculo(BaseSugerido):
         d = self.calcular()
         self.assertFalse(d["hay_ventas"])
 
-    def test_agrupa_por_el_proveedor_de_la_ultima_compra(self):
+    def test_agrupa_por_el_proveedor_mas_barato(self):
+        # Versión 1.1.12: manda el MÁS BARATO (antes mandaba la compra más reciente)
         self.sql("INSERT INTO proveedores (nit, razon_social, telefono, creado_en) "
                  "VALUES ('800', 'Otro Proveedor', '300 123 4567', ?)", FECHA)
         self.sql("UPDATE productos SET stock_minimo = 5 WHERE id IN (1, 2)")
         self.compra(1, 900, proveedor_id=1, hace_dias=40)
-        self.compra(1, 950, proveedor_id=2, hace_dias=5)    # la más reciente manda
+        self.compra(1, 950, proveedor_id=2, hace_dias=5)    # más reciente, pero más cara
         d = self.calcular()
         nombres = {g["proveedor"]: [i["id"] for i in g["items"]] for g in d["pedido"]}
-        self.assertEqual(nombres["Otro Proveedor"], [1])
+        self.assertEqual(nombres["Proveedor Prueba SAS"], [1])
         self.assertIn(2, nombres["Sin proveedor (nunca se ha comprado)"])
-        grupo = [g for g in d["pedido"] if g["proveedor"] == "Otro Proveedor"][0]
-        self.assertEqual(grupo["items"][0]["costo"], 950)
-        self.assertEqual(grupo["total"], 5 * 950)
+        grupo = [g for g in d["pedido"] if g["proveedor"] == "Proveedor Prueba SAS"][0]
+        item = grupo["items"][0]
+        self.assertEqual((item["costo"], item["eleccion"]), (900, "barato"))
+        self.assertEqual([o["costo"] for o in item["opciones"]], [900, 950])   # el otro se muestra al lado
+        self.assertEqual(grupo["total"], 5 * 900)
         self.assertEqual(d["pedido"][-1]["proveedor_id"], 0)    # "sin proveedor" al final
+
+    def test_proveedor_escogido_a_mano(self):
+        self.sql("INSERT INTO proveedores (nit, razon_social, telefono, creado_en) "
+                 "VALUES ('800', 'Otro Proveedor', '300 123 4567', ?)", FECHA)
+        self.sql("UPDATE productos SET stock_minimo = 5 WHERE id = 1")
+        self.compra(1, 900, proveedor_id=1, hace_dias=40)
+        self.compra(1, 950, proveedor_id=2, hace_dias=5)
+        r = self.post(self.c, "/reportes/sugerido/proveedor", {"producto_id": "1", "proveedor_id": "2"})
+        self.assertTrue(r.get_json()["ok"])
+        item = [i for g in self.calcular()["pedido"] for i in g["items"] if i["id"] == 1][0]
+        self.assertEqual((item["proveedor_id"], item["costo"], item["eleccion"]), (2, 950, "manual"))
+        # «Automático» vuelve al más barato
+        self.post(self.c, "/reportes/sugerido/proveedor", {"producto_id": "1", "proveedor_id": ""})
+        item = [i for g in self.calcular()["pedido"] for i in g["items"] if i["id"] == 1][0]
+        self.assertEqual((item["proveedor_id"], item["eleccion"]), (1, "barato"))
+        self.assertIn("el más barato", self.c.get("/reportes/sugerido").get_data(as_text=True))
 
     def test_stock_vencido_o_en_cuarentena_no_cuenta(self):
         self.sql("UPDATE productos SET stock_minimo = 10 WHERE id = 1")

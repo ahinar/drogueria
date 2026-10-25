@@ -1640,68 +1640,17 @@
   // ---------------------------------------------------------------
   // 8c. VENTANA "EDITAR PRODUCTO" (encima de la "i")
   // ---------------------------------------------------------------
-  // Solo existe en la página si el usuario es administrador o director técnico.
-  const modalEditar = $('modal-editar-producto');
-  const formEditar = $('form-editar-producto');
-  let editandoId = null;
-
-  // 9800 -> "9800"; null -> "" (para poner números en las cajas de texto)
-  const textoNumero = (n) => (n === null || n === undefined || n === '' ? '' : String(+n));
-
-  // Muestra la foto actual, o el ícono 💊 si no hay
-  function mostrarFoto(src) {
-    const img = $('editar-foto-img');
-    img.hidden = !src;
-    $('editar-foto-vacia').hidden = !!src;
-    if (src) img.src = src;
-  }
-
-  // La casilla de tarifa solo aparece si el IVA es "gravado"
-  function actualizarTarifa() {
-    const gravado = $('editar-iva-tipo').value === 'gravado';
-    $('editar-iva-tarifa').hidden = !gravado;
-    $('editar-iva-porcentaje').hidden = !gravado;
-  }
-
+  // Versión 1.1.12: el código de la ventana se pasó a static/js/editar_producto.js
+  // (la usa también la toma de inventario). Aquí solo se abre y se dice qué hacer
+  // después de guardar: volver a pintar la "i", el carrito y las tarjetas.
   function abrirEditar(p) {
-    if (!modalEditar) return;
-    editandoId = p.id;
-    formEditar.reset();
-    $('editar-error').hidden = true;
-    $('editar-nombre').value = p.nombre;
-    $('editar-codigo-barras').value = p.codigo_barras || '';
-    $('editar-maneja-lotes').checked = p.maneja_vencimiento;
-    // PRECIO: el de lo que se vende normalmente. Si se vende por "Sobre x 10",
-    // se edita el precio del SOBRE (no el de la tableta suelta).
-    const def = defectoDe(p);
-    const porPresentacion = def.id !== 0;
-    $('editar-precio-unidad').textContent = porPresentacion || vendibles(p).length > 1 ? def.nombre : '';
-    $('editar-maximo-unidad').textContent = porPresentacion ? def.nombre : '';
-    $('editar-precio').value = textoNumero(def.precio);
-    $('editar-precio-maximo').value = textoNumero(porPresentacion ? (def.precio_maximo || '') : p.precio_maximo);
-    // Los demás precios (unidad suelta, caja...), una fila por cada uno
-    $('editar-otros-precios').innerHTML = vendibles(p).filter((x) => x.id !== def.id).map((x) =>
-      '<label class="editar-fila"><span>Precio · ' + esc(x.nombre) + (x.id === 0 ? ' (suelta)' : '') + '</span>' +
-      '<input type="text" name="precio_pres_' + x.id + '" inputmode="decimal" required value="' +
-      esc(textoNumero(x.precio)) + '"></label>').join('');
-    $('editar-iva-tipo').value = p.iva_tipo || 'excluido';
-    $('editar-iva-tarifa').value = p.iva_tipo === 'gravado' ? textoNumero(p.iva_tarifa) : '';
-    $('editar-formula').checked = p.requiere_formula;
-    $('editar-control').checked = p.control_especial;
-    // Marcar las categorías que ya tiene el producto
-    formEditar.querySelectorAll('input[name="categorias"]').forEach((c) => {
-      c.checked = p.categorias.includes(+c.value);
+    window.EditarProducto.abrir(p, {
+      alGuardar: async function (id) {
+        await abrirInfoProducto(id);                 // la "i" se vuelve a pintar con los datos nuevos
+        if (productoInfo) refrescarEnCarrito(productoInfo);
+        buscar(false);                               // y las tarjetas también
+      },
     });
-    $('editar-foto-accion').value = '';
-    mostrarFoto(p.imagen ? URL.estaticos + p.imagen : '');
-    actualizarTarifa();
-    modalEditar.classList.remove('modal-oculto');
-    $('editar-nombre').focus();
-  }
-
-  function cerrarEditar() {
-    if (modalEditar) modalEditar.classList.add('modal-oculto');
-    editandoId = null;
   }
 
   // Si se cambió un producto que está en el carrito, actualizamos su línea.
@@ -1728,62 +1677,10 @@
     if (tocado) pintarCarrito();
   }
 
-  async function guardarEdicion() {
-    const errorBox = $('editar-error');
-    errorBox.hidden = true;
-    const datos = new FormData(formEditar);   // toma todos los campos del formulario, incluida la foto
-    datos.append('_csrf', csrf());
-    $('editar-guardar').disabled = true;
-    try {
-      const url = URL.productoEditarApi.replace('/0/', '/' + editandoId + '/');
-      const resp = await fetch(url, { method: 'POST', body: datos, credentials: 'same-origin' });
-      const json = await resp.json().catch(() => ({ ok: false, error: 'No tienes permiso para editar.' }));
-      if (!json.ok) {
-        errorBox.textContent = json.error || 'No se pudo guardar.';
-        errorBox.hidden = false;
-        return;
-      }
-      const id = editandoId;
-      cerrarEditar();
-      aviso('Producto actualizado.');
-      await abrirInfoProducto(id);                 // la "i" se vuelve a pintar con los datos nuevos
-      if (productoInfo) refrescarEnCarrito(productoInfo);
-      buscar(false);                               // y las tarjetas también
-    } catch (e) {
-      errorBox.textContent = 'Error de conexión: ' + e.message;
-      errorBox.hidden = false;
-    } finally {
-      $('editar-guardar').disabled = false;
-    }
-  }
-
-  if (modalEditar) {
-    $('editar-cerrar').addEventListener('click', cerrarEditar);
-    $('editar-descartar').addEventListener('click', cerrarEditar);
-    $('editar-guardar').addEventListener('click', guardarEdicion);
-    $('editar-iva-tipo').addEventListener('change', actualizarTarifa);
-    modalEditar.addEventListener('click', (e) => { if (e.target === modalEditar) cerrarEditar(); });
-    // Enter dentro del formulario = Guardar (en vez de recargar la página)
-    formEditar.addEventListener('submit', (e) => { e.preventDefault(); guardarEdicion(); });
-    // Foto nueva: se muestra de una vez, antes de guardar
-    $('editar-foto-archivo').addEventListener('change', (e) => {
-      const archivo = e.target.files[0];
-      if (!archivo) return;
-      $('editar-foto-accion').value = '';
-      mostrarFoto(window.URL.createObjectURL(archivo));
-    });
-    $('editar-foto-borrar').addEventListener('click', () => {
-      $('editar-foto-archivo').value = '';
-      $('editar-foto-accion').value = 'eliminar';
-      mostrarFoto('');
-    });
-  }
-
   // Escape cierra la ventana de ARRIBA primero (Editar), y luego la "i"
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (modalPres && !modalPres.classList.contains('modal-oculto')) { cerrarPresentacion(); e.stopImmediatePropagation(); }
-    else if (modalEditar && !modalEditar.classList.contains('modal-oculto')) { cerrarEditar(); e.stopImmediatePropagation(); }
     else if (modalInfo && !modalInfo.classList.contains('modal-oculto')) { cerrarInfoProducto(); e.stopImmediatePropagation(); }
   }, true);
 

@@ -70,4 +70,27 @@
       document.body.classList.remove('imprimiendo-pedido');
     });
   });
+
+  // ---------- 5. Cambiar el proveedor de un producto (versión 1.1.12) ----------
+  // Al escoger otro proveedor en la lista de la fila, se guarda en el producto
+  // (reportes.sugerido_proveedor) y la página se vuelve a armar: el producto pasa
+  // a la tarjeta de ese proveedor. «Automático» = otra vez el más barato.
+  document.querySelectorAll('.sug-prov-select').forEach((sel) => {
+    sel.addEventListener('change', async () => {
+      const datos = new FormData();
+      datos.append('_csrf', (document.querySelector('input[name="_csrf"]') || {}).value || '');
+      datos.append('producto_id', sel.dataset.producto);
+      datos.append('proveedor_id', sel.value);
+      sel.disabled = true;
+      try {
+        const r = await fetch('/reportes/sugerido/proveedor', { method: 'POST', body: datos, credentials: 'same-origin' });
+        const j = await r.json();
+        if (!j.ok) { window.avisar(j.error || 'No se pudo cambiar el proveedor.', 'error'); sel.disabled = false; return; }
+        location.reload();
+      } catch (e) {
+        window.avisar('Error de conexión: ' + e.message, 'error');
+        sel.disabled = false;
+      }
+    });
+  });
 })();
