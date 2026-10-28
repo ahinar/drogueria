@@ -734,6 +734,16 @@ def vencimientos_ver():
     return render_template("reportes/vencimientos.html", grupos=grupos, total=total)
 
 
+@bp.route("/inventario")
+@login_required
+@roles_required("administrador", "director_tecnico")
+def inventario_ver():
+    """Valor del inventario (versión 1.1.13): al costo, a precio de venta, por categoría y
+    lo que no se puede vender aparte. Los cálculos están en informes.valor_inventario()."""
+    from . import informes
+    return render_template("reportes/inventario.html", d=informes.valor_inventario())
+
+
 # Colores y títulos del semáforo (los mismos de Inventario → Vencimientos)
 SEMAFORO = [
     ("vencidos", "VENCIDOS — retirar de la venta", "#f8d7da"),

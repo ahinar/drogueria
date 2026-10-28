@@ -179,7 +179,10 @@ def index():
     from .nombres import orden_unidades
     unidades = orden_unidades(db.execute(
         "SELECT id, nombre, cantidad FROM unidades_medida WHERE activo = 1").fetchall())
+    # Ventas rápidas (versión 1.1.13): fotocopias, dulcería... para los botones de «+ Venta libre»
+    from .ventas_rapidas import lista_activas
     return render_template("pos/index.html", caja=caja, resumen=resumen, unidades=unidades,
+                           ventas_rapidas=lista_activas(db),
                            cajon_modo=config.get("cajon_modo") or "no",
                            tirilla_modo=config.get("tirilla_modo") or "navegador",
                            categorias=categorias,
@@ -1411,6 +1414,8 @@ def _guardar_linea_libre(db, venta_id, item):
       cantidad, descuento_pct
       iva_tarifa   -> 0, 5 o 19
       costo        -> (opcional) cuánto le cuesta a la droguería cada una
+      venta_rapida_id -> (opcional, versión 1.1.13) de cuál VENTA RÁPIDA salió
+                         (Fotocopia, Dulcería...). Sirve para el reporte de Ventas.
     Aquí el precio SÍ lo pone el cajero (no hay un precio guardado con qué
     compararlo), por eso no se pide motivo; todo queda en la bitácora.
     """
@@ -1437,6 +1442,12 @@ def _guardar_linea_libre(db, venta_id, item):
     if costo is not None and costo < 0:
         raise _VentaError(f"{descripcion}: el costo no puede ser negativo.")
 
+    # ¿Salió de una venta rápida? Solo se guarda si de verdad existe.
+    vr_id = item.get("venta_rapida_id")
+    vr_id = int(vr_id) if str(vr_id or "").isdigit() else None
+    if vr_id and not db.execute("SELECT 1 FROM ventas_rapidas WHERE id = ?", (vr_id,)).fetchone():
+        vr_id = None
+
     # Mismas cuentas que una línea normal (ver más abajo en api_cobrar)
     bruto = cantidad * precio
     descuento = _a_pesos(bruto * desc_pct / 100)
@@ -1450,11 +1461,11 @@ def _guardar_linea_libre(db, venta_id, item):
     db.execute(
         "INSERT INTO venta_lineas (venta_id, producto_id, producto_codigo, producto_nombre, "
         "presentacion, factor, cantidad, precio_unitario, descuento_linea, iva_tipo, iva_tarifa, "
-        "subtotal, iva_valor, total, lotes_json, precio_original, es_libre, costo_libre) "
-        "VALUES (?, NULL, 'LIBRE', ?, NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, 1, ?)",
+        "subtotal, iva_valor, total, lotes_json, precio_original, es_libre, costo_libre, venta_rapida_id) "
+        "VALUES (?, NULL, 'LIBRE', ?, NULL, 1, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, 1, ?, ?)",
         (venta_id, descripcion, cantidad, precio, descuento,
          "gravado" if tarifa > 0 else "excluido", tarifa, base, iva_valor, total_linea,
-         precio, costo),
+         precio, costo, vr_id),
     )
     texto = f"{descripcion}: {_fmt_cant(cantidad)} x {pesos(precio)} = {pesos(total_linea)}"
     return base, descuento, iva_valor, total_linea, texto

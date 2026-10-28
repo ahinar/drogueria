@@ -1,4 +1,4 @@
-"""Cálculos de los reportes R1, R3, R4, R5 y R7 (las pantallas están en reportes.py).
+"""Cálculos de los reportes R1, R3, R4, R5, R7 y Valor del inventario (las pantallas están en reportes.py).
 
 Todos reciben un período (desde, hasta) como fechas `date`, ambas incluidas.
 Reglas comunes:
@@ -133,7 +133,47 @@ def ventas(desde, hasta, anterior_desde, anterior_hasta, tipo="todo"):
 
     return {"actual": actual, "anterior": anterior, "anuladas": dict(anuladas),
             "devoluciones": dict(devoluciones), "composicion": composicion, "otros_ingresos": otros,
-            "por_dia": por_dia, "por_pago": por_pago, "por_vendedor": por_vendedor, "por_hora": horas}
+            "por_dia": por_dia, "por_pago": por_pago, "por_vendedor": por_vendedor, "por_hora": horas,
+            "libres": ventas_libres(db, ini, fin)}
+
+
+def ventas_libres(db, ini, fin):
+    """Versión 1.1.13: cuánto se vendió de cada VENTA RÁPIDA y de cada venta libre escrita a mano.
+
+    Las de una venta rápida se juntan por su número (aunque se haya cambiado el nombre).
+    Las escritas a mano se juntan por el texto, sin importar mayúsculas ni tildes
+    ("Fotocopia" y "fotocopía" son lo mismo). Ganancia = venta sin IVA − costo, solo
+    cuando se sabe el costo (si una parte no tiene costo, se avisa con sin_costo).
+    """
+    from .nombres import plano
+    grupos = {}
+    for f in db.execute(
+            "SELECT vl.venta_rapida_id, vr.nombre AS rapida, vl.producto_nombre, vl.cantidad, "
+            "       vl.subtotal, vl.total, vl.costo_libre "
+            "FROM venta_lineas vl JOIN ventas v ON v.id = vl.venta_id "
+            "LEFT JOIN ventas_rapidas vr ON vr.id = vl.venta_rapida_id "
+            "WHERE v.estado = 'completada' AND v.fecha >= ? AND v.fecha < ? AND vl.es_libre = 1",
+            (ini, fin)):
+        if f["venta_rapida_id"]:
+            clave, nombre, tipo = ("r", f["venta_rapida_id"]), f["rapida"], "Venta rápida"
+        else:
+            nombre = " ".join((f["producto_nombre"] or "Venta libre").split())
+            clave, tipo = ("t", plano(nombre)), "Escrita a mano"
+        g = grupos.setdefault(clave, {"nombre": nombre, "tipo": tipo, "lineas": 0, "cantidad": 0.0,
+                                      "con_iva": 0.0, "sin_iva": 0.0, "costo": 0.0, "sin_costo": 0})
+        g["lineas"] += 1
+        g["cantidad"] += f["cantidad"]
+        g["con_iva"] += f["total"]
+        g["sin_iva"] += f["subtotal"]
+        if f["costo_libre"] is None:
+            g["sin_costo"] += 1
+        else:
+            g["costo"] += f["costo_libre"] * f["cantidad"]
+    lista = sorted(grupos.values(), key=lambda g: (-g["con_iva"], g["nombre"]))
+    for g in lista:
+        # Ganancia solo si TODAS las ventas de ese concepto tienen costo
+        g["ganancia"] = g["sin_iva"] - g["costo"] if not g["sin_costo"] else None
+    return lista
 
 
 # ======================================================================
@@ -302,3 +342,122 @@ def recepciones(desde, hasta):
     return {"por_proveedor": por_proveedor, "rechazos": rechazos,
             "total_recepciones": sum(f["recepciones"] for f in por_proveedor),
             "total_valor": sum(f["valor"] for f in por_proveedor)}
+
+
+# ======================================================================
+# VALOR DEL INVENTARIO (versión 1.1.13)
+# ======================================================================
+# Pregunta de Fernando: "¿cómo veo el valor del inventario?".
+#
+# CÓMO SE CALCULA (en palabras sencillas):
+#   - Se miran todos los LOTES que tienen mercancía (cantidad_disponible > 0).
+#   - VALOR AL COSTO de un lote = cantidad × costo unitario del lote
+#     (lo que se pagó por él; es el dato que sirve para la contabilidad).
+#   - VALOR A PRECIO DE VENTA = cantidad × precio de venta de UNA unidad
+#     (con IVA, como se le cobra al cliente). Si la unidad no se vende suelta,
+#     se toma el precio de la presentación ÷ lo que trae (Sello x 10 a $4.000 → $400).
+#   - GANANCIA EN EL ESTANTE = venta SIN IVA − costo (el IVA no es del negocio:
+#     es de la DIAN). Es lo que se ganaría si se vendiera todo a precio normal.
+#   - Lo que NO se puede vender va APARTE y no suma al total:
+#       vencidos, en cuarentena y bloqueados.
+#   - Un producto con VARIAS categorías se cuenta solo en la PRIMERA (en orden
+#     alfabético); si se contara en todas, la suma por categorías daría más que el total.
+
+def _sin_iva(precio, iva_tipo, tarifa):
+    """Quita el IVA de un precio: $11.900 con IVA 19 % → $10.000."""
+    if iva_tipo == "gravado" and (tarifa or 0) > 0:
+        return precio / (1 + tarifa / 100)
+    return precio
+
+
+def valor_inventario(hoy=None):
+    """Devuelve el valor del inventario (ver la explicación de arriba).
+
+    Resultado (un diccionario):
+      costo, venta, venta_sin_iva, ganancia, margen   -> totales de lo VENDIBLE
+      productos     -> lista por producto (de mayor a menor valor al costo)
+      categorias    -> lista por categoría (de mayor a menor valor al costo)
+      no_vendible   -> [{grupo, lotes, unidades, costo}] vencidos / cuarentena / bloqueados
+      sin_costo     -> productos con lotes vendibles SIN costo (no suman al costo: hay que corregirlos)
+      sin_precio    -> productos vendibles SIN precio de venta
+    """
+    from . import presentaciones as pres
+    from .conteos import _precio_de_una_unidad
+
+    db = get_db()
+    hoy_txt = (hoy or date.today()).isoformat()
+    lotes = db.execute(
+        "SELECT l.id, l.producto_id, l.cantidad_disponible AS cantidad, COALESCE(l.costo_unitario, 0) AS costo, "
+        "       l.estado, l.vencimiento, p.codigo, p.nombre, p.iva_tipo, p.iva_tarifa, "
+        "       (SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad, "
+        # La primera categoría del producto en orden alfabético (o ninguna)
+        "       (SELECT c.nombre FROM productos_categorias pc JOIN catalogos c ON c.id = pc.catalogo_id "
+        "         WHERE pc.producto_id = p.id ORDER BY c.nombre COLLATE ES LIMIT 1) AS categoria "
+        "FROM lotes l JOIN productos p ON p.id = l.producto_id "
+        "WHERE l.cantidad_disponible > 0 AND l.estado NOT IN ('agotado', 'rechazado')").fetchall()
+
+    # Precio de UNA unidad de cada producto (una sola consulta para todos)
+    ids = sorted({l["producto_id"] for l in lotes})
+    opciones = pres.presentaciones_de(ids)
+    precio_unidad = {pid: _precio_de_una_unidad(pid, opciones.get(pid, [])) for pid in ids}
+
+    # Grupos de lo que NO se puede vender (el orden importa: vencido gana)
+    no_vendible = {"vencidos": {"grupo": "Vencidos", "lotes": 0, "unidades": 0.0, "costo": 0.0},
+                   "cuarentena": {"grupo": "En cuarentena", "lotes": 0, "unidades": 0.0, "costo": 0.0},
+                   "bloqueado": {"grupo": "Bloqueados", "lotes": 0, "unidades": 0.0, "costo": 0.0}}
+    productos = {}
+    for l in lotes:
+        vencido = bool(l["vencimiento"]) and l["vencimiento"][:10] < hoy_txt
+        if vencido or l["estado"] in ("cuarentena", "bloqueado"):
+            g = no_vendible["vencidos" if vencido else l["estado"]]
+            g["lotes"] += 1
+            g["unidades"] += l["cantidad"]
+            g["costo"] += l["cantidad"] * l["costo"]
+            continue
+        # Lote vendible: suma al producto
+        precio = precio_unidad.get(l["producto_id"], 0) or 0
+        p = productos.setdefault(l["producto_id"], {
+            "id": l["producto_id"], "codigo": l["codigo"], "nombre": l["nombre"],
+            "unidad": l["unidad"] or "unidades", "categoria": l["categoria"] or "Sin categoría",
+            "precio": precio, "unidades": 0.0, "lotes": 0, "costo": 0.0, "venta": 0.0,
+            "venta_sin_iva": 0.0, "lotes_sin_costo": 0})
+        p["unidades"] += l["cantidad"]
+        p["lotes"] += 1
+        p["costo"] += l["cantidad"] * l["costo"]
+        p["venta"] += l["cantidad"] * precio
+        p["venta_sin_iva"] += l["cantidad"] * _sin_iva(precio, l["iva_tipo"], l["iva_tarifa"])
+        if l["costo"] <= 0:
+            p["lotes_sin_costo"] += 1
+
+    for p in productos.values():
+        p["ganancia"] = p["venta_sin_iva"] - p["costo"]
+    lista = sorted(productos.values(), key=lambda p: (-p["costo"], p["nombre"]))
+
+    # Totales por categoría
+    cats = {}
+    for p in lista:
+        c = cats.setdefault(p["categoria"], {"categoria": p["categoria"], "productos": 0,
+                                             "costo": 0.0, "venta": 0.0, "ganancia": 0.0})
+        c["productos"] += 1
+        c["costo"] += p["costo"]
+        c["venta"] += p["venta"]
+        c["ganancia"] += p["ganancia"]
+    costo = sum(p["costo"] for p in lista)
+    for c in cats.values():
+        c["pct"] = c["costo"] / costo * 100 if costo else 0
+    venta_sin_iva = sum(p["venta_sin_iva"] for p in lista)
+    ganancia = venta_sin_iva - costo
+    return {
+        "costo": costo,
+        "venta": sum(p["venta"] for p in lista),
+        "venta_sin_iva": venta_sin_iva,
+        "ganancia": ganancia,
+        "margen": ganancia / venta_sin_iva * 100 if venta_sin_iva else 0,
+        "unidades": sum(p["unidades"] for p in lista),
+        "productos": lista,
+        "categorias": sorted(cats.values(), key=lambda c: (-c["costo"], c["categoria"])),
+        "no_vendible": [g for g in no_vendible.values() if g["lotes"]],
+        "costo_no_vendible": sum(g["costo"] for g in no_vendible.values()),
+        "sin_costo": [p for p in lista if p["lotes_sin_costo"]],
+        "sin_precio": [p for p in lista if p["precio"] <= 0],
+    }

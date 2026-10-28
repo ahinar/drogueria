@@ -84,6 +84,14 @@
   };
   if (!URL.productos || !URL.cobrar) return;
 
+  // VENTAS RÁPIDAS (versión 1.1.13): fotocopias, dulcería... (ver «VENTA LIBRE Y
+  // VENTAS RÁPIDAS» más abajo). Se leen aquí arriba porque la búsqueda las usa
+  // desde el primer momento. La lista llega en <script id="ventas-rapidas">.
+  let ventasRapidas = [];
+  try { ventasRapidas = JSON.parse(($('ventas-rapidas') || {}).textContent || '[]'); } catch (e) { /* vacía */ }
+  // "Fotocopía" → "fotocopia": sin tildes (NFD separa la tilde y se borra) y en minúsculas
+  const plano = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
   const CAJA_ID = ($('pos-caja-id') && $('pos-caja-id').value) || 'default';
   const CLAVE_CARRITO = 'pos_carrito_caja_' + CAJA_ID;   // formato viejo (una sola venta)
   const CLAVE_VENTAS = 'pos_ventas_caja_' + CAJA_ID;     // formato nuevo (varias ventas)
@@ -282,11 +290,14 @@
       productosMostrados = json.productos;
       pintarProductos();
       if (desdeEnter) {
-        if (json.productos.length === 1) {
+        // Versión 1.1.13: lo escrito es una VENTA RÁPIDA (ej. "fotocopia") y no un producto
+        const rapidas = categoria ? [] : rapidasQueCoinciden(q);
+        if (!json.productos.length && rapidas.length === 1) { agregarVentaRapida(rapidas[0]); return; }
+        if (json.productos.length === 1 && !rapidas.length) {
           // Si se escaneó el código de una presentación (ej: la caja), se agrega esa.
           // Versión 1.1.5: la búsqueda se queda escrita (se borra con la X).
           agregar(json.productos[0], json.presentacion_id);
-        } else if (json.productos.length === 0) {
+        } else if (json.productos.length === 0 && !rapidas.length) {
           aviso('No se encontró ningún producto.');
         }
       }
@@ -301,11 +312,16 @@
   function actualizarInsignias() {
     const cuantos = {};
     carrito.forEach((it) => {
-      if (it.libre) return;                                    // venta libre: no tiene tarjeta
+      if (it.libre) {
+        // Venta libre escrita a mano: no tiene tarjeta. Venta rápida: su tarjeta es "r" + número
+        if (it.venta_rapida_id) cuantos['r' + it.venta_rapida_id] = (cuantos['r' + it.venta_rapida_id] || 0) + it.cantidad;
+        return;
+      }
       cuantos[it.producto_id] = (cuantos[it.producto_id] || 0) + it.cantidad;
     });
     grid.querySelectorAll('.pos-card').forEach((tarjeta) => {
-      const n = cuantos[+tarjeta.dataset.id] || 0;
+      const clave = tarjeta.dataset.rapida ? 'r' + tarjeta.dataset.rapida : +tarjeta.dataset.id;
+      const n = cuantos[clave] || 0;
       let insignia = tarjeta.querySelector('.pos-card-cant');
       if (!n) { if (insignia) insignia.remove(); return; }
       if (!insignia) {
@@ -333,12 +349,25 @@
     }
   }
 
+  // Tarjeta de una VENTA RÁPIDA (versión 1.1.13): va de primera cuando lo escrito
+  // coincide (ej. "fotoc" → Fotocopia). Se reconoce por data-rapida.
+  function tarjetaRapida(v) {
+    return '<div class="pos-card pos-card-rapida" data-rapida="' + v.id + '" title="Venta rápida: no sale del inventario">' +
+      '<div class="pos-card-img"><span class="pos-card-img-vacia">⚡</span></div>' +
+      '<div class="pos-card-info">' +
+        '<div class="pos-card-nombre">' + esc(v.nombre) + '</div>' +
+        '<div class="pos-card-codigo">Venta rápida · sin inventario</div>' +
+        '<div class="pos-card-precio">' + (v.precio > 0 ? peso(v.precio) : '<small>escribir valor</small>') + '</div>' +
+      '</div></div>';
+  }
+
   function pintarProductos() {
-    if (!productosMostrados.length) {
+    const rapidas = categoria ? [] : rapidasQueCoinciden(inputBusqueda.value);
+    if (!productosMostrados.length && !rapidas.length) {
       grid.innerHTML = '<p class="suave" style="padding:2rem;text-align:center;grid-column:1/-1">No hay productos para mostrar.</p>';
       return;
     }
-    grid.innerHTML = productosMostrados.map((p) => {
+    grid.innerHTML = rapidas.map(tarjetaRapida).join('') + productosMostrados.map((p) => {
       const agotado = p.stock <= 0;
       const imagen = p.imagen
         ? '<img src="' + esc(URL.estaticos + p.imagen) + '" alt="">'
@@ -1036,7 +1065,8 @@
       if (i.libre) {
         return { libre: 1, descripcion: i.nombre, precio: i.precio, cantidad: i.cantidad,
                  descuento_pct: i.descuento_pct, iva_tarifa: i.iva_tarifa,
-                 costo: i.costo === '' || i.costo == null ? null : i.costo };
+                 costo: i.costo === '' || i.costo == null ? null : i.costo,
+                 venta_rapida_id: i.venta_rapida_id || null };   // versión 1.1.13 (para el reporte)
       }
       const linea = { producto_id: i.producto_id, presentacion_id: i.presentacion_id || 0,
                       cantidad: i.cantidad, descuento_pct: i.descuento_pct };
@@ -1184,15 +1214,147 @@
     guardarCarrito();
     aviso(nota ? 'Nota guardada' : 'Nota borrada');
   }
+  // ---------------------------------------------------------------
+  // VENTA LIBRE Y VENTAS RÁPIDAS
+  // ---------------------------------------------------------------
   // VENTA LIBRE: vender algo que no está en el inventario (una inyectología,
   // una toma de presión, una fotocopia...). Entra al carrito como una línea
   // más, pero al cobrar no descuenta nada del inventario.
+  //
+  // VENTAS RÁPIDAS (versión 1.1.13, app/ventas_rapidas.py): las ventas libres de
+  // siempre (Fotocopia, Dulcería, Inyectología...) guardadas con su nombre, IVA y,
+  // si tienen, su precio. Al darle «+ Venta libre» salen como BOTONES; también
+  // salen en el buscador. Si no tienen precio fijo, se pregunta el valor.
+  // La lista (ventasRapidas) se lee al principio del archivo, junto a URL.
+
+  // Ventas rápidas que coinciden con lo escrito en el buscador (todas las palabras)
+  function rapidasQueCoinciden(texto) {
+    const palabras = plano(texto).split(/\s+/).filter(Boolean);
+    if (!palabras.length || plano(texto).trim().length < 2) return [];
+    return ventasRapidas.filter((v) => palabras.every((p) => plano(v.nombre).includes(p)));
+  }
+
+  // Agrega una venta rápida al carrito. Sin precio fijo → pregunta el valor.
+  async function agregarVentaRapida(vr) {
+    let precio = vr.precio;
+    let cantidad = 1;
+    if (!(precio > 0)) {
+      const datos = await window.pedirDatos({
+        titulo: vr.nombre,
+        texto: 'Escriba cuánto vale (cada una, con IVA).',
+        campos: [
+          { nombre: 'precio', etiqueta: 'Valor', tipo: 'numero', obligatorio: true, mayorQue: 0, placeholder: 'Ej: 1500' },
+          { nombre: 'cantidad', etiqueta: 'Cantidad', tipo: 'numero', valor: '1', mayorQue: 0 },
+        ],
+        textoAceptar: 'Agregar al carrito',
+      });
+      if (datos === null) return;
+      precio = datos.precio;
+      cantidad = datos.cantidad === '' ? 1 : datos.cantidad;
+    }
+    // Si ya está en el carrito con el MISMO precio, se suma a esa línea
+    const pos = carrito.findIndex((i) => i.libre && i.venta_rapida_id === vr.id && i.precio === precio);
+    if (pos >= 0) {
+      carrito[pos].cantidad = +(carrito[pos].cantidad + cantidad).toFixed(4);
+      seleccionar(pos);
+    } else {
+      carrito.push(lineaLibre({ descripcion: vr.nombre, precio: precio, cantidad: cantidad,
+                                iva: vr.iva_tarifa, costo: vr.costo, venta_rapida_id: vr.id }));
+      seleccionar(carrito.length - 1);
+    }
+    quedarseEnElCarrito();
+    pintarCarrito();
+    aviso('Agregado: ' + vr.nombre);
+  }
+
+  // Una línea de venta libre para el carrito (la misma forma de siempre)
+  function lineaLibre(d) {
+    const tarifa = Number(d.iva) || 0;
+    return {
+      libre: true,                         // así se reconoce en todo el código
+      venta_rapida_id: d.venta_rapida_id || null,
+      producto_id: null, presentacion_id: 0, presentacion: '', factor: 1, stock_base: 0,
+      nombre: d.descripcion,
+      precio: d.precio,
+      precio_original: null,               // no hay precio "normal" con qué comparar
+      cantidad: d.cantidad === '' || d.cantidad == null ? 1 : d.cantidad,
+      descuento_pct: 0,
+      iva_tipo: tarifa > 0 ? 'gravado' : 'excluido',
+      iva_tarifa: tarifa,
+      costo: d.costo == null ? '' : d.costo,
+    };
+  }
+
+  // Ventana con un BOTÓN por cada venta rápida. Devuelve la elegida, 'otra'
+  // (escribir una venta libre a mano) o null (cerró la ventana).
+  // Teclas: 1 a 9 = el botón con ese número; Esc = cerrar.
+  function escogerVentaRapida() {
+    return new Promise((resolver) => {
+      const fondo = document.createElement('div');
+      fondo.className = 'modal-fondo-ui';
+      fondo.id = 'modal-ventas-rapidas';         // empieza por "modal-": el POS no usa el teclado
+      const caja = document.createElement('div');
+      caja.className = 'modal-caja modal-ui vr-escoger';
+      const urlAdmin = ($('url-ventas-rapidas') || {}).value;
+      caja.innerHTML =
+        '<h2>Venta libre</h2>' +
+        '<p class="modal-ui-texto">Toque lo que va a vender (no sale del inventario).</p>' +
+        '<div class="vr-botones">' + ventasRapidas.map((v, i) =>
+          '<button type="button" class="vr-boton" data-i="' + i + '">' +
+            (i < 9 ? '<kbd>' + (i + 1) + '</kbd>' : '') +
+            '<strong>' + esc(v.nombre) + '</strong>' +
+            '<small>' + (v.precio > 0 ? peso(v.precio) : 'escribir valor') + '</small></button>').join('') +
+        '</div>' +
+        '<div class="modal-acciones">' +
+          (urlAdmin ? '<a class="boton secundario" href="' + esc(urlAdmin) + '" target="_blank">⚙ Administrar</a>' : '') +
+          '<button type="button" class="boton secundario" data-accion="cerrar">Cancelar</button>' +
+          '<button type="button" class="boton" data-accion="otra">✏️ Otra cosa (escribir)</button>' +
+        '</div>';
+      fondo.appendChild(caja);
+      document.body.appendChild(fondo);
+
+      function terminar(resultado) {
+        document.removeEventListener('keydown', teclas, true);
+        fondo.remove();
+        resolver(resultado);
+      }
+      function teclas(e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); terminar(null); return; }
+        if (/^[1-9]$/.test(e.key) && ventasRapidas[+e.key - 1]) {
+          e.preventDefault(); e.stopPropagation(); terminar(ventasRapidas[+e.key - 1]);
+        }
+      }
+      document.addEventListener('keydown', teclas, true);
+      fondo.addEventListener('click', (e) => {
+        if (e.target === fondo) { terminar(null); return; }
+        const boton = e.target.closest('.vr-boton');
+        if (boton) { terminar(ventasRapidas[+boton.dataset.i]); return; }
+        const accion = e.target.closest('[data-accion]');
+        if (accion) terminar(accion.dataset.accion === 'otra' ? 'otra' : null);
+      });
+      const primero = caja.querySelector('.vr-boton') || caja.querySelector('[data-accion="otra"]');
+      if (primero) primero.focus();
+    });
+  }
+
+  // «+ Venta libre»: primero los botones de las ventas rápidas (si hay)
   async function pedirVentaLibre() {
+    if (ventasRapidas.length) {
+      const elegida = await escogerVentaRapida();
+      if (elegida === null) return;
+      if (elegida !== 'otra') { await agregarVentaRapida(elegida); return; }
+    }
+    await escribirVentaLibre();
+  }
+
+  // La venta libre escrita a mano (como siempre), con la opción de GUARDARLA
+  // como venta rápida para que la próxima vez salga como botón.
+  async function escribirVentaLibre() {
     const datos = await window.pedirDatos({
       titulo: 'Venta libre',
-      texto: 'Para cobrar algo que no está en el inventario (ej: inyectología, toma de presión).',
+      texto: 'Para cobrar algo que no está en el inventario (ej: inyectología, fotocopia, dulcería).',
       campos: [
-        { nombre: 'descripcion', etiqueta: '¿Qué se vende?', minimo: 3, maximo: 120,
+        { nombre: 'descripcion', etiqueta: '¿Qué se vende?', minimo: 3, maximo: 80,
           placeholder: 'Ej: Inyectología' },
         { nombre: 'precio', etiqueta: 'Precio de cada uno (con IVA)', tipo: 'numero',
           obligatorio: true, mayorQue: 0, placeholder: 'Ej: 5000' },
@@ -1204,26 +1366,52 @@
         ] },
         { nombre: 'costo', etiqueta: 'Costo de cada uno (opcional)', tipo: 'numero', minimoNumero: 0,
           ayuda: 'Lo que le cuesta a la droguería (jeringa, algodón...). Sirve para calcular la ganancia.' },
+        // Versión 1.1.13: guardarla para que la próxima vez sea un botón
+        { nombre: 'guardar', etiqueta: '¿Guardar para la próxima vez?', tipo: 'opciones', opciones: [
+          { valor: '', texto: 'No, solo esta vez' },
+          { valor: 'fijo', texto: 'Sí, con este precio (precio fijo)' },
+          { valor: 'libre', texto: 'Sí, sin precio (preguntar el valor cada vez)' },
+        ], ayuda: 'Queda como botón en «+ Venta libre» y sale en el buscador.' },
       ],
       textoAceptar: 'Agregar al carrito',
     });
     if (datos === null) return;
-    const tarifa = Number(datos.iva) || 0;
-    carrito.push({
-      libre: true,                         // así se reconoce en todo el código
-      producto_id: null, presentacion_id: 0, presentacion: '', factor: 1, stock_base: 0,
-      nombre: datos.descripcion,
-      precio: datos.precio,
-      precio_original: null,               // no hay precio "normal" con qué comparar
-      cantidad: datos.cantidad === '' ? 1 : datos.cantidad,
-      descuento_pct: 0,
-      iva_tipo: tarifa > 0 ? 'gravado' : 'excluido',
-      iva_tarifa: tarifa,
-      costo: datos.costo,
-    });
+    let ventaRapidaId = null;
+    if (datos.guardar) ventaRapidaId = await guardarVentaRapida(datos);
+    carrito.push(lineaLibre({ descripcion: datos.descripcion, precio: datos.precio, cantidad: datos.cantidad,
+                              iva: datos.iva, costo: datos.costo, venta_rapida_id: ventaRapidaId }));
     seleccionar(carrito.length - 1);
     pintarCarrito();
-    aviso('Agregado: ' + datos.descripcion);
+    // Si se guardó, el aviso de "Guardada..." ya salió (no se ponen dos avisos encima)
+    if (!ventaRapidaId) aviso('Agregado: ' + datos.descripcion);
+  }
+
+  // Crea la venta rápida en el servidor y la agrega a la lista de botones.
+  // Devuelve su número (id), o null si no se pudo (la venta sigue igual).
+  async function guardarVentaRapida(datos) {
+    const url = ($('url-api-venta-rapida') || {}).value;
+    if (!url) return null;
+    const fd = new FormData();
+    fd.append('_csrf', csrf());
+    fd.append('nombre', datos.descripcion);
+    fd.append('precio', datos.guardar === 'fijo' ? datos.precio : '');
+    fd.append('iva_tarifa', datos.iva || '0');
+    fd.append('costo', datos.costo === '' || datos.costo == null ? '' : datos.costo);
+    try {
+      const resp = await fetch(url, { method: 'POST', body: fd, credentials: 'same-origin' });
+      const json = await resp.json();
+      if (!json.ok) { aviso('No se guardó para la próxima vez: ' + (json.error || '')); return null; }
+      const vr = json.venta_rapida;
+      if (!ventasRapidas.some((v) => v.id === vr.id)) {
+        ventasRapidas.push(vr);
+        ventasRapidas.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+      }
+      aviso('Agregado: ' + vr.nombre + (json.ya_existia ? ' (ya estaba guardada)' : ' · guardada: la próxima vez sale como botón'));
+      return vr.id;
+    } catch (e) {
+      aviso('No se guardó para la próxima vez: ' + e.message);
+      return null;
+    }
   }
   $('btn-venta-libre').addEventListener('click', pedirVentaLibre);
 
@@ -1814,6 +2002,11 @@
     if (botonInfo) { e.stopPropagation(); abrirInfoProducto(+botonInfo.dataset.infoId); return; }
     const tarjeta = e.target.closest('.pos-card');
     if (!tarjeta) return;
+    if (tarjeta.dataset.rapida) {               // versión 1.1.13: venta rápida (fotocopia, dulcería...)
+      const vr = ventasRapidas.find((v) => v.id === +tarjeta.dataset.rapida);
+      if (vr) agregarVentaRapida(vr);
+      return;
+    }
     const prod = productosMostrados.find((p) => p.id === +tarjeta.dataset.id);
     if (!prod) return;
     // Tocar "📦 Otras: ..." abre "¿Cómo lo vendes?" para escoger otra presentación

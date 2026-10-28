@@ -1,0 +1,89 @@
+{% extends "reportes/_base.html" %}
+{% from "reportes/_macros.html" import pesos, pct, cant %}
+{% set reporte_activo = 'inventario' %}
+{% block titulo %}Valor del inventario{% endblock %}
+{% block reporte %}
+{#
+  VALOR DEL INVENTARIO (versión 1.1.13). d = informes.valor_inventario()
+  - Las tarjetas de arriba son los totales de la mercancía que SE PUEDE VENDER.
+  - Lo vencido, en cuarentena o bloqueado va aparte (no infla el total).
+  - El botón 📥 Excel (arriba a la derecha) descarga todas las tablas de esta página.
+#}
+<h1><span class="ico-emoji">💰</span> Valor del inventario</h1>
+<p class="suave">Lo que vale hoy la mercancía que tiene para vender: lo que le costó y lo que recibiría si la
+  vendiera toda a precio normal.</p>
+
+<div class="rep-tarjetas">
+  <div class="eres-tarjeta"><span>Valor al costo</span><strong id="valor-costo">{{ pesos(d.costo) }}</strong>
+    <small>lo que le costó la mercancía (para la contabilidad)</small></div>
+  <div class="eres-tarjeta"><span>Valor a precio de venta</span><strong id="valor-venta">{{ pesos(d.venta) }}</strong>
+    <small>con IVA, como se le cobra al cliente</small></div>
+  <div class="eres-tarjeta positiva"><span>Ganancia en el estante</span><strong id="valor-ganancia">{{ pesos(d.ganancia) }}</strong>
+    <small>venta sin IVA − costo · margen {{ pct(d.margen) }}</small></div>
+  <div class="eres-tarjeta {{ 'negativa' if d.costo_no_vendible > 0 }}"><span>No se puede vender</span>
+    <strong id="valor-no-vendible">{{ pesos(d.costo_no_vendible) }}</strong>
+    <small>vencidos, en cuarentena o bloqueados (al costo)</small></div>
+</div>
+
+{% if d.sin_costo %}
+<p class="aviso advertencia">⚠ {{ d.sin_costo|length }} producto(s) tienen lotes <strong>sin costo</strong>: no suman
+  al valor al costo y su ganancia sale más alta de lo real. Están marcados con ⚠ en la lista de productos.</p>
+{% endif %}
+{% if d.sin_precio %}
+<p class="aviso advertencia">⚠ {{ d.sin_precio|length }} producto(s) no tienen <strong>precio de venta</strong>: no suman
+  al valor a precio de venta.</p>
+{% endif %}
+
+{% if not d.productos and not d.no_vendible %}
+  <p class="rep-vacio">No hay mercancía en el inventario.</p>
+{% else %}
+<div class="rep-caja">
+  <h2><span class="ico-emoji">🗂️</span> Por categoría</h2>
+  <p class="suave"><small>Si un producto tiene varias categorías, se cuenta solo en la primera (en orden alfabético)
+    para que la suma dé igual al total.</small></p>
+  <table class="rep-tabla">
+    <thead><tr><th>Categoría</th><th class="num">Productos</th><th class="num">Valor al costo</th>
+      <th class="num">% del total</th><th class="num">Valor a precio de venta</th><th class="num">Ganancia</th></tr></thead>
+    <tbody>{% for c in d.categorias %}<tr><td>{{ c.categoria }}</td><td class="num">{{ c.productos }}</td>
+      <td class="num">{{ pesos(c.costo) }}</td><td class="num">{{ pct(c.pct) }}</td>
+      <td class="num">{{ pesos(c.venta) }}</td><td class="num">{{ pesos(c.ganancia) }}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><th>Total</th><th class="num">{{ d.productos|length }}</th><th class="num">{{ pesos(d.costo) }}</th>
+      <th class="num">100,0 %</th><th class="num">{{ pesos(d.venta) }}</th><th class="num">{{ pesos(d.ganancia) }}</th></tr></tfoot>
+  </table>
+</div>
+
+{% if d.no_vendible %}
+<div class="rep-caja" style="margin-top:1rem">
+  <h2><span class="ico-emoji">🚫</span> Lo que no se puede vender</h2>
+  <table class="rep-tabla">
+    <thead><tr><th>Grupo</th><th class="num">Lotes</th><th class="num">Unidades</th><th class="num">Valor al costo</th></tr></thead>
+    <tbody>{% for g in d.no_vendible %}<tr><td>{{ g.grupo }}</td><td class="num">{{ g.lotes }}</td>
+      <td class="num">{{ cant(g.unidades) }}</td><td class="num rep-negativo">{{ pesos(g.costo) }}</td></tr>{% endfor %}</tbody>
+  </table>
+  <p class="suave"><small>Para verlos uno por uno: Inventario → <a href="{{ url_for('inventario.lotes', vencimiento='vencidos') }}">Vencidos</a>,
+    <a href="{{ url_for('inventario.lotes', estado='cuarentena') }}">En cuarentena</a> y
+    <a href="{{ url_for('inventario.lotes', estado='bloqueado') }}">Bloqueados</a>.</small></p>
+</div>
+{% endif %}
+
+<div class="rep-caja" style="margin-top:1rem">
+  <h2><span class="ico-emoji">💊</span> Por producto</h2>
+  <p class="suave"><small>De mayor a menor valor al costo. Solo la mercancía que se puede vender.</small></p>
+  <div class="sug-tabla-caja">
+  <table class="rep-tabla">
+    <thead><tr><th>Código</th><th>Producto</th><th>Categoría</th><th class="num">Cantidad</th>
+      <th class="num">Valor al costo</th><th class="num">Precio de 1</th><th class="num">Valor a precio de venta</th>
+      <th class="num">Ganancia</th></tr></thead>
+    <tbody>{% for p in d.productos %}<tr>
+      <td>{{ p.codigo or '' }}</td>
+      <td><a href="{{ url_for('productos.editar', prod_id=p.id) }}">{{ p.nombre }}</a>{% if p.lotes_sin_costo %} <span title="Tiene lotes sin costo">⚠</span>{% endif %}</td>
+      <td>{{ p.categoria }}</td>
+      <td class="num">{{ cant(p.unidades) }}<small>{{ p.unidad|lower }}</small></td>
+      <td class="num">{{ pesos(p.costo) }}</td><td class="num">{{ pesos(p.precio) }}</td>
+      <td class="num">{{ pesos(p.venta) }}</td>
+      <td class="num {{ 'rep-negativo' if p.ganancia < 0 }}">{{ pesos(p.ganancia) }}</td></tr>{% endfor %}</tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

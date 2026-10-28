@@ -17,6 +17,7 @@
     <a href="{{ url_for('reportes.ventas_compras_ver') }}" class="{{ 'activo' if reporte_activo == 'ventas_compras' }}"><span class="ico-emoji">⚖️</span> Ventas vs compras</a>
     <a href="{{ url_for('reportes.gastos_ver') }}" class="{{ 'activo' if reporte_activo == 'gastos' }}"><span class="ico-emoji">💸</span> Gastos</a>
     <a href="{{ url_for('reportes.sugerido_ver') }}" class="{{ 'activo' if reporte_activo == 'sugerido' }}"><span class="ico-emoji">📦</span> Sugerido de compra</a>
+    <a href="{{ url_for('reportes.inventario_ver') }}" class="{{ 'activo' if reporte_activo == 'inventario' }}"><span class="ico-emoji">💰</span> Valor del inventario</a>
     {% endif %}
     <a href="{{ url_for('reportes.recepciones_ver') }}" class="{{ 'activo' if reporte_activo == 'recepciones' }}"><span class="ico-emoji">🚚</span> Recepciones</a>
     <a href="{{ url_for('reportes.vencimientos_ver') }}" class="{{ 'activo' if reporte_activo == 'vencimientos' }}"><span class="ico-emoji">⏳</span> Vencimientos</a>

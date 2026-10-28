@@ -112,6 +112,9 @@ def create_app(test_config=None):
     # Versión 1.1.2: instalar el programa como aplicación desde Chrome. Ver app/instalable.py
     from . import instalable
     app.register_blueprint(instalable.bp)
+    # Versión 1.1.13: ventas rápidas (fotocopias, dulcería...). Ver app/ventas_rapidas.py
+    from . import ventas_rapidas
+    app.register_blueprint(ventas_rapidas.bp)
 
     app.jinja_env.filters["rol_nombre"] = lambda rol: auth.ROLES.get(rol, rol)
     # {{ 12345 | pesos }} → "$12.345" (formato colombiano, ver app/formato.py)

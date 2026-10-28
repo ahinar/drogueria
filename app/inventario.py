@@ -122,8 +122,15 @@ def inicio():
         (limite_90,),
     ).fetchall()
 
+    # Valor del inventario (versión 1.1.13): solo lo ven administrador y director técnico
+    valor = None
+    if g.user["rol"] in ("administrador", "director_tecnico"):
+        from .informes import valor_inventario
+        valor = valor_inventario()
+
     return render_template(
         "inventario/inicio.html",
+        valor=valor,
         total_productos=total_productos,
         total_lotes=total_lotes,
         por_vencer_30=por_vencer_30,

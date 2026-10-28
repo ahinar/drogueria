@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block titulo %}Ventas rápidas{% endblock %}
+{% block contenido %}
+{#
+  VENTAS RÁPIDAS (versión 1.1.13) — app/ventas_rapidas.py
+  Arriba el formulario (crear o, con ?editar=<id>, cambiar una); abajo la lista.
+  Lo que se crea aquí sale en el POS: botones de «+ Venta libre» y en el buscador.
+#}
+{% macro pesos(n) -%}${{ '{:,.0f}'.format(n or 0).replace(',', '.') }}{%- endmacro %}
+<h1><span class="ico-emoji">⚡</span> Ventas rápidas</h1>
+<p class="suave">Lo que se vende siempre pero <strong>no va al inventario</strong>: fotocopias, dulcería, inyectología,
+  miscelánea… Se crean una vez y en el POS salen como botones al darle <strong>«+ Venta libre»</strong> y en el buscador.
+  Si el precio cambia cada vez (dulcería, miscelánea), déjelo vacío: el POS le pregunta el valor.</p>
+
+<form method="post" action="{{ url_for('ventas_rapidas.guardar') }}" class="formulario vr-form" id="form-venta-rapida">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  {% if editar %}<input type="hidden" name="id" value="{{ editar['id'] }}">{% endif %}
+  <fieldset>
+    <legend>{{ 'Cambiar «' ~ editar['nombre'] ~ '»' if editar else 'Nueva venta rápida' }}</legend>
+    <div class="vr-campos">
+      <label>Nombre *
+        <input type="text" name="nombre" required minlength="3" maxlength="80" {% if not editar %}autofocus{% endif %}
+               value="{{ editar['nombre'] if editar else '' }}" placeholder="Ej: Fotocopia">
+      </label>
+      <label>Precio de cada una (con IVA)
+        <input type="text" name="precio" inputmode="decimal" placeholder="Vacío = se pregunta"
+               value="{{ '%g' % editar['precio'] if editar and editar['precio'] else '' }}">
+      </label>
+      <label>IVA
+        <select name="iva_tarifa">
+          {% for t in tarifas %}<option value="{{ t }}" {% if editar and editar['iva_tarifa'] == t %}selected{% endif %}>
+            {{ 'Sin IVA (excluido o exento)' if t == 0 else 'IVA ' ~ t ~ ' %' }}</option>{% endfor %}
+        </select>
+      </label>
+      <label>Costo de cada una (opcional)
+        <input type="text" name="costo" inputmode="decimal" placeholder="Opcional"
+               value="{{ '%g' % editar['costo'] if editar and editar['costo'] is not none else '' }}">
+      </label>
+    </div>
+  </fieldset>
+  <div class="acciones">
+    <button type="submit">{{ 'Guardar cambios' if editar else '+ Crear' }}</button>
+    {% if editar %}<a class="boton secundario" href="{{ url_for('ventas_rapidas.lista') }}">Cancelar</a>{% endif %}
+  </div>
+</form>
+
+<table class="tabla" id="tabla-ventas-rapidas">
+  <thead><tr><th>Nombre</th><th class="num">Precio</th><th>IVA</th><th class="num">Costo</th>
+    <th class="num">Veces vendida</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+  {% for v in filas %}
+    <tr class="{% if not v['activo'] %}inactivo{% endif %}">
+      <td><strong>{{ v['nombre'] }}</strong></td>
+      <td class="num">{{ pesos(v['precio']) if v['precio'] else 'Se pregunta' }}</td>
+      <td>{{ 'Sin IVA' if not v['iva_tarifa'] else '%g %%' % v['iva_tarifa'] }}</td>
+      <td class="num">{{ pesos(v['costo']) if v['costo'] is not none else '—' }}</td>
+      <td class="num">{{ v['veces'] }}</td>
+      <td>{{ 'En el POS' if v['activo'] else 'Quitada' }}</td>
+      <td class="acciones-fila">
+        <a class="boton-mini" href="{{ url_for('ventas_rapidas.lista', editar=v['id']) }}">Editar</a>
+        <form method="post" action="{{ url_for('ventas_rapidas.activar', vr_id=v['id']) }}" style="display:inline">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit" class="boton-mini secundario">{{ 'Quitar del POS' if v['activo'] else 'Volver a mostrar' }}</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="7" class="suave">Todavía no hay ventas rápidas. Cree la primera arriba
+      (o en el POS, con la casilla «Guardar para la próxima vez» de la venta libre).</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

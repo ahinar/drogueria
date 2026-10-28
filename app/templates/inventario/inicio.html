@@ -4,6 +4,17 @@
 <h1><span class="ico-emoji">🗃️</span> Inventario</h1>
 
 <div class="tarjetas-kpi" style="margin-bottom:1.2rem">
+  {# Versión 1.1.13: cuánto vale la mercancía (abre el reporte completo) #}
+  {% if valor %}
+  <a class="kpi-card kpi-ok" href="{{ url_for('reportes.inventario_ver') }}" style="text-decoration:none" id="kpi-valor-inventario">
+    <div class="kpi-icono">💰</div>
+    <div class="kpi-info">
+      <span class="kpi-titulo">Valor del inventario (al costo)</span>
+      <strong class="kpi-valor">${{ '{:,.0f}'.format(valor.costo).replace(',', '.') }}</strong>
+      <span class="kpi-detalle">A precio de venta: ${{ '{:,.0f}'.format(valor.venta).replace(',', '.') }} · Ver detalle</span>
+    </div>
+  </a>
+  {% endif %}
   <div class="kpi-card kpi-ok">
     <div class="kpi-icono">📦</div>
     <div class="kpi-info">

@@ -1538,6 +1538,30 @@ MIGRATIONS = [
         ALTER TABLE productos ADD COLUMN proveedor_preferido_id INTEGER;
         """,
     ),
+    # Versión 1.1.13 — VENTAS RÁPIDAS: lo que se vende siempre pero NO va al inventario
+    # (fotocopias, dulcería, inyectología, miscelánea...). Se crean una vez y en el POS
+    # salen como botones en «+ Venta libre» y en el buscador.
+    #   precio NULL = sin precio fijo: el POS pregunta el valor cada vez (ej. dulcería).
+    #   costo  NULL = no se sabe (no se calcula ganancia).
+    # venta_lineas.venta_rapida_id dice de cuál venta rápida salió cada línea de venta
+    # libre (para el reporte «cuánto vendí de cada una»).
+    (
+        42,
+        """
+        CREATE TABLE ventas_rapidas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            precio REAL,                          -- con IVA; NULL = se pregunta cada vez
+            iva_tarifa REAL NOT NULL DEFAULT 0,   -- 0, 5 o 19
+            costo REAL,                           -- lo que le cuesta a la droguería cada una
+            activo INTEGER NOT NULL DEFAULT 1,
+            creado_en TEXT NOT NULL,
+            creado_por_nombre TEXT,
+            actualizado_en TEXT
+        );
+        ALTER TABLE venta_lineas ADD COLUMN venta_rapida_id INTEGER REFERENCES ventas_rapidas (id);
+        """,
+    ),
 ]
 
 def conectar(ruta) -> sqlite3.Connection:

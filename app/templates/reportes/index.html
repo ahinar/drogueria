@@ -33,6 +33,10 @@
     <h2><span class="ico-emoji">📦</span> Sugerido de compra</h2>
     <p>Qué pedir y cuánto por proveedor. WhatsApp o imprimir.</p>
   </a>
+  <a class="modulo" href="{{ url_for('reportes.inventario_ver') }}">
+    <h2><span class="ico-emoji">💰</span> Valor del inventario</h2>
+    <p>Cuánto vale la mercancía al costo y a precio de venta, por categoría. Excel.</p>
+  </a>
   {% endif %}
   <a class="modulo" href="{{ url_for('reportes.recepciones_ver') }}">
     <h2><span class="ico-emoji">🚚</span> Recepciones</h2>

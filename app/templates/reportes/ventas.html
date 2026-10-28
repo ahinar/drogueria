@@ -1,5 +1,5 @@
 {% extends "reportes/_base.html" %}
-{% from "reportes/_macros.html" import pesos, pct, cambio %}
+{% from "reportes/_macros.html" import pesos, pct, cambio, cant %}
 {% set reporte_activo = 'ventas' %}
 {% block titulo %}Reporte de ventas{% endblock %}
 {% block reporte %}
@@ -53,6 +53,24 @@
       {% else %}<tr><td colspan="3" class="suave">Ninguno en este período.</td></tr>{% endfor %}</tbody>
     <tfoot><tr><td>Total</td><td class="num">{{ oi.n }}</td><td class="num">{{ pesos(oi.total) }}
       <small class="suave">(antes {{ pesos(oi.total_anterior) }})</small></td></tr></tfoot>
+  </table>
+</div>
+{% endif %}
+
+{# ---- VENTAS RÁPIDAS Y VENTA LIBRE (versión 1.1.13): fotocopias, dulcería, inyectología... ---- #}
+{% if d.libres and tipo != 'productos' %}
+<div class="rep-caja" style="margin:1rem 0" id="rep-ventas-libres">
+  <h2><span class="ico-emoji">⚡</span> Ventas rápidas y venta libre</h2>
+  <p class="suave" style="margin-top:0">Lo vendido que no sale del inventario. Ganancia = venta sin IVA − costo
+    (solo si todas tienen costo). Se crean en <a href="{{ url_for('ventas_rapidas.lista') }}">Administración → Ventas rápidas</a>.</p>
+  <table class="rep-tabla">
+    <thead><tr><th>Concepto</th><th>Tipo</th><th class="num">Cantidad</th><th class="num">Ventas (con IVA)</th>
+      <th class="num">Costo</th><th class="num">Ganancia</th></tr></thead>
+    <tbody>{% for f in d.libres %}<tr><td>{{ f.nombre }}</td><td>{{ f.tipo }}</td><td class="num">{{ cant(f.cantidad) }}</td>
+      <td class="num">{{ pesos(f.con_iva) }}</td>
+      <td class="num">{{ pesos(f.costo) if not f.sin_costo else '—' }}</td>
+      <td class="num">{{ pesos(f.ganancia) if f.ganancia is not none else '—' }}</td></tr>{% endfor %}</tbody>
+    <tfoot><tr><td>Total</td><td></td><td></td><td class="num">{{ pesos(d.libres|sum(attribute='con_iva')) }}</td><td></td><td></td></tr></tfoot>
   </table>
 </div>
 {% endif %}

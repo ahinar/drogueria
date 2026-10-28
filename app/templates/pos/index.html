@@ -209,6 +209,13 @@
 <input type="hidden" id="url-api-abono" value="{{ url_for('cartera.api_abono') }}">
 <!-- Categorías de "otro ingreso" para la ventana del POS (JSON = lista que JS entiende) -->
 <script type="application/json" id="categorias-ingreso">{{ categorias_ingreso|tojson }}</script>
+<!-- Versión 1.1.13: VENTAS RÁPIDAS (fotocopias, dulcería...). Salen como botones en «+ Venta libre»
+     y en el buscador. «Guardar para la próxima vez» las crea con url-api-venta-rapida. -->
+<script type="application/json" id="ventas-rapidas">{{ ventas_rapidas|tojson }}</script>
+<input type="hidden" id="url-api-venta-rapida" value="{{ url_for('ventas_rapidas.api_crear') }}">
+{% if g.user.rol in ('administrador', 'director_tecnico') %}
+<input type="hidden" id="url-ventas-rapidas" value="{{ url_for('ventas_rapidas.lista') }}">
+{% endif %}
 <!-- Número de la caja: el carrito guardado en el navegador se separa por caja -->
 <input type="hidden" id="pos-caja-id" value="{{ caja['id'] }}">
 <!-- Información del producto (botón "i"). Termina en /0: JS cambia el 0 por el id -->

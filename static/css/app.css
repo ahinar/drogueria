@@ -269,6 +269,8 @@ body.login-body {
 }
 .aviso.ok    { background: #e8f6ec; color: #0d6b3d; border-color: #2e8b57; }
 .aviso.error { background: #fdecea; color: #8c1d18; border-color: #b3261e; }
+/* Advertencia amarilla (versión 1.1.13: productos sin costo o sin precio en Valor del inventario) */
+.aviso.advertencia { background: #fff7e0; color: #7a5200; border-color: #e0a800; }
 
 
 /* =========================================================
@@ -3286,3 +3288,7 @@ input.campo-num-activo:focus {
 .sug-tabla select.sug-prov-select { width: auto !important; max-width: 22rem !important; font-size: .76rem !important;
   padding: .1rem 1.4rem .1rem .4rem !important; height: auto !important; min-height: 0 !important;
   background-color: #f8fafc !important; border-radius: 6px !important; }
+
+/* Ventas rápidas (versión 1.1.13): formulario en una fila (en el celular, una debajo de otra) */
+.vr-form .vr-campos { display: grid; grid-template-columns: 2fr 1.4fr 1.4fr 1.4fr; gap: .8rem; }
+@media (max-width: 760px) { .vr-form .vr-campos { grid-template-columns: 1fr; } }

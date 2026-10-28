@@ -330,7 +330,7 @@
 
       <!-- ===== Administración (desplegable; se abre sola si estás en una de sus páginas) ===== -->
       {% if jefe %}
-      {% set en_admin = ep.startswith('catalogos.') or ep.startswith('unidades.') or ep.startswith('admin.') or ep.startswith('configuracion.') %}
+      {% set en_admin = ep.startswith('catalogos.') or ep.startswith('unidades.') or ep.startswith('admin.') or ep.startswith('configuracion.') or ep.startswith('ventas_rapidas.') %}
       <button type="button" class="sidebar-link sidebar-group {% if en_admin %}abierto{% endif %}"
               data-group="admin" title="Administración">
         <span class="ico">{{ ico("ajustes", "🗂️") }}</span>
@@ -345,6 +345,11 @@
         <a class="sidebar-sublink {% if ep.startswith('unidades.') %}activo{% endif %}"
            href="{{ url_for('unidades.lista') }}" title="Unidades de medida">
           <span class="ico">{{ ico("regla", "📏") }}</span><span class="txt">Unidades de medida</span>
+        </a>
+        {# Versión 1.1.13: fotocopias, dulcería, inyectología... (lo que no va al inventario) #}
+        <a class="sidebar-sublink {% if ep.startswith('ventas_rapidas.') %}activo{% endif %}"
+           href="{{ url_for('ventas_rapidas.lista') }}" title="Ventas rápidas">
+          <span class="ico">{{ ico("rayo", "⚡") }}</span><span class="txt">Ventas rápidas</span>
         </a>
         <a class="sidebar-sublink {% if ep == 'admin.bitacora' %}activo{% endif %}"
            href="{{ url_for('admin.bitacora') }}" title="Bitácora">

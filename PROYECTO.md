@@ -505,6 +505,30 @@ Notas:
 | 1.1.10 | 2026-10-23 | Igual a 1.1.9 (su instalador no se armó en GitHub: faltaba pypdf para una prueba) |
 | 1.1.11 | 2026-10-24 | Toma de inventario: si el producto no tiene costo (inventario inicial), se estima con el precio de venta − margen de Configuración (30 %). POS: ya no sale «Unexpected token '<'» al cobrar (clave de seguridad vieja se renueva sola; sesión cerrada o error interno → mensaje claro). Búsqueda con lo más parecido de primero (TAM → TAMPONES antes que aceTAMinofen) |
 | 1.1.12 | 2026-10-25 | Botón «Eliminar» de la foto en la ficha funciona; agotados en Inicio con «✔ Entendido» (vuelve a salir si llega mercancía y se agota otra vez; el reporte no cambia); Pedido sugerido con el proveedor MÁS BARATO (último precio por unidad con IVA), otras opciones con fecha y cambio a mano; toma de inventario: barra azul que selecciona todo y el cursor vuelve a ella tras guardar; botón ✏️ con la ventana «Editar producto» del POS, ahora con «Cómo se vende» (unidad, suelta, presentaciones, por defecto) |
+| 1.1.13 | 2026-10-28 | VALOR DEL INVENTARIO (Reportes y tarjeta en Inventario): al costo, a precio de venta, ganancia en el estante, por categoría y por producto, lo vencido/en cuarentena/bloqueado aparte, Excel. VENTAS RÁPIDAS (Administración → Ventas rápidas): fotocopias, dulcería, inyectología… se crean una vez (con precio fijo o preguntando el valor), salen como botones en «+ Venta libre» (teclas 1-9) y en el buscador del POS, se pueden guardar desde el POS y el reporte de Ventas dice cuánto se vendió de cada una |
+
+### Versión 1.1.13 — valor del inventario y ventas rápidas (2026-10-28)
+- **Valor del inventario** (pedido de Fernando, ya con el inventario inicial aplicado). `informes.valor_inventario()`:
+  lotes con `cantidad_disponible > 0` (sin agotados ni rechazados). Valor al costo = cantidad × `costo_unitario`;
+  a precio de venta = cantidad × precio de UNA unidad (`conteos._precio_de_una_unidad`: la unidad suelta o la
+  presentación ÷ factor), con IVA; ganancia = venta SIN IVA − costo. Vencidos (gana sobre el estado), cuarentena
+  y bloqueados van aparte y no suman. Por categoría: un producto con varias categorías cuenta solo en la PRIMERA
+  en orden alfabético (`productos_categorias.catalogo_id`), así la suma da el total. Avisos de productos con lotes
+  sin costo (⚠) o sin precio. Pantalla `/reportes/inventario` (admin/DT; menú de Reportes y su índice) con Excel
+  (el botón común `excel.js` toma las 3 tablas) y tarjeta «Valor del inventario» en Inventario (admin/DT).
+- **Ventas rápidas** (pedido de Fernando: dulcería, fotocopias, inyectología y miscelánea no van al inventario y
+  en venta libre tocaba escribirlas). Migración 42: `ventas_rapidas (nombre, precio NULL = se pregunta, iva_tarifa
+  0/5/19, costo, activo)` y `venta_lineas.venta_rapida_id`. `app/ventas_rapidas.py`: pantalla Administración →
+  Ventas rápidas (admin/DT: crear, editar, quitar del POS / volver a mostrar; no se borran) y `api/crear` (cualquier
+  usuario, desde el POS; mismo nombre sin tildes/mayúsculas → devuelve la que existe y la vuelve a activar).
+  POS (`pos_carrito.js`): la lista llega en `<script id="ventas-rapidas">`; «+ Venta libre» abre botones (1-9 con
+  el teclado, «✏️ Otra cosa», «⚙ Administrar»); sin precio pregunta el valor; misma venta rápida y mismo precio se
+  suman en una línea; tarjeta ⚡ punteada en el buscador (Enter con una sola coincidencia y ningún producto la
+  agrega); la venta libre escrita trae «¿Guardar para la próxima vez?» (precio fijo / preguntar cada vez). Al cobrar
+  viaja `venta_rapida_id` (`pos._guardar_linea_libre` lo guarda solo si existe). Reporte Ventas: tabla «Ventas
+  rápidas y venta libre» (`informes.ventas_libres`: por venta rápida o por el texto escrito sin tildes/mayúsculas;
+  ganancia solo si todas tienen costo).
+- Pruebas: `tests/test_version_1113.py`.
 
 ### Versión 1.1.12 — foto, «Entendido» en agotados, proveedor más barato, inventario con ✏️ (2026-10-25)
 - **Foto en la ficha**: el botón «Eliminar» no hacía nada (el JS guardaba una referencia vieja a la vista previa y
@@ -894,6 +918,14 @@ Notas:
 | 31 | `limpieza_tareas` (con las 3 de Fernando), `limpieza_registros`, `control_plagas`, `residuos_registros`, `residuos_entregas` (Fase 4.2) |
 | 32 | `personal`, `capacitaciones`, `capacitacion_asistentes` (Fase 4.3) |
 | 33 | `pqrs` (Fase 4.4) y `farmacovigilancia` (Fase 4.5) |
+| 34–35 | índices (`CREATE ... IF NOT EXISTS`) |
+| 36 | IVA por línea en la recepción (`precios_con_iva`, `iva_tarifa`, `costo_sin_iva`, `costo_con_iva`) |
+| 37 | sobrantes/faltantes de caja en la contabilidad (`diferencia_revisada`, `diferencia_gasto_id`, `diferencia_ingreso_id`) |
+| 38 | `cuentas_bancarias`, `bancos_movimientos`, origen del pago y cuentas por pagar (`plazo_dias`, `total_pagar`) (1.1.7) |
+| 39 | `recepciones_espera` (1.1.8) |
+| 40 | `token` / `borrador_token` de la recepción abierta (1.1.9) |
+| 41 | `alertas_vistas` («Entendido» en agotados) y `productos.proveedor_preferido_id` (1.1.12) |
+| 42 | `ventas_rapidas` y `venta_lineas.venta_rapida_id` (1.1.13) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 
