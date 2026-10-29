@@ -6,6 +6,8 @@ db/*.db-wal
 db/*.db-shm
 db/secret.key
 backups/*.db
+# Copias de seguridad automáticas (archivos_AAAAMMDD_HHMMSS.zip): son de cada PC, no se suben
+backups/*.zip
 pdfs/*.pdf
 .vscode/
 *.log
