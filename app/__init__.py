@@ -115,6 +115,9 @@ def create_app(test_config=None):
     # Versión 1.1.13: ventas rápidas (fotocopias, dulcería...). Ver app/ventas_rapidas.py
     from . import ventas_rapidas
     app.register_blueprint(ventas_rapidas.bp)
+    # Versión 1.1.16: Modo inspección (todo lo de la Secretaría en un .zip). Ver app/inspeccion.py
+    from . import inspeccion
+    app.register_blueprint(inspeccion.bp)
     # Versión 1.1.14: pantalla Ventas (buscar, ver el carrito al lado, devolver, corregir el pago)
     from . import ventas
     app.register_blueprint(ventas.bp)

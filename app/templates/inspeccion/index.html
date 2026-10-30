@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block titulo %}Modo inspección{% endblock %}
+{% block contenido %}
+{#
+  MODO INSPECCIÓN (app/inspeccion.py, versión 1.1.16)
+  mes          = el mes elegido, '2026-10'
+  partes       = lo que se puede meter en el .zip: (clave, texto, marcado)
+  alertas      = lo de calidad que está pendiente (las mismas alertas de Inicio)
+  zonas        = zonas de temperatura activas (una planilla por cada una)
+  certificados = archivos escaneados que se van a adjuntar
+#}
+<div class="eres-cabecera">
+  <div>
+    <h1><span class="ico-emoji">🕵️</span> Modo inspección</h1>
+    <p class="suave">Todo lo que pide la Secretaría de Salud, en un solo lugar y en un solo archivo.</p>
+  </div>
+</div>
+
+<!-- ===== 1. Lo que el inspector vería pendiente ===== -->
+<section class="alertas-panel">
+  <h2 class="alertas-titulo">1. Antes de que lleguen: lo pendiente</h2>
+  {% if not alertas %}
+    <p class="alertas-ok"><span class="ico-emoji">✅</span> Nada pendiente de calidad: calibraciones, documentos, limpieza,
+      plagas, residuos, capacitaciones, quejas y vencimientos al día.</p>
+  {% else %}
+  <div class="alertas-rejilla">
+    {% for a in alertas %}
+    <details class="alerta-tarjeta {{ a.nivel }}" data-clave="{{ a.clave }}" {% if a.nivel == 'rojo' %}open{% endif %}>
+      <summary>
+        <span class="alerta-icono">{{ a.icono }}</span>
+        <span class="alerta-nombre">{{ a.titulo }}</span>
+        <span class="alerta-total">{{ a.total }}</span>
+      </summary>
+      <p class="alerta-explicacion">{{ a.explicacion }}</p>
+      <ul class="alerta-items">
+        {% for it in a['items'] %}
+        <li>{% if it.url %}<a href="{{ it.url }}">{{ it.texto }}</a>{% else %}{{ it.texto }}{% endif %}
+          {% if it.detalle %}<small>{{ it.detalle }}</small>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% if a.total > a['items']|length %}<p class="alerta-mas">… y {{ a.total - a['items']|length }} más.</p>{% endif %}
+      {% if a.url %}<a class="boton secundario alerta-boton" href="{{ a.url }}">{{ a.boton }} →</a>{% endif %}
+    </details>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+
+<!-- ===== 2. Descargar el paquete ===== -->
+<form method="post" action="{{ url_for('inspeccion.descargar') }}" class="formulario insp-form">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <fieldset>
+    <legend>2. Descargar el paquete (.zip)</legend>
+    <label>Mes de las planillas
+      <input type="month" name="mes" value="{{ mes }}" required>
+      <small class="suave">Si piden varios meses, descargue un paquete por cada mes.</small>
+    </label>
+    {% for clave, texto, marcado in partes %}
+    <label class="switch-linea"><input type="checkbox" name="partes" value="{{ clave }}" {% if marcado %}checked{% endif %}> {{ texto }}</label>
+    {% endfor %}
+    <p class="suave"><small>
+      {% if zonas %}Zonas de temperatura: {{ zonas|map(attribute='nombre')|join(', ') }}.{% else %}No hay zonas de temperatura activas.{% endif %}
+      {% if certificados %}Certificados que se adjuntan: {{ certificados|length }}.{% else %}No hay certificados escaneados subidos todavía (se suben en Equipos y en Saneamiento).{% endif %}
+    </small></p>
+    <div class="acciones">
+      <button type="submit">⬇️ Descargar paquete</button>
+    </div>
+    <p class="suave"><small>El .zip trae los PDF numerados y un archivo LEAME.txt que dice qué se incluyó y si faltó algo.
+      En Windows se abre con doble clic.</small></p>
+  </fieldset>
+</form>
+
+<!-- ===== 3. O ver cada cosa por separado ===== -->
+<section class="insp-sueltos">
+  <h2>3. O mostrar cada cosa en pantalla</h2>
+  <div class="insp-rejilla">
+    <a href="{{ url_for('temperaturas.inicio') }}">🌡️ Temperaturas</a>
+    <a href="{{ url_for('reportes.temperaturas_mensual_form') }}">📋 Planilla mensual de temperaturas</a>
+    <a href="{{ url_for('saneamiento.limpieza') }}">🧽 Limpieza, plagas y residuos</a>
+    <a href="{{ url_for('equipos.lista') }}">📏 Equipos y calibraciones</a>
+    <a href="{{ url_for('documentos.lista') }}">🗂️ Documentos de calidad</a>
+    <a href="{{ url_for('capacitaciones.plan') }}">🎓 Capacitaciones</a>
+    <a href="{{ url_for('reportes.vencimientos_ver') }}">📅 Vencimientos</a>
+    <a href="{{ url_for('pqrs.lista') }}">💬 Quejas y reclamos</a>
+    <a href="{{ url_for('farmacovigilancia.lista') }}">💊 Farmacovigilancia</a>
+  </div>
+</section>
+{% endblock %}

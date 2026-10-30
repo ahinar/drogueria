@@ -63,6 +63,11 @@ DEFAULTS = {
     # Versión 1.1.11: margen para ESTIMAR el costo en la toma de inventario cuando el
     # producto no tiene ninguno (inventario inicial). costo ≈ precio de venta × (1 − margen)
     "margen_costo_estimado": "30",
+    # Versión 1.1.16: alertas al celular por Telegram (ver app/telegram.py)
+    "telegram_token": "",          # la clave del bot que entrega @BotFather
+    "telegram_chat_id": "",        # a quién le escribe el bot (se busca con «Buscar mi chat»)
+    "telegram_cierre_caja": "si",  # mini resumen al cerrar cada caja
+    "telegram_temperatura": "si",  # lectura de temperatura/humedad fuera de rango
 }
 
 MODOS_TIRILLA = {
@@ -129,6 +134,10 @@ def ver():
         except ValueError:
             margen = 30.0
         nuevos["margen_costo_estimado"] = f"{min(90.0, max(0.0, margen)):g}"
+        # Alertas por Telegram (1.1.16). Las casillas que no se marcan no llegan en el formulario → "no"
+        nuevos.update(_telegram_del_formulario())
+        nuevos["telegram_cierre_caja"] = "si" if request.form.get("telegram_cierre_caja") else "no"
+        nuevos["telegram_temperatura"] = "si" if request.form.get("telegram_temperatura") else "no"
 
         # Manejar subida de logo
         archivo_logo = request.files.get("logo")
@@ -187,6 +196,63 @@ def probar_cajon():
     else:
         flash(error, "error")
     return redirect(url_for("configuracion.ver"))
+
+# ---------------------------------------------------------------------
+# Alertas al celular por Telegram (versión 1.1.16, ver app/telegram.py)
+# ---------------------------------------------------------------------
+
+def _telegram_del_formulario():
+    """Token y chat escritos en la pantalla (sin espacios). Si vienen vacíos, los guardados."""
+    cfg = obtener_config()
+    token = (request.form.get("telegram_token") or "").strip().replace(" ", "")
+    chat = (request.form.get("telegram_chat_id") or "").strip().replace(" ", "")
+    if "telegram_token" not in request.form:          # (el formulario no traía la parte de Telegram)
+        token, chat = cfg.get("telegram_token", ""), cfg.get("telegram_chat_id", "")
+    return {"telegram_token": token, "telegram_chat_id": chat}
+
+
+@bp.route("/telegram/buscar-chat", methods=["POST"])
+@roles_required("administrador")
+def telegram_buscar_chat():
+    """Botón «Buscar mi chat»: pregunta a Telegram quién le escribió al bot y lo guarda.
+
+    Guarda SOLO el token y el chat (no el resto del formulario), para que funcione
+    aunque falte la razón social o el NIT.
+    """
+    from . import telegram
+    token = _telegram_del_formulario()["telegram_token"]
+    if not token:
+        flash("Primero pega el token que te dio @BotFather.", "error")
+        return redirect(url_for("configuracion.ver") + "#telegram")
+    chat, nombre = telegram.buscar_chat(token)
+    if not chat:
+        flash(nombre, "error")          # (cuando no hay chat, «nombre» trae el porqué)
+        return redirect(url_for("configuracion.ver") + "#telegram")
+    guardar_config({"telegram_token": token, "telegram_chat_id": chat})
+    registrar("telegram_configurado", "config", detalle=f"chat={chat}")
+    flash(f"Listo: el bot le escribirá a {nombre or 'tu chat'} (chat {chat}). Toca «Mandar prueba» para verificar.", "ok")
+    return redirect(url_for("configuracion.ver") + "#telegram")
+
+
+@bp.route("/telegram/probar", methods=["POST"])
+@roles_required("administrador")
+def telegram_probar():
+    """Botón «Mandar prueba»: manda un mensaje YA y dice si llegó bien a Telegram."""
+    from . import telegram
+    datos = _telegram_del_formulario()
+    if not (datos["telegram_token"] and datos["telegram_chat_id"]):
+        flash("Falta el token o el chat. Pega el token y toca «Buscar mi chat».", "error")
+        return redirect(url_for("configuracion.ver") + "#telegram")
+    negocio = telegram.escapar(obtener_config().get("nombre_comercial") or "La droguería")
+    ok, error = telegram.enviar_ahora(f"✅ <b>{negocio}</b>: las alertas al celular quedaron funcionando.",
+                                      datos["telegram_token"], datos["telegram_chat_id"])
+    registrar("telegram_prueba", "config", detalle="ok" if ok else error)
+    if ok:
+        flash("Mensaje de prueba enviado: revisa Telegram en tu celular.", "ok")
+    else:
+        flash(f"No se pudo mandar: {error}", "error")
+    return redirect(url_for("configuracion.ver") + "#telegram")
+
 
 @bp.route("/probar-tirilla", methods=["POST"])
 @roles_required("administrador")

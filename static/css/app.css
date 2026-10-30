@@ -3273,3 +3273,19 @@ body.sidebar-colapsado .sidebar-submenu, body.sidebar-colapsado .sidebar-submenu
 .vtas-mixto input { width: 100%; min-width: 0; box-sizing: border-box; }
 .vtas-mixto small { grid-column: 1 / -1; }
 .vtas-corregir label { display: flex; flex-direction: column; gap: .2rem; }
+
+/* =========================================================
+   MODO INSPECCIÓN (versión 1.1.16, templates/inspeccion/index.html)
+   ========================================================= */
+.insp-form { max-width: 900px; margin-bottom: 1.5rem; }
+.insp-form legend { font-size: 1.05rem; }
+.insp-sueltos h2 { font-size: 1.15rem; margin: 0 0 .7rem; }
+/* «Mostrar cada cosa en pantalla»: botones en rejilla (se acomodan solos en el celular) */
+.insp-rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .6rem; max-width: 900px; }
+.insp-rejilla a { display: flex; align-items: center; gap: .5rem; padding: .7rem .9rem; border: 1px solid #dde3ea;
+  border-radius: 10px; background: #fff; color: inherit; text-decoration: none; font-weight: 500; }
+.insp-rejilla a:hover { border-color: var(--acento); background: var(--acento-suave); }
+@media (max-width: 600px) {          /* en el celular: menos márgenes, para que quepa el texto */
+  .insp-form { padding: .7rem; }
+  .insp-form fieldset { padding: .5rem .7rem; margin: 0; }
+}

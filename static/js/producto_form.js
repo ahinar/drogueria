@@ -427,6 +427,46 @@
         reader.readAsDataURL(file);
       });
     }
+    // ===== Versión 1.1.16: «Buscar foto» con el código de barras =====
+    // Le pide al programa (productos.api_foto_codigo) la foto de internet. Si llega, se
+    // mete en el campo «Cambiar imagen» como si la hubieran escogido a mano (DataTransfer)
+    // y se dispara 'change' para que se vea la vista previa de arriba. Se guarda con Guardar.
+    const btnFotoCodigo = document.getElementById('btn-foto-codigo');
+    const avisoFoto = document.getElementById('foto-codigo-aviso');
+    if (btnFotoCodigo && inputImagen) {
+      btnFotoCodigo.addEventListener('click', async function () {
+        const campo = document.querySelector('input[name="codigo_barras"]');
+        const codigo = (campo ? campo.value : '').trim();
+        function avisar(texto) { avisoFoto.textContent = texto; avisoFoto.hidden = false; }
+        if (!codigo) { avisar('Primero escriba o escanee el código de barras.'); if (campo) campo.focus(); return; }
+        btnFotoCodigo.disabled = true;
+        avisar('Buscando en internet…');
+        try {
+          const r = await fetch(btnFotoCodigo.dataset.url + '?codigo=' + encodeURIComponent(codigo));
+          if (!r.ok) {                                   // no la encontró: viene el porqué en JSON
+            const j = await r.json().catch(function () { return {}; });
+            avisar(j.error || 'No se encontró foto.');
+            return;
+          }
+          const blob = await r.blob();
+          const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+          const archivo = new File([blob], 'foto_' + codigo + '.' + ext, { type: blob.type });
+          const dt = new DataTransfer();
+          dt.items.add(archivo);
+          inputImagen.files = dt.files;
+          inputImagen.dispatchEvent(new Event('change'));
+          const fuente = decodeURIComponent(r.headers.get('X-Fuente') || '');
+          const nombre = decodeURIComponent(r.headers.get('X-Nombre') || '');
+          avisar('Foto encontrada en ' + fuente + (nombre ? ' («' + nombre + '»)' : '') +
+                 '. Revise que sea el producto y dele Guardar.');
+        } catch (e) {
+          avisar('No se pudo buscar: ¿hay internet?');
+        } finally {
+          btnFotoCodigo.disabled = false;
+        }
+      });
+    }
+
     // Versión 1.1.12: «Eliminar» deja el cuadro vacío y marca que se borre al Guardar
     if (btnEliminarImagen) {
       btnEliminarImagen.addEventListener('click', function () {

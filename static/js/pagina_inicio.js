@@ -25,7 +25,8 @@
   function direccion(url) { return String((url && url.url) || url || ''); }
   function comoJSON(resp, url) {
     const tipo = resp.headers.get('content-type') || '';
-    if (tipo.indexOf('json') >= 0 || direccion(url).indexOf('/api/') < 0) return resp;
+    // (1.1.16: una FOTO también es una respuesta buena: la manda «Buscar foto» de la ficha)
+    if (tipo.indexOf('json') >= 0 || tipo.indexOf('image/') === 0 || direccion(url).indexOf('/api/') < 0) return resp;
     const alIngreso = resp.redirected && resp.url.indexOf('/login') >= 0;
     const mensaje = (alIngreso || resp.status === 401)
       ? 'Tu sesión se cerró. Recarga la página con F5, entra otra vez y vuelve a intentarlo: esto NO se guardó.'

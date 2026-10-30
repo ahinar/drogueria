@@ -458,7 +458,7 @@ Notas:
 ### Fase 6: IA y automatización ⏳
 - Sugerencia de categorías y principio activo al escribir nombre.
 - ~~Búsqueda semántica~~ → la cubre el buscador por síntoma (usos) del POS.
-- Imágenes automáticas por código de barras.
+- ~~Imágenes automáticas por código de barras~~ → botón «Buscar foto» de la ficha (1.1.16).
 - Resumen de noticias regulatorias.
 
 ### Fase 7: empaquetado y distribución ✅ (2026-10-11, versión 1.0.0)
@@ -508,6 +508,26 @@ Notas:
 | 1.1.13 | 2026-10-28 | VALOR DEL INVENTARIO (Reportes y tarjeta en Inventario): al costo, a precio de venta, ganancia en el estante, por categoría y por producto, lo vencido/en cuarentena/bloqueado aparte, Excel. VENTAS RÁPIDAS (Administración → Ventas rápidas): fotocopias, dulcería, inyectología… se crean una vez (con precio fijo o preguntando el valor), salen como botones en «+ Venta libre» (teclas 1-9) y en el buscador del POS, se pueden guardar desde el POS y el reporte de Ventas dice cuánto se vendió de cada una |
 | 1.1.14 | 2026-10-29 | MENÚ POR TAREAS (Vender · Ventas · Compras · Inventario · Dinero · Calidad · Reportes · Administración, en acordeón; recogido muestra un ícono por grupo). Pantalla VENTAS: buscar cualquier venta, el carrito a la derecha sin cambiar de pantalla y abajo devoluciones y CORREGIR EL PAGO (si la caja ya cerró, recalcula el faltante/sobrante). DAVIPLATA como forma de pago y cuenta en Bancos (migración 43). POS: un solo botón «Movimiento de plata» (entra/sale → otro ingreso, efectivo, gasto, retiro del dueño o traslado con destino), categorías en una fila con «Más ▾» y menú lateral recogido. Recepción que cabe en la pantalla. Un solo estilo de tarjetas. Aviso en Inicio si no hay copia fuera del computador. Vencimientos y temperaturas sin pantallas repetidas |
 | 1.1.15 | 2026-10-29 | ORDEN INTERNO (no cambia lo que se ve): el JavaScript que estaba dentro de las pantallas (2.360 líneas) pasó a 13 archivos en static/js; ayudas comunes en app/utiles.py (leer_numero, obtener_o_404, siguiente_numero) y estilos_pdf(); POS partido en pos.py / pos_productos.py / pos_ventas.py y la recepción en recepciones.py / recepciones_productos.py / recepciones_acta.py; filtro |pesos en todas las pantallas; se quitaron imports, funciones y estilos CSS que ya nadie usaba |
+| 1.1.16 | 2026-10-30 | ALERTAS AL CELULAR por Telegram (Configuración → Alertas al celular): mini resumen al cerrar cada caja (ventas por forma de pago, contado, diferencia, gastos y retiros del turno) y aviso de temperatura/humedad fuera de rango; botones «Buscar mi chat» y «Mandar prueba». MODO INSPECCIÓN (Calidad → Modo inspección): lo pendiente de calidad y un .zip con las planillas del mes (temperaturas por zona, limpieza, residuos), vencimientos, listado de documentos, plan de capacitaciones y los certificados escaneados. FOTO POR CÓDIGO DE BARRAS en la ficha del producto (Open Food/Beauty/Products Facts; casi nunca trae medicamentos) |
+
+### Versión 1.1.16 — alertas al celular, Modo inspección, foto por código (2026-10-30)
+Tercera entrega del plan del análisis.
+- **`app/telegram.py`**: envío por la API de bots de Telegram con `urllib` (sin librerías nuevas), en un hilo aparte y
+  con 10 s máximo: si no hay internet, la caja se cierra igual y el error queda en fervifarma.log. Config:
+  `telegram_token`, `telegram_chat_id`, `telegram_cierre_caja`, `telegram_temperatura` ('si'/'no'). «Buscar mi chat»
+  usa `getUpdates` y guarda solo token y chat (funciona aunque falte la razón social). Ganchos: al final de
+  `pos.api_cerrar_caja` (después del commit) y de `temperaturas._guardar_lectura` cuando queda fuera de rango; ambos en
+  try/except. El gasto «Faltante de caja» automático no se cuenta como gasto del turno (ya está en la diferencia).
+- **`app/inspeccion.py`** (`/inspeccion`): muestra las alertas de calidad de `alertas.calcular_alertas` y arma un .zip.
+  Los PDF NO se reprogramaron: `_pdf_de(endpoint, **args)` ejecuta la vista que ya los genera dentro de
+  `test_request_context` (mismo `g.user`, mismos permisos). Adjunta la última fumigación, la última calibración de cada
+  equipo y las entregas de residuos del año; opcional, los archivos de documentos vigentes. LEAME.txt dice qué faltó.
+- **`app/foto_codigo.py`** + `productos.api_foto_codigo`: busca en Open Food Facts, Open Beauty Facts y Open Products
+  Facts (un 404 = «no lo tengo», no «sin internet»), baja la foto y la devuelve tal cual; `producto_form.js` la mete en
+  el campo de la foto con `DataTransfer`, así se guarda con «Guardar» por el camino normal (`guardar_imagen`). Se
+  corrigió el fetch envuelto de `pagina_inicio.js`, que convertía en error cualquier respuesta de /api/ que no fuera JSON:
+  ahora deja pasar `image/*`.
+- `temperaturas.py` tenía una línea en blanco después de cada línea (885 → 444 líneas, mismo código).
 
 ### Versión 1.1.15 — orden interno del código (2026-10-29)
 Segunda entrega del plan del análisis. No cambia nada de lo que se ve; deja el código más parejo y fácil de leer.
@@ -930,9 +950,9 @@ control especial (FNE) y facturación electrónica.
 ### Largo plazo
 - [ ] Facturación electrónica DIAN (según lo que diga el contador).
 - [ ] (⏸ lejano) IA para clasificación automática de productos.
-- [ ] Imágenes automáticas por código de barras.
+- [x] Imágenes por código de barras (1.1.16, botón «Buscar foto»).
 - [ ] App móvil.
-- [ ] Alertas a Telegram / WhatsApp.
+- [x] Alertas a Telegram (1.1.16). WhatsApp no: su API es de pago y pide empresa verificada.
 
 ### Hecho (antes estaba en esta lista)
 - [x] Cartera (ventas a crédito y abonos), venta libre y otros ingresos, carrito del POS, gastos discriminados, utilidades y estado de resultados, módulo Reportes R1–R8, control de precios máximos con alerta, venta por presentación, panel de alertas, equipos y calibraciones, confirmaciones con la ventana del programa.

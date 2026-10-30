@@ -456,6 +456,36 @@ def _guardar_relaciones(db, prod_id, categorias, usos):
                    (prod_id, uid))
 
 
+@bp.route("/api/foto-codigo")
+@login_required
+@roles_required("administrador", "director_tecnico")
+def api_foto_codigo():
+    """Versión 1.1.16: botón «Buscar foto» de la ficha (ver app/foto_codigo.py).
+
+    Si encuentra la foto, devuelve LA IMAGEN misma (la página la pone en el campo de
+    la foto y se guarda con «Guardar»). Si no, devuelve {"ok": false, "error": ...}.
+    """
+    import io
+    from urllib.parse import quote
+
+    from flask import jsonify, make_response
+    from PIL import Image
+
+    from .foto_codigo import buscar_foto
+    r = buscar_foto(request.args.get("codigo"))
+    if not r["ok"]:
+        return jsonify(r), 404
+    try:                                       # ¿de verdad es una imagen? ¿de qué tipo?
+        formato = (Image.open(io.BytesIO(r["foto"])).format or "JPEG").lower()
+    except Exception:
+        return jsonify({"ok": False, "error": "Lo que llegó de internet no es una foto válida."}), 404
+    respuesta = make_response(r["foto"])
+    respuesta.mimetype = f"image/{'jpeg' if formato == 'jpeg' else formato}"
+    respuesta.headers["X-Fuente"] = quote(r["fuente"])          # de dónde salió (para mostrarlo)
+    respuesta.headers["X-Nombre"] = quote(r["nombre"][:120])    # el nombre que tiene allá
+    return respuesta
+
+
 @bp.route("/nuevo", methods=["GET", "POST"])
 @login_required
 @roles_required("administrador", "director_tecnico")

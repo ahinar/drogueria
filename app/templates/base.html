@@ -143,9 +143,11 @@
       <!-- ===== CALIDAD: lo que revisa la Secretaría de Salud (para todos) ===== -->
       {% set en_calidad = ep.startswith('temperaturas.') or ep.startswith('equipos.') or ep.startswith('documentos.')
                           or ep.startswith('saneamiento.') or ep.startswith('capacitaciones.') or ep.startswith('pqrs.')
-                          or ep.startswith('farmacovigilancia.') %}
+                          or ep.startswith('farmacovigilancia.') or ep.startswith('inspeccion.') %}
       {{ grupo("calidad", "Calidad", "escudo", "✅", en_calidad) }}
       <div class="sidebar-submenu {% if en_calidad %}abierto{% endif %}" data-group-content="calidad">
+        {# 1.1.16: primero, el Modo inspección (junta todo lo de abajo para la visita) #}
+        {{ enlace('inspeccion.inicio', 'Modo inspección', 'escudo', '🕵️', ep.startswith('inspeccion.'), 'Todo lo que pide la Secretaría, en un .zip') }}
         {{ enlace('temperaturas.inicio', 'Temperaturas', 'termometro', '🌡️', ep.startswith('temperaturas.')) }}
         {{ enlace('equipos.lista', 'Equipos de medición', 'regla', '📏', ep.startswith('equipos.'), 'Termohigrómetros y su calibración') }}
         {{ enlace('documentos.lista', 'Documentos', 'carpeta', '🗂️', ep.startswith('documentos.'), 'Documentos del sistema de calidad') }}

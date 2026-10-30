@@ -141,6 +141,41 @@
     {% endif %}
   </fieldset>
 
+  {# ----- Versión 1.1.16: alertas al celular por Telegram (app/telegram.py) ----- #}
+  <fieldset id="telegram">
+    <legend>📱 Alertas al celular (Telegram)</legend>
+    <p class="suave"><small>El programa le manda un mensaje a su Telegram cuando se cierra una caja (con un mini resumen)
+      y cuando una temperatura o humedad queda fuera de rango. Es gratis.</small></p>
+    <details class="eres-ayuda">
+      <summary>❓ ¿Cómo lo configuro? (2 minutos, una sola vez)</summary>
+      <ol>
+        <li>En Telegram busque <strong>@BotFather</strong> (el que tiene el chulito azul) y escríbale <code>/newbot</code>.</li>
+        <li>Le pide un nombre (por ejemplo <em>Fervifarma Alertas</em>) y un usuario que termine en <em>bot</em>
+          (por ejemplo <em>fervifarma_alertas_bot</em>).</li>
+        <li>Le entrega un <strong>token</strong>, una clave larga como <code>123456789:AAH...</code>. Cópielo y péguelo abajo.</li>
+        <li>Abra el bot nuevo (el enlace que le da BotFather), toque <strong>Iniciar</strong> y escríbale cualquier cosa, por ejemplo «hola».</li>
+        <li>Aquí toque <strong>🔎 Buscar mi chat</strong> y luego <strong>📨 Mandar prueba</strong>.</li>
+      </ol>
+      <p class="suave"><small>El token es como una contraseña del bot: no lo comparta. Se necesita internet en el computador del local.</small></p>
+    </details>
+    <label>Token del bot
+      <input type="text" name="telegram_token" value="{{ valores['telegram_token'] }}" autocomplete="off" spellcheck="false"
+             placeholder="123456789:AAH...">
+    </label>
+    <label>Chat (a quién le escribe)
+      <input type="text" name="telegram_chat_id" value="{{ valores['telegram_chat_id'] }}" autocomplete="off"
+             placeholder="Se llena solo con «Buscar mi chat»">
+    </label>
+    <label class="switch-linea"><input type="checkbox" name="telegram_cierre_caja" value="si"
+      {% if valores['telegram_cierre_caja'] != 'no' %}checked{% endif %}> Avisar cuando se cierre una caja (con mini resumen)</label>
+    <label class="switch-linea"><input type="checkbox" name="telegram_temperatura" value="si"
+      {% if valores['telegram_temperatura'] != 'no' %}checked{% endif %}> Avisar cuando una temperatura o humedad quede fuera de rango</label>
+    <div class="acciones">
+      <button type="submit" formaction="{{ url_for('configuracion.telegram_buscar_chat') }}" class="secundario">🔎 Buscar mi chat</button>
+      <button type="submit" formaction="{{ url_for('configuracion.telegram_probar') }}" class="secundario">📨 Mandar prueba</button>
+    </div>
+  </fieldset>
+
   <div class="acciones">
     <button type="submit" name="_accion" value="guardar">Guardar configuración</button>
   </div>

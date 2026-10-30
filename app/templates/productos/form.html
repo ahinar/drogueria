@@ -86,6 +86,12 @@
            faltaba este campo oculto: al darle Eliminar se llena con "eliminar" y, al GUARDAR,
            el programa borra la foto (productos.editar, "_imagen_accion"). #}
         <input type="hidden" name="_imagen_accion" id="imagen-accion" value="">
+        {# 1.1.16: buscar la foto en internet con el código de barras (app/foto_codigo.py) #}
+        <button type="button" id="btn-foto-codigo" class="boton-chico secundario" style="margin-top:.4rem;width:100%"
+                data-url="{{ url_for('productos.api_foto_codigo') }}" title="Busca una foto en internet con el código de barras">
+          <span class="ico-emoji">🔎</span> Buscar foto
+        </button>
+        <small class="suave" id="foto-codigo-aviso" hidden></small>
         {% if producto and producto['imagen'] %}
         <button type="button" id="btn-eliminar-imagen" class="boton-chico peligro" style="margin-top:.4rem;width:100%">
           <span class="ico-emoji">🗑️</span> Eliminar
