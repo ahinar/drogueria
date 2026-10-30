@@ -34,11 +34,12 @@ from .audit import registrar
 from .auth import roles_required
 from .db import ahora, get_db
 from .formato import pesos
+from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
 bp = Blueprint("devoluciones", __name__, url_prefix="/devoluciones")
 
 # "credito" = la venta fue a crédito: no se devuelve plata, se descuenta de lo que debe (Cartera)
-FORMAS_REEMBOLSO = {"efectivo": "Efectivo", "nequi": "Nequi", "davivienda": "Davivienda", "tarjeta": "Tarjeta",
+FORMAS_REEMBOLSO = {**{f: fp.nombre(f) for f in fp.FORMAS_REEMBOLSO},
                     "credito": "Descontar de su deuda (venta a crédito)"}
 MOTIVOS_PROVEEDOR = ["Producto vencido", "Próximo a vencer", "Averiado / empaque dañado",
                      "Error en el pedido", "Retiro del mercado (alerta INVIMA)", "Otro"]
@@ -135,12 +136,20 @@ def cliente():
             flash(f"La venta {buscado} está anulada: no tiene nada que devolver.", "error")
             venta = None
 
+    # Versión 1.1.14: si el formulario vino del panel de la pantalla Ventas, se vuelve allá
+    desde_ventas = request.method == "POST" and request.form.get("volver") == "ventas" and venta is not None
     if request.method == "POST" and venta is not None:
         try:
             dev_id = _registrar_devolucion_cliente(venta)
         except _Error as e:
             flash(str(e), "error")
+            if desde_ventas:
+                return redirect(url_for("ventas.lista", venta=venta["id"]))
         else:
+            if desde_ventas:
+                numero = db.execute("SELECT numero FROM devoluciones WHERE id = ?", (dev_id,)).fetchone()["numero"]
+                flash(f"Devolución {numero} registrada.", "ok")
+                return redirect(url_for("ventas.lista", venta=venta["id"]))
             return redirect(url_for("devoluciones.ver", dev_id=dev_id))
 
     caja = db.execute("SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1").fetchone()

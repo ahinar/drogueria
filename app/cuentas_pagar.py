@@ -36,20 +36,20 @@ from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
 from .formato import pesos
+from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
 bp = Blueprint("cuentas_pagar", __name__, url_prefix="/cuentas-por-pagar")
 
 ORIGENES = {
     "caja_menor": "Caja menor (efectivo)",
     "caja_pos": "Caja del POS (efectivo)",
-    "nequi": "Nequi",
-    "davivienda": "Davivienda",
+    **{c: fp.nombre(c) for c in fp.CLAVES_CUENTAS},       # Nequi, Davivienda, Daviplata
     "otro": "Otro (bolsillo u otra cuenta: no mueve cajas)",
 }
 
 # Para facturas viejas ("por revisar") que ya se habían pagado NO se ofrece caja menor
 # ni caja del POS: esa plata salió hace días y descontarla hoy dañaría el saldo de hoy.
-ORIGENES_ANTIGUOS = ("nequi", "davivienda", "otro")
+ORIGENES_ANTIGUOS = fp.CLAVES_CUENTAS + ("otro",)
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +98,7 @@ def saldos_origen(db):
     caja = db.execute("SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1").fetchone()
     saldos = {"caja_menor": saldo_actual(db),
               "caja_pos": _resumen_caja(caja)["efectivo_esperado"] if caja else None}
-    for clave in ("nequi", "davivienda"):
+    for clave in fp.CLAVES_CUENTAS:
         c = cuenta_por_clave(db, clave)
         saldos[clave] = saldo(db, c) if c else None
     return saldos, caja

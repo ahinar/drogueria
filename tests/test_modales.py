@@ -13,8 +13,9 @@ import unittest
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
-# Plantillas que existen pero no se usan en ninguna página
-SIN_USAR = {"modal-cobro"}
+# Plantillas que existen pero no se usan en ninguna página (versión 1.1.14: se borró
+# _modal_cobro.html, que llevaba tiempo sin usarse; ya no queda ninguna)
+SIN_USAR = set()
 
 
 class TestModales(unittest.TestCase):

@@ -37,20 +37,30 @@
   const movCancelar = document.getElementById('mov-cancelar');
   const movGuardar = document.getElementById('mov-guardar');
 
-  function abrirModalMovimiento(tipo) {
+  // Versión 1.1.14: la abre el botón «Movimiento de plata» (pos_carrito.js), que ya
+  // preguntó si entra o sale y para qué. modo:
+  //   'dueno'    → sale: plata que se lleva el dueño (no se pregunta a dónde va)
+  //   'traslado' → sale: se pasa a la caja menor o se consigna (se pregunta a dónde)
+  //   'entra'    → entra efectivo que no es venta ni ingreso (base, cambio): de dónde viene
+  const movLugar = document.getElementById('mov-lugar');
+  const movLugarWrap = document.getElementById('mov-lugar-wrap');
+  const TEXTOS = {
+    dueno: ['💸 Plata que se lleva el dueño', 'Queda como «Retiro del dueño»: no es gasto de la droguería. Utilidades lo muestra aparte.'],
+    traslado: ['🔁 Pasar plata a otro lado', 'Sale efectivo del cajón y llega a donde usted diga: allá queda registrado también.'],
+    entra: ['💵 Entra efectivo a la caja', 'Para base, cambio de billetes o plata que se trae de otro lado. No es ganancia.'],
+  };
+  function abrirModalMovimiento(tipo, modo) {
     if (!modalMov) return;
+    modo = modo || (tipo === 'ingreso' ? 'entra' : 'traslado');
     movTipo.value = tipo;
-    movTitulo.textContent = tipo === 'ingreso' ? '💵 Ingreso de efectivo' : '💸 Salida de efectivo';
-    // La salida es para MOVER plata, no para pagar cosas (eso es un gasto).
-    // Mostramos la aclaración y ejemplos distintos según el tipo.
-    const ayuda = document.getElementById('mov-ayuda');
-    if (ayuda) ayuda.hidden = tipo !== 'salida';
-    // Y en el ingreso: meter plata (base, cambio) no es lo mismo que plata ganada
-    const ayudaIngreso = document.getElementById('mov-ayuda-ingreso');
-    if (ayudaIngreso) ayudaIngreso.hidden = tipo !== 'ingreso';
-    movMotivo.placeholder = tipo === 'ingreso'
-      ? 'Ej: base adicional, cambio de billetes, devolución de un préstamo…'
-      : 'Ej: consignación en el banco, paso a caja menor, cambio de billetes…';
+    movTitulo.textContent = TEXTOS[modo][0];
+    document.getElementById('mov-explica').textContent = TEXTOS[modo][1];
+    document.getElementById('mov-lugar-texto').textContent =
+      tipo === 'ingreso' ? '¿De dónde viene la plata?' : '¿A dónde va la plata?';
+    // «El dueño» solo se escoge con su propio botón; en 'entra' sí aparece (aporte del dueño)
+    Array.from(movLugar.options).forEach((o) => { o.hidden = modo === 'traslado' && o.value === 'dueno'; });
+    movLugarWrap.hidden = modo === 'dueno';
+    movLugar.value = modo === 'dueno' ? 'dueno' : 'caja_menor';
     movFormaPago.value = 'efectivo';
     movMonto.value = '';
     movMotivo.value = '';
@@ -58,29 +68,13 @@
     modalMov.classList.remove('modal-oculto');
     setTimeout(() => movMonto.focus(), 50);
   }
+  window.abrirMovimiento = abrirModalMovimiento;
 
   function cerrarModalMovimiento() {
     if (modalMov) modalMov.classList.add('modal-oculto');
   }
 
   if (movCancelar) movCancelar.addEventListener('click', cerrarModalMovimiento);
-  // Botón "Es un pago → registrar gasto": cierra esta ventana y abre la de gasto
-  const irGasto = document.getElementById('mov-ir-gasto');
-  if (irGasto) {
-    irGasto.addEventListener('click', () => {
-      cerrarModalMovimiento();
-      const item = document.querySelector('.pos-drawer-item[data-accion="registrar-gasto"]');
-      if (item) item.click();
-    });
-  }
-  // Botón "Es plata ganada → registrar otro ingreso"
-  const irIngreso = document.getElementById('mov-ir-ingreso');
-  if (irIngreso) {
-    irIngreso.addEventListener('click', () => {
-      cerrarModalMovimiento();
-      if (window.pedirOtroIngreso) window.pedirOtroIngreso();
-    });
-  }
   if (modalMov) {
     modalMov.addEventListener('click', (e) => {
       if (e.target === modalMov) cerrarModalMovimiento();
@@ -101,6 +95,7 @@
       datos.append('forma_pago', movFormaPago.value);
       datos.append('monto', monto);
       datos.append('motivo', movMotivo.value);
+      datos.append('lugar', movLugar ? movLugar.value : '');   // versión 1.1.14
 
       const url = document.getElementById('url-api-movimiento').value;
       movGuardar.disabled = true;
@@ -195,19 +190,16 @@
       document.getElementById('cierre-efectivo-total').textContent = formatoCOP(r.efectivo.esperado);
       cierreEsperado = r.efectivo.esperado;
 
-      // Nequi
-      const totalNequi = r.nequi.ventas + r.nequi.ingresos - r.nequi.salidas;
-      document.getElementById('cierre-nequi-ventas').textContent = formatoCOP(r.nequi.ventas);
-      document.getElementById('cierre-nequi-ingresos').textContent = '+ ' + formatoCOP(r.nequi.ingresos);
-      document.getElementById('cierre-nequi-salidas').textContent = '− ' + formatoCOP(r.nequi.salidas);
-      document.getElementById('cierre-nequi-total').textContent = formatoCOP(totalNequi);
-
-      // Davivienda
-      const totalDavi = r.davivienda.ventas + r.davivienda.ingresos - r.davivienda.salidas;
-      document.getElementById('cierre-davivienda-ventas').textContent = formatoCOP(r.davivienda.ventas);
-      document.getElementById('cierre-davivienda-ingresos').textContent = '+ ' + formatoCOP(r.davivienda.ingresos);
-      document.getElementById('cierre-davivienda-salidas').textContent = '− ' + formatoCOP(r.davivienda.salidas);
-      document.getElementById('cierre-davivienda-total').textContent = formatoCOP(totalDavi);
+      // Cuentas: Nequi, Davivienda, Daviplata... (versión 1.1.14). Una sección por cuenta,
+      // armada con la lista que manda el servidor, así una cuenta nueva sale sola.
+      document.getElementById('cierre-cuentas').innerHTML = (r.cuentas || []).map((c) => {
+        const total = c.ventas + c.ingresos - c.salidas;
+        return '<div class="cierre-seccion" data-cuenta="' + c.clave + '">' +
+          '<div class="cierre-seccion-titulo"><span>' + c.nombre + '</span><strong>' + formatoCOP(total) + '</strong></div>' +
+          '<div class="cierre-linea"><span>Ventas del turno</span><strong>' + formatoCOP(c.ventas) + '</strong></div>' +
+          '<div class="cierre-linea"><span>Ingresos</span><strong>+ ' + formatoCOP(c.ingresos) + '</strong></div>' +
+          '<div class="cierre-linea"><span>Salidas</span><strong>− ' + formatoCOP(c.salidas) + '</strong></div></div>';
+      }).join('');
 
       // Tarjeta
       document.getElementById('cierre-tarjeta-ventas').textContent = formatoCOP(r.tarjeta.ventas);
@@ -382,12 +374,6 @@
       switch (accion) {
         case 'cerrar-caja':
           abrirModalCierre();
-          break;
-        case 'ingreso-efectivo':
-          abrirModalMovimiento('ingreso');
-          break;
-        case 'salida-efectivo':
-          abrirModalMovimiento('salida');
           break;
         // Las demás acciones (últimas ventas, cliente, nota, reimprimir,
         // inventario y registrar gasto) las maneja pos_carrito.js.

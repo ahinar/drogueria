@@ -3,82 +3,69 @@
 {% block contenido %}
 <h1><span class="ico-emoji">🗃️</span> Inventario</h1>
 
-<div class="tarjetas-kpi" style="margin-bottom:1.2rem">
-  {# Versión 1.1.13: cuánto vale la mercancía (abre el reporte completo) #}
+{# Versión 1.1.14: 6 tarjetas en 2 filas parejas de 3 (antes 7 en 3 filas de distinto tamaño).
+   «Por vencer» junta los de 30 y 90 días. #}
+<div class="tarjetas-kpi tarjetas-3">
   {% if valor %}
   <a class="kpi-card kpi-ok" href="{{ url_for('reportes.inventario_ver') }}" style="text-decoration:none" id="kpi-valor-inventario">
     <div class="kpi-icono">💰</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Valor del inventario (al costo)</span>
-      <strong class="kpi-valor">${{ '{:,.0f}'.format(valor.costo).replace(',', '.') }}</strong>
-      <span class="kpi-detalle">A precio de venta: ${{ '{:,.0f}'.format(valor.venta).replace(',', '.') }} · Ver detalle</span>
+      <strong class="kpi-valor">{{ valor.costo|pesos }}</strong>
+      <span class="kpi-detalle">A precio de venta: {{ valor.venta|pesos }} · Ver detalle</span>
     </div>
   </a>
   {% endif %}
-  <div class="kpi-card kpi-ok">
+  <a class="kpi-card kpi-ok" href="{{ url_for('inventario.lotes') }}" style="text-decoration:none">
     <div class="kpi-icono">📦</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Lotes activos</span>
       <strong class="kpi-valor">{{ total_lotes }}</strong>
       <span class="kpi-detalle">{{ total_productos }} productos en catálogo</span>
     </div>
-  </div>
-
-  <a class="kpi-card {% if por_vencer_30 > 0 %}kpi-alerta{% else %}kpi-pendiente{% endif %}"
-     href="{{ url_for('inventario.lotes', vencimiento='30') }}" style="text-decoration:none">
-    <div class="kpi-icono">🔴</div>
+  </a>
+  <a class="kpi-card {% if por_vencer_30 > 0 %}kpi-alerta{% else %}kpi-ok{% endif %}"
+     href="{{ url_for('reportes.vencimientos_ver') }}" style="text-decoration:none">
+    <div class="kpi-icono">⏳</div>
     <div class="kpi-info">
-      <span class="kpi-titulo">Por vencer &lt; 30 días</span>
+      <span class="kpi-titulo">Vencen en 30 días o menos</span>
       <strong class="kpi-valor {% if por_vencer_30 > 0 %}kpi-valor-alerta{% endif %}">{{ por_vencer_30 }}</strong>
-      <span class="kpi-detalle">Ver detalle</span>
+      <span class="kpi-detalle">{{ por_vencer_90 }} en 90 días · Ver semáforo</span>
     </div>
   </a>
-
-  <a class="kpi-card {% if por_vencer_90 > 0 %}kpi-pendiente{% else %}kpi-ok{% endif %}"
-     href="{{ url_for('inventario.lotes', vencimiento='90') }}" style="text-decoration:none">
-    <div class="kpi-icono">🟡</div>
-    <div class="kpi-info">
-      <span class="kpi-titulo">Por vencer &lt; 90 días</span>
-      <strong class="kpi-valor">{{ por_vencer_90 }}</strong>
-      <span class="kpi-detalle">Ver detalle</span>
-    </div>
-  </a>
-
   <a class="kpi-card {% if vencidos > 0 %}kpi-alerta{% else %}kpi-ok{% endif %}"
      href="{{ url_for('inventario.lotes', vencimiento='vencidos') }}" style="text-decoration:none">
-    <div class="kpi-icono">⚫</div>
+    <div class="kpi-icono">⛔</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Vencidos</span>
       <strong class="kpi-valor {% if vencidos > 0 %}kpi-valor-alerta{% endif %}">{{ vencidos }}</strong>
-      <span class="kpi-detalle">Requieren baja</span>
+      <span class="kpi-detalle">{{ 'Requieren baja' if vencidos else 'Ninguno' }}</span>
     </div>
   </a>
-</div>
-
-<div class="tarjetas-kpi" style="margin-bottom:1.4rem">
   <a class="kpi-card {% if cuarentena > 0 %}kpi-pendiente{% else %}kpi-ok{% endif %}"
      href="{{ url_for('inventario.lotes', estado='cuarentena') }}" style="text-decoration:none">
     <div class="kpi-icono">🟡</div>
     <div class="kpi-info">
       <span class="kpi-titulo">En cuarentena</span>
       <strong class="kpi-valor">{{ cuarentena }}</strong>
+      <span class="kpi-detalle">esperando revisión</span>
     </div>
   </a>
-
   <a class="kpi-card {% if bloqueados > 0 %}kpi-alerta{% else %}kpi-ok{% endif %}"
      href="{{ url_for('inventario.lotes', estado='bloqueado') }}" style="text-decoration:none">
     <div class="kpi-icono">🚫</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Bloqueados</span>
       <strong class="kpi-valor">{{ bloqueados }}</strong>
+      <span class="kpi-detalle">no se pueden vender</span>
     </div>
   </a>
 </div>
 
 <div class="dashboard-hero-badges" style="background:transparent;padding:0;margin-bottom:1rem">
   <a class="boton" href="{{ url_for('inventario.lotes') }}">Ver todos los lotes</a>
-  <a class="boton secundario" href="{{ url_for('inventario.vencimientos') }}">Semáforo de vencimientos</a>
-  <a class="boton secundario" href="{{ url_for('inventario.kardex_buscar') }}">Buscar kardex</a>
+  <a class="boton secundario" href="{{ url_for('reportes.vencimientos_ver') }}">Semáforo de vencimientos</a>
+  <a class="boton secundario" href="{{ url_for('inventario.kardex_buscar') }}">Kardex</a>
   <a class="boton secundario" href="{{ url_for('conteos.lista') }}"><span class="ico-emoji">📋</span> Toma de inventario</a>
   {% if g.user.rol in ('administrador', 'director_tecnico') %}
   <a class="boton secundario" href="{{ url_for('devoluciones.lista') }}">↩️ Devoluciones</a>
@@ -108,4 +95,4 @@
   </tbody>
 </table>
 {% endif %}
-{% endblock %}
+{% endblock %}

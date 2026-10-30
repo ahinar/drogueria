@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block titulo %}Ventas{% endblock %}
+{% block contenido %}
+{#
+  VENTAS (versión 1.1.14) — app/ventas.py
+  Izquierda: buscador y lista de ventas. Derecha: el carrito de la venta escogida
+  (ventas/_panel.html), con sus devoluciones y «Corregir el pago» abajo.
+  Al tocar una venta, static/js/ventas.js trae el panel SIN cambiar de pantalla.
+  Sin JavaScript también funciona: cada fila es un enlace a ?venta=<id>.
+#}
+{% macro fecha_corta(t) -%}{{ t[8:10] }}/{{ t[5:7] }} {{ t[11:16] }}{%- endmacro %}
+<div class="titulo-pagina">
+  <h1>Ventas</h1>
+  <p class="suave">Busque cualquier venta y tóquela para ver su carrito al lado.</p>
+</div>
+
+<form method="get" class="filtros vtas-filtros" id="vtas-filtros">
+  {% if f.caja %}<input type="hidden" name="caja" value="{{ f.caja }}">{% endif %}
+  <label>Buscar
+    <input type="search" name="q" value="{{ f.q }}" placeholder="Número, cliente o producto" autocomplete="off">
+  </label>
+  {% if not f.caja %}
+  <label>Desde <input type="date" name="desde" value="{{ f.desde }}"></label>
+  <label>Hasta <input type="date" name="hasta" value="{{ f.hasta }}"></label>
+  {% endif %}
+  <label>Pago
+    <select name="forma">
+      <option value="">Todas</option>
+      {% for x in formas_pago.FORMAS_VENTA %}<option value="{{ x }}" {% if f.forma == x %}selected{% endif %}>{{ formas_pago.nombre(x) }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Estado
+    <select name="estado">
+      {% for clave, texto in estados.items() %}<option value="{{ clave }}" {% if f.estado == clave %}selected{% endif %}>{{ texto }}</option>{% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="boton">Buscar</button>
+  {% if f.caja %}<a class="boton secundario" href="{{ url_for('ventas.lista') }}">Ver todas las cajas</a>{% endif %}
+</form>
+
+<div class="vtas">
+  <section class="vtas-lista" aria-label="Lista de ventas">
+    <p class="vtas-resumen">
+      {% if f.caja %}Caja #{{ ventas[0]['caja_numero'] if ventas else f.caja }} · {% endif %}
+      <strong>{{ n }}</strong> venta{{ 's' if n != 1 }} por <strong>{{ total|pesos }}</strong>
+      {% if hay_mas %}<span class="suave">· se muestran las {{ ventas|length }} más recientes: afine la búsqueda</span>{% endif %}
+    </p>
+    {% if ventas %}
+    <table class="tabla vtas-tabla">
+      <thead><tr><th>Venta</th><th>Fecha</th><th>Cliente</th><th>Pago</th><th class="num">Total</th></tr></thead>
+      <tbody>
+      {% set filtros = request.args.to_dict() %}
+      {% for v in ventas %}
+        <tr class="vtas-fila {{ 'anulada' if v['estado'] == 'anulada' }} {{ 'activa' if panel and panel.venta['id'] == v['id'] }}"
+            data-id="{{ v['id'] }}">
+          <td><a href="{{ url_for('ventas.lista', **dict(filtros, venta=v['id'])) }}" class="vtas-enlace">{{ v['consecutivo'] }}</a>
+            {% if v['estado'] == 'anulada' %}<small class="etiqueta etiqueta-roja">Anulada</small>{% endif %}
+            {% if v['n_devoluciones'] %}<small class="etiqueta" title="Tiene devoluciones">↩ {{ v['n_devoluciones'] }}</small>{% endif %}</td>
+          <td>{{ fecha_corta(v['fecha']) }}</td>
+          <td>{{ v['cliente_nombre'] or '—' }}</td>
+          <td>{{ formas_pago.nombre(v['forma_pago']) }}{% if v['pago_corregido'] %} <span title="Se corrigió la forma de pago">✎</span>{% endif %}</td>
+          <td class="num">{{ v['total']|pesos }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="vacio">No hay ventas con esa búsqueda.</p>
+    {% endif %}
+  </section>
+
+  <section class="vtas-panel" id="vtas-panel" aria-live="polite"
+           data-url="{{ url_for('ventas.panel', venta_id=0) }}">
+    {% if panel %}
+      {% with p = panel %}{% include "ventas/_panel.html" %}{% endwith %}
+    {% else %}
+      <div class="vtas-vacio">
+        <span class="ico-emoji">🧾</span>
+        <p>Toque una venta de la lista para ver aquí su carrito, sus devoluciones y corregir el pago.</p>
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="{{ url_for('static', filename='js/devolucion.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ventas.js') }}"></script>
+{% endblock %}

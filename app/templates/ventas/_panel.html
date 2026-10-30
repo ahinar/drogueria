@@ -1,0 +1,142 @@
+{#
+  PANEL DE UNA VENTA (versión 1.1.14) — la parte derecha de la pantalla Ventas.
+  p = ventas.datos_panel(): venta, lineas, pagos, devoluciones, correcciones,
+      puede_corregir, por_que_no, es_jefe, caja_abierta, lineas_devolvibles, formas_reembolso.
+  Arriba el carrito; abajo «Corregir el pago» y las devoluciones.
+#}
+{% set v = p.venta %}
+{% macro filtros_ocultos() -%}
+  {# Para volver a la misma búsqueda después de guardar #}
+  {% for k in ('desde', 'hasta', 'q', 'forma', 'estado', 'caja') %}{% if request.args.get(k) %}
+  <input type="hidden" name="f_{{ k }}" value="{{ request.args.get(k) }}">{% endif %}{% endfor %}
+{%- endmacro %}
+<article class="vtas-detalle" data-venta="{{ v['id'] }}">
+  <header class="vtas-cabeza">
+    <div>
+      <h2>{{ v['consecutivo'] }}
+        {% if v['estado'] == 'anulada' %}<span class="etiqueta etiqueta-roja">Anulada</span>{% endif %}
+        {% if v['pago_corregido'] %}<span class="etiqueta" title="Se corrigió la forma de pago">✎ pago corregido</span>{% endif %}</h2>
+      <p class="suave">{{ v['fecha']|fecha_hora }} · Caja #{{ v['caja_numero'] or '—' }}
+        ({{ 'abierta' if v['caja_estado'] == 'abierta' else 'cerrada' }}) · vendió {{ v['usuario_nombre'] or '—' }}</p>
+      {% if v['cliente_nombre'] %}<p>Cliente: <strong>{{ v['cliente_nombre'] }}</strong>{% if v['cliente_documento'] %} · {{ v['cliente_documento'] }}{% endif %}</p>{% endif %}
+    </div>
+    <a class="boton secundario boton-mini" href="{{ url_for('pos.comprobante', venta_id=v['id']) }}" target="_blank" title="Abrir el comprobante para imprimirlo">🖨 Comprobante</a>
+  </header>
+
+  {% if v['estado'] == 'anulada' %}
+  <p class="aviso error">Anulada el {{ (v['anulada_en'] or '')|fecha_hora }} por {{ v['anulada_por_nombre'] or '—' }}: {{ v['motivo_anulacion'] or 'sin motivo' }}</p>
+  {% endif %}
+
+  {# ----- El carrito ----- #}
+  <table class="tabla vtas-carrito">
+    <thead><tr><th>Producto</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Total</th></tr></thead>
+    <tbody>
+    {% for l in p.lineas %}
+      <tr><td>{{ l['producto_nombre'] }}
+            <small>{{ 'Venta libre' if l['es_libre'] else (l['presentacion'] or '') }}{% if l['descuento_linea'] %} · descuento {{ l['descuento_linea']|pesos }}{% endif %}</small></td>
+          <td class="num">{{ ('%g' % l['cantidad']).replace('.', ',') }}</td>
+          <td class="num">{{ l['precio_unitario']|pesos }}</td>
+          <td class="num">{{ l['total']|pesos }}</td></tr>
+    {% endfor %}
+    </tbody>
+    <tfoot>
+      {% if v['descuento'] %}<tr><td colspan="3">Descuento</td><td class="num">−{{ v['descuento']|pesos }}</td></tr>{% endif %}
+      {% if v['iva'] %}<tr><td colspan="3">IVA incluido</td><td class="num">{{ v['iva']|pesos }}</td></tr>{% endif %}
+      <tr class="vtas-total"><td colspan="3">Total</td><td class="num">{{ v['total']|pesos }}</td></tr>
+    </tfoot>
+  </table>
+
+  <p class="vtas-pago">Pagó con <strong>{{ formas_pago.nombre(v['forma_pago']) }}</strong>
+    {% if v['forma_pago'] == 'mixto' %}:
+      {% for x in p.pagos %}{{ formas_pago.nombre(x['forma_pago']) }} {{ x['monto']|pesos }}{{ ' + ' if not loop.last }}{% endfor %}
+    {% elif v['forma_pago'] == 'efectivo' and v['monto_recibido'] %}· recibió {{ v['monto_recibido']|pesos }}, cambio {{ (v['cambio'] or 0)|pesos }}{% endif %}
+  </p>
+
+  {# ----- Corregir el pago ----- #}
+  {% if v['estado'] == 'completada' %}
+  <details class="vtas-seccion" {% if p.correcciones %}open{% endif %}>
+    <summary>✎ Corregir el pago <small class="suave">(ej. pagó por Daviplata y se registró como efectivo)</small></summary>
+    {% if p.puede_corregir %}
+    <form method="post" action="{{ url_for('ventas.corregir_pago_ruta', venta_id=v['id']) }}" class="vtas-corregir"
+          data-confirmar="¿Corregir la forma de pago de {{ v['consecutivo'] }}?">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      {{ filtros_ocultos() }}
+      <label>¿Cómo pagó de verdad?
+        <select name="forma_pago" class="vtas-forma" required>
+          <option value="">— Escoger —</option>
+          {% for x in formas_pago.FORMAS_VENTA_SIMPLE + ('mixto',) %}{% if x != v['forma_pago'] or x == 'mixto' %}
+          <option value="{{ x }}">{{ formas_pago.nombre(x) }}</option>{% endif %}{% endfor %}
+        </select>
+      </label>
+      {# Solo con «Mixto»: cuánto fue por cada cuenta o tarjeta; lo que falta es efectivo #}
+      <div class="vtas-mixto" hidden>
+        {% for x in formas_pago.FORMAS_MIXTO_OTRAS %}
+        <label>{{ formas_pago.nombre(x) }} <input type="text" inputmode="numeric" name="monto_{{ x }}" placeholder="0"></label>
+        {% endfor %}
+        <small class="suave">Lo que falta para {{ v['total']|pesos }} queda en efectivo.</small>
+      </div>
+      <label>Motivo *
+        <input type="text" name="motivo" required minlength="5" maxlength="200" placeholder="Ej: pagó por Daviplata, se marcó efectivo">
+      </label>
+      <button type="submit" class="boton">Guardar corrección</button>
+      {% if v['caja_estado'] != 'abierta' %}
+      <small class="suave">La caja ya se cerró: si cambia el efectivo, el programa recalcula su faltante o sobrante.</small>
+      {% endif %}
+    </form>
+    {% else %}
+      <p class="suave">{{ p.por_que_no }}</p>
+    {% endif %}
+    {% if p.correcciones %}
+    <ul class="vtas-historia">
+      {% for c in p.correcciones %}
+      <li><strong>{{ c['antes'] }} → {{ c['despues'] }}</strong>
+        <small>{{ c['creado_en']|fecha_hora }} · {{ c['usuario_nombre'] }} · {{ c['motivo'] }}</small></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </details>
+  {% endif %}
+
+  {# ----- Devoluciones ----- #}
+  <details class="vtas-seccion" {% if p.devoluciones %}open{% endif %}>
+    <summary>↩ Devoluciones {% if p.devoluciones %}({{ p.devoluciones|length }}){% endif %}</summary>
+    {% if p.devoluciones %}
+    <table class="tabla tabla-compacta">
+      <thead><tr><th>Número</th><th>Fecha</th><th>Se devolvió en</th><th class="num">Total</th></tr></thead>
+      <tbody>{% for d in p.devoluciones %}
+        <tr><td><a href="{{ url_for('devoluciones.ver', dev_id=d['id']) }}" target="_blank">{{ d['numero'] }}</a></td>
+            <td>{{ d['fecha']|fecha_hora }}</td>
+            <td>{{ p.formas_reembolso.get(d['forma_reembolso'], d['forma_reembolso']) }}</td>
+            <td class="num">{{ d['total']|pesos }}</td></tr>
+      {% endfor %}</tbody>
+    </table>
+    {% else %}<p class="suave">Esta venta no tiene devoluciones.</p>{% endif %}
+
+    {% if v['estado'] == 'completada' and p.es_jefe and p.lineas_devolvibles|selectattr('disponible')|list %}
+      <h3>Hacer una devolución</h3>
+      {% if not p.caja_abierta and v['forma_pago'] != 'credito' %}
+        <p class="eres-aviso">⚠️ No hay caja abierta. Abra la caja en el POS: la plata de la devolución sale de ahí.</p>
+      {% endif %}
+      {% with venta = v, lineas = p.lineas_devolvibles, formas = p.formas_reembolso,
+              caja = p.caja_abierta or v['forma_pago'] == 'credito', volver = 'ventas' %}
+        {% include "devoluciones/_form_cliente.html" %}
+      {% endwith %}
+    {% elif v['estado'] == 'completada' and not p.es_jefe %}
+      <p class="suave">Las devoluciones las hace el administrador o el director técnico.</p>
+    {% endif %}
+  </details>
+
+  {# ----- Anular (solo con la caja de la venta abierta) ----- #}
+  {% if v['estado'] == 'completada' and v['caja_estado'] == 'abierta' and p.es_jefe %}
+  <details class="vtas-seccion">
+    <summary>❌ Anular toda la venta</summary>
+    <form method="post" action="{{ url_for('pos.anular_venta', venta_id=v['id']) }}" class="vtas-anular"
+          data-confirmar="¿Anular la venta {{ v['consecutivo'] }}? El inventario vuelve a los lotes.">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <input type="text" name="motivo" placeholder="Motivo de la anulación" required>
+      <button type="submit" class="boton peligro">Anular</button>
+    </form>
+    <p class="suave"><small>Solo mientras la caja de la venta siga abierta. Después, use una devolución.</small></p>
+  </details>
+  {% endif %}
+</article>

@@ -13,11 +13,10 @@ import json
 from datetime import date, timedelta
 
 from .db import get_db
+from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
 DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
-FORMAS_PAGO = {"efectivo": "Efectivo", "nequi": "Nequi", "davivienda": "Davivienda",
-               "tarjeta": "Tarjeta", "transferencia": "Transferencia", "credito": "Crédito (cartera)",
-               "mixto": "Mixto (varias formas)"}
+FORMAS_PAGO = fp.NOMBRES             # Efectivo, Nequi, Davivienda, Daviplata, Tarjeta... (formas_pago.py)
 MESES_CORTOS = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 

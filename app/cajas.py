@@ -28,6 +28,7 @@ PARA QUÉ (para aprender):
     (columna cajas.diferencia_revisada).
 """
 from .db import ahora
+from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
 CATEGORIA_SOBRANTE = "Sobrante de caja"      # categoría de OTROS INGRESOS
 CATEGORIA_FALTANTE = "Faltante de caja"      # categoría de GASTOS
@@ -119,10 +120,8 @@ def resumen_sesion(db, caja):
         "caja": caja,
         "n_ventas": r["n_ventas"],
         "total_ventas": r["total_ventas"],
-        "por_forma": {
-            "efectivo": r["ventas_efectivo"], "nequi": r["ventas_nequi"],
-            "davivienda": r["ventas_davivienda"], "tarjeta": r["ventas_tarjeta"], "credito": r["ventas_credito"],
-        },
+        # Ventas por forma: efectivo, cada cuenta (Nequi, Davivienda, Daviplata), tarjeta y crédito
+        "por_forma": {f: r[f"ventas_{f}"] for f in ("efectivo",) + fp.CLAVES_CUENTAS + ("tarjeta", "credito")},
         "efectivo_inicial": r["efectivo_inicial"],
         "ingresos_efectivo": r["ingresos_efectivo"],
         "salidas_efectivo": r["salidas_efectivo"],

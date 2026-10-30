@@ -39,12 +39,11 @@
       </label>
       <label>Forma de pago *
         <select name="forma_pago" required>
-          {% set fp = gasto['forma_pago'] if gasto else 'efectivo' %}
-          <option value="efectivo" {% if fp == 'efectivo' %}selected{% endif %}>Efectivo</option>
-          <option value="nequi" {% if fp == 'nequi' %}selected{% endif %}>Nequi</option>
-          <option value="davivienda" {% if fp == 'davivienda' %}selected{% endif %}>Davivienda</option>
-          <option value="tarjeta" {% if fp == 'tarjeta' %}selected{% endif %}>Tarjeta</option>
-          <option value="transferencia" {% if fp == 'transferencia' %}selected{% endif %}>Transferencia</option>
+          {% set escogida = gasto['forma_pago'] if gasto else 'efectivo' %}
+          {# Versión 1.1.14: la lista sale de app/formas_pago.py (ahí está Daviplata) #}
+          {% for f in formas_pago.FORMAS_MOVIMIENTO %}
+          <option value="{{ f }}" {% if escogida == f %}selected{% endif %}>{{ formas_pago.nombre(f) }}</option>
+          {% endfor %}
         </select>
       </label>
     </div>

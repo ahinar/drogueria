@@ -10,8 +10,8 @@
   <div>
     <p class="dash-modulo">{{ ico("banco", "🏦") }} Contabilidad</p>
     <h1>Bancos</h1>
-    <p class="suave">Cuánta plata hay en Nequi, Davivienda y la caja menor. Las ventas, gastos, abonos y pagos
-      a proveedores por Nequi o Davivienda se suman solos.</p>
+    <p class="suave">Cuánta plata hay en cada cuenta ({% for c in formas_pago.CLAVES_CUENTAS %}{{ formas_pago.nombre(c) }}{{ ', ' if not loop.last }}{% endfor %}) y en la
+      caja menor. Las ventas, gastos, abonos y pagos a proveedores por esas cuentas se suman solos.</p>
   </div>
 </div>
 
@@ -21,7 +21,7 @@
     <span class="dash-tarjeta-ico">💰</span>
     <span class="dash-tarjeta-titulo">Total de la plata</span>
     <span class="dash-tarjeta-valor {% if total < 0 %}negativo{% endif %}">{{ total|pesos }}</span>
-    <span class="dash-tarjeta-detalle">caja menor + Nequi + Davivienda (sin contar la caja del POS abierta)</span>
+    <span class="dash-tarjeta-detalle">caja menor + las cuentas (sin contar la caja del POS abierta)</span>
   </div>
   <a class="dash-tarjeta dash-ingresos" href="{{ url_for('caja_menor.index') }}">
     <span class="dash-tarjeta-ico">💵</span>
@@ -30,8 +30,8 @@
     <span class="dash-ver">Ver caja menor →</span>
   </a>
   {% for c in cuentas %}
-  <a class="dash-tarjeta {{ 'dash-costo' if c.clave == 'davivienda' else 'dash-gastos' }}" href="{{ url_for('bancos.cuenta', clave=c.clave) }}">
-    <span class="dash-tarjeta-ico">{{ '🟣' if c.clave == 'nequi' else '🔴' }}</span>
+  <a class="dash-tarjeta {{ 'dash-gastos' if c.clave == 'nequi' else 'dash-costo' }}" href="{{ url_for('bancos.cuenta', clave=c.clave) }}">
+    <span class="dash-tarjeta-ico">{{ formas_pago.ICONOS.get(c.clave, '🏦') }}</span>
     <span class="dash-tarjeta-titulo">{{ c.nombre }}</span>
     <span class="dash-tarjeta-valor {% if c.saldo < 0 %}negativo{% endif %}">{{ c.saldo|pesos }}</span>
     <span class="dash-tarjeta-detalle">Este mes: entró {{ c.entra_mes|pesos }} · salió {{ c.sale_mes|pesos }}</span>
@@ -52,7 +52,7 @@
 {% if sin_cuenta.n %}
 <div class="dash-alerta amarillo">
   <strong>⚠ {{ sin_cuenta.n }} movimiento(s) por «Transferencia» sin cuenta ({{ sin_cuenta.total|pesos }})</strong>
-  <small>No se sabe si fue Nequi o Davivienda, así que no suman en ninguna. Corrígelos en
+  <small>No se sabe a cuál cuenta llegó, así que no suman en ninguna. Corrígelos en
     <a href="{{ url_for('contabilidad.gastos_lista') }}">Gastos</a> u
     <a href="{{ url_for('otros_ingresos.lista') }}">Otros ingresos</a> escogiendo la cuenta.</small>
 </div>

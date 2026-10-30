@@ -1562,7 +1562,81 @@ MIGRATIONS = [
         ALTER TABLE venta_lineas ADD COLUMN venta_rapida_id INTEGER REFERENCES ventas_rapidas (id);
         """,
     ),
+    # Versión 1.1.14 — DAVIPLATA (cuenta aparte, con saldo propio en Bancos) y CORREGIR EL PAGO
+    # de una venta. Esta migración no es un texto fijo sino una FUNCIÓN que arma el texto
+    # (ver _migracion_43_daviplata más abajo), porque tiene que leer cómo está cada tabla.
+    (43, lambda conn: _migracion_43_daviplata(conn)),
 ]
+
+
+# Tablas cuya regla CHECK solo dejaba 'efectivo', 'nequi', 'davivienda'... (o el origen del pago)
+_TABLAS_CON_FORMA_DE_PAGO = ("caja_movimientos", "gastos", "otros_ingresos", "cartera_abonos",
+                             "venta_pagos", "pagos_proveedores")
+
+
+def _migracion_43_daviplata(conn):
+    """Arma el SQL de la migración 43.
+
+    QUÉ HACE (para aprender):
+      1. SQLite no deja cambiar una regla CHECK. La forma segura (la que recomienda
+         SQLite) es: crear la tabla de nuevo con la regla nueva, copiar todos los
+         datos, borrar la vieja y ponerle el nombre de siempre a la nueva. Después se
+         vuelven a crear sus índices. Los datos NO cambian: solo se agrega 'daviplata'
+         a la lista de valores permitidos.
+      2. Se crea la cuenta Daviplata en cuentas_bancarias, con saldo inicial 0 y la
+         misma fecha de arranque que las otras cuentas.
+      3. ventas.pago_corregido: cuántas veces se corrigió la forma de pago de la
+         venta (la historia completa queda en venta_correcciones_pago).
+    """
+    import re as _re
+    partes = []
+    for tabla in _TABLAS_CON_FORMA_DE_PAGO:
+        fila = conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", (tabla,)).fetchone()
+        if fila is None:
+            continue
+        sql_tabla = fila[0]
+        if "'daviplata'" in sql_tabla:
+            continue                                   # ya estaba (por si se corre dos veces)
+        # 'davivienda' → 'davivienda', 'daviplata' (dentro de la lista de la regla CHECK)
+        sql_nueva = sql_tabla.replace("'davivienda'", "'davivienda', 'daviplata'")
+        # El nombre de la tabla nueva: <tabla>__nueva (con o sin "IF NOT EXISTS")
+        sql_nueva = _re.sub(r"CREATE TABLE (IF NOT EXISTS )?\"?" + tabla + r"\"?\s*\(",
+                            f"CREATE TABLE {tabla}__nueva (", sql_nueva, count=1)
+        indices = [r[0] for r in conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL", (tabla,))]
+        partes.append(sql_nueva + ";")
+        partes.append(f"INSERT INTO {tabla}__nueva SELECT * FROM {tabla};")
+        partes.append(f"DROP TABLE {tabla};")
+        partes.append(f"ALTER TABLE {tabla}__nueva RENAME TO {tabla};")
+        partes.extend(i + ";" for i in indices)
+    partes.append(
+        "INSERT INTO cuentas_bancarias (clave, nombre, saldo_inicial, fecha_inicial, activa, creado_en) "
+        "SELECT 'daviplata', 'Daviplata', 0, COALESCE((SELECT MIN(fecha_inicial) FROM cuentas_bancarias), "
+        "date('now', 'localtime')), 1, datetime('now', 'localtime') "
+        "WHERE NOT EXISTS (SELECT 1 FROM cuentas_bancarias WHERE clave = 'daviplata');")
+    # Historia de las correcciones de la forma de pago (pantalla Ventas, versión 1.1.14)
+    partes.append("""
+        CREATE TABLE venta_correcciones_pago (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            venta_id INTEGER NOT NULL,
+            antes TEXT NOT NULL,          -- la forma de pago que tenía (texto: 'efectivo' o el JSON del mixto)
+            despues TEXT NOT NULL,        -- la forma de pago correcta
+            motivo TEXT NOT NULL,
+            usuario_id INTEGER,
+            usuario_nombre TEXT,
+            creado_en TEXT NOT NULL,
+            FOREIGN KEY (venta_id) REFERENCES ventas (id)
+        );
+        CREATE INDEX idx_correcciones_venta ON venta_correcciones_pago (venta_id);
+        ALTER TABLE ventas ADD COLUMN pago_corregido INTEGER NOT NULL DEFAULT 0;
+        -- Botón «Movimiento de plata» del POS (versión 1.1.14): de dónde viene o a dónde va
+        -- el efectivo que entra o sale de la caja sin ser venta ni gasto:
+        --   'dueno'      = plata personal del dueño (retiro o aporte; no es gasto ni ingreso)
+        --   'caja_menor' = se pasó a / se trajo de la caja menor (allá queda registrado)
+        --   'nequi', 'davivienda', 'daviplata' = se consignó en / se sacó de esa cuenta
+        --   NULL         = no se dijo (como antes)
+        ALTER TABLE caja_movimientos ADD COLUMN lugar TEXT;""")
+    return "\n".join(partes)
 
 def conectar(ruta) -> sqlite3.Connection:
     conn = sqlite3.connect(str(ruta), timeout=15)
@@ -1627,16 +1701,32 @@ def init_db(ruta) -> int:
         actual = conn.execute("SELECT COALESCE(MAX(version), 0) FROM schema_version").fetchone()[0]
         for version, sql in MIGRATIONS:
             if version > actual:
+                # Versión 1.1.14: una migración puede ser una FUNCIÓN que arma su SQL
+                # mirando la base (ver la 43). Se llama aquí, justo antes de aplicarla.
+                # Esas migraciones vuelven a crear tablas (copiar, borrar la vieja, renombrar).
+                # SQLite pide apagar la revisión de llaves foráneas mientras tanto (si no,
+                # borrar la tabla vieja podría borrar datos relacionados) y revisarlas al final.
+                reconstruye = callable(sql)
+                if reconstruye:
+                    sql = sql(conn)
+                    conn.execute("PRAGMA foreign_keys = OFF")
                 try:
                     conn.executescript(
                         "BEGIN;\n"
                         + sql
                         + f"\nINSERT INTO schema_version (version, aplicada_en) VALUES ({version}, '{ahora()}');\nCOMMIT;"
                     )
+                    if reconstruye:
+                        malas = conn.execute("PRAGMA foreign_key_check").fetchall()
+                        if malas:
+                            raise sqlite3.IntegrityError(f"Migración {version}: llaves foráneas rotas {malas[:5]}")
                 except Exception:
                     if conn.in_transaction:
                         conn.rollback()
                     raise
+                finally:
+                    if reconstruye:
+                        conn.execute("PRAGMA foreign_keys = ON")
                 actual = version
 
         # Sembrar zonas típicas

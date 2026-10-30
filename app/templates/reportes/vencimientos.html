@@ -25,7 +25,7 @@
     <h2>{{ titulo }} ({{ grupos[clave]|length }})</h2>
     <table class="rep-tabla">
       <thead><tr><th>Producto</th><th>Lote</th><th>Vence</th><th class="num">Días</th><th class="num">Cant.</th><th>Estado</th></tr></thead>
-      <tbody>{% for l in grupos[clave] %}<tr><td>{{ l.producto_nombre }}<small>{{ l.producto_codigo }}{% if l.lab_nombre %} · {{ l.lab_nombre }}{% endif %}</small></td>
+      <tbody>{% for l in grupos[clave] %}<tr><td><a href="{{ url_for('inventario.lote_ver', lote_id=l.id) }}" title="Ver el lote">{{ l.producto_nombre }}</a><small>{{ l.producto_codigo }}{% if l.lab_nombre %} · {{ l.lab_nombre }}{% endif %}</small></td>
         <td>{{ l.lote or 's/n' }}</td><td>{{ fecha(l.vencimiento) }}</td><td class="num">{{ l.dias }}</td>
         <td class="num">{{ cant(l.cantidad_disponible) }}</td><td>{{ l.estado }}</td></tr>{% endfor %}</tbody>
     </table>

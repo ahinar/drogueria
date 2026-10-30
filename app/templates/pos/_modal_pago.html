@@ -9,21 +9,24 @@
 
       <div class="pos-pago-metodos" id="pago-metodos">
         <button type="button" class="pos-pago-metodo activo" data-forma="efectivo"><span class="ico-emoji">💵</span> Efectivo</button>
-        <button type="button" class="pos-pago-metodo" data-forma="nequi"><span class="ico-emoji">📱</span> Nequi</button>
-        <button type="button" class="pos-pago-metodo" data-forma="davivienda"><span class="ico-emoji">🏦</span> Davivienda</button>
+        {# Versión 1.1.14: un botón por cada cuenta (Nequi, Davivienda, Daviplata), de app/formas_pago.py #}
+        {% for c in formas_pago.CLAVES_CUENTAS %}
+        <button type="button" class="pos-pago-metodo" data-forma="{{ c }}"><span class="ico-emoji">{{ formas_pago.ICONOS[c] }}</span> {{ formas_pago.nombre(c) }}</button>
+        {% endfor %}
         <button type="button" class="pos-pago-metodo" data-forma="tarjeta"><span class="ico-emoji">💳</span> Tarjeta</button>
         <button type="button" class="pos-pago-metodo" data-forma="credito"><span class="ico-emoji">📒</span> Crédito</button>
-        {# Pago MIXTO (versión 1.1.3): una parte por Nequi/Davivienda/tarjeta y el resto en efectivo #}
+        {# Pago MIXTO (versión 1.1.3): una parte por las cuentas o la tarjeta y el resto en efectivo #}
         <button type="button" class="pos-pago-metodo" data-forma="mixto"><span class="ico-emoji">🔀</span> Mixto</button>
       </div>
 
       <!-- Solo se ve con "Mixto": cuánto entra por cada forma; el resto es efectivo -->
       <div id="pago-mixto" hidden>
-        <p class="suave" style="font-size:.82rem;margin:0 0 .4rem">Escribe lo que paga por Nequi, Davivienda o
+        <p class="suave" style="font-size:.82rem;margin:0 0 .4rem">Escribe lo que paga por cada cuenta o con
           tarjeta. <strong>Lo que falta se cobra en efectivo.</strong></p>
         <div class="pago-mixto-grid">
-          <label>📱 Nequi <input type="number" class="mixto-monto" data-forma="nequi" min="0" step="1" inputmode="numeric" autocomplete="off" placeholder="0"></label>
-          <label>🏦 Davivienda <input type="number" class="mixto-monto" data-forma="davivienda" min="0" step="1" inputmode="numeric" autocomplete="off" placeholder="0"></label>
+          {% for c in formas_pago.CLAVES_CUENTAS %}
+          <label>{{ formas_pago.ICONOS[c] }} {{ formas_pago.nombre(c) }} <input type="number" class="mixto-monto" data-forma="{{ c }}" min="0" step="1" inputmode="numeric" autocomplete="off" placeholder="0"></label>
+          {% endfor %}
           <label>💳 Tarjeta <input type="number" class="mixto-monto" data-forma="tarjeta" min="0" step="1" inputmode="numeric" autocomplete="off" placeholder="0"></label>
         </div>
         <div class="pos-pago-cambio">💵 En efectivo: <strong id="mixto-efectivo">$0</strong></div>

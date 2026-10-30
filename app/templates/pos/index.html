@@ -92,9 +92,13 @@
       {% for c in categorias %}
         <button type="button" class="pos-cat" data-cat="{{ c['id'] }}">{{ c['nombre'] }}</button>
       {% endfor %}
+      {# Versión 1.1.14: las categorías van en UNA sola fila; las que no caben pasan a «Más ▾»
+         (las acomoda pos_carrito.js, sección «Categorías en una fila»). #}
+      <button type="button" class="pos-cat pos-cat-mas" id="pos-cat-mas" hidden aria-haspopup="true" aria-expanded="false">Más ▾</button>
+      <div class="pos-cat-menu" id="pos-cat-menu" hidden role="menu"></div>
     </div>
 
-    <div class="pos-grid" id="pos-grid">
+    <div class="pos-grid" id="pos-grid" data-pantalla-ancha>
       <p class="suave" style="padding:2rem;text-align:center;grid-column:1/-1">
         Escribe para buscar productos, o escanea un código de barras.
       </p>
@@ -121,21 +125,11 @@
           <span class="pos-drawer-ico">🔒</span>
           <span>Cerrar caja</span>
         </button>
-        <button type="button" class="pos-drawer-item" data-accion="ingreso-efectivo">
+        {# Versión 1.1.14: un solo botón en vez de cuatro (ingreso de efectivo, salida de efectivo,
+           gasto y otro ingreso). Pregunta si entra o sale y para qué (pos_carrito.js). #}
+        <button type="button" class="pos-drawer-item" data-accion="movimiento-plata">
           <span class="pos-drawer-ico">💵</span>
-          <span>Ingreso de efectivo</span>
-        </button>
-        <button type="button" class="pos-drawer-item" data-accion="salida-efectivo">
-          <span class="pos-drawer-ico">💸</span>
-          <span>Salida de efectivo</span>
-        </button>
-        <button type="button" class="pos-drawer-item" data-accion="registrar-gasto">
-          <span class="pos-drawer-ico">💸</span>
-          <span>Registrar gasto</span>
-        </button>
-        <button type="button" class="pos-drawer-item" data-accion="otro-ingreso">
-          <span class="pos-drawer-ico">💰</span>
-          <span>Otro ingreso (recargas, arriendo…)</span>
+          <span>Movimiento de plata (entra o sale)</span>
         </button>
         <button type="button" class="pos-drawer-item" data-accion="abono-cartera">
           <span class="pos-drawer-ico">📒</span>
@@ -211,6 +205,8 @@
 <script type="application/json" id="categorias-ingreso">{{ categorias_ingreso|tojson }}</script>
 <!-- Versión 1.1.13: VENTAS RÁPIDAS (fotocopias, dulcería...). Salen como botones en «+ Venta libre»
      y en el buscador. «Guardar para la próxima vez» las crea con url-api-venta-rapida. -->
+<!-- Versión 1.1.14: las cuentas (Nequi, Davivienda, Daviplata) para las ventanas del POS -->
+<script type="application/json" id="cuentas-pago">{{ formas_pago.opciones(formas_pago.CLAVES_CUENTAS)|tojson }}</script>
 <script type="application/json" id="ventas-rapidas">{{ ventas_rapidas|tojson }}</script>
 <input type="hidden" id="url-api-venta-rapida" value="{{ url_for('ventas_rapidas.api_crear') }}">
 {% if g.user.rol in ('administrador', 'director_tecnico') %}

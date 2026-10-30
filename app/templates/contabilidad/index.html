@@ -14,8 +14,8 @@
   Los gráficos usan Chart.js (static/js/chart.umd.min.js, sin internet).
 #}
 {% from "_iconos.html" import ico %}
-{% set formas = {'efectivo': 'Efectivo', 'nequi': 'Nequi', 'davivienda': 'Davivienda', 'tarjeta': 'Tarjeta',
-                 'credito': 'Crédito', 'mixto': 'Mixto', 'transferencia': 'Transferencia'} %}
+{# Versión 1.1.14: nombres de las formas de pago (con Daviplata) desde app/formas_pago.py #}
+{% set formas = dict(formas_pago.NOMBRES, credito='Crédito', mixto='Mixto') %}
 
 {# ===== 1. Título y mes ===== #}
 <div class="dash-cabecera">
@@ -94,7 +94,7 @@
       <a href="{{ url_for('otros_ingresos.nuevo') }}">➕ Registrar otro ingreso</a>
       <a href="{{ url_for('contabilidad.cajas') }}">💵 Sesiones de caja</a>
       <a href="{{ url_for('cuentas_pagar.index') }}">🧾 Cuentas por pagar</a>
-      <a href="{{ url_for('bancos.index') }}">🏦 Bancos (Nequi y Davivienda)</a>
+      <a href="{{ url_for('bancos.index') }}">🏦 Bancos (Nequi, Davivienda, Daviplata)</a>
       <a href="{{ url_for('reportes.utilidades_ver', mes=mes or None) }}">📈 Utilidades (estado de resultados)</a>
       <a href="{{ url_for('reportes.ventas_ver') }}">🛒 Reporte de ventas</a>
       <a href="{{ url_for('reportes.gastos_ver') }}">🧾 Reporte de gastos</a>

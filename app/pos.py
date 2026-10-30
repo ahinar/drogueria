@@ -11,6 +11,7 @@ from .caja_menor import registrar_movimiento as _cm_mov
 from .caja_menor import saldo_actual as _cm_saldo
 from .configuracion import obtener_config
 from .formato import pesos
+from . import formas_pago as fp        # versión 1.1.14: la lista de formas de pago (con Daviplata)
 from .db import ahora, get_db
 from . import presentaciones as pres
 from .productos import IVA_TIPOS
@@ -102,44 +103,40 @@ def _resumen_caja(caja):
         (caja["id"],),
     ).fetchall()
 
-    ingresos_efectivo = sum(m["monto"] for m in movs if m["tipo"] == "ingreso" and m["forma_pago"] == "efectivo")
-    salidas_efectivo = sum(m["monto"] for m in movs if m["tipo"] == "salida" and m["forma_pago"] == "efectivo")
-    ingresos_nequi = sum(m["monto"] for m in movs if m["tipo"] == "ingreso" and m["forma_pago"] == "nequi")
-    salidas_nequi = sum(m["monto"] for m in movs if m["tipo"] == "salida" and m["forma_pago"] == "nequi")
-    ingresos_davivienda = sum(m["monto"] for m in movs if m["tipo"] == "ingreso" and m["forma_pago"] == "davivienda")
-    salidas_davivienda = sum(m["monto"] for m in movs if m["tipo"] == "salida" and m["forma_pago"] == "davivienda")
+    def _movido(tipo, forma):
+        """Suma de las entradas ('ingreso') o salidas ('salida') a mano de una forma de pago."""
+        return sum(m["monto"] for m in movs if m["tipo"] == tipo and m["forma_pago"] == forma)
 
-    def _por_pago(nombre):
-        return next((p for p in ventas_por_pago if p["forma_pago"] == nombre), None)
+    def _vendido(forma):
+        fila = next((p for p in ventas_por_pago if p["forma_pago"] == forma), None)
+        return fila["total"] if fila else 0
 
-    v_efectivo = _por_pago("efectivo")
-    v_nequi = _por_pago("nequi")
-    v_davivienda = _por_pago("davivienda")
-    v_tarjeta = _por_pago("tarjeta")
-
-    efectivo_esperado = (caja["efectivo_inicial"] or 0) + \
-                        (v_efectivo["total"] if v_efectivo else 0) + \
-                        ingresos_efectivo - salidas_efectivo
-
-    return {
+    resumen = {
         "n_ventas": total_ventas_n,
         "total_ventas": total_ventas,
         "por_pago": ventas_por_pago,
         "movimientos": movs,
         "efectivo_inicial": caja["efectivo_inicial"] or 0,
-        "ventas_efectivo": v_efectivo["total"] if v_efectivo else 0,
-        "ventas_nequi": v_nequi["total"] if v_nequi else 0,
-        "ventas_davivienda": v_davivienda["total"] if v_davivienda else 0,
-        "ventas_tarjeta": v_tarjeta["total"] if v_tarjeta else 0,
-        "ventas_credito": _por_pago("credito")["total"] if _por_pago("credito") else 0,
-        "ingresos_efectivo": ingresos_efectivo,
-        "salidas_efectivo": salidas_efectivo,
-        "ingresos_nequi": ingresos_nequi,
-        "salidas_nequi": salidas_nequi,
-        "ingresos_davivienda": ingresos_davivienda,
-        "salidas_davivienda": salidas_davivienda,
-        "efectivo_esperado": efectivo_esperado,
+        "ventas_tarjeta": _vendido("tarjeta"),
+        "ventas_credito": _vendido("credito"),
+        # Versión 1.1.14: una línea por cuenta (Nequi, Davivienda, Daviplata...), sacada
+        # de formas_pago.CUENTAS. Así el cierre de caja muestra todas sin cambiar código.
+        "cuentas": [],
     }
+    # Efectivo y cada cuenta: ventas_X, ingresos_X y salidas_X (ej. ventas_nequi)
+    for forma in ("efectivo",) + fp.CLAVES_CUENTAS:
+        resumen[f"ventas_{forma}"] = _vendido(forma)
+        resumen[f"ingresos_{forma}"] = _movido("ingreso", forma)
+        resumen[f"salidas_{forma}"] = _movido("salida", forma)
+        if forma != "efectivo":
+            resumen["cuentas"].append({"clave": forma, "nombre": fp.nombre(forma),
+                                       "ventas": resumen[f"ventas_{forma}"],
+                                       "ingresos": resumen[f"ingresos_{forma}"],
+                                       "salidas": resumen[f"salidas_{forma}"]})
+    # Billetes que deberían estar en el cajón al cerrar
+    resumen["efectivo_esperado"] = (resumen["efectivo_inicial"] + resumen["ventas_efectivo"]
+                                    + resumen["ingresos_efectivo"] - resumen["salidas_efectivo"])
+    return resumen
 
 # ============================================================
 # Rutas
@@ -270,7 +267,7 @@ def api_movimiento():
 
     if tipo not in ("ingreso", "salida"):
         return jsonify({"ok": False, "error": "Tipo inválido."}), 400
-    if forma_pago not in ("efectivo", "nequi", "davivienda", "tarjeta"):
+    if forma_pago not in fp.FORMAS_CAJA:
         return jsonify({"ok": False, "error": "Forma de pago inválida."}), 400
 
     try:
@@ -281,18 +278,56 @@ def api_movimiento():
     if monto <= 0:
         return jsonify({"ok": False, "error": "El monto debe ser mayor a cero."}), 400
 
+    # Versión 1.1.14 (botón «Movimiento de plata»): de dónde viene o a dónde va el efectivo.
+    #   dueno       -> plata personal del dueño: retiro (sale) o aporte (entra). No es gasto
+    #                  ni ingreso del negocio; Utilidades muestra los retiros aparte.
+    #   caja_menor  -> la plata pasa a la caja menor (sale) o viene de ella (entra), y queda
+    #                  registrada TAMBIÉN allá, para que su saldo cuadre solo.
+    #   nequi, davivienda, daviplata -> se consignó en (sale) o se sacó de (entra) esa
+    #                  cuenta: queda como traslado en Bancos.
+    #   vacío       -> no se dijo (como antes).
+    lugar = (request.form.get("lugar") or "").strip().lower() or None
+    if lugar and lugar not in ("dueno", "caja_menor") + fp.CLAVES_CUENTAS:
+        return jsonify({"ok": False, "error": "No se sabe a dónde va la plata."}), 400
+    if lugar and forma_pago != "efectivo":
+        return jsonify({"ok": False, "error": "Escoger a dónde va solo aplica para el efectivo."}), 400
+    if not motivo and lugar:
+        motivo = _texto_lugar(tipo, lugar, caja)
+
     db = get_db()
     cur = db.execute(
-        "INSERT INTO caja_movimientos (caja_id, fecha, tipo, forma_pago, monto, motivo, "
-        "usuario_id, usuario_nombre, creado_en) VALUES (?,?,?,?,?,?,?,?,?)",
-        (caja["id"], ahora(), tipo, forma_pago, monto, motivo,
+        "INSERT INTO caja_movimientos (caja_id, fecha, tipo, forma_pago, monto, motivo, lugar, "
+        "usuario_id, usuario_nombre, creado_en) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (caja["id"], ahora(), tipo, forma_pago, monto, motivo, lugar,
          g.user["id"], g.user["nombre"], ahora()),
     )
+    texto = _texto_lugar(tipo, lugar, caja) if lugar else None
+    if lugar == "caja_menor":
+        # 'aporte' = entra a la caja menor ; 'apertura_pos' = sale de la caja menor hacia el POS
+        _cm_mov(db, "aporte" if tipo == "salida" else "apertura_pos", monto, texto, caja_id=caja["id"])
+    elif lugar in fp.CLAVES_CUENTAS:
+        from .bancos import _mov_banco, cuenta_por_clave
+        cuenta = cuenta_por_clave(db, lugar)
+        if cuenta is None:
+            db.rollback()
+            return jsonify({"ok": False, "error": f"No existe la cuenta {fp.nombre(lugar)} en Bancos."}), 400
+        _mov_banco(db, cuenta, "traslado_entrada" if tipo == "salida" else "traslado_salida",
+                   monto, ahora(), texto, f"POS-{cur.lastrowid}")
     db.commit()
     registrar(f"caja_{tipo}", "caja_movimientos", cur.lastrowid,
-              f"monto={monto} forma_pago={forma_pago} motivo={motivo}")
+              f"monto={monto} forma_pago={forma_pago} lugar={lugar} motivo={motivo}")
 
     return jsonify({"ok": True, "id": cur.lastrowid})
+
+
+def _texto_lugar(tipo, lugar, caja):
+    """Explicación corta del movimiento, para la caja, Bancos y la bitácora."""
+    if lugar == "dueno":
+        return "Plata que se lleva el dueño" if tipo == "salida" else "Plata que pone el dueño"
+    destino = "la caja menor" if lugar == "caja_menor" else fp.nombre(lugar)
+    if tipo == "salida":
+        return f"De la caja del POS #{caja['numero']} a {destino}"
+    return f"De {destino} a la caja del POS #{caja['numero']}"
 
 # ============================================================
 # API · Gasto desde el POS
@@ -326,7 +361,7 @@ def api_gasto():
         return jsonify({"ok": False, "error": "Monto inválido."}), 400
     if monto <= 0:
         return jsonify({"ok": False, "error": "El monto debe ser mayor a cero."}), 400
-    if forma_pago not in ("efectivo", "nequi", "davivienda", "tarjeta", "transferencia"):
+    if forma_pago not in fp.FORMAS_MOVIMIENTO:
         return jsonify({"ok": False, "error": "Forma de pago inválida."}), 400
     if origen not in ("pos", "caja_menor", "ninguna"):
         return jsonify({"ok": False, "error": "Origen inválido."}), 400
@@ -372,7 +407,7 @@ def api_gasto():
 # API · Otro ingreso (plata que entra y NO es una venta)
 # ============================================================
 
-FORMAS_INGRESO = ("efectivo", "nequi", "davivienda", "tarjeta", "transferencia")
+FORMAS_INGRESO = fp.FORMAS_MOVIMIENTO          # efectivo, las cuentas, tarjeta y transferencia
 
 
 @bp.route("/api/otro-ingreso", methods=["POST"])
@@ -457,16 +492,10 @@ def api_resumen_caja():
                 "salidas": resumen["salidas_efectivo"],
                 "esperado": resumen["efectivo_esperado"],
             },
-            "nequi": {
-                "ventas": resumen["ventas_nequi"],
-                "ingresos": resumen["ingresos_nequi"],
-                "salidas": resumen["salidas_nequi"],
-            },
-            "davivienda": {
-                "ventas": resumen["ventas_davivienda"],
-                "ingresos": resumen["ingresos_davivienda"],
-                "salidas": resumen["salidas_davivienda"],
-            },
+            # Nequi, Davivienda, Daviplata... (versión 1.1.14: la lista sale de formas_pago.py)
+            "cuentas": resumen["cuentas"],
+            **{c["clave"]: {"ventas": c["ventas"], "ingresos": c["ingresos"], "salidas": c["salidas"]}
+               for c in resumen["cuentas"]},
             "tarjeta": {
                 "ventas": resumen["ventas_tarjeta"],
             },
@@ -550,11 +579,11 @@ def api_caja_abierta():
 # ============================================================
 
 # "credito" = el cliente queda debiendo (ver app/cartera.py). No entra plata a la caja.
-FORMAS_PAGO = ("efectivo", "nequi", "davivienda", "tarjeta", "credito", "mixto")
+# Versión 1.1.14: las listas salen de app/formas_pago.py (ahí está Daviplata).
+FORMAS_PAGO = fp.FORMAS_VENTA
 # En un pago MIXTO se pueden combinar estas (el crédito no: o se fía todo o nada)
-FORMAS_MIXTO = ("efectivo", "nequi", "davivienda", "tarjeta")
-NOMBRES_PAGO = {"efectivo": "Efectivo", "nequi": "Nequi", "davivienda": "Davivienda",
-                "tarjeta": "Tarjeta", "credito": "Crédito", "mixto": "Mixto"}
+FORMAS_MIXTO = fp.FORMAS_MIXTO
+NOMBRES_PAGO = {**fp.NOMBRES, "credito": "Crédito", "mixto": "Mixto"}   # nombres cortos para la tirilla
 
 class _VentaError(Exception):
     """Error de negocio al cobrar (ej: 'no hay stock'). El mensaje se le muestra al cajero."""
@@ -563,7 +592,7 @@ class _VentaError(Exception):
 def _pagos_mixtos(formulario, total):
     """PAGO MIXTO (versión 1.1.3): reparte el total entre varias formas de pago.
 
-    El POS manda en "pagos" cuánto entra por Nequi, Davivienda y Tarjeta, por
+    El POS manda en "pagos" cuánto entra por cada cuenta (Nequi, Davivienda, Daviplata) y Tarjeta, por
     ejemplo {"nequi": 20000}. Lo que falta para el total es EFECTIVO.
     "monto_recibido" = billetes que entregó el cliente para la parte en efectivo
     (sirve para calcular el cambio).
@@ -580,7 +609,7 @@ def _pagos_mixtos(formulario, total):
         raise _VentaError("Los valores del pago mixto llegaron dañados. Intenta de nuevo.")
 
     otros = []
-    for forma in ("nequi", "davivienda", "tarjeta"):
+    for forma in fp.FORMAS_MIXTO_OTRAS:
         texto = str(datos.get(forma) or "0").strip().replace(",", ".")
         try:
             monto = float(texto or 0)
@@ -593,7 +622,7 @@ def _pagos_mixtos(formulario, total):
 
     suma_otros = sum(m for _f, m in otros)
     if suma_otros > total + 0.5:
-        raise _VentaError(f"Lo que entra por Nequi, Davivienda o tarjeta ({pesos(suma_otros)}) "
+        raise _VentaError(f"Lo que entra por las cuentas o la tarjeta ({pesos(suma_otros)}) "
                           f"es más que el total de la venta ({pesos(total)}).")
     efectivo = round(total - suma_otros, 2)
     if efectivo < 0.5:                       # diferencias de centavos: no hay parte en efectivo
@@ -1555,15 +1584,11 @@ def ultima_venta():
 @bp.route("/ventas")
 @login_required
 def ventas_lista():
-    db = get_db()
-    caja = _caja_abierta() or db.execute(
-        "SELECT * FROM cajas ORDER BY id DESC LIMIT 1").fetchone()
-    ventas = []
-    if caja is not None:
-        ventas = db.execute(
-            "SELECT * FROM ventas WHERE caja_id = ? ORDER BY id DESC", (caja["id"],)
-        ).fetchall()
-    return render_template("pos/ventas.html", ventas=ventas, caja=caja)
+    """Versión 1.1.14: «Últimas ventas» es ahora la pantalla Ventas (app/ventas.py), con
+    la lista a la izquierda y el carrito de la venta escogida a la derecha. Esta dirección
+    vieja lleva allá, mostrando las ventas de la caja abierta (o de la última)."""
+    caja = _caja_abierta() or get_db().execute("SELECT * FROM cajas ORDER BY id DESC LIMIT 1").fetchone()
+    return redirect(url_for("ventas.lista", caja=caja["id"]) if caja else url_for("ventas.lista"))
 
 @bp.route("/venta/<int:venta_id>/anular", methods=["POST"])
 @login_required
@@ -1574,7 +1599,7 @@ def anular_venta(venta_id):
     motivo = (request.form.get("motivo") or "").strip()
     if not motivo:
         flash("Debes escribir el motivo de la anulación.", "error")
-        return redirect(url_for("pos.ventas_lista"))
+        return redirect(url_for("ventas.lista", venta=venta_id))
 
     db = get_db()
     db.execute("BEGIN IMMEDIATE")
@@ -1614,7 +1639,7 @@ def anular_venta(venta_id):
     except _VentaError as e:
         db.rollback()
         flash(str(e), "error")
-        return redirect(url_for("pos.ventas_lista"))
+        return redirect(url_for("ventas.lista", venta=venta_id))
     except Exception:
         db.rollback()
         raise
@@ -1622,7 +1647,7 @@ def anular_venta(venta_id):
     registrar("venta_anulada", "ventas", venta_id,
               f"consecutivo={venta['consecutivo']} motivo={motivo}")
     flash(f"Venta {venta['consecutivo']} anulada. El inventario fue devuelto.", "ok")
-    return redirect(url_for("pos.ventas_lista"))
+    return redirect(url_for("ventas.lista", venta=venta_id))
 
 @bp.route("/cerrar-caja")
 @login_required

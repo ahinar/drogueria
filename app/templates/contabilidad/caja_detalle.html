@@ -5,8 +5,8 @@
   DETALLE DE UNA SESIÓN DE CAJA (versión 1.1.6): el cuadre completo, las ventas del
   turno y los movimientos de efectivo (entradas y salidas). Datos: cajas.resumen_sesion.
 #}
-{% set formas = {'efectivo': 'Efectivo', 'nequi': 'Nequi', 'davivienda': 'Davivienda', 'tarjeta': 'Tarjeta',
-                 'credito': 'Crédito', 'mixto': 'Mixto', 'transferencia': 'Transferencia'} %}
+{# Versión 1.1.14: nombres de las formas de pago (con Daviplata) desde app/formas_pago.py #}
+{% set formas = dict(formas_pago.NOMBRES, credito='Crédito', mixto='Mixto') %}
 <h1>💵 Caja #{{ r.caja.numero }} {% include "contabilidad/_diferencia.html" %}</h1>
 <p class="suave">Abrió {{ r.caja.abierta_por_nombre or '—' }} el {{ r.caja.abierta_en|fecha_hora }}
   {% if r.caja.cerrada_en %}· cerró {{ r.caja.cerrada_por_nombre or '—' }} el {{ r.caja.cerrada_en|fecha_hora }}{% endif %}</p>
@@ -33,7 +33,7 @@
   <section class="dash-panel">
     <h2>Ventas por forma de pago</h2>
     <table class="dash-resumen">
-      {% for clave in ('efectivo', 'nequi', 'davivienda', 'tarjeta', 'credito') %}
+      {% for clave in ('efectivo',) + formas_pago.CLAVES_CUENTAS + ('tarjeta', 'credito') %}
       <tr><td>{{ formas[clave] }}</td><td class="der">{{ r.por_forma[clave]|pesos }}</td></tr>
       {% endfor %}
       <tr class="dash-resumen-total"><td>Total ({{ r.n_ventas }} venta{{ 's' if r.n_ventas != 1 else '' }})</td>

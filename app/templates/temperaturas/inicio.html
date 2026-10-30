@@ -34,7 +34,7 @@
 </div>
 
 <div style="margin-top:1.5rem">
-  <a class="boton secundario" href="{{ url_for('temperaturas.historial') }}">Ver historial</a>
+  <a class="boton secundario" href="{{ url_for('reportes.temperaturas') }}">Ver historial</a>
   {% if g.user.rol in ('administrador', 'director_tecnico') %}
     <a class="boton secundario" href="{{ url_for('temperaturas.zonas_lista') }}">Configurar zonas</a>
   {% endif %}

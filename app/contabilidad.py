@@ -7,6 +7,7 @@ from flask import (Blueprint, abort, flash, g, redirect, render_template,
 from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
+from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
 bp = Blueprint("contabilidad", __name__, url_prefix="/contabilidad")
 
@@ -239,7 +240,7 @@ def cajas():
         "faltantes": sum(f["diferencia"] for f in cerradas if f["diferencia"] < 0),
         "sobrantes": sum(f["diferencia"] for f in cerradas if f["diferencia"] > 0),
         "por_forma": {k: sum(f["por_forma"][k] for f in filas)
-                      for k in ("efectivo", "nequi", "davivienda", "tarjeta", "credito")},
+                      for k in ("efectivo",) + fp.CLAVES_CUENTAS + ("tarjeta", "credito")},
     }
     totales["neto"] = totales["faltantes"] + totales["sobrantes"]
     usuarios = [r[0] for r in db.execute(
@@ -369,7 +370,7 @@ def _validar(datos):
         errores.append("La descripción es obligatoria.")
     if datos["monto"] <= 0:
         errores.append("El monto debe ser mayor a cero.")
-    if datos["forma_pago"] not in ("efectivo", "nequi", "davivienda", "tarjeta", "transferencia"):
+    if datos["forma_pago"] not in fp.FORMAS_MOVIMIENTO:
         errores.append("Forma de pago inválida.")
     return errores
 

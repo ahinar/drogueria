@@ -103,7 +103,8 @@ class TestVentaLibre(BaseLibre):
         self.abrir_caja()
         html = self.c.get("/pos/").get_data(as_text=True)
         self.assertIn('id="btn-venta-libre"', html)
-        self.assertIn('data-accion="otro-ingreso"', html)
+        # Versión 1.1.14: «Otro ingreso» se escoge dentro de «Movimiento de plata»
+        self.assertIn('data-accion="movimiento-plata"', html)
         self.assertIn('id="categorias-ingreso"', html)
 
 

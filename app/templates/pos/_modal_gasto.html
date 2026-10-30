@@ -23,11 +23,7 @@
 
       <label>Forma de pago *
         <select name="forma_pago" id="gasto-forma-pago">
-          <option value="efectivo">Efectivo</option>
-          <option value="nequi">Nequi</option>
-          <option value="davivienda">Davivienda</option>
-          <option value="tarjeta">Tarjeta</option>
-          <option value="transferencia">Transferencia</option>
+          {% for f in formas_pago.FORMAS_MOVIMIENTO %}<option value="{{ f }}">{{ formas_pago.nombre(f) }}</option>{% endfor %}
         </select>
       </label>
 

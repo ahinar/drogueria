@@ -227,6 +227,11 @@ def calcular(desde, hasta):
     retiros += db.execute(
         "SELECT COALESCE(SUM(CASE WHEN tipo = 'retiro_dueno' THEN monto ELSE 0 END), 0) "
         "FROM bancos_movimientos WHERE anulado = 0 AND fecha >= ? AND fecha < ?", (ini, fin)).fetchone()[0]
+    # Versión 1.1.14: y lo que el dueño saca de la caja del POS («Movimiento de plata» →
+    # «Me la llevo yo»). No es gasto: es el dueño cobrando lo que el negocio le ganó.
+    retiros += db.execute(
+        "SELECT COALESCE(SUM(monto), 0) FROM caja_movimientos "
+        "WHERE tipo = 'salida' AND lugar = 'dueno' AND fecha >= ? AND fecha < ?", (ini, fin)).fetchone()[0]
 
     # ---- 2.4b Otros ingresos (plata que entra y no es venta) ----
     # Ej: comisión de recargas, arriendo. Se suman DESPUÉS de los gastos,

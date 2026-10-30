@@ -30,14 +30,14 @@ from .auth import login_required, roles_required
 from .configuracion import obtener_config
 from .db import ahora, get_db
 from .formato import pesos
+from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
 bp = Blueprint("cartera", __name__, url_prefix="/cartera")
 
 JEFES = ("administrador", "director_tecnico")
-FORMAS_ABONO = {"efectivo": "Efectivo", "nequi": "Nequi", "davivienda": "Davivienda",
-                "transferencia": "Transferencia", "tarjeta": "Tarjeta"}
+FORMAS_ABONO = {f: fp.nombre(f) for f in fp.FORMAS_MOVIMIENTO}
 # Estas formas quedan en el cierre de caja (caja_movimientos) si hay caja abierta
-FORMAS_EN_CAJA = ("efectivo", "nequi", "davivienda")
+FORMAS_EN_CAJA = ("efectivo",) + fp.CLAVES_CUENTAS
 # Grupos de antigüedad: (texto, desde día, hasta día)
 RANGOS = [("0 a 30 días", 0, 30), ("31 a 60 días", 31, 60), ("61 a 90 días", 61, 90), ("Más de 90 días", 91, 10 ** 6)]
 DIAS_VENCIDA = 30   # desde aquí la deuda se considera "vencida" (sale en las alertas)

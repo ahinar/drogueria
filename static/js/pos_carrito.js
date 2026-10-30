@@ -9,7 +9,7 @@
 //      1 "Caja x 100" descuenta 100 unidades.
 //   3. Ver info detallada de un producto (botón "i")
 //   4. Cambiar el precio al vender (Opción B: todos pueden, queda en bitácora)
-//   5. Cobrar (efectivo, Nequi, Davivienda, tarjeta)
+//   5. Cobrar (efectivo, Nequi, Davivienda, Daviplata, tarjeta, crédito, mixto)
 //   6. Atajos de teclado físico (números, backspace, delete, +, -, Enter)
 //   7. Registrar gastos sin salir del POS
 //   8. Carrito persistente (no se pierde al navegar o cerrar)
@@ -87,6 +87,9 @@
   // VENTAS RÁPIDAS (versión 1.1.13): fotocopias, dulcería... (ver «VENTA LIBRE Y
   // VENTAS RÁPIDAS» más abajo). Se leen aquí arriba porque la búsqueda las usa
   // desde el primer momento. La lista llega en <script id="ventas-rapidas">.
+  // CUENTAS (versión 1.1.14): [{valor:'nequi', texto:'Nequi'}, ...] con Daviplata, de app/formas_pago.py
+  let CUENTAS = [];
+  try { CUENTAS = JSON.parse(($('cuentas-pago') || {}).textContent || '[]'); } catch (e) { /* vacía */ }
   let ventasRapidas = [];
   try { ventasRapidas = JSON.parse(($('ventas-rapidas') || {}).textContent || '[]'); } catch (e) { /* vacía */ }
   // "Fotocopía" → "fotocopia": sin tildes (NFD separa la tilde y se borra) y en minúsculas
@@ -919,7 +922,7 @@
       b.classList.toggle('activo', b.dataset.forma === forma);
     });
     $('pago-efectivo').style.display = forma === 'efectivo' ? '' : 'none';
-    // Mixto: se ven los campos de Nequi / Davivienda / Tarjeta (el resto es efectivo)
+    // Mixto: se ven los campos de cada cuenta y Tarjeta (el resto es efectivo)
     $('pago-mixto').hidden = forma !== 'mixto';
     if (forma === 'mixto') {
       actualizarMixto();
@@ -999,9 +1002,9 @@
   });
 
   // ---------------------------------------------------------------
-  // 7c. PAGO MIXTO (versión 1.1.3): parte por Nequi/Davivienda/tarjeta, resto en efectivo
+  // 7c. PAGO MIXTO (versión 1.1.3): parte por las cuentas o tarjeta, resto en efectivo
   // ---------------------------------------------------------------
-  // Lee lo que se escribió en Nequi, Davivienda y Tarjeta: { nequi: 20000, ... }
+  // Lee lo que se escribió en cada cuenta y Tarjeta: { nequi: 20000, ... }
   function pagosMixtos() {
     const pagos = {};
     document.querySelectorAll('.mixto-monto').forEach((i) => {
@@ -1049,8 +1052,8 @@
       const otros = Object.values(pagos).reduce((a, b) => a + b, 0);
       const partes = Object.keys(pagos).length + (efectivoMixto() >= 0.5 ? 1 : 0);
       let problema = '';
-      if (otros > totalVenta() + 0.5) problema = 'Lo de Nequi, Davivienda o tarjeta pasa el total de la venta.';
-      else if (partes < 2) problema = 'Para pago mixto escribe cuánto entra por Nequi, Davivienda o tarjeta (el resto va en efectivo).';
+      if (otros > totalVenta() + 0.5) problema = 'Lo de las cuentas o la tarjeta pasa el total de la venta.';
+      else if (partes < 2) problema = 'Para pago mixto escribe cuánto entra por las cuentas o con tarjeta (el resto va en efectivo).';
       else if ($('mixto-recibido').value && parseFloat($('mixto-recibido').value) + 0.001 < efectivoMixto())
         problema = 'El efectivo recibido no alcanza para la parte en efectivo.';
       if (problema) { errorBox.textContent = problema; errorBox.style.display = 'block'; return; }
@@ -1435,8 +1438,7 @@
         { nombre: 'monto', etiqueta: 'Monto', tipo: 'numero', obligatorio: true, mayorQue: 0 },
         { nombre: 'forma_pago', etiqueta: 'Cómo llegó la plata', tipo: 'opciones', opciones: [
           { valor: 'efectivo', texto: 'Efectivo (entra a esta caja)' },
-          { valor: 'nequi', texto: 'Nequi' },
-          { valor: 'davivienda', texto: 'Davivienda' },
+          ...CUENTAS,
           { valor: 'transferencia', texto: 'Transferencia' },
         ] },
       ],
@@ -1473,8 +1475,7 @@
         { nombre: 'monto', etiqueta: 'Monto del abono', tipo: 'numero', obligatorio: true, mayorQue: 0 },
         { nombre: 'forma_pago', etiqueta: 'Cómo pagó', tipo: 'opciones', opciones: [
           { valor: 'efectivo', texto: 'Efectivo (entra a esta caja)' },
-          { valor: 'nequi', texto: 'Nequi' },
-          { valor: 'davivienda', texto: 'Davivienda' },
+          ...CUENTAS,
           { valor: 'transferencia', texto: 'Transferencia' },
           { valor: 'tarjeta', texto: 'Tarjeta' },
         ] },
@@ -1501,6 +1502,54 @@
 
   // Para que el botón de la ventana "Ingreso de efectivo" (pos.js) la pueda abrir
   window.pedirOtroIngreso = pedirOtroIngreso;
+
+  // MOVIMIENTO DE PLATA (versión 1.1.14, pedido de Fernando): un solo botón en vez de
+  // cuatro. Primero pregunta si ENTRA o SALE plata y después PARA QUÉ. Lo importante
+  // es la segunda pregunta: decide si la plata cuenta en las utilidades o solo se mueve.
+  //   Entra → Otro ingreso (sí es ganancia) | Solo entra efectivo (base, cambio: no es ganancia)
+  //   Sale  → Gasto (se resta de las utilidades) | Me la llevo yo (retiro del dueño)
+  //           | La paso a otro lado (caja menor o consignar: traslado)
+  // Si sale plata y no se registra, al cerrar la caja queda como «Faltante de caja».
+  async function elegirMovimiento() {
+    const sentido = await window.escogerOpcion({
+      titulo: 'Movimiento de plata',
+      texto: '¿Entra o sale plata de la droguería?',
+      opciones: [
+        { valor: 'entra', icono: '⬇️', titulo: 'Entra plata', detalle: 'Recargas, arriendo, base, cambio de billetes…' },
+        { valor: 'sale', icono: '⬆️', titulo: 'Sale plata', detalle: 'Gastos, plata que usted se lleva, consignar, pasar a caja menor…' },
+      ],
+    });
+    if (sentido === null) return;
+    if (sentido === 'entra') {
+      const cual = await window.escogerOpcion({
+        titulo: 'Entra plata',
+        texto: '¿Es plata que ganó la droguería?',
+        opciones: [
+          { valor: 'ingreso', icono: '💰', titulo: 'Otro ingreso: sí es ganancia',
+            detalle: 'Comisión de recargas, arriendo, reciclaje… Se suma en las utilidades.' },
+          { valor: 'efectivo', icono: '💵', titulo: 'Solo entra efectivo a la caja',
+            detalle: 'Base, cambio de billetes, plata que se trae de la caja menor o que usted pone. No es ganancia.' },
+        ],
+      });
+      if (cual === 'ingreso') pedirOtroIngreso();
+      else if (cual === 'efectivo' && window.abrirMovimiento) window.abrirMovimiento('ingreso', 'entra');
+      return;
+    }
+    const cual = await window.escogerOpcion({
+      titulo: 'Sale plata',
+      texto: '¿Para qué sale la plata?',
+      opciones: [
+        { valor: 'gasto', icono: '🧾', titulo: 'Un gasto de la droguería',
+          detalle: 'Servicios, aseo, domicilio, papelería… Se resta de las utilidades.' },
+        { valor: 'dueno', icono: '👤', titulo: 'Me la llevo yo (plata personal)',
+          detalle: 'Queda como retiro del dueño: no es gasto. Utilidades lo muestra aparte.' },
+        { valor: 'traslado', icono: '🔁', titulo: 'La paso a otro lado',
+          detalle: 'A la caja menor o a consignar en Nequi, Davivienda o Daviplata. No es gasto.' },
+      ],
+    });
+    if (cual === 'gasto') abrirModalGasto();
+    else if (cual && window.abrirMovimiento) window.abrirMovimiento('salida', cual);
+  }
   $('btn-cliente').addEventListener('click', pedirCliente);
   $('btn-nota').addEventListener('click', pedirNota);
 
@@ -1584,6 +1633,7 @@
       else if (accion === 'cliente') { cerrar(); pedirCliente(); }
       else if (accion === 'nota') { cerrar(); pedirNota(); }
       else if (accion === 'venta-libre') { cerrar(); pedirVentaLibre(); }
+      else if (accion === 'movimiento-plata') { cerrar(); elegirMovimiento(); }
       else if (accion === 'otro-ingreso') { cerrar(); pedirOtroIngreso(); }
       else if (accion === 'abono-cartera') { cerrar(); pedirAbono(); }
       else if (accion === 'registrar-gasto') { cerrar(); abrirModalGasto(); }
@@ -2042,15 +2092,80 @@
     });
   }
 
-  $('pos-categorias').addEventListener('click', (e) => {
+  // ---------------------------------------------------------------
+  // CATEGORÍAS EN UNA FILA (versión 1.1.14)
+  // ---------------------------------------------------------------
+  // Antes las 17 categorías ocupaban 4 filas (y en el celular, toda la pantalla).
+  // Ahora se muestran las que caben en UNA fila y las demás pasan al botón «Más ▾».
+  // Si se escoge una del menú, el botón «Más» muestra su nombre (ej. «Dermatológicos ▾»).
+  const filaCat = $('pos-categorias');
+  const btnMas = $('pos-cat-mas');
+  const menuMas = $('pos-cat-menu');
+
+  function escogerCategoria(cat) {
+    categoria = cat;
+    filaCat.querySelectorAll('.pos-cat[data-cat]').forEach((b) => b.classList.toggle('activo', b.dataset.cat === cat));
+    // ¿La escogida está escondida en «Más»? Entonces «Más» se marca y lleva su nombre
+    const escondida = filaCat.querySelector('.pos-cat[data-cat="' + cat + '"][hidden]');
+    btnMas.classList.toggle('activo', !!escondida);
+    btnMas.textContent = (escondida ? escondida.textContent : 'Más') + ' ▾';
+    cerrarMenuCat();
+    buscar(false);
+  }
+  function cerrarMenuCat() {
+    menuMas.hidden = true;
+    btnMas.setAttribute('aria-expanded', 'false');
+  }
+
+  // Mide cuáles caben. Se llama al cargar y cada vez que cambia el ancho de la ventana.
+  function acomodarCategorias() {
+    const chips = Array.from(filaCat.querySelectorAll('.pos-cat[data-cat]'));
+    chips.forEach((b) => { b.hidden = false; });
+    btnMas.hidden = false;
+    btnMas.textContent = 'Más ▾';
+    const limite = filaCat.clientWidth - btnMas.offsetWidth - 8;     // lo que queda a la derecha para «Más»
+    const arriba = filaCat.firstElementChild.offsetTop;              // la primera fila
+    const sobran = chips.filter((b) => b.dataset.cat !== '' &&       // «Todas» siempre se ve
+      (b.offsetTop > arriba + 4 || b.offsetLeft + b.offsetWidth > limite));
+    sobran.forEach((b) => { b.hidden = true; });
+    btnMas.hidden = !sobran.length;
+    menuMas.innerHTML = sobran.map((b) =>
+      '<button type="button" role="menuitem" data-cat="' + esc(b.dataset.cat) + '">' + esc(b.textContent) + '</button>').join('');
+    escogerCategoriaSinBuscar();
+  }
+  // Después de reacomodar: vuelve a marcar la categoría escogida (sin buscar otra vez)
+  function escogerCategoriaSinBuscar() {
+    const escondida = filaCat.querySelector('.pos-cat[data-cat="' + categoria + '"][hidden]');
+    btnMas.classList.toggle('activo', !!escondida);
+    if (escondida) btnMas.textContent = escondida.textContent + ' ▾';
+  }
+
+  filaCat.addEventListener('click', (e) => {
+    if (e.target.closest('#pos-cat-mas')) {
+      const abrir = menuMas.hidden;
+      menuMas.hidden = !abrir;
+      btnMas.setAttribute('aria-expanded', String(abrir));
+      return;
+    }
+    const opcion = e.target.closest('.pos-cat-menu button');
+    if (opcion) { escogerCategoria(opcion.dataset.cat); return; }
     const boton = e.target.closest('.pos-cat');
     // "+ Venta libre" vive en esta fila pero NO es un filtro: tiene su propio clic
-    if (!boton || boton.classList.contains('pos-cat-libre')) return;
-    document.querySelectorAll('.pos-cat').forEach((b) => b.classList.remove('activo'));
-    boton.classList.add('activo');
-    categoria = boton.dataset.cat;
-    buscar(false);
+    if (!boton || boton.classList.contains('pos-cat-libre') || boton === btnMas) return;
+    escogerCategoria(boton.dataset.cat);
   });
+  // Clic fuera del menú o Esc: se cierra
+  document.addEventListener('click', (e) => { if (!menuMas.hidden && !e.target.closest('#pos-categorias')) cerrarMenuCat(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menuMas.hidden) cerrarMenuCat(); });
+  let esperaCat = null;
+  window.addEventListener('resize', () => { clearTimeout(esperaCat); esperaCat = setTimeout(acomodarCategorias, 120); });
+  acomodarCategorias();
+  // El menú lateral se recoge con una animación: se vuelve a medir cuando termina
+  setTimeout(acomodarCategorias, 450);
+  const btnLateral = $('toggleSidebar');
+  if (btnLateral) btnLateral.addEventListener('click', () => setTimeout(acomodarCategorias, 450));
+  // Las letras (fuente Inter) a veces llegan un instante después y cambian los anchos
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(acomodarCategorias);
 
   pintarCarrito();
   buscar(false);

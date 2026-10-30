@@ -3104,21 +3104,21 @@ strong.dif-falta, strong.dif-sobra { background: none; padding: 0; }
 /* Un fieldset por defecto se estira hasta lo que mida la tabla; con min-width: 0 se queda
    del ancho de la pantalla y es la tabla la que se desliza de lado (pantallas pequeñas) */
 fieldset:has(> .tabla-recepcion-caja) { min-width: 0; }
-#tabla-lineas { table-layout: fixed; width: 100%; min-width: 1250px; }
+#tabla-lineas { table-layout: fixed; width: 100%; min-width: 1020px; }   /* versión 1.1.14: antes 1250px (se corría de lado) */
 #tabla-lineas th { font-size: .72rem; padding: .35rem .2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #tabla-lineas td { padding: .25rem .15rem; vertical-align: top; }
-#tabla-lineas .c-lote      { width: 5.6rem; }
-#tabla-lineas .c-vence     { width: 8.4rem; }
-#tabla-lineas .c-cant      { width: 3.8rem; }
-#tabla-lineas .c-udm       { width: 7.2rem; }
-#tabla-lineas .c-costo     { width: 5.8rem; }
-#tabla-lineas .c-iva       { width: 4.3rem; }
-#tabla-lineas .c-importe   { width: 6rem; text-align: right; }
-#tabla-lineas .c-temp      { width: 3.3rem; }
-#tabla-lineas .c-empaque   { width: 5.8rem; }
-#tabla-lineas .c-resultado { width: 6.6rem; }
-#tabla-lineas .c-motivo    { width: 5.4rem; }
-#tabla-lineas .c-quitar    { width: 2.2rem; }
+#tabla-lineas .c-lote      { width: 5.2rem; }
+#tabla-lineas .c-vence     { width: 7.6rem; }
+#tabla-lineas .c-cant      { width: 3.6rem; }
+#tabla-lineas .c-udm       { width: 6.6rem; }
+#tabla-lineas .c-costo     { width: 5.4rem; }
+#tabla-lineas .c-iva       { width: 4.1rem; }
+#tabla-lineas .c-importe   { width: 5.8rem; text-align: right; }
+#tabla-lineas .c-temp      { width: 3.2rem; }
+#tabla-lineas .c-empaque   { width: 5.6rem; }
+#tabla-lineas .c-resultado { width: 6.6rem; }       /* con el «Motivo» debajo cuando no es Aceptado */
+#tabla-lineas .linea-motivo { margin-top: .2rem !important; }
+#tabla-lineas .c-quitar    { width: 2.1rem; }
 #tabla-lineas input, #tabla-lineas select,
 .moderno #tabla-lineas select { height: 30px; min-height: 0; padding: .2rem .3rem; font-size: .8rem; margin: 0; line-height: 1.2; }
 #tabla-lineas select { padding-right: .1rem; }
@@ -3292,3 +3292,111 @@ input.campo-num-activo:focus {
 /* Ventas rápidas (versión 1.1.13): formulario en una fila (en el celular, una debajo de otra) */
 .vr-form .vr-campos { display: grid; grid-template-columns: 2fr 1.4fr 1.4fr 1.4fr; gap: .8rem; }
 @media (max-width: 760px) { .vr-form .vr-campos { grid-template-columns: 1fr; } }
+
+/* =====================================================================
+   PANTALLA VENTAS (versión 1.1.14): lista a la izquierda, carrito a la derecha
+   ===================================================================== */
+.etiqueta-roja { background: #fdecea; color: #b3261e; }
+.vtas-filtros label { display: flex; flex-direction: column; gap: .15rem; }
+.vtas-filtros input[type="search"] { min-width: 220px; padding: .4rem .6rem; border: 1px solid #c8d2da; border-radius: .3rem; }
+.vtas { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 1rem; align-items: start; }
+.vtas-resumen { margin: 0 0 .5rem; font-size: .9rem; }
+.vtas-lista { background: var(--superficie, #fff); border: 1px solid #e3e8ee; border-radius: 8px; padding: .6rem;
+  max-height: calc(100vh - 220px); overflow-y: auto; }
+.vtas-tabla { font-size: .88rem; }
+.vtas-tabla td small { display: inline-block; margin-left: .2rem; }
+.vtas-fila { cursor: pointer; }
+.vtas-fila:hover td { background: #f3f8f7; }
+.vtas-fila.activa td { background: #e6f4f1; }
+.vtas-fila.activa td:first-child { box-shadow: inset 4px 0 0 var(--primario, #0f766e); }
+.vtas-fila.anulada td { color: #8a94a0; }
+.vtas-enlace { font-weight: 700; text-decoration: none; }
+/* El panel queda quieto al bajar por la lista */
+.vtas-panel { position: sticky; top: 76px; background: var(--superficie, #fff); border: 1px solid #e3e8ee;
+  border-radius: 8px; padding: 1rem; max-height: calc(100vh - 100px); overflow-y: auto; transition: opacity .15s; }
+.vtas-panel.cargando { opacity: .5; }
+.vtas-vacio { text-align: center; color: #6b7884; padding: 3rem 1rem; }
+.vtas-vacio .ico-emoji { font-size: 2.5rem; }
+.vtas-cabeza { display: flex; justify-content: space-between; gap: .8rem; align-items: flex-start; }
+.vtas-cabeza h2 { margin: 0; font-size: 1.25rem; display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+.vtas-cabeza p { margin: .2rem 0; }
+.vtas-carrito { margin-top: .6rem; font-size: .9rem; }
+.vtas-carrito td small { display: block; color: #6b7884; }
+.vtas-total td { font-weight: 700; font-size: 1.05rem; }
+.vtas-pago { margin: .6rem 0; }
+.vtas-seccion { border-top: 1px solid #e3e8ee; padding: .6rem 0; }
+.vtas-seccion summary { cursor: pointer; font-weight: 700; }
+.vtas-seccion h3 { font-size: 1rem; margin: .8rem 0 .4rem; }
+.vtas-corregir { display: grid; gap: .5rem; margin-top: .6rem; }
+.vtas-mixto { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .4rem; }
+.vtas-historia { margin: .6rem 0 0; padding-left: 1.1rem; font-size: .88rem; }
+.vtas-historia small { display: block; color: #6b7884; }
+.vtas-anular { display: flex; gap: .4rem; margin-top: .5rem; }
+.vtas-anular input { flex: 1; }
+@media (max-width: 900px) {
+  .vtas { grid-template-columns: 1fr; }
+  .vtas-lista, .vtas-panel { max-height: none; position: static; }
+}
+
+/* Ventana «escoger una opción» (versión 1.1.14, window.escogerOpcion en ui.js) */
+.modal-ui.escoger-opcion { max-width: 520px; }
+.escoger-botones { display: grid; gap: .55rem; margin: .4rem 0 1rem; }
+.escoger-boton { position: relative; display: grid; grid-template-columns: 2.2rem 1fr; grid-template-rows: auto auto;
+  column-gap: .6rem; align-items: center; text-align: left; padding: .75rem .9rem; cursor: pointer; font: inherit;
+  background: var(--superficie, #fff); color: inherit; border: 1px solid #d5dde5; border-radius: .55rem; }
+.escoger-boton:hover, .escoger-boton:focus { border-color: var(--primario, #0f766e); background: #f0fdfa; outline: none; }
+.escoger-icono { grid-row: 1 / span 2; font-size: 1.5rem; text-align: center; }
+.escoger-boton strong { font-size: 1rem; }
+.escoger-boton small { color: #5c6b78; font-size: .84rem; line-height: 1.3; }
+.escoger-boton kbd { position: absolute; top: .4rem; right: .5rem; font-size: .7rem; color: #64748b;
+  background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 0 .3rem; }
+
+/* POS · categorías en una sola fila con «Más ▾» (versión 1.1.14, pos_carrito.js) */
+.pos-categorias { position: relative; flex-wrap: nowrap; }
+.pos-cat[hidden] { display: none !important; }
+.pos-cat { white-space: nowrap; flex-shrink: 0; }
+.pos-cat-mas { margin-left: auto; }
+.pos-cat-menu { position: absolute; right: 0; top: calc(100% + .3rem); z-index: 30; min-width: 220px; max-height: 60vh;
+  overflow-y: auto; background: var(--superficie, #fff); border: 1px solid #d8e0e6; border-radius: .6rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .15); padding: .3rem; display: flex; flex-direction: column; }
+.pos-cat-menu[hidden] { display: none; }
+.pos-cat-menu button { text-align: left; padding: .5rem .7rem; border: 0; background: none; border-radius: .4rem;
+  font: inherit; font-size: .88rem; cursor: pointer; color: inherit; }
+.pos-cat-menu button:hover, .pos-cat-menu button:focus { background: #f0fdfa; outline: none; }
+
+/* Botón «📎 Escoger archivo» (versión 1.1.14, ui.js sección 5). El input real queda
+   invisible pero presente: el formulario lo envía y el navegador lo sigue exigiendo. */
+.archivo-caja { position: relative; display: inline-flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.archivo-escondido { position: absolute !important; left: 0; top: 0; width: 1px !important; height: 1px !important;
+  opacity: 0; pointer-events: none; }
+.archivo-nombre { font-size: .85rem; color: #6b7884; }
+.archivo-nombre.con-archivo { color: inherit; font-weight: 600; }
+
+/* Tarjetas de resumen de a 3 por fila (Inventario, versión 1.1.14); en el celular, una debajo de otra */
+.tarjetas-kpi.tarjetas-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) { .tarjetas-kpi.tarjetas-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .tarjetas-kpi.tarjetas-3 { grid-template-columns: minmax(0, 1fr); } }
+
+/* =====================================================================
+   MENÚ RECOGIDO Y MENÚ DEL CELULAR (versión 1.1.14, menú por tareas)
+   Recogido (solo íconos) se ve UN ícono por grupo (Ventas, Compras, Inventario,
+   Dinero, Calidad, Administración), no los 25 enlaces sueltos. Al tocar un ícono
+   de grupo se abre el menú completo en ese grupo (base.html).
+   En el celular, ☰ abre el menú ENCIMA de la página (menu-movil-abierto).
+   ===================================================================== */
+body.sidebar-colapsado .sidebar-group { display: flex; justify-content: center; padding: .7rem 0; }
+body.sidebar-colapsado .sidebar-submenu, body.sidebar-colapsado .sidebar-submenu.abierto { display: none; }
+@media (max-width: 900px) {
+  .sidebar-group { display: flex; justify-content: center; padding: .7rem 0; }
+  .sidebar-submenu, .sidebar-submenu.abierto { display: none; }
+  body.menu-movil-abierto .sidebar { width: 270px; z-index: 200; box-shadow: 0 0 40px rgba(0, 0, 0, .35); }
+  body.menu-movil-abierto .sidebar-link .txt, body.menu-movil-abierto .sidebar-sublink .txt,
+  body.menu-movil-abierto .sidebar-link .chevron, body.menu-movil-abierto .sidebar-brand-text { display: inline; }
+  body.menu-movil-abierto .sidebar-link, body.menu-movil-abierto .sidebar-sublink,
+  body.menu-movil-abierto .sidebar-group { justify-content: flex-start; padding: .6rem .9rem; }
+  body.menu-movil-abierto .sidebar-submenu.abierto { display: block; }
+}
+.vtas-mixto label { display: flex; flex-direction: column; gap: .15rem; font-size: .85rem; min-width: 0; }
+.vtas-mixto input { width: 100%; min-width: 0; box-sizing: border-box; }
+.vtas-mixto small { grid-column: 1 / -1; }
+.vtas-corregir label { display: flex; flex-direction: column; gap: .2rem; }

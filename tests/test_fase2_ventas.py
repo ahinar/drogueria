@@ -513,7 +513,8 @@ class TestBuscarYComprobante(BaseVentas):
         self.assertEqual(r.status_code, 200)
         self.assertIn("V-0001", r.get_data(as_text=True))
         self.assertEqual(self.c.get("/pos/venta/ultima", follow_redirects=True).status_code, 200)
-        self.assertIn("V-0001", self.c.get("/pos/ventas").get_data(as_text=True))
+        # Versión 1.1.14: /pos/ventas lleva a la pantalla Ventas (app/ventas.py)
+        self.assertIn("V-0001", self.c.get("/pos/ventas", follow_redirects=True).get_data(as_text=True))
         self.assertEqual(self.c.get("/pos/venta/999").status_code, 404)
 
 

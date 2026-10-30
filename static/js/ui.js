@@ -248,6 +248,95 @@
 
 
   /* ===================================================================
+     2b. VENTANA PARA ESCOGER UNA OPCIÓN (versión 1.1.14)
+     ---------------------------------------------------------------
+     Botones grandes, cada uno con su título y una línea de explicación.
+     Uso:
+       const cual = await window.escogerOpcion({
+         titulo: 'Movimiento de plata',
+         texto: '¿Entra o sale plata?',
+         opciones: [
+           { valor: 'entra', icono: '⬇️', titulo: 'Entra plata', detalle: 'recargas, base, cambio…' },
+           { valor: 'sale',  icono: '⬆️', titulo: 'Sale plata',  detalle: 'gastos, consignar…' },
+         ],
+       });
+       if (cual === null) → la persona cerró la ventana
+     Teclas: 1, 2, 3… escogen el botón con ese número; Esc cierra.
+     =================================================================== */
+  window.escogerOpcion = function (opciones) {
+    opciones = opciones || {};
+    const lista = opciones.opciones || [];
+    return new Promise(function (resolver) {
+      const fondo = document.createElement('div');
+      fondo.className = 'modal-fondo-ui';
+      fondo.id = 'modal-escoger-opcion';            // "modal-…": el POS no usa el teclado mientras tanto
+      const caja = document.createElement('div');
+      caja.className = 'modal-caja modal-ui escoger-opcion';
+      const h2 = document.createElement('h2');
+      h2.textContent = opciones.titulo || 'Escoger';
+      caja.appendChild(h2);
+      if (opciones.texto) {
+        const p = document.createElement('p');
+        p.className = 'modal-ui-texto';
+        p.textContent = opciones.texto;
+        caja.appendChild(p);
+      }
+      const botones = document.createElement('div');
+      botones.className = 'escoger-botones';
+      lista.forEach(function (op, i) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'escoger-boton';
+        b.dataset.i = i;
+        // textContent (no innerHTML): así ningún texto puede meter código en la página
+        const tecla = document.createElement('kbd');
+        tecla.textContent = i + 1;
+        const ico = document.createElement('span');
+        ico.className = 'escoger-icono';
+        ico.textContent = op.icono || '';
+        const tit = document.createElement('strong');
+        tit.textContent = op.titulo || op.valor;
+        const det = document.createElement('small');
+        det.textContent = op.detalle || '';
+        b.append(tecla, ico, tit, det);
+        botones.appendChild(b);
+      });
+      caja.appendChild(botones);
+      const acciones = document.createElement('div');
+      acciones.className = 'modal-acciones';
+      const cancelar = document.createElement('button');
+      cancelar.type = 'button';
+      cancelar.className = 'boton secundario';
+      cancelar.textContent = opciones.textoCancelar || 'Cancelar';
+      acciones.appendChild(cancelar);
+      caja.appendChild(acciones);
+      fondo.appendChild(caja);
+      document.body.appendChild(fondo);
+
+      function terminar(valor) {
+        document.removeEventListener('keydown', teclas, true);
+        fondo.remove();
+        resolver(valor);
+      }
+      function teclas(e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); terminar(null); return; }
+        const n = parseInt(e.key, 10);
+        if (n >= 1 && n <= lista.length) { e.preventDefault(); e.stopPropagation(); terminar(lista[n - 1].valor); }
+      }
+      document.addEventListener('keydown', teclas, true);
+      cancelar.addEventListener('click', function () { terminar(null); });
+      fondo.addEventListener('click', function (e) {
+        if (e.target === fondo) { terminar(null); return; }
+        const b = e.target.closest('.escoger-boton');
+        if (b) terminar(lista[+b.dataset.i].valor);
+      });
+      const primero = botones.querySelector('button');
+      if (primero) primero.focus();
+    });
+  };
+
+
+  /* ===================================================================
      3. FECHAS EN dd/mm/aaaa
      ---------------------------------------------------------------
      Cómo funciona, para cada <input type="date">:
@@ -638,4 +727,50 @@ document.addEventListener('wheel', function (e) {
     if (!form || !form.querySelectorAll) return;
     form.querySelectorAll('[data-cero-oculto]').forEach(devolverCero);
   }, true);
+})();
+
+
+/* =====================================================================
+   5. BOTÓN PARA ESCOGER ARCHIVO, IGUAL EN TODO EL PROGRAMA (versión 1.1.14)
+   ---------------------------------------------------------------------
+   El <input type="file"> del navegador se ve distinto en cada computador (y en
+   inglés si Chrome está en inglés: «Choose File / No file chosen»). Aquí se
+   esconde (sin quitarlo: el formulario lo sigue enviando y lo sigue exigiendo si
+   es obligatorio) y en su lugar se pone un botón «📎 Escoger archivo» y el nombre
+   del archivo escogido. No se toca los que ya están escondidos (fotos con lápiz).
+   ===================================================================== */
+(function () {
+  'use strict';
+  function arreglar(input) {
+    // Se deja quieto el que ya tiene su propio diseño: escondido, invisible (opacity 0,
+    // como la foto del producto, que se escoge tocando el cuadro) o marcado data-archivo-nativo
+    if (input.dataset.archivoListo || input.hidden || input.offsetParent === null ||
+        input.dataset.archivoNativo !== undefined || getComputedStyle(input).opacity === '0') return;
+    input.dataset.archivoListo = '1';
+    const caja = document.createElement('span');
+    caja.className = 'archivo-caja';
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'boton secundario boton-mini';
+    boton.textContent = '📎 Escoger archivo';
+    const nombre = document.createElement('span');
+    nombre.className = 'archivo-nombre';
+    nombre.textContent = 'Ningún archivo';
+    input.parentNode.insertBefore(caja, input);
+    caja.append(input, boton, nombre);
+    input.classList.add('archivo-escondido');
+    boton.addEventListener('click', function () { input.click(); });
+    input.addEventListener('change', function () {
+      const n = input.files ? input.files.length : 0;
+      nombre.textContent = !n ? 'Ningún archivo' : (n === 1 ? input.files[0].name : n + ' archivos');
+      nombre.classList.toggle('con-archivo', n > 0);
+    });
+    // Si el formulario se limpia (form.reset), vuelve a decir «Ningún archivo»
+    if (input.form) input.form.addEventListener('reset', function () {
+      setTimeout(function () { nombre.textContent = 'Ningún archivo'; nombre.classList.remove('con-archivo'); }, 0);
+    });
+  }
+  function revisarTodos() { document.querySelectorAll('input[type="file"]').forEach(arreglar); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', revisarTodos);
+  else revisarTodos();
 })();

@@ -42,6 +42,7 @@ from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
 from .formato import pesos
+from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
 bp = Blueprint("bancos", __name__, url_prefix="/bancos")
 
@@ -54,7 +55,7 @@ TIPOS_MANUALES = {
 }
 
 # Lugares entre los que se puede trasladar plata
-LUGARES = {"caja_menor": "Caja menor (efectivo)", "nequi": "Nequi", "davivienda": "Davivienda"}
+LUGARES = {"caja_menor": "Caja menor (efectivo)", **{c: fp.nombre(c) for c in fp.CLAVES_CUENTAS}}
 
 
 # ---------------------------------------------------------------------------

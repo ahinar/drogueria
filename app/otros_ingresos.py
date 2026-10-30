@@ -25,12 +25,12 @@ from flask import (Blueprint, abort, flash, g, redirect, render_template,
 from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
+from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
 bp = Blueprint("otros_ingresos", __name__, url_prefix="/contabilidad/ingresos")
 
 # Formas de pago posibles (las mismas de los gastos)
-FORMAS = {"efectivo": "Efectivo", "nequi": "Nequi", "davivienda": "Davivienda",
-          "tarjeta": "Tarjeta", "transferencia": "Transferencia"}
+FORMAS = {f: fp.nombre(f) for f in fp.FORMAS_MOVIMIENTO}
 
 
 def _categorias():

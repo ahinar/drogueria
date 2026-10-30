@@ -131,7 +131,9 @@ class TestDevolucionCliente(BaseDevoluciones):
         self.assertIn("Volvió al inventario", self.c.get("/devoluciones/1").get_data(as_text=True))
         pdf = self.c.get("/devoluciones/1/pdf")
         self.assertTrue(pdf.data.startswith(b"%PDF"))
-        self.assertIn("devoluciones/cliente?venta=V-0001", self.c.get("/pos/ventas").get_data(as_text=True))
+        # Versión 1.1.14: las devoluciones de la venta salen en su panel de la pantalla Ventas
+        panel = self.c.get("/ventas/1/panel").get_data(as_text=True)
+        self.assertIn("DC-0001", panel)
 
 
 class TestDevolucionProveedor(BaseDevoluciones):

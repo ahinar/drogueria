@@ -369,7 +369,7 @@ def calcular_alertas(rol):
                 "texto": f"{f['nombre']} · lote {f['lote'] or 's/n'}",
                 "detalle": f"{_cant(f['cantidad_disponible'])} und · {_dias_texto(f['vencimiento'], hoy)}",
                 "url": url_for("inventario.lote_ver", lote_id=f["id"]),
-            }, url_for("inventario.vencimientos"), "Ver semáforo de vencimientos")
+            }, url_for("reportes.vencimientos_ver"), "Ver semáforo de vencimientos")
 
     # ------------------------------------------------------------------
     # 7. RECEPCIONES EN CUARENTENA esperando aprobación del director técnico
@@ -458,6 +458,31 @@ def calcular_alertas(rol):
                     "detalle": f"{_pesos(f['total_pagar'])} · vence {f['pago_vence']}",
                     "url": url_for("cuentas_pagar.pagar", rec_id=f["id"]),
                 }, url=url_for("cuentas_pagar.index"), boton="Ver cuentas por pagar")
+
+    # ------------------------------------------------------------------
+    # Copia de seguridad SOLO en este computador (versión 1.1.14)
+    # ------------------------------------------------------------------
+    # Los respaldos automáticos quedan en el mismo disco: si el computador se daña o
+    # se lo roban, se pierden con él. Administración → Respaldos tiene la «carpeta
+    # extra» (USB, Google Drive u OneDrive), pero antes solo lo decía esa pantalla.
+    if rol == "administrador":
+        import os
+        from flask import current_app
+        from .backup_utils import carpeta_extra
+        extra = carpeta_extra(current_app)
+        if not extra:
+            filas = [{"texto": "No hay copia fuera de este computador",
+                      "detalle": "escoja una carpeta en una USB o en Google Drive / OneDrive"}]
+        elif not os.path.isdir(extra):
+            filas = [{"texto": "La carpeta de la copia no está conectada",
+                      "detalle": f"{extra} (¿la USB está puesta?)"}]
+        else:
+            filas = []
+        agregar("respaldo_fuera", "amarillo", "💾", "Copia de seguridad solo en este computador",
+                "Si el computador se daña, se pierde todo. Con una carpeta en una USB o en la nube, "
+                "cada respaldo se copia también allá.",
+                filas, lambda f: dict(f, url=url_for("admin.respaldos")),
+                url=url_for("admin.respaldos"), boton="Ir a Respaldos")
 
     # Rojas primero; dentro de cada color se respeta el orden de arriba
     alertas.sort(key=lambda a: 0 if a["nivel"] == "rojo" else 1)

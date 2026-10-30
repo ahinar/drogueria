@@ -128,7 +128,7 @@
   </div>
 
   <a class="kpi-card {% if productos.por_vencer_30 > 0 %}kpi-alerta{% elif productos.por_vencer_90 > 0 %}kpi-pendiente{% else %}kpi-ok{% endif %}"
-     href="{{ url_for('inventario.vencimientos') }}" style="text-decoration:none">
+     href="{{ url_for('reportes.vencimientos_ver') }}" style="text-decoration:none">
     <div class="kpi-icono">{{ ico("inventario", "⏳") }}</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Lotes por vencer</span>

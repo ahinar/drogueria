@@ -445,5 +445,6 @@ def agrupar_vencimientos():
 @bp.route("/vencimientos")
 @login_required
 def vencimientos():
-    grupos, total = agrupar_vencimientos()
-    return render_template("inventario/vencimientos.html", grupos=grupos, total=total)
+    """Versión 1.1.14: el semáforo vive en un solo lugar, Reportes → Vencimientos (con PDF).
+    Esta dirección vieja lleva allá para que los enlaces guardados sigan funcionando."""
+    return redirect(url_for("reportes.vencimientos_ver"))

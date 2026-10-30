@@ -24,21 +24,22 @@ class TestMenuPorRoles(Base):
         html = self.menu_de("auxiliar")
         for visible in ("Vender (POS)", "Recepciones", "Temperaturas", "Inventario", "Reportes"):
             self.assertIn(visible, html)
-        for oculto in ("Proveedores", "Contabilidad", "Caja menor", "Catálogos", "Usuarios"):
+        # Versión 1.1.14: el grupo de la plata se llama «Dinero» (menú por tareas)
+        for oculto in ("Proveedores", "Dinero", "Caja menor", "Catálogos", "Usuarios"):
             self.assertNotIn('title="' + oculto + '"', html)
         # Tampoco en los accesos rápidos del inicio
         self.assertNotIn("/proveedores/", html)
 
     def test_director_tecnico_ve_dinero_pero_no_usuarios(self):
         html = self.menu_de("director_tecnico")
-        for visible in ("Contabilidad", "Caja menor", "Proveedores", "Catálogos", "Bitácora"):
+        for visible in ("Dinero", "Caja menor", "Proveedores", "Catálogos", "Bitácora"):
             self.assertIn('title="' + visible + '"', html)
         for oculto in ("Usuarios", "Configuración", "Respaldos"):
             self.assertNotIn('title="' + oculto + '"', html)
 
     def test_administrador_ve_todo(self):
         html = self.menu_de("administrador")
-        for visible in ("Contabilidad", "Usuarios", "Configuración", "Respaldos"):
+        for visible in ("Dinero", "Usuarios", "Configuración", "Respaldos"):
             self.assertIn('title="' + visible + '"', html)
 
     def test_ya_no_hay_enlace_clientes_deshabilitado(self):

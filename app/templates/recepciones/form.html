@@ -85,7 +85,7 @@
          Debajo del producto solo queda una línea pequeñita: el registro INVIMA y "Completar datos".
          Los anchos de cada columna están en app.css (busca "RECEPCIÓN EN UNA LÍNEA"). #}
       <div class="tabla-recepcion-caja">
-      <table class="tabla tabla-recepcion" id="tabla-lineas">
+      <table class="tabla tabla-recepcion" id="tabla-lineas" data-pantalla-ancha>
         <thead>
           <tr>
             <th class="c-prod">Producto</th>
@@ -98,8 +98,9 @@
             <th class="c-importe">Importe</th>
             <th class="c-temp" title="Temperatura al recibir (solo cadena de frío)">T °C</th>
             <th class="c-empaque">Empaque</th>
+            {# Versión 1.1.14: «Motivo» va debajo de Resultado (solo se ve si no es «Aceptado»),
+               así la línea cabe en la pantalla sin correr de lado #}
             <th class="c-resultado">Resultado</th>
-            <th class="c-motivo">Motivo</th>
             <th class="c-quitar"></th>
           </tr>
         </thead>
@@ -163,8 +164,9 @@
                     <option value="{{ k }}" {% if lp.resultado == k %}selected{% endif %}>{{ v }}</option>
                   {% endfor %}
                 </select>
+                <input type="text" name="linea_motivo" class="linea-motivo" value="{{ lp.motivo_rechazo }}" placeholder="¿Por qué?"
+                       {% if lp.resultado == 'aceptado' and not lp.motivo_rechazo %}hidden{% endif %}>
               </td>
-              <td><input type="text" name="linea_motivo" value="{{ lp.motivo_rechazo }}"></td>
               <td><button type="button" class="peligro btn-quitar-linea" title="Quitar esta línea">✕</button></td>
             </tr>
             {% endfor %}
@@ -209,8 +211,8 @@
                   <option value="{{ k }}">{{ v }}</option>
                 {% endfor %}
               </select>
+              <input type="text" name="linea_motivo" class="linea-motivo" placeholder="¿Por qué?" hidden>
             </td>
-            <td><input type="text" name="linea_motivo"></td>
             <td><button type="button" class="peligro btn-quitar-linea" title="Quitar esta línea">✕</button></td>
           </tr>
           {% endif %}
@@ -1466,7 +1468,8 @@
       lineas += 1;
     });
     document.getElementById('total-lineas').textContent = lineas;
-    document.getElementById('total-unidades').textContent = unidades.toFixed(2);
+    // Con coma decimal y sin ceros de más: 300 → «300», 2,5 → «2,5» (versión 1.1.14; antes «300.00»)
+    document.getElementById('total-unidades').textContent = String(+unidades.toFixed(2)).replace('.', ',');
     const pesos0 = (x) => '$' + x.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     document.getElementById('total-subtotal').textContent = pesos0(subtotal);
     document.getElementById('total-iva').textContent = pesos0(ivaTotal);
@@ -1524,5 +1527,15 @@
   setTimeout(recalcularTotales, 100);
 
 })();
+
+// Versión 1.1.14: el «Motivo» va debajo del Resultado y solo se ve si NO es «Aceptado»
+// (así la línea cabe en la pantalla). Si escogen Cuarentena o Rechazado, aparece y queda listo.
+document.addEventListener('change', function (e) {
+  if (!e.target.matches('select[name="linea_resultado"]')) return;
+  const motivo = e.target.parentElement.querySelector('.linea-motivo');
+  if (!motivo) return;
+  motivo.hidden = e.target.value === 'aceptado' && !motivo.value;
+  if (!motivo.hidden) motivo.focus();
+});
 </script>
 {% endblock %}

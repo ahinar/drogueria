@@ -506,6 +506,50 @@ Notas:
 | 1.1.11 | 2026-10-24 | Toma de inventario: si el producto no tiene costo (inventario inicial), se estima con el precio de venta − margen de Configuración (30 %). POS: ya no sale «Unexpected token '<'» al cobrar (clave de seguridad vieja se renueva sola; sesión cerrada o error interno → mensaje claro). Búsqueda con lo más parecido de primero (TAM → TAMPONES antes que aceTAMinofen) |
 | 1.1.12 | 2026-10-25 | Botón «Eliminar» de la foto en la ficha funciona; agotados en Inicio con «✔ Entendido» (vuelve a salir si llega mercancía y se agota otra vez; el reporte no cambia); Pedido sugerido con el proveedor MÁS BARATO (último precio por unidad con IVA), otras opciones con fecha y cambio a mano; toma de inventario: barra azul que selecciona todo y el cursor vuelve a ella tras guardar; botón ✏️ con la ventana «Editar producto» del POS, ahora con «Cómo se vende» (unidad, suelta, presentaciones, por defecto) |
 | 1.1.13 | 2026-10-28 | VALOR DEL INVENTARIO (Reportes y tarjeta en Inventario): al costo, a precio de venta, ganancia en el estante, por categoría y por producto, lo vencido/en cuarentena/bloqueado aparte, Excel. VENTAS RÁPIDAS (Administración → Ventas rápidas): fotocopias, dulcería, inyectología… se crean una vez (con precio fijo o preguntando el valor), salen como botones en «+ Venta libre» (teclas 1-9) y en el buscador del POS, se pueden guardar desde el POS y el reporte de Ventas dice cuánto se vendió de cada una |
+| 1.1.14 | 2026-10-29 | MENÚ POR TAREAS (Vender · Ventas · Compras · Inventario · Dinero · Calidad · Reportes · Administración, en acordeón; recogido muestra un ícono por grupo). Pantalla VENTAS: buscar cualquier venta, el carrito a la derecha sin cambiar de pantalla y abajo devoluciones y CORREGIR EL PAGO (si la caja ya cerró, recalcula el faltante/sobrante). DAVIPLATA como forma de pago y cuenta en Bancos (migración 43). POS: un solo botón «Movimiento de plata» (entra/sale → otro ingreso, efectivo, gasto, retiro del dueño o traslado con destino), categorías en una fila con «Más ▾» y menú lateral recogido. Recepción que cabe en la pantalla. Un solo estilo de tarjetas. Aviso en Inicio si no hay copia fuera del computador. Vencimientos y temperaturas sin pantallas repetidas |
+
+### Versión 1.1.14 — orden visible: menú por tareas, Ventas, Daviplata, movimiento de plata (2026-10-29)
+Primera entrega del plan del documento «Análisis del programa Fervifarma» (29-oct). Fernando pidió todo menos
+control especial (FNE) y facturación electrónica.
+- **Formas de pago en un solo lugar**: `app/formas_pago.py` (CUENTAS con Nequi, Davivienda, Daviplata; FORMAS_VENTA,
+  FORMAS_MIXTO, FORMAS_MOVIMIENTO, ORIGENES_PAGO, NOMBRES, ICONOS). Lo usan pos, cartera, cuentas_pagar, devoluciones,
+  informes, otros_ingresos, cajas, contabilidad, bancos y las plantillas (global Jinja `formas_pago`). Para otra cuenta:
+  una línea en CUENTAS y su fila en `cuentas_bancarias`.
+- **Migración 43** (función, no texto: `_migracion_43_daviplata(conn)` lee cada tabla): vuelve a crear las 6 tablas con
+  regla CHECK de forma de pago agregando 'daviplata' (copiar → borrar → renombrar → índices), crea la cuenta Daviplata,
+  `venta_correcciones_pago`, `ventas.pago_corregido` y `caja_movimientos.lugar`. `init_db` apaga las llaves foráneas
+  mientras corre una migración-función y revisa `PRAGMA foreign_key_check` al final. Probada sobre la base demo desde la
+  versión 37: mismos datos, índices y `integrity_check` ok.
+- **Cierre de caja**: `_resumen_caja` arma una línea por cuenta (`cuentas`); el modal de cierre las pinta desde JS
+  (`#cierre-cuentas`). Pago y mixto en el POS con un botón/casilla por cuenta.
+- **Pantalla Ventas** (`app/ventas.py`, `/ventas/`): filtros (fechas, número/cliente/producto, forma, estado, caja),
+  lista a la izquierda y panel a la derecha (`/ventas/<id>/panel`, `static/js/ventas.js`, sin recargar; `?venta=` sin JS).
+  Panel: carrito, totales, cómo pagó, ✎ corregir el pago, devoluciones (formulario `devoluciones/_form_cliente.html`
+  compartido con Devoluciones → Cliente, `volver=ventas`), anular (si la caja sigue abierta). `/pos/ventas` redirige.
+  Se borró `pos/ventas.html` y el modal `_modal_cobro.html` (sin uso).
+- **Corregir el pago** (`ventas.corregir_pago`): no hacia/desde crédito ni anuladas; jefes siempre, los demás solo con la
+  caja abierta; mixto con partes (lo que falta es efectivo). Caja ya cerrada: `_rehacer_diferencia` → diferencia −=
+  cambio del efectivo, anula el gasto/ingreso automático y llama `cajas.registrar_diferencia` otra vez.
+- **Movimiento de plata** (POS ☰, reemplaza Ingreso de efectivo, Salida de efectivo, Registrar gasto y Otro ingreso):
+  `window.escogerOpcion` (ui.js, ventana genérica de botones) pregunta Entra/Sale y luego para qué. `pos.api_movimiento`
+  acepta `lugar`: `dueno` (retiro/aporte del dueño; Utilidades suma los retiros de la caja), `caja_menor` (también queda
+  en la caja menor), `nequi|davivienda|daviplata` (traslado en Bancos). Lo que sale sin registrar sigue quedando como
+  «Faltante de caja» al cerrar.
+- **Menú por tareas** (`base.html`, macros `enlace` y `grupo`): acordeón (abre uno, cierra los demás); recogido y en el
+  celular se ve un ícono por grupo y tocarlo abre el menú en ese grupo (`menu-movil-abierto` en el celular). En las
+  pantallas marcadas `data-pantalla-ancha` (POS y recepción) el menú empieza recogido (`sidebar-pos`). Renombres:
+  «Equipos de medición», «Computadores y red». Ventas rápidas pasó a Ventas; Pedido sugerido también en Compras.
+- **POS**: categorías en una fila; las que no caben van a «Más ▾» (`acomodarCategorias`, se recalcula al cambiar el ancho).
+- **Recepción**: «Motivo» debajo de Resultado (solo si no es Aceptado), columnas más angostas (min-width 1020 px),
+  unidades con coma. Botón «📎 Escoger archivo» propio para todos los `<input type=file>` visibles (ui.js sección 5).
+- **Estilo**: dash-tarjeta (Contabilidad, Bancos) y eres-tarjeta (Reportes) con el mismo aspecto de kpi-card
+  (moderno.css); Inventario en 2 filas de 3 tarjetas; en Productos «Editar» grande y «Desactivar» pequeño; botones «+»
+  centrados.
+- **Pantallas repetidas**: `/inventario/vencimientos` → Reportes → Vencimientos (con enlace a cada lote);
+  `/temperaturas/historial` → Reportes → Temperaturas (con los mismos filtros).
+- **Aviso en Inicio** (`alertas.py`, solo administrador): «Copia de seguridad solo en este computador» si no hay carpeta
+  extra o si no está conectada.
+- Pruebas: `tests/test_version_1114.py` (18). 649 pruebas en total.
 
 ### Versión 1.1.13 — valor del inventario y ventas rápidas (2026-10-28)
 - **Valor del inventario** (pedido de Fernando, ya con el inventario inicial aplicado). `informes.valor_inventario()`:
@@ -926,6 +970,7 @@ Notas:
 | 40 | `token` / `borrador_token` de la recepción abierta (1.1.9) |
 | 41 | `alertas_vistas` («Entendido» en agotados) y `productos.proveedor_preferido_id` (1.1.12) |
 | 42 | `ventas_rapidas` y `venta_lineas.venta_rapida_id` (1.1.13) |
+| 43 | Daviplata en las reglas CHECK de 6 tablas (las vuelve a crear), cuenta Daviplata, `venta_correcciones_pago`, `ventas.pago_corregido`, `caja_movimientos.lugar` (1.1.14) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 

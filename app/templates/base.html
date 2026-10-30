@@ -204,11 +204,11 @@
     </div>
 
     <!-- =================================================================
-         MENÚ LATERAL, agrupado por secciones.
+         MENÚ LATERAL, agrupado por tareas (versión 1.1.14).
          Cada rol ve solo lo que puede usar:
-           - todos: Día a día, Productos y Reportes
-           - administrador y director técnico: además Proveedores, Dinero,
-             Catálogos, Unidades y Bitácora
+           - todos: Vender, Ventas, Compras (recepciones), Inventario, Calidad y Reportes
+           - administrador y director técnico: además Cartera, Devoluciones, Proveedores,
+             Cuentas por pagar, Dinero, Catálogos, Unidades y Bitácora
            - solo administrador: Usuarios, Configuración y Respaldos
          "ep" es el nombre de la página abierta; sirve para resaltar el enlace.
          ================================================================= -->
@@ -220,106 +220,100 @@
         <span class="ico">{{ ico("inicio", "🏠") }}</span><span class="txt">Inicio</span>
       </a>
 
-      <!-- ===== Día a día: lo que se hace todos los días ===== -->
-      <div class="sidebar-seccion">Día a día</div>
+      {#
+        MENÚ POR TAREAS (versión 1.1.14, pedido de Fernando: «no está ordenado»).
+        Vender (POS) queda siempre a la vista; lo demás va en grupos que se abren y se
+        cierran (y se abren solos cuando uno está en una de sus páginas):
+          Ventas · Compras · Inventario · Dinero · Calidad · (Reportes) · Administración
+        La macro grupo() arma el botón del grupo; cada enlace usa la macro enlace().
+      #}
+      {% macro enlace(endpoint, texto, icono, emoji, activo, titulo=None) -%}
+      <a class="sidebar-sublink {% if activo %}activo{% endif %}" href="{{ url_for(endpoint) }}" title="{{ titulo or texto }}">
+        <span class="ico">{{ ico(icono, emoji) }}</span><span class="txt">{{ texto }}</span>
+      </a>
+      {%- endmacro %}
+      {% macro grupo(clave, texto, icono, emoji, abierto) -%}
+      <button type="button" class="sidebar-link sidebar-group {% if abierto %}abierto{% endif %}"
+              data-group="{{ clave }}" title="{{ texto }}">
+        <span class="ico">{{ ico(icono, emoji) }}</span>
+        <span class="txt">{{ texto }}</span>
+        <span class="chevron">{{ ico("abajo", "▾") }}</span>
+      </button>
+      {%- endmacro %}
+
+      <!-- Lo que más se usa: siempre a la vista -->
       <a class="sidebar-link {% if ep.startswith('pos.') %}activo{% endif %}"
          href="{{ url_for('pos.index') }}" title="Vender (POS)">
         <span class="ico">{{ ico("carrito", "🛒") }}</span><span class="txt">Vender (POS)</span>
       </a>
-      <a class="sidebar-link {% if ep.startswith('temperaturas.') %}activo{% endif %}"
-         href="{{ url_for('temperaturas.inicio') }}" title="Temperaturas">
-        <span class="ico">{{ ico("termometro", "🌡️") }}</span><span class="txt">Temperaturas</span>
-      </a>
 
-      <!-- ===== Productos: lo que entra, lo que hay y lo que se ofrece ===== -->
-      <div class="sidebar-seccion">Productos</div>
-      <a class="sidebar-link {% if ep.startswith('productos.') or ep.startswith('importador.') %}activo{% endif %}"
-         href="{{ url_for('productos.lista') }}" title="Productos">
-        <span class="ico">{{ ico("pastilla", "💊") }}</span><span class="txt">Productos</span>
-      </a>
-      <a class="sidebar-link {% if ep.startswith('recepciones.') %}activo{% endif %}"
-         href="{{ url_for('recepciones.lista') }}" title="Recepciones">
-        <span class="ico">{{ ico("paquete", "📦") }}</span><span class="txt">Recepciones</span>
-      </a>
-      <a class="sidebar-link {% if ep.startswith('inventario.') or ep.startswith('conteos.') %}activo{% endif %}"
-         href="{{ url_for('inventario.inicio') }}" title="Inventario">
-        <span class="ico">{{ ico("inventario", "🗃️") }}</span><span class="txt">Inventario</span>
-      </a>
-      <a class="sidebar-link {% if ep.startswith('cotizaciones.') %}activo{% endif %}"
-         href="{{ url_for('cotizaciones.lista') }}" title="Cotizaciones">
-        <span class="ico">{{ ico("documento", "📄") }}</span><span class="txt">Cotizaciones</span>
-      </a>
+      <!-- ===== VENTAS: lo que pasó después de vender ===== -->
+      {% set en_ventas = ep.startswith('ventas.') or ep.startswith('cotizaciones.') or ep.startswith('cartera.')
+                         or ep.startswith('devoluciones.') or ep.startswith('ventas_rapidas.') %}
+      {{ grupo("ventas", "Ventas", "factura", "🧾", en_ventas) }}
+      <div class="sidebar-submenu {% if en_ventas %}abierto{% endif %}" data-group-content="ventas">
+        {{ enlace('ventas.lista', 'Ventas', 'lista', '📋', ep.startswith('ventas.'), 'Buscar ventas, devolver y corregir el pago') }}
+        {{ enlace('cotizaciones.lista', 'Cotizaciones', 'documento', '📄', ep.startswith('cotizaciones.')) }}
+        {% if jefe %}
+        {{ enlace('cartera.index', 'Cartera (fiado)', 'libreta', '📒', ep.startswith('cartera.'), 'Cartera: ventas a crédito y abonos') }}
+        {{ enlace('devoluciones.lista', 'Devoluciones', 'paquete', '↩️', ep.startswith('devoluciones.')) }}
+        {{ enlace('ventas_rapidas.lista', 'Ventas rápidas', 'rayo', '⚡', ep.startswith('ventas_rapidas.'), 'Fotocopias, dulcería, inyectología…') }}
+        {% endif %}
+      </div>
+
+      <!-- ===== COMPRAS: lo que entra de los proveedores ===== -->
+      {% set en_compras = ep.startswith('recepciones.') or ep.startswith('proveedores.') or ep.startswith('cuentas_pagar.')
+                          or ep == 'reportes.sugerido_ver' %}
+      {{ grupo("compras", "Compras", "camion", "🚚", en_compras) }}
+      <div class="sidebar-submenu {% if en_compras %}abierto{% endif %}" data-group-content="compras">
+        {{ enlace('recepciones.lista', 'Recepciones', 'paquete', '📦', ep.startswith('recepciones.')) }}
+        {% if jefe %}
+        {{ enlace('reportes.sugerido_ver', 'Pedido sugerido', 'carrito', '🛍️', ep == 'reportes.sugerido_ver', 'Qué pedir y a quién') }}
+        {{ enlace('proveedores.lista', 'Proveedores', 'camion', '🚚', ep.startswith('proveedores.')) }}
+        {{ enlace('cuentas_pagar.index', 'Cuentas por pagar', 'factura', '🧾', ep.startswith('cuentas_pagar.'), 'Lo que se les debe a los proveedores') }}
+        {% endif %}
+      </div>
+
+      <!-- ===== INVENTARIO: lo que hay ===== -->
+      {% set en_inventario = ep.startswith('productos.') or ep.startswith('importador.') or ep.startswith('inventario.')
+                             or ep.startswith('conteos.') or ep == 'reportes.vencimientos_ver' %}
+      {{ grupo("inventario", "Inventario", "inventario", "🗃️", en_inventario) }}
+      <div class="sidebar-submenu {% if en_inventario %}abierto{% endif %}" data-group-content="inventario">
+        {{ enlace('productos.lista', 'Productos', 'pastilla', '💊', ep.startswith('productos.') or ep.startswith('importador.')) }}
+        {{ enlace('inventario.inicio', 'Lotes y valor', 'inventario', '🗃️', ep in ('inventario.inicio', 'inventario.lotes', 'inventario.lote_ver'), 'Inventario: lotes, valor y alertas') }}
+        {{ enlace('conteos.lista', 'Toma de inventario', 'lista', '📋', ep.startswith('conteos.')) }}
+        {{ enlace('reportes.vencimientos_ver', 'Vencimientos', 'reloj', '⏳', ep == 'reportes.vencimientos_ver', 'Semáforo de vencimientos') }}
+        {{ enlace('inventario.kardex_buscar', 'Kardex', 'lista', '📑', ep.startswith('inventario.kardex')) }}
+      </div>
+
+      <!-- ===== DINERO (administrador y director técnico) ===== -->
       {% if jefe %}
-      <a class="sidebar-link {% if ep.startswith('proveedores.') %}activo{% endif %}"
-         href="{{ url_for('proveedores.lista') }}" title="Proveedores">
-        <span class="ico">{{ ico("camion", "🚚") }}</span><span class="txt">Proveedores</span>
-      </a>
+      {% set en_dinero = ep.startswith('contabilidad.') or ep.startswith('otros_ingresos.') or ep.startswith('caja_menor.')
+                         or ep.startswith('bancos.') %}
+      {{ grupo("dinero", "Dinero", "billetera", "💰", en_dinero) }}
+      <div class="sidebar-submenu {% if en_dinero %}abierto{% endif %}" data-group-content="dinero">
+        {{ enlace('contabilidad.index', 'Resumen contable', 'grafico', '📈', ep == 'contabilidad.index') }}
+        {{ enlace('contabilidad.gastos_lista', 'Gastos', 'factura', '💸', ep.startswith('contabilidad.gasto')) }}
+        {{ enlace('otros_ingresos.lista', 'Otros ingresos', 'billete', '💰', ep.startswith('otros_ingresos.')) }}
+        {{ enlace('contabilidad.cajas', 'Sesiones de caja', 'billete', '🧮', ep.startswith('contabilidad.caja')) }}
+        {{ enlace('caja_menor.index', 'Caja menor', 'billete', '💵', ep.startswith('caja_menor.')) }}
+        {{ enlace('bancos.index', 'Bancos', 'banco', '🏦', ep.startswith('bancos.'), 'Bancos (Nequi, Davivienda, Daviplata)') }}
+      </div>
       {% endif %}
 
-      <!-- ===== Contabilidad (administrador y director técnico) ===== -->
-      {% if jefe %}
-      <div class="sidebar-seccion">Contabilidad</div>
-      <a class="sidebar-link {% if ep.startswith('contabilidad.') or ep.startswith('otros_ingresos.') %}activo{% endif %}"
-         href="{{ url_for('contabilidad.index') }}" title="Contabilidad">
-        <span class="ico">{{ ico("billetera", "💰") }}</span><span class="txt">Contabilidad</span>
-      </a>
-      <!-- Cartera: ventas a crédito y abonos de clientes (cuentas por cobrar) -->
-      <a class="sidebar-link {% if ep.startswith('cartera.') %}activo{% endif %}"
-         href="{{ url_for('cartera.index') }}" title="Cartera (cuentas por cobrar)">
-        <span class="ico">{{ ico("libreta", "📒") }}</span><span class="txt">Cartera</span>
-      </a>
-      <a class="sidebar-link {% if ep.startswith('caja_menor.') %}activo{% endif %}"
-         href="{{ url_for('caja_menor.index') }}" title="Caja menor">
-        <span class="ico">{{ ico("billete", "💵") }}</span><span class="txt">Caja menor</span>
-      </a>
-      <!-- Versión 1.1.7: saldo de Nequi y Davivienda (app/bancos.py) -->
-      <a class="sidebar-link {% if ep.startswith('bancos.') %}activo{% endif %}"
-         href="{{ url_for('bancos.index') }}" title="Bancos (Nequi y Davivienda)">
-        <span class="ico">{{ ico("banco", "🏦") }}</span><span class="txt">Bancos</span>
-      </a>
-      <!-- Versión 1.1.7: lo que se les debe a los proveedores (app/cuentas_pagar.py) -->
-      <a class="sidebar-link {% if ep.startswith('cuentas_pagar.') %}activo{% endif %}"
-         href="{{ url_for('cuentas_pagar.index') }}" title="Cuentas por pagar (proveedores)">
-        <span class="ico">{{ ico("factura", "🧾") }}</span><span class="txt">Cuentas por pagar</span>
-      </a>
-      {% endif %}
-
-      <!-- ===== Calidad (desplegable, como Administración; se abre sola si estás en una
-           de sus páginas). Lo que revisa la Secretaría de Salud. Para todos los usuarios. ===== -->
-      <div class="sidebar-separador" aria-hidden="true"></div>
-      {% set en_calidad = ep.startswith('equipos.') or ep.startswith('documentos.') or ep.startswith('saneamiento.')
-                          or ep.startswith('capacitaciones.') or ep.startswith('pqrs.') or ep.startswith('farmacovigilancia.') %}
-      <button type="button" class="sidebar-link sidebar-group {% if en_calidad %}abierto{% endif %}"
-              data-group="calidad" title="Calidad">
-        <span class="ico">{{ ico("escudo", "✅") }}</span>
-        <span class="txt">Calidad</span>
-        <span class="chevron">{{ ico("abajo", "▾") }}</span>
-      </button>
+      <!-- ===== CALIDAD: lo que revisa la Secretaría de Salud (para todos) ===== -->
+      {% set en_calidad = ep.startswith('temperaturas.') or ep.startswith('equipos.') or ep.startswith('documentos.')
+                          or ep.startswith('saneamiento.') or ep.startswith('capacitaciones.') or ep.startswith('pqrs.')
+                          or ep.startswith('farmacovigilancia.') %}
+      {{ grupo("calidad", "Calidad", "escudo", "✅", en_calidad) }}
       <div class="sidebar-submenu {% if en_calidad %}abierto{% endif %}" data-group-content="calidad">
-      <a class="sidebar-sublink {% if ep.startswith('equipos.') %}activo{% endif %}"
-         href="{{ url_for('equipos.lista') }}" title="Equipos y calibración">
-        <span class="ico">{{ ico("regla", "📏") }}</span><span class="txt">Equipos</span>
-      </a>
-      <a class="sidebar-sublink {% if ep.startswith('documentos.') %}activo{% endif %}"
-         href="{{ url_for('documentos.lista') }}" title="Documentos del sistema de calidad">
-        <span class="ico">{{ ico("carpeta", "🗂️") }}</span><span class="txt">Documentos</span>
-      </a>
-      <a class="sidebar-sublink {% if ep.startswith('saneamiento.') %}activo{% endif %}"
-         href="{{ url_for('saneamiento.limpieza') }}" title="Saneamiento: limpieza, plagas y residuos">
-        <span class="ico">{{ ico("escoba", "🧽") }}</span><span class="txt">Saneamiento</span>
-      </a>
-      <a class="sidebar-sublink {% if ep.startswith('capacitaciones.') %}activo{% endif %}"
-         href="{{ url_for('capacitaciones.plan') }}" title="Capacitaciones y personal">
-        <span class="ico">{{ ico("birrete", "🎓") }}</span><span class="txt">Capacitaciones</span>
-      </a>
-      <a class="sidebar-sublink {% if ep.startswith('pqrs.') %}activo{% endif %}"
-         href="{{ url_for('pqrs.lista') }}" title="Quejas, reclamos y sugerencias">
-        <span class="ico">{{ ico("globo", "💬") }}</span><span class="txt">Quejas</span>
-      </a>
-      <a class="sidebar-sublink {% if ep.startswith('farmacovigilancia.') %}activo{% endif %}"
-         href="{{ url_for('farmacovigilancia.lista') }}" title="Farmacovigilancia">
-        <span class="ico">{{ ico("alerta", "💊") }}</span><span class="txt">Farmacovigilancia</span>
-      </a>
+        {{ enlace('temperaturas.inicio', 'Temperaturas', 'termometro', '🌡️', ep.startswith('temperaturas.')) }}
+        {{ enlace('equipos.lista', 'Equipos de medición', 'regla', '📏', ep.startswith('equipos.'), 'Termohigrómetros y su calibración') }}
+        {{ enlace('documentos.lista', 'Documentos', 'carpeta', '🗂️', ep.startswith('documentos.'), 'Documentos del sistema de calidad') }}
+        {{ enlace('saneamiento.limpieza', 'Saneamiento', 'escoba', '🧽', ep.startswith('saneamiento.'), 'Limpieza, plagas y residuos') }}
+        {{ enlace('capacitaciones.plan', 'Capacitaciones', 'birrete', '🎓', ep.startswith('capacitaciones.'), 'Capacitaciones y personal') }}
+        {{ enlace('pqrs.lista', 'Quejas', 'globo', '💬', ep.startswith('pqrs.'), 'Quejas, reclamos y sugerencias') }}
+        {{ enlace('farmacovigilancia.lista', 'Farmacovigilancia', 'alerta', '💊', ep.startswith('farmacovigilancia.')) }}
       </div>
 
       <!-- ===== Reportes ===== -->
@@ -330,7 +324,7 @@
 
       <!-- ===== Administración (desplegable; se abre sola si estás en una de sus páginas) ===== -->
       {% if jefe %}
-      {% set en_admin = ep.startswith('catalogos.') or ep.startswith('unidades.') or ep.startswith('admin.') or ep.startswith('configuracion.') or ep.startswith('ventas_rapidas.') %}
+      {% set en_admin = ep.startswith('catalogos.') or ep.startswith('unidades.') or ep.startswith('admin.') or ep.startswith('configuracion.') %}
       <button type="button" class="sidebar-link sidebar-group {% if en_admin %}abierto{% endif %}"
               data-group="admin" title="Administración">
         <span class="ico">{{ ico("ajustes", "🗂️") }}</span>
@@ -345,11 +339,6 @@
         <a class="sidebar-sublink {% if ep.startswith('unidades.') %}activo{% endif %}"
            href="{{ url_for('unidades.lista') }}" title="Unidades de medida">
           <span class="ico">{{ ico("regla", "📏") }}</span><span class="txt">Unidades de medida</span>
-        </a>
-        {# Versión 1.1.13: fotocopias, dulcería, inyectología... (lo que no va al inventario) #}
-        <a class="sidebar-sublink {% if ep.startswith('ventas_rapidas.') %}activo{% endif %}"
-           href="{{ url_for('ventas_rapidas.lista') }}" title="Ventas rápidas">
-          <span class="ico">{{ ico("rayo", "⚡") }}</span><span class="txt">Ventas rápidas</span>
         </a>
         <a class="sidebar-sublink {% if ep == 'admin.bitacora' %}activo{% endif %}"
            href="{{ url_for('admin.bitacora') }}" title="Bitácora">
@@ -369,8 +358,8 @@
           <span class="ico">{{ ico("disco", "💾") }}</span><span class="txt">Respaldos</span>
         </a>
         <a class="sidebar-sublink {% if ep == 'admin.red' %}activo{% endif %}"
-           href="{{ url_for('admin.red') }}" title="Red y equipos">
-          <span class="ico">{{ ico("globo", "🌐") }}</span><span class="txt">Red y equipos</span>
+           href="{{ url_for('admin.red') }}" title="Computadores y red">
+          <span class="ico">{{ ico("globo", "🌐") }}</span><span class="txt">Computadores y red</span>
         </a>
         {% endif %}
       </div>
@@ -465,31 +454,58 @@
     const btn = document.getElementById('toggleSidebar');
     const sidebar = document.getElementById('sidebar');
 
-    const guardado = localStorage.getItem('sidebar-colapsado') === '1';
-    if (guardado) body.classList.add('sidebar-colapsado');
+    // Versión 1.1.14: en las pantallas que más espacio necesitan (el POS y la recepción, que
+    // se marcan con data-pantalla-ancha) el menú lateral empieza RECOGIDO (solo íconos).
+    // Si allá lo abren con ☰, se recuerda aparte ('sidebar-pos'), sin cambiar lo que se
+    // escogió para las demás páginas.
+    const enPos = !!document.querySelector('[data-pantalla-ancha]');
+    const clave = enPos ? 'sidebar-pos' : 'sidebar-colapsado';
+    let guardado = null;
+    try { guardado = localStorage.getItem(clave); } catch (e) { /* sin memoria del navegador */ }
+    if (enPos ? guardado !== '0' : guardado === '1') body.classList.add('sidebar-colapsado');
 
+    // En el celular (pantalla angosta) el menú siempre es de íconos; ☰ lo abre ENCIMA
+    // de la página (clase menu-movil-abierto) y tocar fuera lo cierra.
+    const esCelular = () => window.matchMedia('(max-width: 900px)').matches;
     if (btn && sidebar) {
       btn.addEventListener('click', function () {
+        if (esCelular()) { body.classList.toggle('menu-movil-abierto'); return; }
         body.classList.toggle('sidebar-colapsado');
         const colapsado = body.classList.contains('sidebar-colapsado');
-        localStorage.setItem('sidebar-colapsado', colapsado ? '1' : '0');
+        try { localStorage.setItem(clave, colapsado ? '1' : '0'); } catch (e) { /* no importa */ }
       });
     }
+    document.addEventListener('click', function (e) {
+      if (body.classList.contains('menu-movil-abierto') && !e.target.closest('#sidebar') && !e.target.closest('#toggleSidebar')) {
+        body.classList.remove('menu-movil-abierto');
+      }
+    });
 
     document.querySelectorAll('.sidebar-group').forEach(function (grupo) {
-      const key = 'submenu-' + grupo.dataset.group;
       const contenido = document.querySelector('[data-group-content="' + grupo.dataset.group + '"]');
       if (!contenido) return;
 
-      if (localStorage.getItem(key) === '1' || grupo.classList.contains('abierto')) {
-        grupo.classList.add('abierto');
-        contenido.classList.add('abierto');
-      }
+      // Versión 1.1.14 (menú por tareas): un grupo se abre solo si uno está en una de sus
+      // páginas (la plantilla le pone "abierto") o si lo tocan. Al abrir uno se cierran los
+      // demás ("acordeón"), así el menú nunca queda larguísimo.
+      if (grupo.classList.contains('abierto')) contenido.classList.add('abierto');
 
       grupo.addEventListener('click', function () {
-        const abierto = contenido.classList.toggle('abierto');
-        grupo.classList.toggle('abierto', abierto);
-        localStorage.setItem(key, abierto ? '1' : '0');
+        // Menú recogido (solo íconos) o celular: tocar el ícono del grupo abre el menú
+        // completo con ese grupo desplegado.
+        if (body.classList.contains('sidebar-colapsado')) {
+          body.classList.remove('sidebar-colapsado');
+          try { localStorage.setItem(clave, '0'); } catch (e) { /* no importa */ }
+        } else if (esCelular() && !body.classList.contains('menu-movil-abierto')) {
+          body.classList.add('menu-movil-abierto');
+        }
+        const abrir = !contenido.classList.contains('abierto') || !grupo.classList.contains('abierto');
+        document.querySelectorAll('.sidebar-group').forEach(function (otro) {
+          const suyo = document.querySelector('[data-group-content="' + otro.dataset.group + '"]');
+          const este = otro === grupo;
+          otro.classList.toggle('abierto', este && abrir);
+          if (suyo) suyo.classList.toggle('abierto', este && abrir);
+        });
       });
     });
   })();

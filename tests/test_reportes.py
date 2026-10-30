@@ -154,7 +154,8 @@ class TestVencimientos(BaseReportes):
         self.assertEqual(r.mimetype, "application/pdf")
         self.assertTrue(r.data.startswith(b"%PDF"))
         # La pantalla de Inventario sigue funcionando con la misma agrupación
-        self.assertIn("VIEJO", self.c.get("/inventario/vencimientos").get_data(as_text=True))
+        # Versión 1.1.14: la dirección vieja de Inventario lleva al mismo semáforo de Reportes
+        self.assertIn("VIEJO", self.c.get("/inventario/vencimientos", follow_redirects=True).get_data(as_text=True))
 
 
 class TestMenuReportes(BaseReportes):

@@ -50,6 +50,10 @@ class TestPanelAlertas(BaseAlertas):
         for (tarea_id,) in con.execute("SELECT id FROM limpieza_tareas").fetchall():
             con.execute("INSERT INTO limpieza_registros (tarea_id, fecha, creado_en) VALUES (?,?,?)",
                         (tarea_id, dias(0), dias(0)))
+        # Versión 1.1.14: y con la copia de seguridad fuera del computador (una carpeta que existe)
+        import tempfile
+        con.execute("INSERT OR REPLACE INTO config (clave, valor) VALUES ('respaldo_carpeta_extra', ?)",
+                    (tempfile.gettempdir(),))
         con.commit()
         con.close()
         html = self.inicio()
