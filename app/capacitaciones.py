@@ -26,7 +26,7 @@ QUIÉN PUEDE:
 TABLAS (migración 32 en app/db.py): personal, capacitaciones,
 capacitacion_asistentes.
 """
-from datetime import date, datetime
+from datetime import date
 from io import BytesIO
 
 from flask import (Blueprint, abort, flash, g, redirect, render_template, request,
@@ -35,6 +35,7 @@ from flask import (Blueprint, abort, flash, g, redirect, render_template, reques
 from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
+from .utiles import leer_numero, obtener_o_404   # versión 1.1.15: ayudas comunes (app/utiles.py)
 from .utils_imagenes import guardar_documento
 
 bp = Blueprint("capacitaciones", __name__, url_prefix="/capacitaciones")
@@ -101,17 +102,11 @@ def _fecha_form(nombre, defecto=None):
 
 
 def _numero(nombre):
-    try:
-        return float((request.form.get(nombre) or "").replace(",", "."))
-    except ValueError:
-        return None
-
+    """Un número del formulario ('1,5' -> 1.5 ; '1.500' -> 1500). Vacío o malo -> None."""
+    return leer_numero(request.form.get(nombre))
 
 def _obtener(cap_id):
-    fila = get_db().execute("SELECT * FROM capacitaciones WHERE id = ?", (cap_id,)).fetchone()
-    if fila is None:
-        abort(404)
-    return fila
+    return obtener_o_404("capacitaciones", cap_id)
 
 
 def _con_estado(fila, hoy=None):
@@ -503,25 +498,17 @@ def persona(persona_id):
 def _pdf(titulo, nombre_archivo, armar, horizontal=False, firma_dt=True):
     """Igual que en saneamiento: encabezado y pie de siempre; `armar` pone el contenido."""
     from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import cm
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
     from .configuracion import obtener_config
-    from .pdf_utils import COLOR_SUAVE, encabezado_pdf, pie_de_pagina
+    from .pdf_utils import encabezado_pdf, estilos_pdf, pie_de_pagina
 
     config = obtener_config()
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4) if horizontal else A4, leftMargin=1.5 * cm,
                             rightMargin=1.5 * cm, topMargin=1.2 * cm, bottomMargin=1.5 * cm, title=titulo)
-    base = getSampleStyleSheet()
-    est = {
-        "celda": ParagraphStyle("Celda", parent=base["Normal"], fontSize=8.5, leading=10.5),
-        "normal": ParagraphStyle("Normal2", parent=base["Normal"], fontSize=9.5, leading=13),
-        "sub": ParagraphStyle("Sub", parent=base["Normal"], fontSize=9, textColor=COLOR_SUAVE),
-        "h": ParagraphStyle("H", parent=base["Normal"], fontSize=10.5, spaceBefore=10, spaceAfter=4),
-        "ancho": doc.width,
-    }
+    est = dict(estilos_pdf(celda=8.5, interlineado=10.5), ancho=doc.width)
     elementos = list(encabezado_pdf(config, titulo))
     armar(elementos, est)
     regente = config.get("regente_nombre") or ""

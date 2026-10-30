@@ -408,7 +408,6 @@ def agrupar_vencimientos():
     así los dos muestran exactamente lo mismo.
     Devuelve (grupos, total) con grupos = vencidos / rojo / amarillo / verde / sin.
     """
-    hoy = date.today()
     db = get_db()
 
     # Agrupar por rangos

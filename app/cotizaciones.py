@@ -17,12 +17,13 @@ precios de hoy.
 import json
 from datetime import date, datetime, timedelta
 
-from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, url_for
 
 from .audit import registrar
 from .auth import login_required
 from .configuracion import obtener_config
 from .db import ahora, get_db
+from .utiles import obtener_o_404, siguiente_numero   # versión 1.1.15: ayudas comunes (app/utiles.py)
 from . import presentaciones as pres
 
 bp = Blueprint("cotizaciones", __name__, url_prefix="/cotizaciones")
@@ -31,9 +32,7 @@ VALIDEZ_DIAS = 8
 
 
 def _siguiente_numero(db):
-    fila = db.execute("SELECT numero FROM cotizaciones ORDER BY id DESC LIMIT 1").fetchone()
-    n = int(fila["numero"].split("-")[-1]) + 1 if fila else 1
-    return f"COT-{n:04d}"
+    return siguiente_numero(db, "cotizaciones", "COT")
 
 
 def _vence(c):
@@ -49,10 +48,7 @@ def _estado(c):
 
 
 def _obtener(cot_id):
-    c = get_db().execute("SELECT * FROM cotizaciones WHERE id = ?", (cot_id,)).fetchone()
-    if c is None:
-        abort(404)
-    return c
+    return obtener_o_404("cotizaciones", cot_id)
 
 
 def _lineas(cot_id):

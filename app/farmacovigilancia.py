@@ -33,12 +33,13 @@ TABLA (migración 33 en app/db.py): farmacovigilancia.
 from datetime import date, timedelta
 from io import BytesIO
 
-from flask import (Blueprint, abort, flash, g, redirect, render_template, request,
-                   send_file, url_for)
+from flask import (Blueprint, flash, g, redirect, render_template, request, send_file,
+                   url_for)
 
 from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
+from .utiles import obtener_o_404, siguiente_numero   # versión 1.1.15: ayudas comunes (app/utiles.py)
 
 bp = Blueprint("farmacovigilancia", __name__, url_prefix="/farmacovigilancia")
 
@@ -96,15 +97,11 @@ def casos_por_reportar(hoy=None):
 
 
 def _obtener(caso_id):
-    fila = get_db().execute("SELECT * FROM farmacovigilancia WHERE id = ?", (caso_id,)).fetchone()
-    if fila is None:
-        abort(404)
-    return fila
+    return obtener_o_404("farmacovigilancia", caso_id)
 
 
 def _siguiente_numero(db):
-    fila = db.execute("SELECT numero FROM farmacovigilancia ORDER BY id DESC LIMIT 1").fetchone()
-    return f"FV-{(int(fila['numero'].split('-')[-1]) + 1) if fila else 1:04d}"
+    return siguiente_numero(db, "farmacovigilancia", "FV")
 
 
 def _productos():
@@ -281,12 +278,11 @@ def reportado(caso_id):
 def pdf(caso_id):
     """El caso con los datos mínimos del reporte (los del formato FOREAM), para el archivo."""
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import cm
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table
 
     from .configuracion import obtener_config
-    from .pdf_utils import COLOR_SUAVE, encabezado_pdf, estilo_tabla, pie_de_pagina
+    from .pdf_utils import encabezado_pdf, estilo_tabla, estilos_pdf, pie_de_pagina
 
     c = _con_estado(_obtener(caso_id))
     config = obtener_config()
@@ -294,10 +290,8 @@ def pdf(caso_id):
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.8 * cm, rightMargin=1.8 * cm, topMargin=1.4 * cm,
                             bottomMargin=1.6 * cm, title=f"Farmacovigilancia {c['numero']}")
-    base = getSampleStyleSheet()
-    celda = ParagraphStyle("Celda", parent=base["Normal"], fontSize=9, leading=12)
-    h = ParagraphStyle("H", parent=base["Normal"], fontSize=10.5, spaceBefore=8, spaceAfter=4)
-    sub = ParagraphStyle("Sub", parent=base["Normal"], fontSize=9, textColor=COLOR_SUAVE)
+    est = estilos_pdf()
+    celda, h, sub = est["celda"], est["h"], est["sub"]
     el = list(encabezado_pdf(config, f"REPORTE DE FARMACOVIGILANCIA N.º {c['numero']}"))
 
     def bloque(titulo, filas):

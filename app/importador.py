@@ -1,8 +1,6 @@
 """Importación de productos desde Excel (.xlsx) o CSV."""
 import csv
 import io
-import sqlite3
-from datetime import datetime
 
 from flask import (Blueprint, flash, g, redirect, render_template, request,
                    send_file, url_for)
@@ -593,7 +591,6 @@ def previsualizar():
     # volvemos a leer el archivo desde el cliente.
     # PERO: para simplificar, guardamos los datos completos en un archivo temporal.
     import tempfile
-    import os as _os
 
     tmp = tempfile.NamedTemporaryFile(
         mode="w", suffix=".json", delete=False, encoding="utf-8"
@@ -645,7 +642,6 @@ def confirmar():
     importados = 0
     omitidos = 0
     errores = []
-    catalogos_nuevos = 0
 
     for i, fila in enumerate(filas, 1):
         codigo = (fila.get(mapa.get("codigo", ""), "") or "").strip()

@@ -1,7 +1,6 @@
 {# Pequeñas ayudas para mostrar números en los reportes (se importan con "import") #}
-{% macro pesos(n) -%}
-  {%- if (n or 0) < -0.5 %}-{% endif %}${{ '{:,.0f}'.format((n or 0)|abs).replace(',', '.') }}
-{%- endmacro %}
+{# Versión 1.1.15: usa el filtro |pesos de todo el programa (app/formato.py) #}
+{% macro pesos(n) -%}{{ (n or 0)|pesos }}{%- endmacro %}
 {% macro cant(n) -%}{{ ('%g' % ((n or 0)|round(1))).replace('.', ',') }}{%- endmacro %}
 {% macro pct(n) -%}{{ ('%.1f' % (n or 0)).replace('.', ',') }} %{%- endmacro %}
 {% macro fecha(f) -%}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{%- endmacro %}

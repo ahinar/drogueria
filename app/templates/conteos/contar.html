@@ -18,7 +18,7 @@
   <div><span class="suave">Lotes sin contar</span><strong id="r-pendientes">{{ resumen.pendientes }}</strong></div>
   <div><span class="suave">Con diferencia</span><strong id="r-diferencias">{{ resumen.con_diferencia }}</strong></div>
   <div><span class="suave">Lotes nuevos</span><strong id="r-nuevos">{{ resumen.lotes_nuevos }}</strong></div>
-  <div><span class="suave">Valor diferencia</span><strong id="r-valor">${{ '{:,.0f}'.format(resumen.valor_diferencia).replace(',', '.') }}</strong></div>
+  <div><span class="suave">Valor diferencia</span><strong id="r-valor">{{ resumen.valor_diferencia|pesos }}</strong></div>
 </div>
 
 <p class="conteo-ayuda"><span class="ico-emoji">💡</span> Escribe la cantidad <strong>apenas termines de contar cada lote</strong> y presiona Enter.

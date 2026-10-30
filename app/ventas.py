@@ -36,6 +36,7 @@ from flask import (Blueprint, abort, flash, g, redirect, render_template, reques
 from .audit import registrar
 from .auth import login_required
 from .db import ahora, get_db
+from .utiles import leer_numero   # versión 1.1.15: números escritos a la colombiana (app/utiles.py)
 from .formato import pesos
 from . import formas_pago as fp
 
@@ -121,7 +122,7 @@ def puede_corregir(venta):
 def datos_panel(venta_id):
     """Todo lo que muestra el panel de la derecha para UNA venta."""
     from .devoluciones import FORMAS_REEMBOLSO, _lineas_devolvibles
-    from .pos import pagos_de_venta
+    from .pos_ventas import pagos_de_venta
     db = get_db()
     venta = _venta_o_404(venta_id)
     lineas = db.execute("SELECT * FROM venta_lineas WHERE venta_id = ? ORDER BY id", (venta_id,)).fetchall()
@@ -198,13 +199,12 @@ def _leer_partes_mixto(formulario, total):
     """Partes de un pago mixto escrito en la corrección. Lo que falta es efectivo."""
     partes = []
     for forma in fp.FORMAS_MIXTO_OTRAS:
-        texto = (formulario.get(f"monto_{forma}") or "").strip().replace(".", "").replace(",", ".")
-        if not texto:
+        monto = leer_numero(formulario.get(f"monto_{forma}"), malo="error")
+        if monto is None:
             continue
-        try:
-            monto = round(float(texto), 2)
-        except ValueError:
+        if monto == "error":
             raise _Error(f"El valor de {fp.nombre(forma)} no es válido.")
+        monto = round(monto, 2)
         if monto < 0:
             raise _Error(f"El valor de {fp.nombre(forma)} no puede ser negativo.")
         if monto > 0:
@@ -222,7 +222,7 @@ def _leer_partes_mixto(formulario, total):
 
 def corregir_pago(db, venta, nueva, partes, motivo):
     """Cambia la forma de pago de una venta y arregla la caja si ya estaba cerrada. No hace commit."""
-    from .pos import pagos_de_venta
+    from .pos_ventas import pagos_de_venta
     antes_partes = [(p["forma_pago"], p["monto"]) for p in pagos_de_venta(venta["id"])]
     antes = _texto_pago(venta["forma_pago"], antes_partes)
     despues = _texto_pago(nueva, partes)

@@ -11,7 +11,7 @@
     <div class="kpi-info">
       <span class="kpi-titulo">Saldo actual</span>
       <strong class="kpi-valor {% if saldo < 0 %}kpi-valor-alerta{% else %}kpi-valor-ok{% endif %}">
-        ${{ '{:,.0f}'.format(saldo).replace(',', '.') }}
+        {{ saldo|pesos }}
       </strong>
       <span class="kpi-detalle">{% if saldo < 0 %}Caja menor en sobregiro{% else %}Disponible para apertura del POS{% endif %}</span>
     </div>
@@ -47,7 +47,7 @@
     <tr>
       <td>{{ meta[1] }} {{ meta[0] }}</td>
       <td style="text-align:right">{{ r['n'] }}</td>
-      <td style="text-align:right">${{ '{:,.0f}'.format(r['total']).replace(',', '.') }}</td>
+      <td style="text-align:right">{{ r['total']|pesos }}</td>
       <td style="text-align:center">
         {% if meta[2] == 'in' %}<span style="color:#0d6b3d">▲ Entrada</span>
         {% else %}<span style="color:#b3261e">▼ Salida</span>{% endif %}
@@ -87,7 +87,7 @@
       </td>
       <td>{{ m['motivo'] or '—' }}{% if m['retiro_dueno'] %} <span class="tag-dueno"><span class="ico-emoji">👤</span> dueño</span>{% endif %}</td>
       <td>{{ m['usuario_nombre'] or '—' }}</td>
-      <td style="text-align:right"><strong>${{ '{:,.0f}'.format(m['monto']).replace(',', '.') }}</strong></td>
+      <td style="text-align:right"><strong>{{ m['monto']|pesos }}</strong></td>
     </tr>
     {% endfor %}
   </tbody>
@@ -148,37 +148,5 @@
 {% endblock %}
 
 {% block scripts_extra %}
-<script>
-(function () {
-  // Abrir modales
-  document.querySelectorAll('[data-modal]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const modal = document.getElementById('modal-cm-' + btn.dataset.modal);
-      if (modal) {
-        modal.classList.remove('modal-oculto');
-        // El cursor queda listo en "Monto" para escribir de una vez
-        const monto = modal.querySelector('input[name="monto"]');
-        if (monto) setTimeout(function () { monto.focus(); }, 50);
-      }
-    });
-  });
-
-  // Cerrar modales con el botón Cancelar
-  document.querySelectorAll('[data-cerrar-modal]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      const modal = btn.closest('[id^="modal-cm-"]');
-      if (modal) modal.classList.add('modal-oculto');
-    });
-  });
-
-  // Cerrar modal al hacer clic fuera de la caja
-  ['modal-cm-aporte', 'modal-cm-retiro'].forEach(function (id) {
-    const m = document.getElementById(id);
-    if (!m) return;
-    m.addEventListener('click', function (e) {
-      if (e.target === m) m.classList.add('modal-oculto');
-    });
-  });
-})();
-</script>
+<script src="{{ url_for('static', filename='js/caja_menor.js') }}"></script>
 {% endblock %}

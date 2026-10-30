@@ -1,20 +1,17 @@
 """Proveedores: CRUD con bitácora. No se borran, se desactivan."""
 import sqlite3
 
-from flask import (Blueprint, abort, flash, redirect, render_template, request,
-                   url_for)
+from flask import (Blueprint, flash, redirect, render_template, request, url_for)
 from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
+from .utiles import obtener_o_404   # versión 1.1.15: ayudas comunes (app/utiles.py)
 
 bp = Blueprint("proveedores", __name__, url_prefix="/proveedores")
 
 
 def _obtener(prov_id):
-    fila = get_db().execute("SELECT * FROM proveedores WHERE id = ?", (prov_id,)).fetchone()
-    if fila is None:
-        abort(404)
-    return fila
+    return obtener_o_404("proveedores", prov_id)
 
 
 @bp.route("/")

@@ -25,7 +25,6 @@ lo que haya en ese momento. Ejemplo:
 Por eso lo importante es escribir la cantidad apenas termines de contar ese lote.
 """
 import re
-from datetime import date
 from io import BytesIO
 
 from flask import (Blueprint, abort, flash, g, jsonify, redirect, render_template,
@@ -40,6 +39,7 @@ from .audit import registrar
 from .auth import login_required, roles_required
 from .configuracion import obtener_config
 from .db import ahora, get_db
+from .utiles import leer_numero, siguiente_numero   # versión 1.1.15: ayudas comunes (app/utiles.py)
 from .pdf_utils import encabezado_pdf, pie_de_pagina
 
 bp = Blueprint("conteos", __name__, url_prefix="/inventario/conteos")
@@ -57,21 +57,9 @@ def _json_error(mensaje, codigo=400):
 
 
 def _numero(texto):
-    """Convierte lo que escribe el usuario en número. '12' -> 12, '2,5' -> 2.5.
-    Devuelve None si está vacío y 'error' si no es un número."""
-    texto = str(texto if texto is not None else "").strip().replace(" ", "")
-    if not texto:
-        return None
-    # En Colombia: punto = miles, coma = decimales  (6.420,50 -> 6420.50)
-    if "," in texto:
-        texto = texto.replace(".", "").replace(",", ".")
-    elif texto.count(".") == 1 and len(texto.split(".")[1]) == 3:
-        texto = texto.replace(".", "")   # 6.420 -> 6420
-    try:
-        return float(texto)
-    except ValueError:
-        return "error"
-
+    """Lo que escribe el usuario, como número: '12' -> 12, '6.420' -> 6420, '2,5' -> 2.5.
+    Vacío -> None; no es un número -> 'error'. (Versión 1.1.15: usa utiles.leer_numero.)"""
+    return leer_numero(texto, malo="error")
 
 def _obtener(conteo_id):
     """Trae el conteo con el nombre de su categoría, o error 404 si no existe."""
@@ -92,12 +80,7 @@ def _conteo_abierto():
 
 
 def _siguiente_numero():
-    fila = get_db().execute("SELECT numero FROM conteos ORDER BY id DESC LIMIT 1").fetchone()
-    try:
-        n = int(fila["numero"].split("-")[1]) + 1 if fila else 1
-    except (ValueError, IndexError):
-        n = 1
-    return f"CNT-{n:04d}"
+    return siguiente_numero(get_db(), "conteos", "CNT")
 
 
 def _filtro_alcance(conteo, alias="p"):

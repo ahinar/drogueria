@@ -1,20 +1,18 @@
 """Unidades de medida: Unidad, Sello x 10, Caja x 100, etc."""
 import sqlite3
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 
 from .audit import registrar
 from .auth import roles_required
 from .db import ahora, get_db
+from .utiles import obtener_o_404   # versión 1.1.15: ayudas comunes (app/utiles.py)
 
 bp = Blueprint("unidades", __name__, url_prefix="/admin/unidades")
 
 
 def _obtener(uid):
-    fila = get_db().execute("SELECT * FROM unidades_medida WHERE id = ?", (uid,)).fetchone()
-    if fila is None:
-        abort(404)
-    return fila
+    return obtener_o_404("unidades_medida", uid)
 
 
 def _todas():

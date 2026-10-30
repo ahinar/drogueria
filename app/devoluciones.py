@@ -33,6 +33,7 @@ from flask import (Blueprint, abort, flash, g, redirect, render_template, reques
 from .audit import registrar
 from .auth import roles_required
 from .db import ahora, get_db
+from .utiles import leer_numero, siguiente_numero   # versión 1.1.15: ayudas comunes (app/utiles.py)
 from .formato import pesos
 from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
@@ -52,20 +53,13 @@ class _Error(Exception):
 
 def _numero(tipo):
     """Siguiente número: DC-0001 para clientes, DP-0001 para proveedores."""
-    prefijo = "DC" if tipo == "cliente" else "DP"
-    fila = get_db().execute("SELECT numero FROM devoluciones WHERE tipo = ? ORDER BY id DESC LIMIT 1",
-                            (tipo,)).fetchone()
-    n = int(fila["numero"].split("-")[1]) + 1 if fila else 1
-    return f"{prefijo}-{n:04d}"
+    return siguiente_numero(get_db(), "devoluciones", "DC" if tipo == "cliente" else "DP")
 
 
 def _cantidad(texto):
-    """'2' -> 2.0 ; '1,5' -> 1.5 ; vacío o inválido -> 0."""
-    try:
-        return max(0.0, float((texto or "").replace(",", ".")))
-    except ValueError:
-        return -1.0      # inválido: se rechaza más adelante
-
+    """'2' -> 2.0 ; '1,5' -> 1.5 ; vacío -> 0 ; inválido -> -1 (se rechaza más adelante)."""
+    n = leer_numero(texto, vacio=0.0)
+    return -1.0 if n is None else max(0.0, n)
 
 # ======================================================================
 # LISTA

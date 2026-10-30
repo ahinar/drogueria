@@ -38,10 +38,6 @@ def ruta_de(ruta_relativa):
     return carpeta_uploads() / relativa
 
 
-def es_extension_valida(nombre_archivo):
-    ext = Path(nombre_archivo).suffix.lower()
-    return ext in EXT_ACEPTADAS
-
 
 def guardar_imagen(archivo, subcarpeta, max_px=1200, max_bytes=5 * 1024 * 1024,
                    nombre_fijo=None, forzar_extension=None):

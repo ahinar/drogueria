@@ -3,7 +3,7 @@
 {% block contenido %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/conteo.css') }}">
 {# Pequeña ayuda para mostrar pesos: 12345 -> $12.345 #}
-{% macro pesos(v) %}{{ ('-' if v < 0 else '') }}${{ '{:,.0f}'.format(v|abs).replace(',', '.') }}{% endmacro %}
+{% macro pesos(v) %}{{ v|pesos }}{% endmacro %}
 {% macro num(v) %}{{ ('%g' % v) }}{% endmacro %}
 {# "2027-03-15" -> "15/03/2027" #}
 {% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}—{% endif %}{% endmacro %}

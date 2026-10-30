@@ -26,12 +26,13 @@ TABLA (migración 33 en app/db.py): pqrs.
 from datetime import date
 from io import BytesIO
 
-from flask import (Blueprint, abort, flash, g, redirect, render_template, request,
-                   send_file, url_for)
+from flask import (Blueprint, flash, g, redirect, render_template, request, send_file,
+                   url_for)
 
 from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
+from .utiles import obtener_o_404, siguiente_numero   # versión 1.1.15: ayudas comunes (app/utiles.py)
 from .festivos import dias_habiles_entre, sumar_dias_habiles
 
 bp = Blueprint("pqrs", __name__, url_prefix="/quejas")
@@ -95,15 +96,11 @@ def pqrs_por_vencer(hoy=None):
 
 
 def _obtener(pqrs_id):
-    fila = get_db().execute("SELECT * FROM pqrs WHERE id = ?", (pqrs_id,)).fetchone()
-    if fila is None:
-        abort(404)
-    return fila
+    return obtener_o_404("pqrs", pqrs_id)
 
 
 def _siguiente_numero(db):
-    fila = db.execute("SELECT numero FROM pqrs ORDER BY id DESC LIMIT 1").fetchone()
-    return f"PQ-{(int(fila['numero'].split('-')[-1]) + 1) if fila else 1:04d}"
+    return siguiente_numero(db, "pqrs", "PQ")
 
 
 # ----------------------------------------------------------------------
@@ -249,21 +246,19 @@ def reabrir(pqrs_id):
 def pdf(pqrs_id):
     """Constancia de la PQRS y su respuesta (para el archivo o para entregar al usuario)."""
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import cm
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table
 
     from .configuracion import obtener_config
-    from .pdf_utils import COLOR_SUAVE, encabezado_pdf, estilo_tabla, pie_de_pagina
+    from .pdf_utils import encabezado_pdf, estilo_tabla, estilos_pdf, pie_de_pagina
 
     d = _con_estado(_obtener(pqrs_id))
     f = lambda iso: f"{iso[8:10]}/{iso[5:7]}/{iso[0:4]}" if iso else "—"
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, leftMargin=1.8 * cm, rightMargin=1.8 * cm, topMargin=1.4 * cm,
                             bottomMargin=1.6 * cm, title=f"PQRS {d['numero']}")
-    base = getSampleStyleSheet()
-    celda = ParagraphStyle("Celda", parent=base["Normal"], fontSize=9, leading=12)
-    sub = ParagraphStyle("Sub", parent=base["Normal"], fontSize=9, textColor=COLOR_SUAVE)
+    est = estilos_pdf()
+    celda, sub = est["celda"], est["sub"]
     el = list(encabezado_pdf(obtener_config(), f"{d['tipo_texto'].upper()} N.º {d['numero']}"))
     filas = [
         ["Recibida", f"{f(d['fecha'])} · {d['canal_texto']} · recibió {d['usuario_nombre'] or '—'}"],

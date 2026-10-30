@@ -1,10 +1,9 @@
 """Configuración del negocio: datos que van en informes, PDFs y reportes."""
-from flask import (Blueprint, flash, g, redirect, render_template, request,
-                   url_for)
+from flask import (Blueprint, flash, redirect, render_template, request, url_for)
 
 from .audit import registrar
 from .auth import roles_required
-from .db import ahora, get_db
+from .db import get_db
 from .utils_imagenes import guardar_imagen, eliminar_imagen
 
 bp = Blueprint("configuracion", __name__, url_prefix="/configuracion")

@@ -43,6 +43,7 @@ from flask import (Blueprint, abort, flash, g, redirect, render_template, reques
 from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
+from .utiles import leer_numero   # versión 1.1.15: números escritos a la colombiana (app/utiles.py)
 from .equipos import estado_calibracion, sumar_meses
 from .utils_imagenes import guardar_documento
 
@@ -127,12 +128,8 @@ def _fecha_form(nombre, defecto=None):
 
 
 def _numero(nombre):
-    """Lee un número del formulario aceptando coma decimal ('1,5' -> 1.5). Malo -> None."""
-    try:
-        return float((request.form.get(nombre) or "").replace(",", "."))
-    except ValueError:
-        return None
-
+    """Un número del formulario ('1,5' -> 1.5 ; '1.500' -> 1500). Vacío o malo -> None."""
+    return leer_numero(request.form.get(nombre))
 
 def _es_jefe():
     return g.user["rol"] in JEFES
@@ -619,25 +616,18 @@ def baja_vencidos():
 def _pdf(titulo, nombre_archivo, armar, horizontal=False):
     """Arma un PDF con el encabezado y el pie de siempre; `armar(elementos, estilos)` pone el contenido."""
     from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import cm
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
     from .configuracion import obtener_config
-    from .pdf_utils import COLOR_SUAVE, encabezado_pdf, pie_de_pagina
+    from .pdf_utils import encabezado_pdf, estilos_pdf, pie_de_pagina
 
     config = obtener_config()
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4) if horizontal else A4,
                             leftMargin=1.2 * cm, rightMargin=1.2 * cm, topMargin=1.2 * cm, bottomMargin=1.5 * cm,
                             title=titulo)
-    base = getSampleStyleSheet()
-    estilos = {
-        "celda": ParagraphStyle("Celda", parent=base["Normal"], fontSize=8, leading=9.5),
-        "sub": ParagraphStyle("Sub", parent=base["Normal"], fontSize=9, textColor=COLOR_SUAVE),
-        "h": ParagraphStyle("H", parent=base["Normal"], fontSize=10.5, spaceBefore=10, spaceAfter=4),
-        "ancho": doc.width,
-    }
+    estilos = dict(estilos_pdf(celda=8, interlineado=9.5), ancho=doc.width)
     elementos = list(encabezado_pdf(config, titulo))
     armar(elementos, estilos)
     regente = config.get("regente_nombre") or ""
@@ -654,7 +644,6 @@ def _pdf(titulo, nombre_archivo, armar, horizontal=False):
 @bp.route("/limpieza/planilla.pdf")
 @login_required
 def limpieza_pdf():
-    from reportlab.lib import colors
     from reportlab.lib.units import cm
     from reportlab.platypus import Paragraph, Table
 

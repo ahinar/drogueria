@@ -507,6 +507,29 @@ Notas:
 | 1.1.12 | 2026-10-25 | Botón «Eliminar» de la foto en la ficha funciona; agotados en Inicio con «✔ Entendido» (vuelve a salir si llega mercancía y se agota otra vez; el reporte no cambia); Pedido sugerido con el proveedor MÁS BARATO (último precio por unidad con IVA), otras opciones con fecha y cambio a mano; toma de inventario: barra azul que selecciona todo y el cursor vuelve a ella tras guardar; botón ✏️ con la ventana «Editar producto» del POS, ahora con «Cómo se vende» (unidad, suelta, presentaciones, por defecto) |
 | 1.1.13 | 2026-10-28 | VALOR DEL INVENTARIO (Reportes y tarjeta en Inventario): al costo, a precio de venta, ganancia en el estante, por categoría y por producto, lo vencido/en cuarentena/bloqueado aparte, Excel. VENTAS RÁPIDAS (Administración → Ventas rápidas): fotocopias, dulcería, inyectología… se crean una vez (con precio fijo o preguntando el valor), salen como botones en «+ Venta libre» (teclas 1-9) y en el buscador del POS, se pueden guardar desde el POS y el reporte de Ventas dice cuánto se vendió de cada una |
 | 1.1.14 | 2026-10-29 | MENÚ POR TAREAS (Vender · Ventas · Compras · Inventario · Dinero · Calidad · Reportes · Administración, en acordeón; recogido muestra un ícono por grupo). Pantalla VENTAS: buscar cualquier venta, el carrito a la derecha sin cambiar de pantalla y abajo devoluciones y CORREGIR EL PAGO (si la caja ya cerró, recalcula el faltante/sobrante). DAVIPLATA como forma de pago y cuenta en Bancos (migración 43). POS: un solo botón «Movimiento de plata» (entra/sale → otro ingreso, efectivo, gasto, retiro del dueño o traslado con destino), categorías en una fila con «Más ▾» y menú lateral recogido. Recepción que cabe en la pantalla. Un solo estilo de tarjetas. Aviso en Inicio si no hay copia fuera del computador. Vencimientos y temperaturas sin pantallas repetidas |
+| 1.1.15 | 2026-10-29 | ORDEN INTERNO (no cambia lo que se ve): el JavaScript que estaba dentro de las pantallas (2.360 líneas) pasó a 13 archivos en static/js; ayudas comunes en app/utiles.py (leer_numero, obtener_o_404, siguiente_numero) y estilos_pdf(); POS partido en pos.py / pos_productos.py / pos_ventas.py y la recepción en recepciones.py / recepciones_productos.py / recepciones_acta.py; filtro |pesos en todas las pantallas; se quitaron imports, funciones y estilos CSS que ya nadie usaba |
+
+### Versión 1.1.15 — orden interno del código (2026-10-29)
+Segunda entrega del plan del análisis. No cambia nada de lo que se ve; deja el código más parejo y fácil de leer.
+- **JavaScript fuera de las pantallas** (de 2.360 líneas dentro de las plantillas a 73): `recepcion.js` (antes 1.050
+  líneas en recepciones/form.html), `producto_form.js`, `pagina_inicio.js` (va en el `<head>`: reintento con la clave
+  nueva, chip del laboratorio, service worker), `menu.js`, `confirmar.js`, `abrir_caja.js`, `conteo_efectivo.js`,
+  `contabilidad_graficos.js`, `cambiar_unidad.js`, `reporte_temperaturas.js`, `kardex_buscar.js`, `productos_lista.js`,
+  `caja_menor.js`. Lo que necesitan del servidor llega en `<script type="application/json" id="...-datos">`. Los dos
+  «¿seguro?» de la ficha del producto ahora usan `data-confirmar`. Pruebas: `Base.pagina_con_js(c, url)` (test_fase0)
+  devuelve el HTML más sus .js para buscar textos del código.
+- **`app/utiles.py`**: `leer_numero` (coma = decimales; punto de miles en grupos de 3; "2.5" sigue siendo 2,5), usada por
+  conteos, ventas rápidas, capacitaciones, saneamiento (antes "1.500" daba 1,5), devoluciones, bancos, cartera y la
+  corrección de pagos; `obtener_o_404(tabla, id)` en 9 módulos; `siguiente_numero(db, tabla, prefijo)` para COT, CNT, PQ,
+  REC, FV, V, DC/DP y AB (toma el número más alto, no el último guardado). `pdf_utils.estilos_pdf()` en 5 PDF.
+- **Archivos partidos por tema** (mismas direcciones y nombres `pos.…`/`recepciones.…`): `pos.py` (la caja),
+  `pos_productos.py` (buscar, ficha «i», editar), `pos_ventas.py` (cobrar, venta libre, comprobante, tirilla, cajón,
+  anular); `recepciones.py`, `recepciones_productos.py`, `recepciones_acta.py`. Los módulos nuevos se importan al final
+  del principal para registrar sus rutas en el mismo blueprint.
+- **Limpieza**: filtro `|pesos` en lugar de 18 fórmulas sueltas y 5 macros; imports sin uso (pyflakes limpio en app/),
+  3 funciones que nadie llamaba, ~40 selectores CSS de clases que ya no existen.
+- Tamaño: el total casi no cambia (43.335 → 43.270 líneas) porque el JavaScript se MOVIÓ, no se borró, y los archivos
+  nuevos llevan su explicación; lo que se quitó (repetido o sin uso) fueron unas 330 líneas.
 
 ### Versión 1.1.14 — orden visible: menú por tareas, Ventas, Daviplata, movimiento de plata (2026-10-29)
 Primera entrega del plan del documento «Análisis del programa Fervifarma» (29-oct). Fernando pidió todo menos

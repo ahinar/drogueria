@@ -7,7 +7,7 @@
   d = lo que calcula app/sugerido.py. Las cantidades del pedido se pueden
   cambiar aquí mismo antes de enviar o imprimir (static/js/sugerido.js).
 #}
-{% macro pesos(n) %}${{ '{:,.0f}'.format(n).replace(',', '.') }}{% endmacro %}
+{% macro pesos(n) %}{{ n|pesos }}{% endmacro %}
 {% macro cant(n) %}{{ ('%g' % (n|round(1))).replace('.', ',') }}{% endmacro %}
 {% macro fecha(f) %}{% if f %}{{ f[8:10] }}/{{ f[5:7] }}/{{ f[0:4] }}{% else %}nunca{% endif %}{% endmacro %}
 

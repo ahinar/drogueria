@@ -259,7 +259,8 @@ class TestCamposYConteo(Base118):
 
     def test_el_conteo_de_efectivo_ya_no_se_pone_en_cero_al_abrir(self):
         pos = (RAIZ / "static" / "js" / "pos.js").read_text(encoding="utf-8")
-        apertura = (RAIZ / "app" / "templates" / "pos" / "abrir_caja.html").read_text(encoding="utf-8")
+        # Versión 1.1.15: el código de «Abrir caja» pasó a static/js/abrir_caja.js
+        apertura = (RAIZ / "static" / "js" / "abrir_caja.js").read_text(encoding="utf-8")
         for codigo in (pos, apertura):
             self.assertNotIn(".conteo-input').forEach(i => i.value = 0)", codigo)
         self.assertIn("conteoEfectivo.usar(claveCierre)", pos)
@@ -267,7 +268,7 @@ class TestCamposYConteo(Base118):
         self.assertIn("conteoEfectivo.usar('apertura')", apertura)
 
     def test_ventana_de_conteo_tiene_limpiar(self):
-        html = self.c.get("/pos/abrir-caja").get_data(as_text=True)     # pantalla de abrir caja
+        html = self.pagina_con_js(self.c, "/pos/abrir-caja")             # pantalla de abrir caja (y sus .js)
         self.assertIn('id="conteo-limpiar"', html)
         self.assertIn("window.conteoEfectivo", html)
 

@@ -2,8 +2,8 @@
 from datetime import datetime
 from io import BytesIO
 
-from flask import (Blueprint, current_app, make_response, redirect,
-                   render_template, request, send_file, url_for)
+from flask import (Blueprint, redirect, render_template, request,
+                   send_file, url_for)
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -286,7 +286,6 @@ def temperaturas_mensual_pdf():
     elementos = []
 
     # ===== Encabezado con logo =====
-    from pathlib import Path
 
     logo_ruta = config.get("logo_ruta")
     logo_path = None

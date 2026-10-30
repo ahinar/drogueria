@@ -1,12 +1,12 @@
 """Productos: CRUD con bitácora, catálogos, categorías múltiples, usos y presentaciones."""
 import sqlite3
 
-from flask import (Blueprint, abort, flash, redirect, render_template, request,
-                   url_for)
+from flask import (Blueprint, flash, redirect, render_template, request, url_for)
 from .audit import registrar
 from .auth import login_required, roles_required
 from .catalogos import opciones as cat_opciones
 from .db import ahora, get_db
+from .utiles import obtener_o_404   # versión 1.1.15: ayudas comunes (app/utiles.py)
 from . import presentaciones as pres
 from .utils_imagenes import guardar_imagen, eliminar_imagen
 
@@ -31,10 +31,7 @@ def _siguiente_codigo():
 
 
 def _obtener(prod_id):
-    fila = get_db().execute("SELECT * FROM productos WHERE id = ?", (prod_id,)).fetchone()
-    if fila is None:
-        abort(404)
-    return fila
+    return obtener_o_404("productos", prod_id)
 
 
 def _categorias_de(prod_id):

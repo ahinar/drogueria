@@ -29,6 +29,7 @@ from .audit import registrar
 from .auth import login_required, roles_required
 from .configuracion import obtener_config
 from .db import ahora, get_db
+from .utiles import leer_numero, siguiente_numero   # versión 1.1.15: ayudas comunes (app/utiles.py)
 from .formato import pesos
 from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
@@ -181,22 +182,12 @@ def clientes_con_cartera_vencida(hoy=None):
 # ======================================================================
 
 def _numero_texto(texto):
-    """'15.000' -> 15000 ; '15000' -> 15000 ; '2,5' -> 2.5 ; vacío -> 0 ; basura -> None.
-    Los puntos solo se quitan cuando son de miles (grupos de 3 cifras)."""
-    import re
-    t = str(texto if texto is not None else "").strip() or "0"
-    if re.fullmatch(r"\d{1,3}(\.\d{3})+(,\d+)?", t):
-        t = t.replace(".", "")
-    try:
-        return round(float(t.replace(",", ".")), 2)
-    except ValueError:
-        return None
-
+    """'15.000' -> 15000 ; '2,5' -> 2.5 ; vacío -> 0 ; basura -> None (utiles.leer_numero)."""
+    valor = leer_numero(texto, vacio=0.0)
+    return None if valor is None else round(valor, 2)
 
 def _numero_abono(db):
-    fila = db.execute("SELECT numero FROM cartera_abonos ORDER BY id DESC LIMIT 1").fetchone()
-    n = int(fila["numero"].split("-")[1]) + 1 if fila else 1
-    return f"AB-{n:04d}"
+    return siguiente_numero(db, "cartera_abonos", "AB")
 
 
 def registrar_abono(cliente_id, monto_texto, forma, observaciones=""):

@@ -6,7 +6,7 @@
   Arriba el formulario (crear o, con ?editar=<id>, cambiar una); abajo la lista.
   Lo que se crea aquí sale en el POS: botones de «+ Venta libre» y en el buscador.
 #}
-{% macro pesos(n) -%}${{ '{:,.0f}'.format(n or 0).replace(',', '.') }}{%- endmacro %}
+{% macro pesos(n) -%}{{ (n or 0)|pesos }}{%- endmacro %}
 <h1><span class="ico-emoji">⚡</span> Ventas rápidas</h1>
 <p class="suave">Lo que se vende siempre pero <strong>no va al inventario</strong>: fotocopias, dulcería, inyectología,
   miscelánea… Se crean una vez y en el POS salen como botones al darle <strong>«+ Venta libre»</strong> y en el buscador.

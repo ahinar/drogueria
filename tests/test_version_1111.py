@@ -43,7 +43,8 @@ class TestErroresEnJSON(BaseVentas):
     def test_error_interno_contesta_json(self):
         self.app.config["PROPAGATE_EXCEPTIONS"] = False   # como en la droguería (no en modo pruebas)
         self.abrir_caja()
-        with mock.patch("app.pos._caja_abierta", side_effect=RuntimeError("falla de prueba")):
+        # Versión 1.1.15: cobrar está en app/pos_ventas.py (el POS se partió en tres archivos)
+        with mock.patch("app.pos_ventas._caja_abierta", side_effect=RuntimeError("falla de prueba")):
             r = self.post(self.c, "/pos/api/cobrar", self.carrito())
         self.assertEqual(r.status_code, 500)
         self.assertFalse(r.get_json()["ok"])
@@ -56,9 +57,11 @@ class TestErroresEnJSON(BaseVentas):
 
     def test_la_pantalla_trae_el_reintento(self):
         self.abrir_caja()                                  # sin caja abierta, /pos/ lleva a «Abrir caja»
-        html = self.c.get("/pos/").get_data(as_text=True)
+        html = self.pagina_con_js(self.c, "/pos/")
         self.assertIn("csrf_nuevo", html)
-        self.assertLess(html.index("REINTENTO CON LA CLAVE NUEVA"), html.index("pos_carrito.js"))
+        # Versión 1.1.15: el reintento está en static/js/pagina_inicio.js, que carga en el <head>,
+        # antes que los scripts del POS
+        self.assertLess(html.index("js/pagina_inicio.js"), html.index("js/pos_carrito.js"))
 
 
 class TestBuscarLoMasParecidoPrimero(BaseVentas):

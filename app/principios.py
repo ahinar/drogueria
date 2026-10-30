@@ -79,15 +79,3 @@ def texto_de(db, producto_id, separador=", "):
     return separador.join(nombres_de(db, producto_id))
 
 
-def nombres_por_producto(db, ids, separador=" + "):
-    """{producto_id: 'Acetaminofén + Codeína'} para muchos productos de una vez (listas)."""
-    ids = list(ids)
-    if not ids:
-        return {}
-    marcas = ",".join("?" * len(ids))
-    salida = {}
-    for f in db.execute(
-            f"SELECT pp.producto_id, c.nombre FROM producto_principios pp JOIN catalogos c ON c.id = pp.catalogo_id "
-            f"WHERE pp.producto_id IN ({marcas}) ORDER BY pp.producto_id, pp.orden", ids):
-        salida.setdefault(f["producto_id"], []).append(f["nombre"])
-    return {pid: separador.join(n) for pid, n in salida.items()}

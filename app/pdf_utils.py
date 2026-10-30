@@ -1,7 +1,5 @@
 """Utilidades para generar encabezados de PDFs con logo y datos del negocio."""
-from pathlib import Path
 
-from flask import current_app
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
@@ -13,6 +11,7 @@ from reportlab.platypus import Image, Paragraph, Table, TableStyle
 #   - encabezado_pdf(): logo, datos del negocio y título (arriba)
 #   - pie_de_pagina():  "Página N · impreso el ... por ..." (abajo, en todas las hojas)
 #   - estilo_tabla():   tablas con el mismo encabezado de color y rayado
+#   - estilos_pdf():    los estilos de texto de siempre: celda, normal, sub y h (1.1.15)
 # Los colores son los del tema "Verde salud" (static/css/temas.css).
 # =====================================================================
 COLOR_MARCA = colors.HexColor("#0F766E")        # --acento
@@ -22,6 +21,24 @@ COLOR_TEXTO = colors.HexColor("#13201D")         # --texto
 COLOR_SUAVE = colors.HexColor("#5B6B66")         # --texto-suave
 COLOR_BORDE = colors.HexColor("#D5DEDB")
 COLOR_RAYADO = colors.HexColor("#F7FAF9")
+
+
+def estilos_pdf(celda=9, interlineado=12):
+    """Estilos de texto que repetían casi todos los PDF (versión 1.1.15).
+
+        celda  -> texto dentro de las tablas (tamaño "celda", interlineado "interlineado")
+        normal -> párrafos
+        sub    -> línea gris pequeña (explicaciones)
+        h      -> título de una sección
+    """
+    from reportlab.lib.styles import getSampleStyleSheet
+    base = getSampleStyleSheet()
+    return {
+        "celda": ParagraphStyle("Celda", parent=base["Normal"], fontSize=celda, leading=interlineado),
+        "normal": ParagraphStyle("Normal2", parent=base["Normal"], fontSize=9.5, leading=13),
+        "sub": ParagraphStyle("Sub", parent=base["Normal"], fontSize=9, textColor=COLOR_SUAVE),
+        "h": ParagraphStyle("H", parent=base["Normal"], fontSize=10.5, spaceBefore=10, spaceAfter=4),
+    }
 
 
 def estilo_tabla(extra=None, cabecera=True):

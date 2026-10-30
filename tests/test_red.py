@@ -179,7 +179,9 @@ class TestBaseOcupada(BaseVentas):
     def test_pagina_y_api(self):
         import sqlite3
         ocupada = sqlite3.OperationalError("database is locked")
-        with mock.patch("app.pos._caja_abierta", side_effect=ocupada):
+        # Versión 1.1.15: el cajón está en app/pos_ventas.py (el POS se partió en tres archivos)
+        with mock.patch("app.pos._caja_abierta", side_effect=ocupada), \
+             mock.patch("app.pos_ventas._caja_abierta", side_effect=ocupada):
             r = self.c.get("/pos/")
             self.assertEqual(r.status_code, 503)
             self.assertIn("ocupado", r.get_data(as_text=True))

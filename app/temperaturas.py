@@ -46,19 +46,6 @@ def _obtener_zona(zona_id):
 
 
 
-def _obtener_registro(reg_id):
-
-    fila = get_db().execute("SELECT * FROM temperatura_registros WHERE id = ?", (reg_id,)).fetchone()
-
-    if fila is None:
-
-        abort(404)
-
-    return fila
-
-
-
-
 
 def _en_rango(zona, temp, humedad):
 

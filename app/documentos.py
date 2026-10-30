@@ -33,12 +33,13 @@ from io import BytesIO
 from pathlib import Path
 import uuid
 
-from flask import (Blueprint, abort, current_app, flash, g, redirect, render_template,
-                   request, send_file, url_for)
+from flask import (Blueprint, flash, g, redirect, render_template, request, send_file,
+                   url_for)
 
 from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
+from .utiles import obtener_o_404   # versión 1.1.15: ayudas comunes (app/utiles.py)
 from .equipos import estado_calibracion, sumar_meses   # mismas cuentas de fechas que las calibraciones
 from .utils_imagenes import guardar_documento
 
@@ -121,10 +122,7 @@ LISTADO_SUGERIDO = [
 # ----------------------------------------------------------------------
 
 def _obtener(doc_id):
-    fila = get_db().execute("SELECT * FROM documentos WHERE id = ?", (doc_id,)).fetchone()
-    if fila is None:
-        abort(404)
-    return fila
+    return obtener_o_404("documentos", doc_id)
 
 
 def estado_revision(doc, hoy=None):
@@ -564,12 +562,11 @@ def obsoleto(doc_id):
 @login_required
 def listado_pdf():
     from reportlab.lib.pagesizes import A4, landscape
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import cm
     from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table
 
     from .configuracion import obtener_config
-    from .pdf_utils import COLOR_SUAVE, encabezado_pdf, estilo_tabla, pie_de_pagina
+    from .pdf_utils import encabezado_pdf, estilo_tabla, estilos_pdf, pie_de_pagina
 
     config = obtener_config()
     docs = sorted((_con_estado(f) for f in get_db().execute(
@@ -578,9 +575,8 @@ def listado_pdf():
     buffer = BytesIO()
     doc_pdf = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=1.4 * cm, rightMargin=1.4 * cm,
                                 topMargin=1.2 * cm, bottomMargin=1.5 * cm, title="Listado maestro de documentos")
-    estilos = getSampleStyleSheet()
-    celda = ParagraphStyle("Celda", parent=estilos["Normal"], fontSize=8.5, leading=10)
-    sub = ParagraphStyle("Sub", parent=estilos["Normal"], fontSize=9, textColor=COLOR_SUAVE)
+    est = estilos_pdf(celda=8.5, interlineado=10)
+    celda, sub = est["celda"], est["sub"]
 
     fecha = lambda f: f"{f[8:10]}/{f[5:7]}/{f[0:4]}" if f else "—"
     elementos = list(encabezado_pdf(config, "LISTADO MAESTRO DE DOCUMENTOS"))

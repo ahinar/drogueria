@@ -27,7 +27,7 @@
     <div class="kpi-icono">💸</div>
     <div class="kpi-info">
       <span class="kpi-titulo">Total filtrado</span>
-      <strong class="kpi-valor kpi-valor-alerta">${{ '{:,.0f}'.format(total_filtro).replace(',', '.') }}</strong>
+      <strong class="kpi-valor kpi-valor-alerta">{{ total_filtro|pesos }}</strong>
       <span class="kpi-detalle">{{ filas|length }} registro{{ 's' if filas|length != 1 else '' }}</span>
     </div>
   </div>
@@ -58,7 +58,7 @@
       <td>{{ f['comprobante'] or '—' }}</td>
       <td>{{ f['proveedor_nombre'] or '—' }}</td>
       <td>{{ f['usuario_nombre'] or '—' }}</td>
-      <td style="text-align:right"><strong>${{ '{:,.0f}'.format(f['monto']).replace(',', '.') }}</strong></td>
+      <td style="text-align:right"><strong>{{ f['monto']|pesos }}</strong></td>
       <td>{% if f['activo'] %}<span class="tag-ok">Activo</span>{% else %}<span class="tag-error">Anulado</span>{% endif %}</td>
       <td>
         <a href="{{ url_for('contabilidad.gastos_editar', gasto_id=f['id']) }}">Editar</a>

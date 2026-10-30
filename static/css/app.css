@@ -25,7 +25,6 @@ h2 { font-size: 1.15rem; margin: 0 0 .6rem; }
 
 p.suave { color: #6b7885; font-size: .9rem; margin: 0 0 1rem; }
 
-
 /* =========================================================
    LAYOUT CON SIDEBAR
    ========================================================= */
@@ -150,7 +149,6 @@ body.sidebar-colapsado .sidebar-link,
 body.sidebar-colapsado .sidebar-sublink { justify-content: center; padding: .7rem 0; }
 body.sidebar-colapsado .sidebar-brand { justify-content: center; padding: .8rem 0; }
 
-
 /* ---------- Main y topbar ---------- */
 .main {
   min-width: 0;
@@ -199,7 +197,6 @@ body.sidebar-colapsado .sidebar-brand { justify-content: center; padding: .8rem 
 .btn-link:hover { background: #f4f6f8; }
 
 .contenido { padding: 1.4rem 1.6rem; flex: 1; overflow-x: auto; }
-
 
 /* =========================================================
    LOGIN
@@ -256,7 +253,6 @@ body.login-body {
   margin-top: .5rem;
 }
 
-
 /* =========================================================
    AVISOS FLASH
    ========================================================= */
@@ -271,7 +267,6 @@ body.login-body {
 .aviso.error { background: #fdecea; color: #8c1d18; border-color: #b3261e; }
 /* Advertencia amarilla (versión 1.1.13: productos sin costo o sin precio en Valor del inventario) */
 .aviso.advertencia { background: #fff7e0; color: #7a5200; border-color: #e0a800; }
-
 
 /* =========================================================
    BOTONES
@@ -343,7 +338,6 @@ button:disabled,
 }
 .btn-mas:hover { background: #085a9c; }
 
-
 /* =========================================================
    TABLAS
    ========================================================= */
@@ -388,7 +382,6 @@ button:disabled,
 }
 .tabla-recepcion td { padding: .35rem .3rem; vertical-align: top; }
 
-
 /* =========================================================
    FILTROS
    ========================================================= */
@@ -415,7 +408,6 @@ button:disabled,
   font-family: inherit;
 }
 .filtros label { font-size: .85rem; color: #4a5560; }
-
 
 /* =========================================================
    ETIQUETAS Y TAGS
@@ -483,7 +475,6 @@ button:disabled,
 .s-negro    { background: #2c3e50; color: #fff; }
 .s-gris     { background: #e3e8ec; color: #68737d; }
 
-
 /* =========================================================
    FORMULARIOS GENERALES
    ========================================================= */
@@ -521,7 +512,6 @@ button:disabled,
 .formulario input[type="checkbox"] { margin-right: .4rem; }
 
 .acciones { display: flex; gap: .6rem; margin-top: 1rem; }
-
 
 /* =========================================================
    FORMULARIO CON PESTAÑAS (productos)
@@ -612,7 +602,6 @@ button:disabled,
   border-color: #b9dfc6 !important;
 }
 
-
 /* =========================================================
    GRIDS
    ========================================================= */
@@ -632,7 +621,6 @@ button:disabled,
 @media (max-width: 600px) {
   .grid-2, .grid-3-compact { grid-template-columns: 1fr; }
 }
-
 
 /* =========================================================
    CHIPS Y SWITCH
@@ -674,7 +662,6 @@ button:disabled,
 }
 .switch-linea input[type="checkbox"] { width: auto; margin: 0; }
 
-
 /* =========================================================
    CAMPO CON BOTÓN "+"
    ========================================================= */
@@ -682,7 +669,6 @@ button:disabled,
 .campo-con-boton select { flex: 1; }
 
 #btn-calcular { padding: .35rem .7rem; font-size: .8rem; }
-
 
 /* =========================================================
    ACCIONES AL PIE
@@ -704,7 +690,6 @@ button:disabled,
   padding: .5rem 1.2rem;
   font-size: .88rem;
 }
-
 
 /* =========================================================
    DASHBOARD / INICIO
@@ -860,7 +845,6 @@ a.modulo:hover {
   padding-bottom: .5rem;
 }
 
-
 /* =========================================================
    ALARMA DE TEMPERATURAS
    ========================================================= */
@@ -906,7 +890,6 @@ a.modulo:hover {
   color: #fff;
 }
 .alarma-acciones button#alarma-silenciar { background: #666; }
-
 
 /* =========================================================
    RECEPCIONES
@@ -974,25 +957,6 @@ a.modulo:hover {
   line-height: 1.25;
 }
 .hint-rs.sin-rs { color: #b3261e; font-weight: 700; }
-
-.producto-con-boton { display: flex; gap: .25rem; align-items: center; }
-.producto-con-boton select { flex: 1; min-width: 0; }
-
-.barra-escanear { margin-bottom: .7rem; }
-.barra-escanear input {
-  width: 100%;
-  padding: .55rem .8rem;
-  border: 2px solid var(--acento);
-  border-radius: .35rem;
-  font-size: .95rem;
-  background: #f7fbff;
-}
-.barra-escanear input:focus {
-  outline: none;
-  border-color: #085a9c;
-  box-shadow: 0 0 0 3px rgba(10, 110, 189, .15);
-}
-
 
 /* =========================================================
    AUTOCOMPLETADO DE PRODUCTOS
@@ -1067,7 +1031,6 @@ a.modulo:hover {
   font-style: italic;
   text-align: center;
 }
-
 
 /* =========================================================
    MODALES / OVERLAYS
@@ -1276,7 +1239,6 @@ a.modulo:hover {
   min-width: 120px;
 }
 
-
 /* =========================================================
    SEMÁFORO DE VENCIMIENTOS (kardex, lotes)
    ========================================================= */
@@ -1288,7 +1250,6 @@ a.modulo:hover {
   border-radius: .3rem;
   margin-right: .4rem;
 }
-
 
 /* =========================================================
    TOTALES DE RECEPCIÓN
@@ -1315,20 +1276,9 @@ a.modulo:hover {
 .total-linea strong { font-size: 1rem; color: #2c3e50; }
 .total-linea.total-grande strong { font-size: 1.35rem; color: var(--acento-fuerte); }
 
-
 /* =========================================================
    IMPORTADOR
    ========================================================= */
-.chip-import {
-  display: inline-block;
-  padding: .2rem .5rem;
-  background: #f4f7f9;
-  border: 1px solid #d8e0e6;
-  border-radius: .8rem;
-  font-size: .78rem;
-  margin: .15rem .15rem 0 0;
-}
-
 
 /* =========================================================
    PÁGINA POS EN CONSTRUCCIÓN
@@ -1345,21 +1295,6 @@ a.modulo:hover {
 .pos-icono { font-size: 3.5rem; line-height: 1; margin-bottom: .6rem; }
 .pos-construccion h1 { font-size: 1.5rem; color: var(--acento-fuerte); margin: 0 0 .5rem; }
 .pos-construccion > p.suave { margin-bottom: 1.5rem; font-size: .95rem; }
-.pos-pendientes { text-align: left; display: flex; flex-direction: column; gap: .6rem; margin-bottom: 1.6rem; }
-.pos-pendiente {
-  display: flex;
-  gap: .8rem;
-  align-items: flex-start;
-  padding: .7rem .9rem;
-  background: #f4f7f9;
-  border-left: 3px solid #c8d2da;
-  border-radius: .3rem;
-}
-.pos-pendiente strong { color: #2c3e50; font-size: .92rem; }
-.pos-pendiente p { margin: .15rem 0 0; color: #6b7885; font-size: .85rem; }
-.pos-check { font-size: 1.2rem; flex-shrink: 0; }
-.pos-pendiente:last-child { background: #e8f6ec; border-left-color: #2e8b57; }
-
 
 /* =========================================================
    RESPONSIVE
@@ -1378,7 +1313,6 @@ a.modulo:hover {
   .contenido { padding: 1rem; }
   .rejilla { grid-template-columns: 1fr; }
 }
-
 
 /* =========================================================
    PREVIEW DEL LOGO EN CONFIGURACIÓN
@@ -1431,7 +1365,6 @@ body.sidebar-colapsado .sidebar-logo-img {
   object-fit: contain;
 }
 
-
 /* =========================================================
    LISTA DE PRODUCTOS — HEADER + TOGGLE VISTA
    ========================================================= */
@@ -1463,7 +1396,6 @@ body.sidebar-colapsado .sidebar-logo-img {
 }
 .vista-btn:hover { background: #e9eff4; text-decoration: none; color: var(--acento); }
 .vista-btn.activo { background: var(--acento); color: #fff; }
-
 
 /* =========================================================
    GRID DE PRODUCTOS (MOSAICO) — COMPACTO
@@ -1591,43 +1523,13 @@ body.sidebar-colapsado .sidebar-logo-img {
 .boton-chico.peligro { background: #b3261e; }
 .boton-chico.peligro:hover { background: #8c1d18; }
 
-
 /* =========================================================
    PREVIEW DE IMAGEN EN PRODUCTO
    ========================================================= */
-.imagen-producto-preview {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: .8rem;
-  background: #f7f9fb;
-  border: 1px dashed #c8d2da;
-  border-radius: .4rem;
-  margin-bottom: .8rem;
-}
-.imagen-producto-preview img {
-  max-width: 120px;
-  max-height: 120px;
-  object-fit: contain;
-  background: #fff;
-  border-radius: .35rem;
-  border: 1px solid #e3e8ec;
-}
-
 
 /* =========================================================
    FORMULARIO DE PRODUCTO — IMAGEN ARRIBA A LA DERECHA
    ========================================================= */
-.form-producto-header {
-  display: grid;
-  grid-template-columns: 1fr 130px;
-  gap: 1rem;
-  align-items: start;
-  margin-bottom: .8rem;
-}
-@media (max-width: 700px) {
-  .form-producto-header { grid-template-columns: 1fr; }
-}
 
 .form-producto-imagen {
   display: flex;
@@ -1689,7 +1591,6 @@ body.sidebar-colapsado .sidebar-logo-img {
   cursor: pointer;
 }
 
-
 /* =========================================================
    POS · PUNTO DE VENTA
    ========================================================= */
@@ -1708,7 +1609,6 @@ body.sidebar-colapsado .sidebar-logo-img {
   .pos-productos { order: 1; }
   .pos-carrito { order: 2; }
 }
-
 
 /* ===== Columna izquierda: carrito ===== */
 .pos-carrito {
@@ -1850,7 +1750,6 @@ body.sidebar-colapsado .sidebar-logo-img {
 }
 .pos-btn-pago:hover:not(:disabled) { background: #15803d; }
 
-
 /* ===== Columna derecha: productos ===== */
 .pos-productos {
   padding: 1rem;
@@ -1877,18 +1776,6 @@ body.sidebar-colapsado .sidebar-logo-img {
   border-color: var(--acento);
   box-shadow: 0 0 0 3px rgba(10, 110, 189, .15);
 }
-.pos-btn-cerrar-caja {
-  padding: .6rem 1rem;
-  background: #b3261e;
-  color: #fff;
-  border: none;
-  border-radius: .4rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-size: .85rem;
-  white-space: nowrap;
-}
-.pos-btn-cerrar-caja:hover { background: #8c1d18; }
 
 .pos-categorias {
   display: flex;
@@ -1977,7 +1864,6 @@ body.sidebar-colapsado .sidebar-logo-img {
 /* Diferencia de cierre de caja */
 .pos-dif-cero { color: #0d6b3d; font-size: 1.2rem; }
 .pos-dif-alerta { color: #b3261e; font-size: 1.2rem; font-weight: 700; }
-
 
 /* =========================================================
    MODAL DE CONTEO DE EFECTIVO
@@ -2191,7 +2077,6 @@ body.sidebar-colapsado .sidebar-logo-img {
   width: 24px;
   text-align: center;
 }
-
 
 /* =========================================================
    MODAL DE CIERRE DE CAJA
@@ -2736,9 +2621,7 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 }
 
 /* Recepción: "Cantidad [1] [CAJA X 300 ▾]" en una sola línea */
-#tabla-lineas .cant-udm { display: flex; gap: .3rem; align-items: center; }
-#tabla-lineas .cant-udm input[name="linea_cantidad_recibida"] { width: 4.2rem; flex: 0 0 4.2rem; }
-#tabla-lineas .cant-udm select { flex: 1 1 auto; min-width: 0; width: auto; }
+
 #tabla-lineas .linea-equivale { display: block; margin-top: .15rem; font-size: .72rem; white-space: nowrap; }
 .bloque-suelto { margin: .7rem 0 .3rem; padding: .5rem .7rem; border: 1px dashed var(--borde, #cfdcd6); border-radius: 8px; max-width: 640px; }
 
@@ -2770,7 +2653,6 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 .ficha-fila { display: grid; gap: .3rem .8rem; }
 .ficha-fila-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ficha-fila-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.ficha-fila-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: end; }
 .ficha-fila-iva { grid-template-columns: 220px 140px; }
 .ficha-foto .imagen-drop { width: 132px; height: 132px; }
 .ficha-foto .imagen-drop img, .ficha-foto .imagen-placeholder { width: 100%; height: 100%; object-fit: contain; font-size: 2.4rem; }
@@ -2783,11 +2665,11 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 .ficha-plegable > summary { cursor: pointer; font-weight: 600; color: var(--primario, #1f7a5c); padding: .2rem 0; }
 .ficha-plegable[open] > summary { margin-bottom: .4rem; }
 @media (max-width: 900px) {
-  .ficha-fila-3, .ficha-fila-5, .ficha-venta-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ficha-fila-3, .ficha-venta-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
   .ficha-arriba { grid-template-columns: 1fr; }
-  .ficha-fila-2, .ficha-fila-3, .ficha-fila-5, .ficha-venta-cols, .ficha-fila-iva { grid-template-columns: 1fr; }
+  .ficha-fila-2, .ficha-fila-3, .ficha-venta-cols, .ficha-fila-iva { grid-template-columns: 1fr; }
 }
 .ficha-fila-iva { grid-template-columns: minmax(0, 1fr) 110px; margin-top: .4rem; }
 .ficha-margen { margin-top: .5rem; align-items: end; }
@@ -2856,8 +2738,6 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 /* Versión del programa en el pie del menú */
 .sidebar-version { display: block; font-size: .7rem; opacity: .55; padding: .2rem .9rem 0; }
 /* Línea que separa Calidad / Reportes / Administración de las secciones de arriba */
-.sidebar-separador { border-top: 1px solid rgba(255, 255, 255, .12); margin: .6rem .9rem .4rem; }
-
 
 /* ===== Etiqueta del LABORATORIO en los resultados de búsqueda (versión 1.1.3) =====
    Productos con el mismo nombre se distinguen por el laboratorio: va a la
@@ -2974,11 +2854,6 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .comas-sugerencias button.activa, .comas-sugerencias button:hover { background: var(--acento-suave); }
 
 /* IVA de cada línea de la recepción (versión 1.1.6), debajo del costo */
-.linea-iva-campo {
-  display: flex; align-items: center; gap: .3rem; margin-top: .25rem;
-  font-size: .75rem; color: #5b6b79; font-weight: 600;
-}
-.linea-iva-campo select { padding: .1rem .3rem; font-size: .8rem; width: auto; min-width: 4.2rem; }
 
 /* =====================================================================
    DASHBOARD DE CONTABILIDAD Y SESIONES DE CAJA (versión 1.1.6)
@@ -3249,8 +3124,6 @@ input.campo-num-activo:focus {
 }
 .foto-rapida-marco img { width: 100%; height: 100%; object-fit: contain; }
 .foto-rapida-vacia { font-size: 1.8rem; opacity: .45; }
-.foto-rapida-botones { display: flex; flex-direction: column; gap: .35rem; align-items: flex-start; }
-.foto-rapida .foto-escoger { cursor: pointer; margin: 0; }
 .foto-rapida [hidden] { display: none !important; }   /* que "hidden" gane sobre los estilos de las ventanas */
 
 /* Versión 1.1.9: la FOTO arriba a la derecha en «Nuevo producto» y «Completar datos»

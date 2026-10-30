@@ -63,43 +63,6 @@
   </div>
 </form>
 
-<script>
-// Muestra la parte de "Convertir" solo si se escoge esa opción, y calcula
-// el resumen: "300 Caja x 100 → 30.000 Tableta; precio $250 → $3".
-(function () {
-  const form = document.getElementById('form-unidad');
-  const bloque = document.getElementById('bloque-convertir');
-  const selNueva = document.getElementById('unidad-nueva');
-  const factor = document.getElementById('factor');
-  const precio = document.getElementById('precio');
-  const resumen = document.getElementById('resumen-conversion');
-  const existencias = {{ existencias|tojson }};
-  const precioViejo = {{ (producto['precio_venta'] or 0)|tojson }};
-  const actual = {{ actual|tojson }};
-
-  function nombreNueva() {
-    const o = selNueva.options[selNueva.selectedIndex];
-    return o && o.value ? o.textContent.trim() : 'unidad nueva';
-  }
-  function pintar() {
-    const convertir = form.modo.value === 'convertir';
-    bloque.hidden = !convertir;
-    factor.required = convertir;
-    document.querySelectorAll('.nombre-nueva').forEach((s) => { s.textContent = nombreNueva(); });
-    const n = parseFloat((factor.value || '').replace(',', '.'));
-    if (convertir && n >= 1) {
-      precio.placeholder = 'Sugerido: $' + Math.round(precioViejo / n).toLocaleString('es-CO');
-      resumen.textContent = existencias.toLocaleString('es-CO') + ' ' + actual + ' → ' +
-        (existencias * n).toLocaleString('es-CO') + ' ' + nombreNueva() + '.';
-      resumen.hidden = false;
-    } else {
-      resumen.textContent = '';
-      resumen.hidden = true;
-    }
-  }
-  form.addEventListener('change', pintar);
-  form.addEventListener('input', pintar);
-  pintar();
-})();
-</script>
+<script type="application/json" id="cambiar-unidad-datos">{{ {"existencias": existencias, "precio_viejo": producto['precio_venta'] or 0, "actual": actual}|tojson }}</script>
+<script src="{{ url_for('static', filename='js/cambiar_unidad.js') }}"></script>
 {% endblock %}

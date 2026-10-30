@@ -41,6 +41,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
+from .utiles import leer_numero   # versión 1.1.15: números escritos a la colombiana (app/utiles.py)
 from .formato import pesos
 from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
@@ -193,17 +194,8 @@ def fecha_de_form(texto):
 
 def monto_de_form(texto):
     """'150.000' o '150000,50' → 150000.0 (None si no es un número mayor a cero)."""
-    texto = (texto or "").strip().replace("$", "").replace(" ", "")
-    if "," in texto:                         # 150.000,50 → 150000.50
-        texto = texto.replace(".", "").replace(",", ".")
-    elif texto.count(".") >= 1 and len(texto.split(".")[-1]) == 3:
-        texto = texto.replace(".", "")       # 150.000 → 150000 (punto de miles)
-    try:
-        valor = float(texto)
-    except ValueError:
-        return None
-    return valor if valor > 0 else None
-
+    valor = leer_numero(texto)
+    return valor if valor is not None and valor > 0 else None
 
 def _mov_banco(db, cuenta, tipo, monto, fecha, descripcion, traslado_ref=None, caja_menor_mov_id=None):
     """Guarda un movimiento escrito a mano en una cuenta. Devuelve su id."""

@@ -54,6 +54,18 @@ class Base(unittest.TestCase):
         self.entrar(c)
         return c
 
+    def pagina_con_js(self, c, url):
+        """El HTML de una página MÁS el de sus archivos de JavaScript propios (static/js/...).
+
+        Versión 1.1.15: el JavaScript que estaba escrito dentro de las páginas pasó a sus
+        archivos. Las pruebas que buscan un texto del código lo buscan en los dos."""
+        import re
+        html = c.get(url).get_data(as_text=True)
+        partes = [html]
+        for ruta in re.findall(r'<script src="(/static/js/[^"?]+)', html):
+            partes.append(c.get(ruta).get_data(as_text=True))
+        return "\n".join(partes)
+
     def crear_usuario(self, c, usuario, rol, clave="clave1234"):
         return self.post(c, "/admin/usuarios/nuevo", {"nombre": usuario.title(), "usuario": usuario, "rol": rol, "clave": clave, "confirmar": clave})
 

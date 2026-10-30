@@ -33,10 +33,11 @@ from flask import Blueprint, flash, jsonify, redirect, render_template, request,
 from .audit import registrar
 from .auth import login_required, roles_required
 from .db import ahora, get_db
+from .utiles import leer_numero   # versión 1.1.15: números escritos a la colombiana (app/utiles.py)
 
 bp = Blueprint("ventas_rapidas", __name__, url_prefix="/ventas-rapidas")
 
-TARIFAS = (0, 5, 19)          # las mismas de la venta libre (pos.TARIFAS_LIBRE)
+TARIFAS = (0, 5, 19)          # las mismas de la venta libre (pos_ventas.TARIFAS_LIBRE)
 
 
 def lista_activas(db=None):
@@ -48,19 +49,8 @@ def lista_activas(db=None):
 
 
 def _numero(texto):
-    """'5.000' -> 5000.0 ; '2,5' -> 2.5 ; '' -> None ; texto raro -> 'error'.
-    (El punto se toma como separador de miles cuando va en grupos de 3: 15.000)"""
-    import re
-    t = str(texto if texto is not None else "").strip().replace("$", "").replace(" ", "")
-    if not t:
-        return None
-    if re.fullmatch(r"\d{1,3}(\.\d{3})+(,\d+)?", t):
-        t = t.replace(".", "")
-    try:
-        return float(t.replace(",", "."))
-    except ValueError:
-        return "error"
-
+    """'5.000' -> 5000.0 ; '2,5' -> 2.5 ; '' -> None ; texto raro -> 'error' (utiles.leer_numero)."""
+    return leer_numero(texto, malo="error")
 
 def leer_y_validar(datos):
     """Lee nombre, precio, IVA y costo de un formulario. Devuelve (valores, error)."""

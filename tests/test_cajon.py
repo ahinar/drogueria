@@ -134,7 +134,7 @@ class TestOrdenesCajon113(BaseVentas):
 
 class TestRecepcionBarras113(BaseVentas):
     def test_modal_tiene_codigo_de_barras(self):
-        html = self.c.get("/recepciones/nueva").get_data(as_text=True)
+        html = self.pagina_con_js(self.c, "/recepciones/nueva")    # el código está en static/js/recepcion.js
         self.assertIn('id="np-barras"', html)
         self.assertIn("codigo_barras", html)
         self.assertIn("beforeunload", html)                       # avisa antes de salir sin guardar
@@ -177,7 +177,7 @@ class TestBusquedaConLaboratorio113(BaseVentas):
         self.assertNotIn("TZ2", html)
 
     def test_las_paginas_tienen_la_etiqueta(self):
-        self.assertIn("chipLaboratorio", self.c.get("/").get_data(as_text=True))
+        self.assertIn("chipLaboratorio", self.pagina_con_js(self.c, "/"))
 
 
 class TestTotalPorLinea113(BaseVentas):
@@ -211,7 +211,7 @@ class TestLaboratoriosEnCompletarDatos113(BaseVentas):
         j = self.c.get("/admin/catalogos/laboratorio/api/lista").get_json()
         self.assertIn("BLASKOV", [x["nombre"] for x in j["items"]])
         self.assertEqual(self.app.test_client().get("/admin/catalogos/laboratorio/api/lista").status_code, 401)
-        html = self.c.get("/recepciones/nueva").get_data(as_text=True)
+        html = self.pagina_con_js(self.c, "/recepciones/nueva")
         self.assertIn('id="dt-nuevo-lab"', html)
         self.assertIn("refrescarLaboratorios", html)
 
@@ -236,7 +236,7 @@ class TestRecepcionObligatorios113(BaseVentas):
         self.assertIn("el costo unitario debe ser mayor a cero", html)
 
     def test_pantalla_marca_obligatorios(self):
-        html = self.c.get("/recepciones/nueva").get_data(as_text=True)
+        html = self.pagina_con_js(self.c, "/recepciones/nueva")
         # Versión 1.1.7: cada dato en su columna (Cant. | UdM | Costo UdM), todos obligatorios
         self.assertIn("Cant. *", html)
         self.assertIn("UdM *", html)

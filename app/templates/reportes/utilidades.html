@@ -9,7 +9,7 @@
   - pesos  = filtro para mostrar plata como $1.234.567
 #}
 {% macro pesos(n) -%}
-  {%- if n < -0.5 %}-{% endif %}${{ '{:,.0f}'.format(n|abs).replace(',', '.') }}
+  {{ n|pesos }}
 {%- endmacro %}
 {% macro cambio(f) -%}
   {# Verde si el cambio es bueno (más ventas, menos gastos); rojo si es malo #}

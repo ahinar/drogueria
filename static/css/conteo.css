@@ -92,7 +92,6 @@
 }
 .conteo-quitar:hover { background: #fde8e8; color: #a11d1d; }
 
-
 .conteo-mas { text-align: center; margin: 1rem 0; }
 .conteo-vacio { text-align: center; padding: 2rem; }
 .conteo-error { color: #a11d1d; }
@@ -119,7 +118,6 @@
 /* El estilo general de .boton le gana a "hidden": lo forzamos a ocultarse */
 .conteo-mas [hidden] { display: none !important; }
 
-
 /* =========================================================
    LISTA ALFABÉTICA DEL CONTEO (una fila por lote)
    ========================================================= */
@@ -145,16 +143,13 @@
 .cnt-dif { text-align: center; }
 
 /* Producto sin lotes en el sistema */
-.cnt-sin-lotes { background: #fbfcfd; }
-.cnt-sin-lotes-texto { grid-column: 2 / 6; font-size: .85rem; }
-.cnt-sin-lotes-accion { grid-column: 6 / 8; text-align: right; }
 
 /* Botones de la lista y de la ventana: letra oscura (la regla general la pone blanca) */
-.conteo-ingresar, .conteo-cambiar {
+ .conteo-cambiar {
   padding: .3rem .6rem; border: 1px solid #9ec5ea; border-radius: .35rem;
   background: #fff; color: #0a4f8a; font-size: .82rem; cursor: pointer; white-space: nowrap;
 }
-.conteo-ingresar:hover, .conteo-cambiar:hover { background: #e8f1fb; }
+ .conteo-cambiar:hover { background: #e8f1fb; }
 #btn-producto-encontrado { white-space: nowrap; padding: .6rem .9rem; font-size: .92rem; }
 
 /* =========================================================
@@ -212,9 +207,6 @@
   .cnt-mismo .cnt-prod { display: none; }        /* mismo producto: no repetir el nombre */
   .cnt-etq { display: inline; color: #8a97a3; font-size: .8rem; }
   .cnt-fila { font-size: .9rem; }
-  .cnt-sin-lotes { grid-template-areas: "prod prod prod prod" "texto texto accion accion"; }
-  .cnt-sin-lotes-texto { grid-area: texto; }
-  .cnt-sin-lotes-accion { grid-area: accion; }
   #btn-producto-encontrado { flex: 1 1 100%; }
   .cnt-modal-grid { grid-template-columns: 1fr; }
 }
@@ -242,10 +234,6 @@
 .cnt-costo-nuevo { display: block; margin-top: .3rem; font-size: .78rem; color: #5b6b66; }
 .cnt-costo-nuevo input { max-width: 120px; display: block; }
 .conteo-tag-cero { background: #fff4e0; color: #8a5a00; }
-.cnt-agregar { padding: .2rem .8rem .5rem; border-bottom: 1px solid #e6ece9; }
-.conteo-agregar-lote { background: none; border: 1px dashed #9fc5b6; color: #1f7a5c; border-radius: 6px;
-  padding: .25rem .7rem; font-size: .85rem; cursor: pointer; }
-.conteo-agregar-lote:hover { background: #eef7f3; }
 .conteo-quitar-nueva { background: none; border: none; color: #8a9a95; cursor: pointer; font-size: 1rem; }
 .conteo-vacio .boton { margin-top: .5rem; }
 .cnt-modal-cuerpo [hidden] { display: none !important; }
