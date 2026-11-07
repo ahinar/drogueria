@@ -240,7 +240,7 @@ def cajas():
         "faltantes": sum(f["diferencia"] for f in cerradas if f["diferencia"] < 0),
         "sobrantes": sum(f["diferencia"] for f in cerradas if f["diferencia"] > 0),
         "por_forma": {k: sum(f["por_forma"][k] for f in filas)
-                      for k in ("efectivo",) + fp.CLAVES_CUENTAS + ("tarjeta", "credito")},
+                      for k in ("efectivo",) + fp.TODAS_LAS_CUENTAS + ("tarjeta", "credito")},
     }
     totales["neto"] = totales["faltantes"] + totales["sobrantes"]
     usuarios = [r[0] for r in db.execute(

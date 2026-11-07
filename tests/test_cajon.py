@@ -212,7 +212,7 @@ class TestLaboratoriosEnCompletarDatos113(BaseVentas):
         self.assertIn("BLASKOV", [x["nombre"] for x in j["items"]])
         self.assertEqual(self.app.test_client().get("/admin/catalogos/laboratorio/api/lista").status_code, 401)
         html = self.pagina_con_js(self.c, "/recepciones/nueva")
-        self.assertIn('id="dt-nuevo-lab"', html)
+        self.assertIn('id="editar-nuevo-lab"', html)   # 1.1.17: el + de la ventana «Editar producto»
         self.assertIn("refrescarLaboratorios", html)
 
 

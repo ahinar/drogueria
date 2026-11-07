@@ -121,7 +121,7 @@ def puede_corregir(venta):
 
 def datos_panel(venta_id):
     """Todo lo que muestra el panel de la derecha para UNA venta."""
-    from .devoluciones import FORMAS_REEMBOLSO, _lineas_devolvibles
+    from .devoluciones import _lineas_devolvibles, formas_reembolso
     from .pos_ventas import pagos_de_venta
     db = get_db()
     venta = _venta_o_404(venta_id)
@@ -139,7 +139,7 @@ def datos_panel(venta_id):
         "es_jefe": g.user["rol"] in JEFES,
         "caja_abierta": caja_abierta is not None,
         "lineas_devolvibles": _lineas_devolvibles(venta_id) if venta["estado"] == "completada" else [],
-        "formas_reembolso": FORMAS_REEMBOLSO,
+        "formas_reembolso": formas_reembolso(),
     }
 
 

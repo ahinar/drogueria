@@ -3289,3 +3289,47 @@ body.sidebar-colapsado .sidebar-submenu, body.sidebar-colapsado .sidebar-submenu
   .insp-form { padding: .7rem; }
   .insp-form fieldset { padding: .5rem .7rem; margin: 0; }
 }
+
+/* =========================================================
+   RECEPCIÓN: etiqueta del costo que cambió (versión 1.1.17)
+   «▲ subió 23 %» naranja / «▼ bajó 7 %» verde, debajo del «Costo UdM»
+   ========================================================= */
+.linea-costo-cambio {
+  display: inline-block; margin-top: .2rem; padding: 0 .4rem; border-radius: 6px;
+  font-size: .75rem; font-weight: 600; white-space: nowrap; cursor: help;
+}
+.linea-costo-cambio[hidden] { display: none; }
+.linea-costo-cambio.sube { color: #a15c00; background: #fff6e5; border: 1px solid #f3c56b; }
+.linea-costo-cambio.baja { color: #1d7a3a; background: #e8f6ef; border: 1px solid #9ad3b8; }
+
+/* =========================================================
+   CONFIGURACIÓN → FORMAS DE PAGO (versión 1.1.17)
+   ========================================================= */
+.fp-nota { max-width: 900px; padding: .6rem .9rem; border-radius: 8px; background: #eef6ff; border: 1px solid #c9def5; }
+.fp-seccion { max-width: 900px; margin: 1.2rem 0; }
+.fp-seccion h2 { font-size: 1.15rem; margin: 0 0 .6rem; }
+.fp-lista { display: flex; flex-direction: column; gap: .5rem; }
+.fp-fila {
+  display: grid; grid-template-columns: 2.4rem 1fr auto auto; align-items: center; gap: .6rem;
+  padding: .55rem .8rem; border: 1px solid #dde3ea; border-radius: 10px; background: #fff;
+}
+.fp-fila.fp-oculta { background: #f4f5f7; opacity: .75; }
+.fp-icono { font-size: 1.5rem; text-align: center; }
+.fp-nombre { display: flex; flex-direction: column; }
+.fp-editar { display: flex; gap: .4rem; align-items: center; margin: 0; }
+.fp-editar input[type="text"] { max-width: 14rem; margin: 0; padding: .4rem .55rem; font-size: .95rem; font-weight: 600; }
+.fp-editar select { width: auto; margin: 0; }
+.fp-saldo { text-align: right; font-weight: 600; white-space: nowrap; }
+.fp-etiqueta { display: inline-block; margin-left: .4rem; padding: 0 .4rem; border-radius: 6px; background: #e3e6ea; font-size: .72rem; color: #555; }
+.fp-botones { display: flex; gap: .4rem; align-items: center; }
+.fp-botones form { display: flex; gap: .2rem; margin: 0; }
+.fp-mover { padding: .15rem .45rem; font-size: .8rem; margin: 0; background: #fff; color: #445; border: 1px solid #cfd6de; }
+.fp-mover:disabled { opacity: .35; }
+.fp-agregar { margin-top: .9rem; }
+.fp-agregar-campos { display: grid; grid-template-columns: 2fr auto 1fr 1fr; gap: .6rem; align-items: end; }
+@media (max-width: 700px) {
+  .fp-fila { grid-template-columns: 2rem 1fr; }
+  .fp-saldo, .fp-botones { grid-column: 2; text-align: left; }
+  .fp-editar { flex-wrap: wrap; }
+  .fp-agregar-campos { grid-template-columns: 1fr 1fr; }
+}

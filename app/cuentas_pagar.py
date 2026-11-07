@@ -43,13 +43,14 @@ bp = Blueprint("cuentas_pagar", __name__, url_prefix="/cuentas-por-pagar")
 ORIGENES = {
     "caja_menor": "Caja menor (efectivo)",
     "caja_pos": "Caja del POS (efectivo)",
-    **{c: fp.nombre(c) for c in fp.CLAVES_CUENTAS},       # Nequi, Davivienda, Daviplata
+    **{c: fp.nombre(c) for c in fp.TODAS_LAS_CUENTAS},       # Nequi, Davivienda, Daviplata
     "otro": "Otro (bolsillo u otra cuenta: no mueve cajas)",
 }
 
 # Para facturas viejas ("por revisar") que ya se habían pagado NO se ofrece caja menor
 # ni caja del POS: esa plata salió hace días y descontarla hoy dañaría el saldo de hoy.
-ORIGENES_ANTIGUOS = fp.CLAVES_CUENTAS + ("otro",)
+def origenes_antiguos():
+    return fp.CLAVES_CUENTAS + ("otro",)
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +99,7 @@ def saldos_origen(db):
     caja = db.execute("SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1").fetchone()
     saldos = {"caja_menor": saldo_actual(db),
               "caja_pos": _resumen_caja(caja)["efectivo_esperado"] if caja else None}
-    for clave in fp.CLAVES_CUENTAS:
+    for clave in fp.TODAS_LAS_CUENTAS:
         c = cuenta_por_clave(db, clave)
         saldos[clave] = saldo(db, c) if c else None
     return saldos, caja
@@ -193,7 +194,7 @@ def index():
                              "ON r.proveedor_id = p.id ORDER BY p.razon_social COLLATE ES").fetchall()
     return render_template("cuentas_pagar/index.html", ver=ver, pendientes=pendientes, por_revisar=por_revisar,
                            pagos=pagos, por_proveedor=por_proveedor, r=resumen(db), origenes=ORIGENES,
-                           origenes_antiguos=ORIGENES_ANTIGUOS, proveedores=proveedores, proveedor=proveedor,
+                           origenes_antiguos=origenes_antiguos(), proveedores=proveedores, proveedor=proveedor,
                            hoy=date.today().isoformat())
 
 
@@ -254,7 +255,7 @@ def revisar(rec_id):
     elif accion == "pagada":
         origen = request.form.get("origen", "")
         fecha = fecha_de_form(request.form.get("fecha"))
-        if origen not in ORIGENES_ANTIGUOS or fecha is None:
+        if origen not in origenes_antiguos() or fecha is None:
             flash("Escoge cómo se pagó y una fecha válida.", "error")
             return redirect(url_for("cuentas_pagar.index", ver="por_revisar"))
         _, error = registrar_pago(db, rec, rec["total_pagar"], fecha, origen, "Revisión de facturas anteriores")

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block titulo %}Formas de pago{% endblock %}
+{% block contenido %}
+{#
+  CONFIGURACIÓN → FORMAS DE PAGO (app/formas_pago_config.py, versión 1.1.17)
+  cuentas = las cuentas (Nequi, Davivienda, Daviplata y las que se agreguen), con su saldo de hoy
+  fijas  = tarjeta, transferencia, crédito y mixto (se pueden ocultar)
+  iconos = los emojis que se pueden escoger para una cuenta
+#}
+<div class="eres-cabecera">
+  <div>
+    <h1><span class="ico-emoji">💳</span> Formas de pago</h1>
+    <p class="suave">Las que se ofrecen al cobrar en el POS, en el pago mixto, en gastos, abonos y devoluciones.</p>
+  </div>
+</div>
+
+<p class="fp-nota">💡 Una forma de pago <strong>no se borra</strong>: se <strong>oculta</strong>. Así lo que ya se registró
+  con ella sigue apareciendo en los reportes y, si es una cuenta, su saldo sigue en Bancos.</p>
+
+<!-- ===== 1. Las cuentas ===== -->
+<section class="fp-seccion">
+  <h2>Cuentas <small class="suave">(tienen saldo propio en Bancos)</small></h2>
+  <div class="fp-lista">
+    <div class="fp-fila fp-fija">
+      <span class="fp-icono">💵</span>
+      <span class="fp-nombre"><strong>Efectivo</strong><small class="suave">La caja del POS. Siempre se muestra.</small></span>
+    </div>
+    {% for c in cuentas %}
+    <div class="fp-fila {% if c.oculta %}fp-oculta{% endif %}">
+      <span class="fp-icono">{{ c.icono or '🏦' }}</span>
+      <!-- Nombre e ícono: se cambian aquí mismo -->
+      <form method="post" action="{{ url_for('formas_pago_cfg.editar', clave=c.clave) }}" class="fp-editar">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <input type="text" name="nombre" value="{{ c.nombre }}" maxlength="40" aria-label="Nombre de la cuenta">
+        <select name="icono" aria-label="Ícono">
+          {% for i in iconos %}<option value="{{ i }}" {% if i == c.icono %}selected{% endif %}>{{ i }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="boton-chico sec" title="Guardar nombre e ícono">Guardar</button>
+      </form>
+      <span class="fp-saldo">
+        <a href="{{ url_for('bancos.cuenta', clave=c.clave) }}" title="Ver en Bancos">{{ c.saldo|pesos }}</a>
+        {% if c.oculta %}<small class="fp-etiqueta">Oculta</small>{% endif %}
+      </span>
+      <span class="fp-botones">
+        <form method="post" action="{{ url_for('formas_pago_cfg.mover', clave=c.clave) }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <button type="submit" name="hacia" value="arriba" class="fp-mover" title="Subir" {% if loop.first %}disabled{% endif %}>▲</button>
+          <button type="submit" name="hacia" value="abajo" class="fp-mover" title="Bajar" {% if loop.last %}disabled{% endif %}>▼</button>
+        </form>
+        <form method="post" action="{{ url_for('formas_pago_cfg.mostrar', clave=c.clave) }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          {% if c.oculta %}
+          <button type="submit" name="ocultar" value="0" class="boton-chico">👁 Mostrar</button>
+          {% else %}
+          <button type="submit" name="ocultar" value="1" class="boton-chico sec"
+                  data-confirmar="¿Ocultar {{ c.nombre }}? Ya no saldrá para cobrar ni para registrar cosas nuevas. Lo de antes y su saldo en Bancos se quedan.">🙈 Ocultar</button>
+          {% endif %}
+        </form>
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Agregar una cuenta nueva -->
+  <form method="post" action="{{ url_for('formas_pago_cfg.agregar') }}" class="formulario fp-agregar">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <fieldset>
+      <legend>➕ Agregar una cuenta</legend>
+      <div class="fp-agregar-campos">
+        <label>Nombre <input type="text" name="nombre" maxlength="40" required placeholder="Ej: Bancolombia"></label>
+        <label>Ícono
+          <select name="icono">{% for i in iconos %}<option value="{{ i }}">{{ i }}</option>{% endfor %}</select></label>
+        <label>Saldo con que arranca <input type="text" name="saldo_inicial" inputmode="numeric" placeholder="0"></label>
+        <label>Desde <input type="date" name="fecha_inicial" value="{{ hoy }}"></label>
+      </div>
+      <small class="suave">El saldo es lo que tiene HOY la cuenta (míralo en la app del banco). Desde ese día el programa
+        le suma las ventas y le resta los pagos hechos con ella. Se puede corregir después en Bancos.</small>
+      <div class="acciones"><button type="submit">Agregar cuenta</button></div>
+    </fieldset>
+  </form>
+</section>
+
+<!-- ===== 2. Las otras formas ===== -->
+<section class="fp-seccion">
+  <h2>Otras formas de pago</h2>
+  <div class="fp-lista">
+    {% for f in fijas %}
+    <div class="fp-fila {% if f.oculta %}fp-oculta{% endif %}">
+      <span class="fp-icono">{{ f.icono }}</span>
+      <span class="fp-nombre"><strong>{{ f.nombre }}</strong>
+        <small class="suave">{% if f.clave == 'tarjeta' %}Datáfono (débito o crédito).
+          {% elif f.clave == 'transferencia' %}Sin decir a qué cuenta (en gastos, abonos y otros ingresos).
+          {% elif f.clave == 'credito' %}Fiado: el cliente queda debiendo (Cartera).
+          {% else %}Una parte por una cuenta o tarjeta y el resto en efectivo.{% endif %}</small></span>
+      <span class="fp-saldo">{% if f.oculta %}<small class="fp-etiqueta">Oculta</small>{% endif %}</span>
+      <span class="fp-botones">
+        <form method="post" action="{{ url_for('formas_pago_cfg.mostrar', clave=f.clave) }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          {% if f.oculta %}
+          <button type="submit" name="ocultar" value="0" class="boton-chico">👁 Mostrar</button>
+          {% else %}
+          <button type="submit" name="ocultar" value="1" class="boton-chico sec">🙈 Ocultar</button>
+          {% endif %}
+        </form>
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

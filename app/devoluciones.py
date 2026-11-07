@@ -40,8 +40,10 @@ from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (c
 bp = Blueprint("devoluciones", __name__, url_prefix="/devoluciones")
 
 # "credito" = la venta fue a crédito: no se devuelve plata, se descuenta de lo que debe (Cartera)
-FORMAS_REEMBOLSO = {**{f: fp.nombre(f) for f in fp.FORMAS_REEMBOLSO},
-                    "credito": "Descontar de su deuda (venta a crédito)"}
+def formas_reembolso(incluir_ocultas=False):
+    """Cómo se le devuelve la plata al cliente. incluir_ocultas=True para MOSTRAR devoluciones viejas."""
+    formas = ("efectivo",) + fp.TODAS_LAS_CUENTAS + ("tarjeta",) if incluir_ocultas else fp.FORMAS_REEMBOLSO
+    return {**{f: fp.nombre(f) for f in formas}, "credito": "Descontar de su deuda (venta a crédito)"}
 MOTIVOS_PROVEEDOR = ["Producto vencido", "Próximo a vencer", "Averiado / empaque dañado",
                      "Error en el pedido", "Retiro del mercado (alerta INVIMA)", "Otro"]
 JEFES = ("administrador", "director_tecnico")
@@ -88,7 +90,7 @@ def ver(dev_id):
     lineas = get_db().execute(
         "SELECT l.*, lo.lote AS lote_codigo, lo.vencimiento FROM devolucion_lineas l "
         "LEFT JOIN lotes lo ON lo.id = l.lote_id WHERE l.devolucion_id = ? ORDER BY l.id", (dev_id,)).fetchall()
-    return render_template("devoluciones/ver.html", d=dev, lineas=lineas, formas=FORMAS_REEMBOLSO)
+    return render_template("devoluciones/ver.html", d=dev, lineas=lineas, formas=formas_reembolso(incluir_ocultas=True))
 
 
 # ======================================================================
@@ -149,7 +151,7 @@ def cliente():
     caja = db.execute("SELECT * FROM cajas WHERE estado = 'abierta' ORDER BY id DESC LIMIT 1").fetchone()
     return render_template("devoluciones/cliente.html", buscado=buscado, venta=venta, caja=caja,
                            lineas=_lineas_devolvibles(venta["id"]) if venta else [],
-                           formas=FORMAS_REEMBOLSO)
+                           formas=formas_reembolso())
 
 
 def _registrar_devolucion_cliente(venta):
@@ -159,7 +161,7 @@ def _registrar_devolucion_cliente(venta):
     forma = request.form.get("forma_reembolso")
     if len(motivo) < 3:
         raise _Error("Escribe el motivo de la devolución.")
-    if forma not in FORMAS_REEMBOLSO:
+    if forma not in formas_reembolso():
         raise _Error("Elige cómo se le devuelve la plata al cliente.")
     # Descontar de la deuda solo tiene sentido si la venta fue a crédito
     if (forma == "credito") != (venta["forma_pago"] == "credito"):
@@ -270,7 +272,7 @@ def _registrar_devolucion_cliente(venta):
     if forma == "credito":
         flash(f"Devolución {numero} registrada: se descontaron {pesos(tot_total)} de la deuda del cliente.", "ok")
     else:
-        flash(f"Devolución {numero} registrada: entrégale {pesos(tot_total)} al cliente ({FORMAS_REEMBOLSO[forma]}).", "ok")
+        flash(f"Devolución {numero} registrada: entrégale {pesos(tot_total)} al cliente ({formas_reembolso()[forma]}).", "ok")
     return dev_id
 
 
@@ -451,7 +453,7 @@ def acta(dev_id):
     else:
         titulo = f"DEVOLUCIÓN DE CLIENTE N.º {d['numero']}"
         datos = (f"Fecha: <b>{fecha}</b> · Venta: <b>{d['venta']}</b><br/>Motivo: {d['motivo']}<br/>"
-                 f"Reembolso: {FORMAS_REEMBOLSO.get(d['forma_reembolso'], d['forma_reembolso'])}")
+                 f"Reembolso: {formas_reembolso(incluir_ocultas=True).get(d['forma_reembolso'], d['forma_reembolso'])}")
         cabeza = ["Producto", "Presentación", "Destino", "Cantidad", "Valor"]
         filas = [[l["producto_nombre"], l["presentacion"] or "—",
                   "Vuelve al inventario" if l["destino"] == "reingreso" else "Baja (no vuelve)",

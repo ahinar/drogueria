@@ -121,7 +121,7 @@ def resumen_sesion(db, caja):
         "n_ventas": r["n_ventas"],
         "total_ventas": r["total_ventas"],
         # Ventas por forma: efectivo, cada cuenta (Nequi, Davivienda, Daviplata), tarjeta y crédito
-        "por_forma": {f: r[f"ventas_{f}"] for f in ("efectivo",) + fp.CLAVES_CUENTAS + ("tarjeta", "credito")},
+        "por_forma": {f: r[f"ventas_{f}"] for f in ("efectivo",) + fp.TODAS_LAS_CUENTAS + ("tarjeta", "credito")},
         "efectivo_inicial": r["efectivo_inicial"],
         "ingresos_efectivo": r["ingresos_efectivo"],
         "salidas_efectivo": r["salidas_efectivo"],

@@ -257,6 +257,14 @@ def api_producto_info(producto_id):
         "compras": [{"numero": c["numero"], "fecha": c["fecha"], "proveedor": c["proveedor"],
                      "cantidad": c["cantidad_recibida"], "costo": c["costo_unitario"]}
                     for c in compras],
+        # Versión 1.1.17: la pestaña «Datos técnicos» de la ventana Editar (la misma de la Recepción)
+        "tecnicos": {
+            "registro_sanitario": p["registro_sanitario"] or "",
+            "registro_vence": p["registro_vence"] or "",
+            "laboratorio_id": p["laboratorio_id"],
+            "forma_farmaceutica_id": p["forma_farmaceutica_id"],
+            "principios": principios.texto_de(db, producto_id),      # "Acetaminofén, Codeína"
+        },
     }})
 
 

@@ -246,7 +246,7 @@ class TestFotoDesdeRecepcion(Base118):
     def test_ventanas_tienen_el_cuadro_de_foto(self):
         html = self.c.get("/recepciones/nueva").get_data(as_text=True)
         self.assertIn('id="np-foto"', html)
-        self.assertIn('id="dt-foto"', html)
+        self.assertIn('id="editar-foto-marco"', html)   # 1.1.17: la ventana «Editar producto» (antes «Completar datos»)
 
 
 class TestCamposYConteo(Base118):

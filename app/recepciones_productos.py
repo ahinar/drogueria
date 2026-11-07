@@ -18,6 +18,7 @@ from .auth import login_required
 from .db import ahora, get_db
 # El blueprint de la recepción (está en app/recepciones.py)
 from .recepciones import _presentaciones_simples, bp
+from .ventana_producto import SQL_ULTIMO_COSTO
 
 
 # ---------- Búsqueda de productos para autocompletado ----------
@@ -44,6 +45,9 @@ def _fila_a_dict(f):
         "control_especial": f["control_especial"] or 0,
         # IVA del producto (versión 1.1.6): la recepción lo pone solo en la línea
         "iva": (f["iva_tarifa"] or 0) if f["iva_tipo"] == "gravado" else 0,
+        # Versión 1.1.17: costo por unidad de la última compra, para la etiqueta
+        # «▲ subió 23 %» debajo del costo de la línea (ver ventana_producto.py)
+        "ultimo_costo": f["ultimo_costo"],
     }
 
 
@@ -53,7 +57,8 @@ _SELECT_BUSQUEDA = (
     "p.maneja_vencimiento, p.cadena_frio, p.control_especial, "
     "(SELECT nombre FROM catalogos WHERE id = p.laboratorio_id) AS lab_nombre, "
     "(SELECT nombre FROM catalogos WHERE id = p.forma_farmaceutica_id) AS forma_nombre, "
-    "(SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre "
+    "(SELECT nombre FROM unidades_medida WHERE id = p.unidad_venta_id) AS unidad_nombre, "
+    + SQL_ULTIMO_COSTO + " "
     "FROM productos p "
 )
 

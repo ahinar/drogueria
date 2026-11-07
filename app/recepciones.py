@@ -149,6 +149,7 @@ def _lineas_previas_formulario(form=None):
     factores_otros = form.getlist("linea_factor_otro")
     ivas = form.getlist("linea_iva")            # IVA % de cada línea (versión 1.1.6)
 
+    from .ventana_producto import ultimo_costo
     db = get_db()
     lineas = []
     for i, pid in enumerate(prod_ids):
@@ -175,6 +176,8 @@ def _lineas_previas_formulario(form=None):
             "maneja_vencimiento": p["maneja_vencimiento"],
             "cadena_frio": p["cadena_frio"],
             "control_especial": p["control_especial"],
+            # Versión 1.1.17: para la etiqueta «▲ subió 23 %» del costo
+            "ultimo_costo": ultimo_costo(db, int(pid)),
             "lote": v(lotes, i),
             "vencimiento": v(vencimientos, i),
             "cantidad_recibida": v(cant_rec, i) or "0",

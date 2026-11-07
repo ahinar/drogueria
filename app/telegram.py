@@ -131,7 +131,7 @@ def mensaje_cierre_caja(db, caja_id):
               "",
               f"🛒 Ventas: <b>{pesos(r['total_ventas'])}</b> ({r['n_ventas']} venta{'s' if r['n_ventas'] != 1 else ''})"]
     # Una línea por cada forma de pago que tuvo ventas
-    for forma in ("efectivo",) + fp.CLAVES_CUENTAS + ("tarjeta", "credito"):
+    for forma in ("efectivo",) + fp.TODAS_LAS_CUENTAS + ("tarjeta", "credito"):
         valor = r.get(f"ventas_{forma}") or 0
         if valor:
             lineas.append(f"   • {fp.nombre(forma) if forma != 'credito' else 'Fiado (crédito)'}: {pesos(valor)}")

@@ -1046,6 +1046,16 @@
       errorBox.style.display = 'block';
       return;
     }
+    // Efectivo: si escribió menos que el total, se avisa y NO se registra (vacío = pago exacto)
+    if (formaPago === 'efectivo' && $('pago-recibido').value !== '' &&
+        parseFloat($('pago-recibido').value) + 0.001 < totalVenta()) {
+      errorBox.textContent = 'El efectivo recibido no alcanza: faltan ' +
+        peso(totalVenta() - parseFloat($('pago-recibido').value)) + '. (Vacío = pago exacto.)';
+      errorBox.style.display = 'block';
+      $('pago-recibido').focus();
+      $('pago-recibido').select();
+      return;
+    }
     // Pago mixto: revisar antes de mandar (el servidor revisa lo mismo, por si acaso)
     if (formaPago === 'mixto') {
       const pagos = pagosMixtos();
@@ -1117,6 +1127,8 @@
       if (modoCajon === 'siempre' || (modoCajon === 'efectivo' && huboEfectivo)) abrirCajon('cobro');
       $('pago-form').style.display = 'none';
       $('pago-exito').style.display = '';
+      exitoDesde = performance.now();       // (Enter = nueva venta, pero medio segundo después)
+      $('exito-nueva').focus();
       limpiarCarrito();   // cierra la venta cobrada (si hay otras abiertas, pasa a la siguiente)
       pintarCarrito();
       buscar(false);
@@ -1186,6 +1198,129 @@
     $('pago-recibido').value = monto === 'exacto' ? totalVenta() : monto;
     actualizarCambio();
   });
+
+  // ---------------------------------------------------------------
+  // 7d. COBRAR TODO CON EL TECLADO (versión 1.1.17, pedido de Fernando)
+  // ---------------------------------------------------------------
+  // La idea: vender sin tocar el mouse.
+  //   Enter            → abre "Cobrar venta" (con productos en el carrito)
+  //   una LETRA        → escoge la forma de pago: E efectivo, N Nequi, D Davivienda,
+  //                      P Daviplata, T tarjeta, C crédito, M mixto (la letra se ve
+  //                      subrayada en cada botón). Flechas ← → también la cambian.
+  //   escribir el valor y Enter → la venta queda registrada.
+  //                      Efectivo VACÍO + Enter = pago exacto (el programa ya lo
+  //                      entendía así: ver pos_ventas.api_cobrar).
+  //   Esc              → cancela el cobro y vuelve al carrito (no se pierde nada).
+  //   En "Venta registrada": Enter → nueva venta, con el cursor listo para escanear.
+  //     Ese Enter solo funciona medio segundo DESPUÉS de que aparece la pantalla, para
+  //     que el mismo Enter que registró la venta no se salte la pantalla del cambio.
+  const TECLAS_PREFERIDAS = { efectivo: 'e', nequi: 'n', davivienda: 'd', daviplata: 'p',
+                              tarjeta: 't', credito: 'c', mixto: 'm' };
+  const teclaForma = {};              // 'e' → 'efectivo', 'n' → 'nequi'...
+  // Cada botón recibe su letra. Las cuentas nuevas (Configuración → Formas de pago) toman
+  // la primera letra de su nombre que nadie más esté usando (ej. Bancolombia → B).
+  function asignarTeclas() {
+    const botones = Array.from(document.querySelectorAll('.pos-pago-metodo'));
+    Object.keys(teclaForma).forEach((k) => delete teclaForma[k]);
+    const libre = (l) => l && /[a-zñ]/.test(l) && !teclaForma[l];
+    botones.forEach((b) => {                                   // primero las de siempre
+      const t = TECLAS_PREFERIDAS[b.dataset.forma];
+      if (libre(t)) teclaForma[t] = b.dataset.forma;
+    });
+    botones.forEach((b) => {                                   // luego las demás
+      if (Object.values(teclaForma).includes(b.dataset.forma)) return;
+      const nombre = b.textContent.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const letra = Array.from(nombre).find(libre);
+      if (letra) teclaForma[letra] = b.dataset.forma;
+    });
+    // Subrayar la letra en el texto del botón (la primera vez que aparece)
+    botones.forEach((b) => {
+      const letra = Object.keys(teclaForma).find((l) => teclaForma[l] === b.dataset.forma);
+      b.dataset.tecla = letra || '';
+      if (!letra) return;
+      b.title = 'Tecla ' + letra.toUpperCase();
+      // El texto es el último pedazo del botón (después del ícono)
+      const nodo = Array.from(b.childNodes).reverse().find((n) => n.nodeType === 3 && n.textContent.trim());
+      if (!nodo) return;
+      const texto = nodo.textContent;
+      const sinTilde = texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const i = sinTilde.indexOf(letra);
+      if (i < 0) return;
+      const u = document.createElement('u');
+      u.textContent = texto.charAt(i);
+      nodo.replaceWith(document.createTextNode(texto.slice(0, i)), u, document.createTextNode(texto.slice(i + 1)));
+    });
+  }
+  asignarTeclas();
+
+  let exitoDesde = 0;                 // cuándo apareció "Venta registrada"
+  function moverForma(paso) {
+    const formas = Array.from(document.querySelectorAll('.pos-pago-metodo')).map((b) => b.dataset.forma);
+    const i = formas.indexOf(formaPago);
+    elegirForma(formas[(i + paso + formas.length) % formas.length]);
+    enfocarSegunForma();
+  }
+  // Después de escoger con el teclado: efectivo → la casilla del valor; las cuentas y la
+  // tarjeta → el botón Confirmar (Enter registra de una vez). Mixto y crédito ponen su cursor solos.
+  function enfocarSegunForma() {
+    if (formaPago === 'efectivo') $('pago-recibido').focus();
+    else if (formaPago !== 'mixto' && formaPago !== 'credito') $('pago-confirmar').focus();
+  }
+  document.addEventListener('keydown', (e) => {
+    if (modalPago.classList.contains('modal-oculto')) return;
+    if (e.ctrlKey || e.altKey || e.metaKey) return;
+    const enExito = $('pago-exito').style.display !== 'none';
+    // ---- Pantalla "Venta registrada" ----
+    if (enExito) {
+      if (e.key === 'Enter' || e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (performance.now() - exitoDesde < 500) return;    // el Enter que registró la venta
+        cerrarPago();                                         // = nueva venta, cursor en el buscador
+      }
+      return;
+    }
+    // ---- Pantalla "Cobrar venta" ----
+    const enBuscadorCliente = e.target && e.target.id === 'credito-buscar';
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      cerrarPago();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      // En el buscador de clientes (crédito), Enter escoge el primero de la lista
+      if (enBuscadorCliente && !clienteCredito && ultimosClientes.length) {
+        clienteCredito = ultimosClientes[0];
+        pintarClienteCredito();
+        $('pago-confirmar').focus();
+        return;
+      }
+      if (e.repeat) return;                                   // tecla sostenida: no cobrar dos veces
+      confirmarVenta();
+      return;
+    }
+    if (enBuscadorCliente) return;                            // ahí las letras son para escribir el nombre
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      moverForma(e.key === 'ArrowRight' ? 1 : -1);
+      return;
+    }
+    const letra = e.key.length === 1 ? e.key.toLowerCase() : '';
+    if (teclaForma[letra]) {
+      e.preventDefault();
+      elegirForma(teclaForma[letra]);
+      enfocarSegunForma();
+      return;
+    }
+    // Un número con el cursor fuera de la casilla (ej. después de escoger Efectivo con el
+    // mouse): se escribe en "Efectivo recibido"
+    if (/^[0-9]$/.test(e.key) && formaPago === 'efectivo' && document.activeElement !== $('pago-recibido')) {
+      $('pago-recibido').focus();
+    }
+  }, true);
 
   // ---------------------------------------------------------------
   // 8. CLIENTE, NOTA, MENÚ LATERAL Y GASTO
@@ -2015,6 +2150,8 @@
     if (e.key !== 'Enter') return;
     e.preventDefault();
     clearTimeout(temporizador);
+    // Versión 1.1.17: Enter con el buscador VACÍO y productos en el carrito = cobrar
+    if (!inputBusqueda.value.trim() && carrito.length) { abrirPago(); return; }
     const fueLector = rafaga.n >= 4 && ahora - rafaga.ultima < 150 &&
       inputBusqueda.value.startsWith(rafaga.antes);
     if (fueLector) {

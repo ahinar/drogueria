@@ -33,7 +33,7 @@
   <section class="dash-panel">
     <h2>Ventas por forma de pago</h2>
     <table class="dash-resumen">
-      {% for clave in ('efectivo',) + formas_pago.CLAVES_CUENTAS + ('tarjeta', 'credito') %}
+      {% for clave in ('efectivo',) + formas_pago.TODAS_LAS_CUENTAS + ('tarjeta', 'credito') %}
       <tr><td>{{ formas[clave] }}</td><td class="der">{{ r.por_forma[clave]|pesos }}</td></tr>
       {% endfor %}
       <tr class="dash-resumen-total"><td>Total ({{ r.n_ventas }} venta{{ 's' if r.n_ventas != 1 else '' }})</td>

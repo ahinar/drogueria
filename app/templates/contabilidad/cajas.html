@@ -29,7 +29,7 @@
 <div class="dash-mini">
   <div class="dash-mini-tarjeta"><span>Ventas de estas cajas</span><strong>{{ totales.ventas|pesos }}</strong>
     <small>Efectivo {{ totales.por_forma.efectivo|pesos }}
-      {% for c in formas_pago.CLAVES_CUENTAS %} · {{ formas_pago.nombre(c) }} {{ totales.por_forma[c]|pesos }}{% endfor %}
+      {% for c in formas_pago.TODAS_LAS_CUENTAS %} · {{ formas_pago.nombre(c) }} {{ totales.por_forma[c]|pesos }}{% endfor %}
       · Tarjeta {{ totales.por_forma.tarjeta|pesos }}
       {% if totales.por_forma.credito %}· Crédito {{ totales.por_forma.credito|pesos }}{% endif %}</small></div>
   <div class="dash-mini-tarjeta"><span>Faltantes</span><strong class="dif-falta">{% if totales.faltantes %}−{{ (totales.faltantes|abs)|pesos }}{% else %}$0{% endif %}</strong>
@@ -42,7 +42,7 @@
 <table class="tabla dash-tabla tabla-cajas">
   <thead>
     <tr><th>Caja</th><th>Apertura</th><th>Cierre</th><th class="der">Inicial</th><th class="der">Ventas</th>
-        <th class="der">Efectivo</th>{% for c in formas_pago.CLAVES_CUENTAS %}<th class="der">{{ formas_pago.nombre(c) }}</th>{% endfor %}<th class="der">Tarjeta</th>
+        <th class="der">Efectivo</th>{% for c in formas_pago.TODAS_LAS_CUENTAS %}<th class="der">{{ formas_pago.nombre(c) }}</th>{% endfor %}<th class="der">Tarjeta</th>
         <th class="der">Esperado</th><th class="der">Contado</th><th class="der">Diferencia</th></tr>
   </thead>
   <tbody>
@@ -55,14 +55,14 @@
       <td class="der">{{ r.efectivo_inicial|pesos }}</td>
       <td class="der"><strong>{{ r.total_ventas|pesos }}</strong><br><small class="suave">{{ r.n_ventas }} venta(s)</small></td>
       <td class="der">{{ r.por_forma.efectivo|pesos }}</td>
-      {% for c in formas_pago.CLAVES_CUENTAS %}<td class="der">{{ r.por_forma[c]|pesos }}</td>{% endfor %}
+      {% for c in formas_pago.TODAS_LAS_CUENTAS %}<td class="der">{{ r.por_forma[c]|pesos }}</td>{% endfor %}
       <td class="der">{{ r.por_forma.tarjeta|pesos }}</td>
       <td class="der">{{ r.esperado|pesos }}</td>
       <td class="der">{{ r.contado|pesos if r.contado is not none else '—' }}</td>
       <td class="der">{% include "contabilidad/_diferencia.html" %}</td>
     </tr>
   {% else %}
-    <tr><td colspan="{{ 10 + formas_pago.CLAVES_CUENTAS|length }}" class="suave">No hay sesiones de caja con esos filtros.</td></tr>
+    <tr><td colspan="{{ 10 + formas_pago.TODAS_LAS_CUENTAS|length }}" class="suave">No hay sesiones de caja con esos filtros.</td></tr>
   {% endfor %}
   </tbody>
 </table>

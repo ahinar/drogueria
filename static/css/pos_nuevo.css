@@ -459,3 +459,60 @@
 .vr-escoger .modal-acciones { flex-wrap: wrap; }
 .pos-card.pos-card-rapida { border: 1px dashed #14b8a6; background: #f7fffd; }
 .pos-card-rapida .pos-card-img-vacia { font-size: 2rem; }
+
+/* =====================================================================
+   VERSIÓN 1.1.17: la ventana "Editar producto" con DOS PESTAÑAS
+   (Venta y Datos técnicos) y el recuadro de costo de la Recepción.
+   ===================================================================== */
+/* Las pestañas: una raya de color debajo de la que se está viendo */
+#modal-editar-producto .editar-pestanas {
+  display: flex; gap: .3rem; padding: 0 1.2rem; border-bottom: 2px solid #e6ebf0;
+}
+#modal-editar-producto .editar-pestana {
+  margin: 0 0 -2px; padding: .6rem 1rem; border: 0; border-bottom: 3px solid transparent; border-radius: 0;
+  background: none; color: #5c6b78; font-size: .95rem; font-weight: 600; cursor: pointer;
+}
+#modal-editar-producto .editar-pestana small { font-weight: 400; }
+#modal-editar-producto .editar-pestana:hover { color: var(--acento-fuerte); background: none; }
+#modal-editar-producto .editar-pestana.activa { color: var(--acento-fuerte); border-bottom-color: var(--acento); }
+#modal-editar-producto .editar-panel { display: flex; flex-direction: column; gap: .55rem; }
+#modal-editar-producto .editar-panel[hidden] { display: none; }
+
+/* Datos técnicos: dos columnas de casillas con la etiqueta encima */
+#modal-editar-producto .editar-tecnicos { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem 1rem; align-content: start; }
+#modal-editar-producto .editar-tecnicos[hidden] { display: none; }
+#modal-editar-producto .editar-tecnicos > label {
+  display: flex; flex-direction: column; gap: .25rem; font-weight: 600; color: #1f2a33;
+}
+#modal-editar-producto .editar-tecnicos input,
+#modal-editar-producto .editar-tecnicos select {
+  width: 100%; padding: .45rem .55rem; border: 1px solid #c8d2da; border-radius: .35rem; font-size: .92rem; font-weight: 400;
+}
+#modal-editar-producto .editar-tecnicos .campo-con-boton { display: flex; gap: .35rem; align-items: center; }
+#modal-editar-producto .editar-tecnicos .editar-ancho { grid-column: 1 / -1; }
+@media (max-width: 640px) {
+  #modal-editar-producto .editar-tecnicos { grid-template-columns: 1fr; }
+}
+
+/* Recuadro amarillo del costo (solo cuando se abre desde la Recepción) */
+#modal-editar-producto .editar-costo {
+  margin: .7rem 1.2rem .2rem; padding: .65rem .85rem; border: 1px solid #f3c56b; border-radius: .5rem;
+  background: #fff6e5; font-size: .9rem; line-height: 1.5;
+}
+#modal-editar-producto .editar-costo[hidden] { display: none; }
+.editar-costo-sube { color: #a15c00; }
+.editar-costo-baja { color: #1d7a3a; }
+#modal-editar-producto .editar-costo-sugerido {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; margin-top: .4rem;
+}
+#modal-editar-producto .editar-costo-sugerido .boton-chico { margin: 0; padding: .2rem .7rem; font-size: .85rem; }
+/* La casilla de precio brilla un momento cuando se usa el precio sugerido */
+#modal-editar-producto .editar-recien-cambiado { box-shadow: 0 0 0 3px #f3c56b; transition: box-shadow .3s; }
+
+/* Versión 1.1.17: ayuda del teclado en «Cobrar venta» y la letra subrayada de cada forma de pago */
+.pago-teclas { margin: .6rem 0 0; font-size: .78rem; text-align: center; }
+.pago-teclas kbd {
+  display: inline-block; min-width: 1.3em; padding: 0 .3em; margin: 0 .1em; border: 1px solid #c8d2da;
+  border-bottom-width: 2px; border-radius: .25rem; background: #fff; font-family: inherit; font-size: .72rem;
+}
+.pos-pago-metodo u { text-decoration-thickness: 2px; text-underline-offset: 2px; }

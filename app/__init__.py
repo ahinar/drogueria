@@ -118,6 +118,9 @@ def create_app(test_config=None):
     # Versión 1.1.16: Modo inspección (todo lo de la Secretaría en un .zip). Ver app/inspeccion.py
     from . import inspeccion
     app.register_blueprint(inspeccion.bp)
+    # Versión 1.1.17: Configuración → Formas de pago (ver app/formas_pago_config.py)
+    from . import formas_pago_config
+    app.register_blueprint(formas_pago_config.bp)
     # Versión 1.1.14: pantalla Ventas (buscar, ver el carrito al lado, devolver, corregir el pago)
     from . import ventas
     app.register_blueprint(ventas.bp)
@@ -130,6 +133,10 @@ def create_app(test_config=None):
     #   {% for f in formas_pago.FORMAS_MOVIMIENTO %}<option value="{{ f }}">{{ formas_pago.nombre(f) }}</option>{% endfor %}
     from . import formas_pago as _formas_pago
     app.jinja_env.globals["formas_pago"] = _formas_pago
+    # Versión 1.1.17: la ventana «Editar producto» (POS, toma de inventario y Recepción)
+    # pide sola sus listas: {% set vp = listas_ventana_producto() %}. Ver app/ventana_producto.py
+    from .ventana_producto import listas_ventana_producto
+    app.jinja_env.globals["listas_ventana_producto"] = listas_ventana_producto
     # {{ "2026-10-10 07:15:00" | fecha_hora }} → "10/10/2026 07:15"
     app.jinja_env.filters["fecha_hora"] = lambda t: (
         f"{t[8:10]}/{t[5:7]}/{t[0:4]}" + (f" {t[11:16]}" if len(t or "") >= 16 else "")

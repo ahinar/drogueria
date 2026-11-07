@@ -165,7 +165,7 @@
 
       <!-- ===== Administración (desplegable; se abre sola si estás en una de sus páginas) ===== -->
       {% if jefe %}
-      {% set en_admin = ep.startswith('catalogos.') or ep.startswith('unidades.') or ep.startswith('admin.') or ep.startswith('configuracion.') %}
+      {% set en_admin = ep.startswith('catalogos.') or ep.startswith('unidades.') or ep.startswith('admin.') or ep.startswith('configuracion.') or ep.startswith('formas_pago_cfg.') %}
       <button type="button" class="sidebar-link sidebar-group {% if en_admin %}abierto{% endif %}"
               data-group="admin" title="Administración">
         <span class="ico">{{ ico("ajustes", "🗂️") }}</span>
@@ -193,6 +193,11 @@
         <a class="sidebar-sublink {% if ep.startswith('configuracion.') %}activo{% endif %}"
            href="{{ url_for('configuracion.ver') }}" title="Configuración">
           <span class="ico">{{ ico("engranaje", "⚙️") }}</span><span class="txt">Configuración</span>
+        </a>
+        {# Versión 1.1.17: agregar cuentas (Bancolombia, Nu...), ocultar y ordenar formas de pago #}
+        <a class="sidebar-sublink {% if ep.startswith('formas_pago_cfg.') %}activo{% endif %}"
+           href="{{ url_for('formas_pago_cfg.ver') }}" title="Formas de pago">
+          <span class="ico">{{ ico("billetera", "💳") }}</span><span class="txt">Formas de pago</span>
         </a>
         <a class="sidebar-sublink {% if ep == 'admin.respaldos' %}activo{% endif %}"
            href="{{ url_for('admin.respaldos') }}" title="Respaldos">

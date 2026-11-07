@@ -30,7 +30,9 @@ from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (c
 bp = Blueprint("otros_ingresos", __name__, url_prefix="/contabilidad/ingresos")
 
 # Formas de pago posibles (las mismas de los gastos)
-FORMAS = {f: fp.nombre(f) for f in fp.FORMAS_MOVIMIENTO}
+def formas():
+    """(función: las cuentas se configuran desde la versión 1.1.17)"""
+    return {f: fp.nombre(f) for f in fp.FORMAS_MOVIMIENTO}
 
 
 def _categorias():
@@ -94,7 +96,7 @@ def lista():
 
     return render_template(
         "contabilidad/ingresos_lista.html", filas=filas, categorias=_categorias(),
-        q=q, cat_id=cat_id, desde=desde, hasta=hasta, filtro=filtro, formas=FORMAS,
+        q=q, cat_id=cat_id, desde=desde, hasta=hasta, filtro=filtro, formas=formas(),
         total_filtro=sum(f["monto"] or 0 for f in filas if f["activo"]))
 
 
@@ -128,7 +130,7 @@ def _validar(datos, bloqueado=False):
             errores.append("La fecha no puede ser en el futuro.")
         if datos["monto"] <= 0:
             errores.append("El monto debe ser mayor a cero.")
-        if datos["forma_pago"] not in FORMAS:
+        if datos["forma_pago"] not in formas():
             errores.append("Forma de pago inválida.")
     if not datos["categoria_id"] or get_db().execute(
             "SELECT 1 FROM catalogos WHERE id = ? AND tipo = 'categoria_ingreso'",
@@ -166,7 +168,7 @@ def nuevo():
         for e in errores:
             flash(e, "error")
     return render_template("contabilidad/ingresos_form.html", ingreso=None, bloqueado=False,
-                           categorias=_categorias(), formas=FORMAS, hoy=date.today().isoformat())
+                           categorias=_categorias(), formas=formas(), hoy=date.today().isoformat())
 
 
 @bp.route("/<int:ingreso_id>/editar", methods=["GET", "POST"])
@@ -204,7 +206,7 @@ def editar(ingreso_id):
         for e in errores:
             flash(e, "error")
     return render_template("contabilidad/ingresos_form.html", ingreso=ingreso, bloqueado=bloqueado,
-                           categorias=_categorias(), formas=FORMAS, hoy=date.today().isoformat())
+                           categorias=_categorias(), formas=formas(), hoy=date.today().isoformat())
 
 
 @bp.route("/<int:ingreso_id>/anular", methods=["POST"])

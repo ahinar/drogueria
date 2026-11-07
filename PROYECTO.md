@@ -509,6 +509,34 @@ Notas:
 | 1.1.14 | 2026-10-29 | MENÚ POR TAREAS (Vender · Ventas · Compras · Inventario · Dinero · Calidad · Reportes · Administración, en acordeón; recogido muestra un ícono por grupo). Pantalla VENTAS: buscar cualquier venta, el carrito a la derecha sin cambiar de pantalla y abajo devoluciones y CORREGIR EL PAGO (si la caja ya cerró, recalcula el faltante/sobrante). DAVIPLATA como forma de pago y cuenta en Bancos (migración 43). POS: un solo botón «Movimiento de plata» (entra/sale → otro ingreso, efectivo, gasto, retiro del dueño o traslado con destino), categorías en una fila con «Más ▾» y menú lateral recogido. Recepción que cabe en la pantalla. Un solo estilo de tarjetas. Aviso en Inicio si no hay copia fuera del computador. Vencimientos y temperaturas sin pantallas repetidas |
 | 1.1.15 | 2026-10-29 | ORDEN INTERNO (no cambia lo que se ve): el JavaScript que estaba dentro de las pantallas (2.360 líneas) pasó a 13 archivos en static/js; ayudas comunes en app/utiles.py (leer_numero, obtener_o_404, siguiente_numero) y estilos_pdf(); POS partido en pos.py / pos_productos.py / pos_ventas.py y la recepción en recepciones.py / recepciones_productos.py / recepciones_acta.py; filtro |pesos en todas las pantallas; se quitaron imports, funciones y estilos CSS que ya nadie usaba |
 | 1.1.16 | 2026-10-30 | ALERTAS AL CELULAR por Telegram (Configuración → Alertas al celular): mini resumen al cerrar cada caja (ventas por forma de pago, contado, diferencia, gastos y retiros del turno) y aviso de temperatura/humedad fuera de rango; botones «Buscar mi chat» y «Mandar prueba». MODO INSPECCIÓN (Calidad → Modo inspección): lo pendiente de calidad y un .zip con las planillas del mes (temperaturas por zona, limpieza, residuos), vencimientos, listado de documentos, plan de capacitaciones y los certificados escaneados. FOTO POR CÓDIGO DE BARRAS en la ficha del producto (Open Food/Beauty/Products Facts; casi nunca trae medicamentos) |
+| 1.1.17 | 2026-11-06 | UNA SOLA VENTANA «EDITAR PRODUCTO» (POS, toma de inventario y Recepción) con pestañas Venta y Datos técnicos; en la Recepción el botón es «✎ Editar datos» y trae el costo que llegó vs. la compra anterior, cuánto se gana y un precio sugerido (margen de Configuración), y debajo del costo de cada línea «▲ subió 23 %» / «▼ bajó 7 %». COBRAR CON EL TECLADO: Enter abre el cobro, una letra escoge la forma de pago, Enter registra (vacío = exacto), Enter en «Venta registrada» = nueva venta (después de medio segundo), Esc vuelve. CONFIGURACIÓN → FORMAS DE PAGO: agregar cuentas (Bancolombia, Nu...), ocultar (no se borran), ordenar y cambiar nombre o ícono |
+
+### Versión 1.1.17 — ventana única de producto, cobro con teclado, formas de pago configurables (2026-11-06)
+Los tres pedidos de la lista de Fernando (documento del proyecto «Lista para la próxima actualización»).
+- **Ventana «Editar producto» única** (`pos/_modal_editar_producto.html` + `static/js/editar_producto.js`). Se quitó la
+  ventana «Completar datos» de `recepciones/form.html`. Dos pestañas: Venta (solo administrador y director técnico) y
+  Datos técnicos (todos). Las listas de sus menús las trae `listas_ventana_producto()` (`app/ventana_producto.py`,
+  global de Jinja), así ninguna pantalla tiene que mandarlas. Guarda en dos llamadas: técnicos
+  (`/recepciones/api/producto/<id>/tecnicos`) y después venta (`/pos/api/producto/<id>/editar`), para que el registro
+  INVIMA ya exista si se marca control especial. `pos.api_producto_info` devuelve `tecnicos`.
+  `EditarProducto.abrir(id, {recepcion: {numero, costo, anterior}, textoGuardar, pestana, alGuardar})`.
+  Recuadro de costo: ganancia sobre el precio SIN IVA (como la ventana «i»); precio sugerido =
+  costo ÷ (1 − margen) + IVA, redondeado hacia arriba a $50/$100; avisa si pasa el precio máximo.
+- **Etiqueta del costo** en la Recepción: `ventana_producto.ultimo_costo` / `SQL_ULTIMO_COSTO` (última línea aceptada
+  de una recepción aprobada); `recepcion.js` → `costoPorUnidad(tr)` (mismo cálculo que `costo_unitario`) y
+  `marcarCambioCosto(tr)`; sale con 1 % o más de diferencia.
+- **Cobro con teclado** (`pos_carrito.js`, sección 7d): letras por forma (`TECLAS_PREFERIDAS`; las cuentas nuevas toman
+  la primera letra libre de su nombre y se ve subrayada), ←/→, Enter, Esc; `exitoDesde` evita que el Enter que
+  registró la venta cierre «Venta registrada». Enter con el buscador vacío = cobrar. Efectivo menor al total se avisa
+  antes de mandar.
+- **Formas de pago configurables** (`app/formas_pago_config.py`, `/configuracion/formas-pago/`): `formas_pago.py` ya
+  no tiene listas fijas: `fp.CLAVES_CUENTAS`, `fp.FORMAS_VENTA`... se calculan con `__getattr__` del módulo a partir de
+  `cuentas_bancarias` (orden, oculta, icono) y la config `formas_ocultas` (tarjeta, transferencia, crédito, mixto),
+  una vez por petición (`g._formas_pago`, `fp.olvidar()`). Las listas en mayúscula son las VISIBLES (para ofrecer);
+  `fp.TODAS_LAS_CUENTAS` y `fp.nombre()` incluyen las ocultas (para mostrar lo viejo: Bancos, cierres, reportes).
+  Las constantes de otros módulos que se armaban al importar pasaron a funciones (`bancos.lugares()`,
+  `cartera.formas_abono()`, `devoluciones.formas_reembolso()`, `otros_ingresos.formas()`, `pos.nombres_pago()`...).
+  Migración 44: CHECK `IN (...)` → `<> ''` en las 6 tablas y columnas `icono`, `orden`, `oculta`.
 
 ### Versión 1.1.16 — alertas al celular, Modo inspección, foto por código (2026-10-30)
 Tercera entrega del plan del análisis.
@@ -1014,6 +1042,7 @@ control especial (FNE) y facturación electrónica.
 | 41 | `alertas_vistas` («Entendido» en agotados) y `productos.proveedor_preferido_id` (1.1.12) |
 | 42 | `ventas_rapidas` y `venta_lineas.venta_rapida_id` (1.1.13) |
 | 43 | Daviplata en las reglas CHECK de 6 tablas (las vuelve a crear), cuenta Daviplata, `venta_correcciones_pago`, `ventas.pago_corregido`, `caja_movimientos.lugar` (1.1.14) |
+| 44 | Formas de pago configurables: CHECK de las 6 tablas → «no vacío»; `cuentas_bancarias.icono`, `orden`, `oculta` (1.1.17) |
 
 ## 11. Estado del proyecto (actualizar al final de cada sesión)
 

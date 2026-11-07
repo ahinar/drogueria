@@ -246,6 +246,8 @@
     hidden.dataset.vence = p.maneja_vencimiento ? '1' : '0';
     hidden.dataset.frio = p.cadena_frio ? '1' : '0';
     hidden.dataset.control = p.control_especial ? '1' : '0';
+    // Versión 1.1.17: costo por unidad de la última compra (para «▲ subió 23 %»)
+    hidden.dataset.ultimoCosto = p.ultimo_costo || '';
     actualizarHint(wrap);
     ocultarPanel();
     const tr = wrap.closest('tr');
@@ -305,6 +307,7 @@
              + ' data-frio="' + (p.cadena_frio ? '1' : '0') + '"'
              + ' data-control="' + (p.control_especial ? '1' : '0') + '"'
              + ' data-iva="' + (p.iva || 0) + '"'                    // IVA de la ficha (versión 1.1.6)
+             + ' data-ultimo-costo="' + (p.ultimo_costo || '') + '"'  // costo de la compra anterior (1.1.17)
              // presentaciones codificadas (así un nombre con comillas no rompe el HTML)
              + ' data-pres="' + encodeURIComponent(JSON.stringify(p.presentaciones || [])) + '">'
              + '<div class="resultado-codigo">' + escaparHTML(p.codigo) + '</div>'
@@ -415,6 +418,7 @@
       cadena_frio: item.dataset.frio === '1' ? 1 : 0,
       control_especial: item.dataset.control === '1' ? 1 : 0,
       iva: parseFloat(item.dataset.iva) || 0,
+      ultimo_costo: parseFloat(item.dataset.ultimoCosto) || 0,
       presentaciones: JSON.parse(decodeURIComponent(item.dataset.pres || '%5B%5D')),
     };
     seleccionarProducto(wrap, p);
@@ -433,12 +437,14 @@
         i.dataset.vence = '';
         i.dataset.frio = '';
         i.dataset.control = '';
+        i.dataset.ultimoCosto = '';
       }
       i.required = false;          // se vuelven obligatorios al escoger el producto (ajustarRequeridos)
     });
     nueva.querySelectorAll('select').forEach(function (s) { s.selectedIndex = 0; });
     // El total de la línea copiada no aplica a la nueva (queda en blanco hasta escribir)
     nueva.querySelectorAll('.linea-total-txt').forEach(function (t) { t.textContent = ''; });
+    nueva.querySelectorAll('.linea-costo-cambio').forEach(function (t) { t.hidden = true; t.textContent = ''; });
     // "Viene en" vuelve a quedar vacío hasta escoger el producto
     const selPres = nueva.querySelector('.linea-pres');
     if (selPres) selPres.innerHTML = '<option value="" data-factor="1">—</option>';
@@ -630,7 +636,7 @@
   const npCancelar = document.getElementById('np-cancelar');
   const npNuevoLab = document.getElementById('np-nuevo-lab');
 
-  // ===== FOTO DEL PRODUCTO en "Nuevo producto" y "Completar datos" (versión 1.1.8) =====
+  // ===== FOTO DEL PRODUCTO en "Nuevo producto" (versión 1.1.8) =====
   // fotoRapida('np-foto') prepara uno de los cuadritos de foto de las ventanas:
   //   - al escoger un archivo, se ve de una vez (URL.createObjectURL = vista previa
   //     del archivo que está en el computador, antes de subirlo);
@@ -673,7 +679,6 @@
     };
   }
   const fotoNP = fotoRapida('np-foto');      // ventana "Nuevo producto"
-  const fotoDT = fotoRapida('dt-foto');      // ventana "Completar datos"
 
   let wrapOrigen = null;
 
@@ -715,80 +720,35 @@
     if (e.key === 'Escape' && !modal.classList.contains('modal-oculto')) cerrarModal();
   });
 
-  // ===== "✎ Completar datos": INVIMA, laboratorio... del producto de la línea =====
-  const modalTec = document.getElementById('modal-tecnicos');
-  // Principios activos con sugerencias mientras se escribe (versión 1.1.6, ver base.html)
-  window.campoConComas(document.getElementById('dt-principio'), DATOS_RECEPCION.principios);
-  let tecLinea = null;                 // la línea (tr) que se está completando
-  const dt = (id) => document.getElementById(id);
-  function errorTec(t) { dt('dt-error').textContent = t || ''; dt('dt-error').style.display = t ? 'block' : 'none'; }
-
-  body.addEventListener('click', async function (e) {
+  // ===== "✎ Editar datos" de la línea (versión 1.1.17) =====
+  // Antes abría la ventanita «Completar datos» (solo INVIMA, laboratorio...). Ahora abre la
+  // MISMA ventana «Editar producto» del POS (static/js/editar_producto.js), con dos pestañas:
+  // Venta (precios, códigos...) y Datos técnicos. Le pasamos el costo que llegó en ESTA línea
+  // y el de la compra anterior, para el recuadro amarillo («subió 23 %... véndalo a $11.500»).
+  body.addEventListener('click', function (e) {
     const btn = e.target.closest('.btn-tecnicos');
     if (!btn) return;
-    tecLinea = btn.closest('tr');
-    const hidden = tecLinea.querySelector('.linea-producto-id');
+    const tr = btn.closest('tr');
+    const hidden = tr.querySelector('.linea-producto-id');
     if (!hidden.value) return;
-    errorTec('');
-    try {
-      const r = await fetch('/recepciones/api/producto/' + hidden.value + '/tecnicos', { credentials: 'same-origin' });
-      const j = await r.json();
-      if (!j.ok) { window.avisar(j.error || 'No se pudo abrir.', 'error'); return; }
-      const p = j.producto;
-      await refrescarLaboratorios();           // trae también los creados después de abrir la página
-      dt('dt-nombre').textContent = p.nombre;
-      dt('dt-registro').value = p.registro_sanitario || '';
-      dt('dt-registro-vence').value = p.registro_vence || '';
-      dt('dt-laboratorio').value = p.laboratorio_id || '';
-      dt('dt-concentracion').value = p.concentracion || '';
-      dt('dt-principio').value = p.principios || '';
-      dt('dt-forma').value = p.forma_farmaceutica_id || '';
-      fotoDT.reiniciar(p.imagen_url);          // la foto que ya tiene (versión 1.1.8)
-      modalTec.classList.remove('modal-oculto');
-      (p.registro_sanitario ? dt('dt-laboratorio') : dt('dt-registro')).focus();
-    } catch (err) {
-      window.avisar('Error de conexión: ' + err.message, 'error');
-    }
-  });
-  function cerrarTec() { modalTec.classList.add('modal-oculto'); }
-  dt('dt-cancelar').addEventListener('click', cerrarTec);
-  modalTec.addEventListener('click', function (e) { if (e.target === modalTec) cerrarTec(); });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !modalTec.classList.contains('modal-oculto')) cerrarTec();
-  });
-  dt('dt-guardar').addEventListener('click', async function () {
-    const hidden = tecLinea.querySelector('.linea-producto-id');
-    const fd = new FormData();
-    fd.append('_csrf', csrfToken);
-    fd.append('registro_sanitario', dt('dt-registro').value.trim());
-    fd.append('registro_vence', dt('dt-registro-vence').value);
-    fd.append('laboratorio_id', dt('dt-laboratorio').value);
-    fd.append('concentracion', dt('dt-concentracion').value.trim());
-    fd.append('principios', dt('dt-principio').value);
-    fd.append('forma_farmaceutica_id', dt('dt-forma').value);
-    fotoDT.agregarA(fd);                       // foto nueva o "quitar foto" (versión 1.1.8)
-    this.disabled = true;
-    try {
-      const r = await fetch('/recepciones/api/producto/' + hidden.value + '/tecnicos',
-                            { method: 'POST', body: fd, credentials: 'same-origin' });
-      const j = await r.json();
-      if (!j.ok) { errorTec(j.error || 'No se pudo guardar.'); return; }
-      // La línea se actualiza: aviso de INVIMA y datos para el resto de la recepción
-      hidden.dataset.rs = j.producto.registro_sanitario || '';
-      hidden.dataset.rsVence = j.producto.registro_vence || '';
-      actualizarHint(tecLinea.querySelector('.buscar-producto-wrap'));
-      cerrarTec();
-      window.avisar('Datos guardados en la ficha de ' + j.producto.nombre + '.', 'ok');
-      if (j.aviso) window.avisar(j.aviso, 'error');
-    } catch (err) {
-      errorTec('Error de conexión: ' + err.message);
-    } finally {
-      this.disabled = false;
-    }
+    const numero = (document.querySelector('input[name="numero"]') || {}).value || '';
+    window.EditarProducto.abrir(+hidden.value, {
+      recepcion: { numero: numero, costo: costoPorUnidad(tr), anterior: parseFloat(hidden.dataset.ultimoCosto) || 0 },
+      textoGuardar: 'Guardar y volver a la recepción',
+      alGuardar: function (id, p) {
+        // La línea se actualiza: aviso de INVIMA (y frío / control) con lo que quedó guardado
+        hidden.dataset.rs = p.registro_sanitario || '';
+        hidden.dataset.rsVence = p.registro_vence || '';
+        hidden.dataset.frio = p.cadena_frio ? '1' : '0';
+        hidden.dataset.control = p.control_especial ? '1' : '0';
+        actualizarHint(tr.querySelector('.buscar-producto-wrap'));
+        ajustarRequeridos(tr);
+      },
+    });
   });
 
   // ===== LABORATORIOS: las dos listas de la página (versión 1.1.3) =====
-  // «Nuevo producto» (np-laboratorio) y «Completar datos» (dt-laboratorio)
+  // «Nuevo producto» (np-laboratorio) y «Editar producto» (editar-laboratorio, versión 1.1.17)
   // tienen cada una su lista. Antes se llenaban UNA vez al abrir la página,
   // y no aparecían los laboratorios creados después (en otra pestaña, en
   // Catálogos o con el + del otro modal). Ahora:
@@ -796,9 +756,14 @@
   //   - refrescarLaboratorios(): pide la lista actual al programa al abrir el modal;
   //   - crearLaboratorio(): el botón + de cualquiera de los dos modales.
   function listasLab() {
-    return [document.getElementById('np-laboratorio'), document.getElementById('dt-laboratorio')]
+    // (1.1.17: la segunda lista ahora es la de la ventana «Editar producto»)
+    return [document.getElementById('np-laboratorio'), document.getElementById('editar-laboratorio')]
       .filter(Boolean);
   }
+  // Si se crea un laboratorio con el + de la ventana «Editar producto», que salga también aquí
+  document.addEventListener('laboratorio-creado', function (e) {
+    agregarLaboratorio(String(e.detail.id), e.detail.nombre);
+  });
   function agregarLaboratorio(id, nombre) {
     listasLab().forEach(function (sel) {
       if (sel.querySelector('option[value="' + id + '"]')) return;     // ya está
@@ -845,9 +810,6 @@
     }
   }
   npNuevoLab.addEventListener('click', function () { crearLaboratorio(npLaboratorio); });
-  document.getElementById('dt-nuevo-lab').addEventListener('click', function () {
-    crearLaboratorio(document.getElementById('dt-laboratorio'));
-  });
 
   npGuardar.addEventListener('click', async function () {
     const nombre = npNombre.value.trim();
@@ -959,6 +921,36 @@
   const $incluyeIva = document.getElementById('precios-con-iva');
   if ($incluyeIva) $incluyeIva.addEventListener('change', () => recalcularTotales());
 
+  // ===== COSTO POR UNIDAD de una línea (versión 1.1.17) =====
+  // Igual que lo guarda el programa (recepciones.py, «costo_unitario»): el costo de UNA
+  // unidad de inventario (una tableta, un frasco), con IVA si la droguería no declara IVA
+  // y sin IVA si sí lo declara. Ej.: Caja x 10 a $20.000 → $2.000 la unidad.
+  function costoPorUnidad(tr) {
+    const escrito = parseFloat(tr.querySelector('input[name="linea_costo"]').value) || 0;
+    const tasa = (parseFloat((tr.querySelector('.linea-iva') || {}).value) || 0) / 100;
+    const incluyeIva = $incluyeIva && $incluyeIva.checked;
+    const sinIva = incluyeIva ? escrito / (1 + tasa) : escrito;
+    const costo = DECLARA_IVA ? sinIva : sinIva * (1 + tasa);
+    return costo / (factorLinea(tr) || 1);
+  }
+
+  // Debajo del costo: «▲ subió 23 %» (naranja) o «▼ bajó 7 %» (verde) frente a la compra
+  // anterior. Si es igual (menos de 1 %) o es la primera compra, no sale nada.
+  function marcarCambioCosto(tr) {
+    const tag = tr.querySelector('.linea-costo-cambio');
+    const hidden = tr.querySelector('.linea-producto-id');
+    if (!tag || !hidden) return;
+    const anterior = parseFloat(hidden.dataset.ultimoCosto) || 0;
+    const ahora = costoPorUnidad(tr);
+    const cambio = anterior > 0 && ahora > 0 ? (ahora - anterior) / anterior * 100 : 0;
+    if (!hidden.value || Math.abs(cambio) < 1) { tag.hidden = true; tag.textContent = ''; return; }
+    tag.hidden = false;
+    tag.className = 'linea-costo-cambio ' + (cambio > 0 ? 'sube' : 'baja');
+    tag.textContent = (cambio > 0 ? '▲ subió ' : '▼ bajó ') + Math.abs(cambio).toFixed(0) + ' %';
+    tag.title = 'La compra anterior fue a $' + Math.round(anterior).toLocaleString('es-CO') +
+      ' la unidad; esta, a $' + Math.round(ahora).toLocaleString('es-CO') + '.';
+  }
+
   function recalcularTotales() {
     let unidades = 0;
     let valor = 0;
@@ -985,6 +977,7 @@
         txt.textContent = cant > 0 && costo > 0 ? fmt(sinIva + ivaLinea) : '';
         txt.title = ivaLinea > 0 ? 'Sin IVA ' + fmt(sinIva) + ' + IVA ' + fmt(ivaLinea) : 'Sin IVA';
       }
+      marcarCambioCosto(tr);                  // «▲ subió 23 %» (versión 1.1.17)
       const hidden = tr.querySelector('.linea-producto-id');
       if (!hidden || !hidden.value) return;
       unidades += cant * factorLinea(tr);     // en unidades de inventario (3 cajas x 100 = 300)

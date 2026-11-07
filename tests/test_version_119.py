@@ -72,6 +72,7 @@ class TestRecepcionAbierta(Base118):
 class TestFotoArriba(Base118):
     def test_foto_va_arriba_en_las_dos_ventanas(self):
         html = self.c.get("/recepciones/nueva").get_data(as_text=True)
-        self.assertEqual(html.count("modal-con-foto"), 2)
+        # 1.1.17: «Completar datos» se juntó con «Editar producto» (la foto va a la derecha)
+        self.assertEqual(html.count("modal-con-foto"), 1)
         # En «Nuevo producto» la foto va antes del laboratorio (arriba), no al final
         self.assertLess(html.index('id="np-foto"'), html.index('id="np-laboratorio"'))

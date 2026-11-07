@@ -10,7 +10,7 @@
   <div>
     <p class="dash-modulo">{{ ico("banco", "🏦") }} Contabilidad</p>
     <h1>Bancos</h1>
-    <p class="suave">Cuánta plata hay en cada cuenta ({% for c in formas_pago.CLAVES_CUENTAS %}{{ formas_pago.nombre(c) }}{{ ', ' if not loop.last }}{% endfor %}) y en la
+    <p class="suave">Cuánta plata hay en cada cuenta ({% for c in formas_pago.TODAS_LAS_CUENTAS %}{{ formas_pago.nombre(c) }}{{ ', ' if not loop.last }}{% endfor %}) y en la
       caja menor. Las ventas, gastos, abonos y pagos a proveedores por esas cuentas se suman solos.</p>
   </div>
 </div>

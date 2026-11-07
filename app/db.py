@@ -1566,6 +1566,12 @@ MIGRATIONS = [
     # de una venta. Esta migración no es un texto fijo sino una FUNCIÓN que arma el texto
     # (ver _migracion_43_daviplata más abajo), porque tiene que leer cómo está cada tabla.
     (43, lambda conn: _migracion_43_daviplata(conn)),
+    # Versión 1.1.17 — FORMAS DE PAGO CONFIGURABLES (Configuración → Formas de pago).
+    # Las cuentas (Nequi, Davivienda, Daviplata... y las que se agreguen) viven en
+    # cuentas_bancarias con su ícono, su orden y si está oculta. Las reglas CHECK que
+    # decían «solo efectivo, nequi, davivienda...» se cambian por «no vacío», porque
+    # ahora la lista la decide Configuración (ver _migracion_44_formas_configurables).
+    (44, lambda conn: _migracion_44_formas_configurables(conn)),
 ]
 
 
@@ -1637,6 +1643,52 @@ def _migracion_43_daviplata(conn):
         --   NULL         = no se dijo (como antes)
         ALTER TABLE caja_movimientos ADD COLUMN lugar TEXT;""")
     return "\n".join(partes)
+
+def _migracion_44_formas_configurables(conn):
+    """Arma el SQL de la migración 44 (versión 1.1.17).
+
+    QUÉ HACE (para aprender):
+      1. Igual que la 43: cada una de las 6 tablas se crea de nuevo con la regla nueva,
+         se copian los datos, se borra la vieja y la nueva toma su nombre. La regla
+            CHECK (forma_pago IN ('efectivo', 'nequi', ..., 'tarjeta'))
+         queda como
+            CHECK (forma_pago <> '')
+         o sea: cualquier forma de pago, pero no vacía. Quién decide cuáles se pueden usar
+         ahora es el programa (app/formas_pago.py), con lo que haya en Configuración.
+      2. cuentas_bancarias gana tres columnas: icono (📱), orden (1, 2, 3...) y
+         oculta (1 = no se ofrece para cobrar; la cuenta sigue en Bancos).
+    """
+    import re as _re
+    partes = []
+    for tabla in _TABLAS_CON_FORMA_DE_PAGO:
+        fila = conn.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", (tabla,)).fetchone()
+        if fila is None:
+            continue
+        sql_tabla = fila[0]
+        # CHECK (columna IN ('a', 'b', ...))  →  CHECK (columna <> '')   (solo las que nombran 'nequi')
+        sql_nueva = _re.sub(r"CHECK\s*\(\s*(\w+)\s+IN\s*\(([^()]*'nequi'[^()]*)\)\s*\)",
+                            lambda m: f"CHECK ({m.group(1)} <> '')", sql_tabla)
+        if sql_nueva == sql_tabla:
+            continue                                   # ya estaba (por si se corre dos veces)
+        sql_nueva = _re.sub(r"CREATE TABLE (IF NOT EXISTS )?\"?" + tabla + r"\"?\s*\(",
+                            f"CREATE TABLE {tabla}__nueva (", sql_nueva, count=1)
+        indices = [r[0] for r in conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL", (tabla,))]
+        partes.append(sql_nueva + ";")
+        partes.append(f"INSERT INTO {tabla}__nueva SELECT * FROM {tabla};")
+        partes.append(f"DROP TABLE {tabla};")
+        partes.append(f"ALTER TABLE {tabla}__nueva RENAME TO {tabla};")
+        partes.extend(i + ";" for i in indices)
+    partes.append("""
+        ALTER TABLE cuentas_bancarias ADD COLUMN icono TEXT;
+        ALTER TABLE cuentas_bancarias ADD COLUMN orden INTEGER;
+        ALTER TABLE cuentas_bancarias ADD COLUMN oculta INTEGER NOT NULL DEFAULT 0;
+        UPDATE cuentas_bancarias SET icono = '📱' WHERE clave = 'nequi';
+        UPDATE cuentas_bancarias SET icono = '🏦' WHERE clave = 'davivienda';
+        UPDATE cuentas_bancarias SET icono = '🔴' WHERE clave = 'daviplata';
+        UPDATE cuentas_bancarias SET orden = id;""")
+    return "\n".join(partes)
+
 
 def conectar(ruta) -> sqlite3.Connection:
     conn = sqlite3.connect(str(ruta), timeout=15)

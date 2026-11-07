@@ -16,7 +16,6 @@ from .db import get_db
 from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (con Daviplata) en un solo lugar
 
 DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
-FORMAS_PAGO = fp.NOMBRES             # Efectivo, Nequi, Davivienda, Daviplata, Tarjeta... (formas_pago.py)
 MESES_CORTOS = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 
@@ -112,7 +111,7 @@ def ventas(desde, hasta, anterior_desde, anterior_hasta, tipo="todo"):
 
     por_pago = agrupar("v.forma_pago")
     for f in por_pago:
-        f["nombre"] = FORMAS_PAGO.get(f["nombre"], f["nombre"])
+        f["nombre"] = fp.nombre(f["nombre"])
     por_vendedor = agrupar("COALESCE(v.usuario_nombre, '—')")
 
     # Por hora del día: ¿a qué horas se vende más? (sirve para turnos)
@@ -293,7 +292,7 @@ def gastos(desde, hasta, anterior_desde, anterior_hasta):
         "pct": (actual[n]["total"] / total * 100) if n in actual and total else 0,
     } for n in nombres]
 
-    por_pago = [{"nombre": FORMAS_PAGO.get(f["forma_pago"], f["forma_pago"]), "total": f["total"], "n": f["n"]}
+    por_pago = [{"nombre": fp.nombre(f["forma_pago"]), "total": f["total"], "n": f["n"]}
                 for f in db.execute(
                     "SELECT forma_pago, COUNT(*) AS n, SUM(monto) AS total FROM gastos "
                     "WHERE activo = 1 AND fecha >= ? AND fecha < ? GROUP BY forma_pago ORDER BY total DESC",

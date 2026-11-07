@@ -12,6 +12,7 @@ import json
 
 from flask import abort, flash, g, jsonify, redirect, render_template, request, url_for
 
+from . import formas_pago as fp   # versión 1.1.17: formas de pago configurables
 from . import presentaciones as pres
 from .audit import registrar
 from .auth import login_required, roles_required
@@ -20,7 +21,7 @@ from .db import ahora, get_db
 from .formato import pesos
 # Lo que comparten las tres partes del POS (está en app/pos.py)
 from .pos import (bp, _VentaError, _json_error, _fmt_cant, _a_pesos, _caja_abierta,
-                  SQL_LOTE_VENDIBLE, _siguiente_consecutivo_venta, _pagos_mixtos, NOMBRES_PAGO, FORMAS_PAGO)
+                  SQL_LOTE_VENDIBLE, _siguiente_consecutivo_venta, _pagos_mixtos, nombres_pago)
 
 
 @bp.route("/api/abrir-cajon", methods=["POST"])
@@ -81,7 +82,7 @@ def api_cobrar():
         return _json_error("El carrito está vacío.")
 
     forma_pago = (request.form.get("forma_pago") or "").strip().lower()
-    if forma_pago not in FORMAS_PAGO:
+    if forma_pago not in fp.FORMAS_VENTA:
         return _json_error("Forma de pago inválida.")
 
     cliente_nombre = (request.form.get("cliente_nombre") or "").strip() or "Consumidor final"
@@ -423,7 +424,7 @@ def comprobante(venta_id):
         saldo_cliente = cartera.saldo(venta["cliente_id"])
     return render_template("pos/comprobante.html", venta=venta, lineas=lineas,
                            config=obtener_config(), saldo_cliente=saldo_cliente,
-                           pagos=pagos_de_venta(venta_id), nombres_pago=NOMBRES_PAGO)
+                           pagos=pagos_de_venta(venta_id), nombres_pago=nombres_pago())
 
 
 def pagos_de_venta(venta_id):

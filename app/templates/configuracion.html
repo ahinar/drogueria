@@ -2,7 +2,9 @@
 {% block titulo %}Configuración del negocio{% endblock %}
 {% block contenido %}
 <h1><span class="ico-emoji">⚙️</span> Configuración del negocio</h1>
-<p class="suave">Estos datos aparecen en los informes, PDFs y comprobantes internos.</p>
+<p class="suave">Estos datos aparecen en los informes, PDFs y comprobantes internos.
+  Las cuentas y formas de pago (Nequi, Daviplata, agregar Bancolombia...) están en
+  <a href="{{ url_for('formas_pago_cfg.ver') }}">💳 Formas de pago</a>.</p>
 
 <form method="post" enctype="multipart/form-data" class="formulario">
   <input type="hidden" name="_csrf" value="{{ csrf_token() }}">

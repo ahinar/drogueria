@@ -114,11 +114,13 @@ def _resumen_caja(caja):
         "cuentas": [],
     }
     # Efectivo y cada cuenta: ventas_X, ingresos_X y salidas_X (ej. ventas_nequi)
-    for forma in ("efectivo",) + fp.CLAVES_CUENTAS:
+    for forma in ("efectivo",) + fp.TODAS_LAS_CUENTAS:
         resumen[f"ventas_{forma}"] = _vendido(forma)
         resumen[f"ingresos_{forma}"] = _movido("ingreso", forma)
         resumen[f"salidas_{forma}"] = _movido("salida", forma)
-        if forma != "efectivo":
+        # (1.1.17: una cuenta OCULTA solo sale si tuvo movimiento en este turno)
+        hubo = resumen[f"ventas_{forma}"] or resumen[f"ingresos_{forma}"] or resumen[f"salidas_{forma}"]
+        if forma != "efectivo" and (fp.visible(forma) or hubo):
             resumen["cuentas"].append({"clave": forma, "nombre": fp.nombre(forma),
                                        "ventas": resumen[f"ventas_{forma}"],
                                        "ingresos": resumen[f"ingresos_{forma}"],
@@ -397,7 +399,6 @@ def api_gasto():
 # API · Otro ingreso (plata que entra y NO es una venta)
 # ============================================================
 
-FORMAS_INGRESO = fp.FORMAS_MOVIMIENTO          # efectivo, las cuentas, tarjeta y transferencia
 
 
 @bp.route("/api/otro-ingreso", methods=["POST"])
@@ -431,7 +432,7 @@ def api_otro_ingreso():
         return jsonify({"ok": False, "error": "Escribe de qué es el ingreso."}), 400
     if monto <= 0:
         return jsonify({"ok": False, "error": "El monto debe ser mayor a cero."}), 400
-    if forma_pago not in FORMAS_INGRESO:
+    if forma_pago not in fp.FORMAS_MOVIMIENTO:     # efectivo, las cuentas, tarjeta y transferencia
         return jsonify({"ok": False, "error": "Forma de pago inválida."}), 400
 
     ingreso_id = db.execute(
@@ -577,11 +578,14 @@ def api_caja_abierta():
 # ============================================================
 
 # "credito" = el cliente queda debiendo (ver app/cartera.py). No entra plata a la caja.
-# Versión 1.1.14: las listas salen de app/formas_pago.py (ahí está Daviplata).
-FORMAS_PAGO = fp.FORMAS_VENTA
-# En un pago MIXTO se pueden combinar estas (el crédito no: o se fía todo o nada)
-FORMAS_MIXTO = fp.FORMAS_MIXTO
-NOMBRES_PAGO = {**fp.NOMBRES, "credito": "Crédito", "mixto": "Mixto"}   # nombres cortos para la tirilla
+# Las listas salen de app/formas_pago.py: fp.FORMAS_VENTA (cobrar) y fp.FORMAS_MIXTO (en un
+# pago mixto; el crédito no: o se fía todo o nada). Desde la 1.1.17 se configuran en
+# Configuración → Formas de pago, por eso se leen en el momento y no quedan fijas aquí.
+
+
+def nombres_pago():
+    """Nombres cortos para la tirilla (también de las cuentas ocultas, para ventas viejas)."""
+    return {**fp.NOMBRES, "credito": "Crédito", "mixto": "Mixto"}
 
 class _VentaError(Exception):
     """Error de negocio al cobrar (ej: 'no hay stock'). El mensaje se le muestra al cajero."""
@@ -612,9 +616,9 @@ def _pagos_mixtos(formulario, total):
         try:
             monto = float(texto or 0)
         except ValueError:
-            raise _VentaError(f"El valor de {NOMBRES_PAGO[forma]} no es válido.")
+            raise _VentaError(f"El valor de {nombres_pago()[forma]} no es válido.")
         if monto < 0:
-            raise _VentaError(f"El valor de {NOMBRES_PAGO[forma]} no puede ser negativo.")
+            raise _VentaError(f"El valor de {nombres_pago()[forma]} no puede ser negativo.")
         if monto > 0:
             otros.append((forma, round(monto, 2)))
 

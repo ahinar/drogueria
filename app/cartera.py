@@ -36,9 +36,16 @@ from . import formas_pago as fp   # versión 1.1.14: formas de pago y cuentas (c
 bp = Blueprint("cartera", __name__, url_prefix="/cartera")
 
 JEFES = ("administrador", "director_tecnico")
-FORMAS_ABONO = {f: fp.nombre(f) for f in fp.FORMAS_MOVIMIENTO}
+def formas_abono():
+    """Cómo puede abonar el cliente (las formas visibles en Configuración → Formas de pago)."""
+    return {f: fp.nombre(f) for f in fp.FORMAS_MOVIMIENTO}
+
+
 # Estas formas quedan en el cierre de caja (caja_movimientos) si hay caja abierta
-FORMAS_EN_CAJA = ("efectivo",) + fp.CLAVES_CUENTAS
+def formas_en_caja():
+    return ("efectivo",) + fp.TODAS_LAS_CUENTAS
+
+
 # Grupos de antigüedad: (texto, desde día, hasta día)
 RANGOS = [("0 a 30 días", 0, 30), ("31 a 60 días", 31, 60), ("61 a 90 días", 61, 90), ("Más de 90 días", 91, 10 ** 6)]
 DIAS_VENCIDA = 30   # desde aquí la deuda se considera "vencida" (sale en las alertas)
@@ -106,7 +113,7 @@ def estado_de_cuenta(cliente_id, hoy=None):
     movs += [{"fecha": d["fecha"], "tipo": "devolucion", "documento": f"{d['numero']} (venta {d['consecutivo']})",
               "devolucion_id": d["id"], "cargo": 0, "abono": d["total"]} for d in devoluciones]
     movs += [{"fecha": a["fecha"], "tipo": "abono", "documento": a["numero"], "abono_id": a["id"],
-              "forma": FORMAS_ABONO.get(a["forma_pago"], a["forma_pago"]),
+              "forma": fp.nombre(a["forma_pago"]),
               "cargo": 0, "abono": a["monto"]} for a in abonos]
     movs.sort(key=lambda m: m["fecha"])
     saldo = 0.0
@@ -201,7 +208,7 @@ def registrar_abono(cliente_id, monto_texto, forma, observaciones=""):
         raise CarteraError("El monto no es válido.")
     if monto <= 0:
         raise CarteraError("El abono debe ser mayor a cero.")
-    if forma not in FORMAS_ABONO:
+    if forma not in formas_abono():
         raise CarteraError("Escoge cómo pagó el cliente.")
     debe = saldo(cliente_id)
     if debe <= 0.5:
@@ -217,7 +224,7 @@ def registrar_abono(cliente_id, monto_texto, forma, observaciones=""):
     try:
         numero = _numero_abono(db)
         # La plata entra a la caja (efectivo, Nequi o Davivienda) si hay una abierta
-        en_caja = caja is not None and forma in FORMAS_EN_CAJA
+        en_caja = caja is not None and forma in formas_en_caja()
         abono_id = db.execute(
             "INSERT INTO cartera_abonos (numero, cliente_id, fecha, monto, forma_pago, caja_id, observaciones, "
             "usuario_id, usuario_nombre, creado_en) VALUES (?,?,?,?,?,?,?,?,?,?)",
@@ -349,7 +356,7 @@ def cliente_ver(cliente_id):
     anulados = get_db().execute(
         "SELECT * FROM cartera_abonos WHERE cliente_id = ? AND anulado = 1 ORDER BY id DESC",
         (cliente_id,)).fetchall()
-    return render_template("cartera/estado.html", c=cliente, e=e, anulados=anulados, formas=FORMAS_ABONO,
+    return render_template("cartera/estado.html", c=cliente, e=e, anulados=anulados, formas=formas_abono(),
                            disponible=(cliente["cupo"] - e["saldo"]) if cliente["cupo"] is not None else None,
                            config=obtener_config(), hoy=date.today())
 
@@ -377,7 +384,7 @@ def recibo(abono_id):
         "FROM cartera_abonos a JOIN clientes c ON c.id = a.cliente_id WHERE a.id = ?", (abono_id,)).fetchone()
     if a is None:
         abort(404)
-    return render_template("cartera/recibo.html", a=a, saldo=saldo(a["cliente_id"]), formas=FORMAS_ABONO,
+    return render_template("cartera/recibo.html", a=a, saldo=saldo(a["cliente_id"]), formas=fp.NOMBRES,
                            config=obtener_config())
 
 

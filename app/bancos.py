@@ -56,7 +56,10 @@ TIPOS_MANUALES = {
 }
 
 # Lugares entre los que se puede trasladar plata
-LUGARES = {"caja_menor": "Caja menor (efectivo)", **{c: fp.nombre(c) for c in fp.CLAVES_CUENTAS}}
+def lugares():
+    """Caja menor y todas las cuentas (también las ocultas, para poder sacarles la plata)."""
+    # (función y no lista fija: las cuentas se configuran, versión 1.1.17)
+    return {"caja_menor": "Caja menor (efectivo)", **{c: fp.nombre(c) for c in fp.TODAS_LAS_CUENTAS}}
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +68,8 @@ LUGARES = {"caja_menor": "Caja menor (efectivo)", **{c: fp.nombre(c) for c in fp
 def cuentas(db=None):
     """Las cuentas activas (Nequi, Davivienda), cada una con su saldo de HOY."""
     db = db or get_db()
-    filas = db.execute("SELECT * FROM cuentas_bancarias WHERE activa = 1 ORDER BY id").fetchall()
+    # (1.1.17: en el orden escogido en Configuración → Formas de pago)
+    filas = db.execute("SELECT * FROM cuentas_bancarias WHERE activa = 1 ORDER BY COALESCE(orden, id), id").fetchall()
     return [dict(c, saldo=saldo(db, c)) for c in filas]
 
 
@@ -240,7 +244,7 @@ def index():
     caja_menor = saldo_actual(db)
     return render_template(
         "bancos/index.html", cuentas=lista, caja_menor=caja_menor,
-        total=caja_menor + sum(c["saldo"] for c in lista), lugares=LUGARES,
+        total=caja_menor + sum(c["saldo"] for c in lista), lugares=lugares(),
         sin_cuenta=transferencias_sin_cuenta(db), hoy=date.today().isoformat())
 
 
@@ -325,6 +329,7 @@ def traslado():
     monto = monto_de_form(request.form.get("monto"))
     fecha = fecha_de_form(request.form.get("fecha"))
     nota = (request.form.get("descripcion") or "").strip() or None
+    LUGARES = lugares()
     if origen not in LUGARES or destino not in LUGARES or origen == destino:
         flash("Escoge de dónde sale y a dónde llega la plata (deben ser distintos).", "error")
         return _volver(origen)
