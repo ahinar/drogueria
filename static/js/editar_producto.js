@@ -30,6 +30,10 @@
      2) Venta          → /pos/api/producto/<id>/editar
    Primero los técnicos: así, si se escribe el registro INVIMA y a la vez se marca
    "Control especial" (que exige registro), la segunda parte ya lo encuentra.
+   Versión 1.1.18 (lo encontró Fernando): ANTES de guardar nada, se le pregunta a la
+   parte de venta si todo está bien (_solo_revisar=1). Si algo falla (ej. una
+   presentación con precio $0), NO se guarda ninguna de las dos partes y se muestra
+   el error con la fila marcada en rojo. Así nunca queda guardada una mitad.
    ===================================================================== */
 (function () {
   'use strict';
@@ -361,11 +365,38 @@
     const r = await fetch(url, { method: 'POST', body: datos, credentials: 'same-origin' });
     return r.json().catch(() => ({ ok: false, error: 'No tienes permiso para guardar esto.' }));
   }
+  // Marca en rojo las filas de «Cómo se vende» sin precio (y pone el cursor en la primera)
+  function marcarFilasSinPrecio() {
+    if (!filas) return;
+    let primera = null;
+    filas.querySelectorAll('.editar-pres-fila').forEach((tr) => {
+      const precio = tr.querySelector('input[name="pres_precio"]');
+      const mal = !(parseFloat(precio.value) > 0);
+      tr.classList.toggle('editar-fila-error', mal);
+      if (mal && !primera) primera = precio;
+    });
+    if (primera) { primera.focus(); primera.select(); }
+  }
+
   async function guardar() {
     $('editar-error').hidden = true;
     const id = editandoId;
     $('editar-guardar').disabled = true;
     try {
+      // 0) REVISAR la parte de venta sin guardar nada (versión 1.1.18)
+      if (PUEDE_VENTA) {
+        const revisar = new FormData(form);
+        revisar.append('_csrf', csrf());
+        revisar.append('_solo_revisar', '1');
+        revisar.append('_registro_nuevo', $('editar-registro').value.trim());
+        revisar.delete('imagen');                      // la foto no hace falta para revisar
+        const j0 = await enviar(URL_EDITAR.replace('/0/', '/' + id + '/'), revisar);
+        if (!j0.ok) {
+          mostrarError((j0.error || 'Revisa los datos.') + ' No se guardó nada todavía.', 'venta');
+          marcarFilasSinPrecio();
+          return;
+        }
+      }
       // 1) DATOS TÉCNICOS (y la foto, si quien edita no ve la pestaña Venta)
       const tec = new FormData();
       tec.append('_csrf', csrf());
@@ -390,6 +421,10 @@
         const j2 = await enviar(URL_EDITAR.replace('/0/', '/' + id + '/'), datos);
         if (!j2.ok) {
           mostrarError((j2.error || 'No se pudo guardar.') + ' (Los datos técnicos sí quedaron guardados.)', 'venta');
+          marcarFilasSinPrecio();
+          // 1.1.18: la pantalla de atrás (ej. la línea de la Recepción) se entera de los datos
+          // técnicos que SÍ quedaron guardados, aunque la ventana siga abierta.
+          if (alGuardar) await alGuardar(id, j1.producto || {});
           return;
         }
       }

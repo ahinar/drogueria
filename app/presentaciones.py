@@ -147,8 +147,10 @@ def validar(filas, unidad_principal_id, producto_id=None, codigo_barras_principa
             errores.append(f"El código de barras {codigo_barras_principal} ya es de una "
                            f"presentación de '{otro['nombre']}'.")
 
+    # Versión 1.1.18: el error dice CUÁL presentación es («SELLO X 10»), no solo «Presentación 1»
+    nombres = {r["id"]: r["nombre"] for r in db.execute("SELECT id, nombre FROM unidades_medida")}
     for n, f in enumerate(filas, start=1):
-        quien = f"Presentación {n}"
+        quien = nombres.get(f["unidad_id"]) or f"Presentación {n}"
         if not f["unidad_id"]:
             errores.append(f"{quien}: elige la unidad (Sobre x 10, Caja x 100…).")
             continue
@@ -161,7 +163,8 @@ def validar(filas, unidad_principal_id, producto_id=None, codigo_barras_principa
         if f["factor"] == "error" or not f["factor"] or f["factor"] <= 1:
             errores.append(f"{quien}: '¿Cuántas trae?' debe ser un número mayor que 1.")
         if f["precio"] == "error" or not f["precio"] or f["precio"] <= 0:
-            errores.append(f"{quien}: el precio debe ser mayor que cero.")
+            errores.append(f"«{quien}» no tiene precio: escríbale el precio o, si no se vende así, "
+                           "quítela con la ✕ roja.")
         if f["maximo"] == "error":
             errores.append(f"{quien}: el precio máximo no es un número válido.")
         elif f["maximo"] and isinstance(f["precio"], float) and f["precio"] > f["maximo"] + 0.01:

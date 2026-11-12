@@ -380,15 +380,25 @@ def api_producto_editar(producto_id):
             return _json_error("Escribe la tarifa de IVA (por ejemplo 19).")
     else:
         iva_tarifa = 0.0    # excluido y exento no llevan IVA
-    if control_especial and not p["registro_sanitario"]:
+    # (1.1.18: la ventana manda el registro que se está escribiendo en «Datos técnicos», porque al
+    #  revisar todavía no se ha guardado. Ver «_solo_revisar» abajo.)
+    registro = (f.get("_registro_nuevo") or "").strip() if "_registro_nuevo" in f else p["registro_sanitario"]
+    if control_especial and not registro:
         return _json_error("Un producto de control especial debe tener registro sanitario INVIMA "
-                           "(complétalo en Productos).")
+                           "(escríbalo en la pestaña «Datos técnicos»).")
     if control_especial or p["cadena_frio"]:
         maneja_vencimiento = 1   # misma regla que el formulario completo de productos
     if codigo_barras and db.execute(
             "SELECT 1 FROM productos WHERE codigo_barras = ? AND id <> ?",
             (codigo_barras, producto_id)).fetchone():
         return _json_error("Ese código de barras ya lo tiene otro producto.")
+
+    # ---- Versión 1.1.18: «solo revisar» ----
+    # La ventana «Editar producto» guarda en dos partes (datos técnicos y venta). Para que no
+    # quede guardada una parte sí y la otra no, primero pregunta aquí si lo de VENTA está bien
+    # (con _solo_revisar=1): se hacen todas las revisiones de arriba y se responde sin guardar.
+    if f.get("_solo_revisar"):
+        return jsonify({"ok": True, "revisado": True})
 
     # ---- Foto: subir nueva, borrar o dejar igual ----
     ruta_imagen = p["imagen"]

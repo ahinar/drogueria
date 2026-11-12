@@ -516,3 +516,6 @@
   border-bottom-width: 2px; border-radius: .25rem; background: #fff; font-family: inherit; font-size: .72rem;
 }
 .pos-pago-metodo u { text-decoration-thickness: 2px; text-underline-offset: 2px; }
+/* Versión 1.1.18: fila de «Cómo se vende» sin precio (no deja guardar) */
+#modal-editar-producto .editar-fila-error td { background: #fdecec; }
+#modal-editar-producto .editar-fila-error input[name="pres_precio"] { border-color: #c62828; box-shadow: 0 0 0 2px #f5c2c2; }

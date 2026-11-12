@@ -510,6 +510,16 @@ Notas:
 | 1.1.15 | 2026-10-29 | ORDEN INTERNO (no cambia lo que se ve): el JavaScript que estaba dentro de las pantallas (2.360 líneas) pasó a 13 archivos en static/js; ayudas comunes en app/utiles.py (leer_numero, obtener_o_404, siguiente_numero) y estilos_pdf(); POS partido en pos.py / pos_productos.py / pos_ventas.py y la recepción en recepciones.py / recepciones_productos.py / recepciones_acta.py; filtro |pesos en todas las pantallas; se quitaron imports, funciones y estilos CSS que ya nadie usaba |
 | 1.1.16 | 2026-10-30 | ALERTAS AL CELULAR por Telegram (Configuración → Alertas al celular): mini resumen al cerrar cada caja (ventas por forma de pago, contado, diferencia, gastos y retiros del turno) y aviso de temperatura/humedad fuera de rango; botones «Buscar mi chat» y «Mandar prueba». MODO INSPECCIÓN (Calidad → Modo inspección): lo pendiente de calidad y un .zip con las planillas del mes (temperaturas por zona, limpieza, residuos), vencimientos, listado de documentos, plan de capacitaciones y los certificados escaneados. FOTO POR CÓDIGO DE BARRAS en la ficha del producto (Open Food/Beauty/Products Facts; casi nunca trae medicamentos) |
 | 1.1.17 | 2026-11-06 | UNA SOLA VENTANA «EDITAR PRODUCTO» (POS, toma de inventario y Recepción) con pestañas Venta y Datos técnicos; en la Recepción el botón es «✎ Editar datos» y trae el costo que llegó vs. la compra anterior, cuánto se gana y un precio sugerido (margen de Configuración), y debajo del costo de cada línea «▲ subió 23 %» / «▼ bajó 7 %». COBRAR CON EL TECLADO: Enter abre el cobro, una letra escoge la forma de pago, Enter registra (vacío = exacto), Enter en «Venta registrada» = nueva venta (después de medio segundo), Esc vuelve. CONFIGURACIÓN → FORMAS DE PAGO: agregar cuentas (Bancolombia, Nu...), ocultar (no se borran), ordenar y cambiar nombre o ícono |
+| 1.1.18 | 2026-11-12 | CORRECCIÓN (lo encontró Fernando con POND REJUVENESS): la ventana «Editar producto» revisa todo ANTES de guardar; si una presentación tiene precio $0 no guarda ninguna parte, dice cuál es («SELLO X 10» no tiene precio) y marca la fila en rojo. La línea de la Recepción se actualiza aunque falle la parte de precios. Aviso en Inicio «Presentaciones sin precio» |
+
+### Versión 1.1.18 — corrección de la ventana «Editar producto» (2026-11-12)
+- Problema: un producto importado del programa anterior traía una presentación con precio $0. Al guardar, los
+  datos técnicos sí quedaban pero los precios no (presentaciones.validar los rechaza), y la línea de la Recepción
+  seguía diciendo «SIN registro INVIMA» porque `alGuardar` solo corría si todo salía bien. Parecía que no guardaba.
+- `pos_productos.api_producto_editar` acepta `_solo_revisar=1` (hace todas las revisiones y responde sin guardar) y
+  `_registro_nuevo` (el registro que se está escribiendo, para la regla de control especial).
+  `editar_producto.js` → `guardar()`: 0) revisar venta, 1) técnicos, 2) venta; `marcarFilasSinPrecio()`.
+- `presentaciones.validar` nombra la unidad en los errores. Aviso `presentaciones_sin_precio` en `alertas.py`.
 
 ### Versión 1.1.17 — ventana única de producto, cobro con teclado, formas de pago configurables (2026-11-06)
 Los tres pedidos de la lista de Fernando (documento del proyecto «Lista para la próxima actualización»).

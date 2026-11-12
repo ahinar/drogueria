@@ -414,6 +414,20 @@ def calcular_alertas(rol):
                 "No se pueden vender en el POS hasta ponerles precio.",
                 filas, lambda f: {"texto": f["nombre"], "detalle": "", "url": url_producto(f["id"])})
 
+        # Versión 1.1.18 (lo encontró Fernando con POND REJUVENESS): PRESENTACIONES con precio $0
+        # (Sello x 10, Caja x 30...). Casi todas vienen del programa anterior, cuando el Excel no
+        # traía su precio. No se pueden vender así, y además no dejan guardar cambios del producto
+        # hasta ponerles precio o quitarlas (✕ en «Editar producto» o en la ficha).
+        filas = db.execute(
+            "SELECT p.id, p.nombre, u.nombre AS presentacion FROM producto_presentaciones pp "
+            "JOIN productos p ON p.id = pp.producto_id JOIN unidades_medida u ON u.id = pp.unidad_id "
+            "WHERE p.activo = 1 AND (pp.precio_venta IS NULL OR pp.precio_venta <= 0) "
+            "ORDER BY p.nombre COLLATE ES, u.nombre").fetchall()
+        agregar("presentaciones_sin_precio", "amarillo", "📦", "Presentaciones sin precio",
+                "Póngales precio o, si el producto no se vende así, quítelas con la ✕ (en la ficha del "
+                "producto). Mientras tanto no dejan guardar cambios de ese producto.",
+                filas, lambda f: {"texto": f["nombre"], "detalle": f["presentacion"], "url": url_producto(f["id"])})
+
     # ------------------------------------------------------------------
     # 9. CAJA ABIERTA DESDE UN DÍA ANTERIOR (se olvidó cerrarla)
     # ------------------------------------------------------------------
