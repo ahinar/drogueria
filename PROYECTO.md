@@ -511,6 +511,27 @@ Notas:
 | 1.1.16 | 2026-10-30 | ALERTAS AL CELULAR por Telegram (Configuración → Alertas al celular): mini resumen al cerrar cada caja (ventas por forma de pago, contado, diferencia, gastos y retiros del turno) y aviso de temperatura/humedad fuera de rango; botones «Buscar mi chat» y «Mandar prueba». MODO INSPECCIÓN (Calidad → Modo inspección): lo pendiente de calidad y un .zip con las planillas del mes (temperaturas por zona, limpieza, residuos), vencimientos, listado de documentos, plan de capacitaciones y los certificados escaneados. FOTO POR CÓDIGO DE BARRAS en la ficha del producto (Open Food/Beauty/Products Facts; casi nunca trae medicamentos) |
 | 1.1.17 | 2026-11-06 | UNA SOLA VENTANA «EDITAR PRODUCTO» (POS, toma de inventario y Recepción) con pestañas Venta y Datos técnicos; en la Recepción el botón es «✎ Editar datos» y trae el costo que llegó vs. la compra anterior, cuánto se gana y un precio sugerido (margen de Configuración), y debajo del costo de cada línea «▲ subió 23 %» / «▼ bajó 7 %». COBRAR CON EL TECLADO: Enter abre el cobro, una letra escoge la forma de pago, Enter registra (vacío = exacto), Enter en «Venta registrada» = nueva venta (después de medio segundo), Esc vuelve. CONFIGURACIÓN → FORMAS DE PAGO: agregar cuentas (Bancolombia, Nu...), ocultar (no se borran), ordenar y cambiar nombre o ícono |
 | 1.1.18 | 2026-11-12 | CORRECCIÓN (lo encontró Fernando con POND REJUVENESS): la ventana «Editar producto» revisa todo ANTES de guardar; si una presentación tiene precio $0 no guarda ninguna parte, dice cuál es («SELLO X 10» no tiene precio) y marca la fila en rojo. La línea de la Recepción se actualiza aunque falle la parte de precios. Aviso en Inicio «Presentaciones sin precio» |
+| 1.1.19 | 2026-11-13 | TABLAS COMPACTAS en todo el programa (un renglón, letra 12, celda 15, filas de dos colores, columnas al tamaño de su contenido y ancho ajustable arrastrando el borde del título, recordado en cada computador), menos la recepción en curso. LISTA DE PRODUCTOS sin botones por fila: el nombre abre la ficha (y doble clic en la fila) y botón «Acciones (N) ▾» arriba («Editar» solo con uno marcado). SUBTOTAL por línea al ver una recepción, con la suma al pie. LIMPIEZA EN EL INICIO desde que se abre el local, con «✓ Hecho» y colores (gris, amarillo, verde, rojo si el período pasado quedó sin marcar) |
+
+### Versión 1.1.19 — tablas compactas, acciones en Productos, subtotal y limpieza en Inicio (2026-11-13)
+La lista de pedidos del 10 y 13 de noviembre (documento del proyecto «Lista para la próxima actualización»).
+- **`static/js/tablas.js`** (cargado en `base.html`): a `table.tabla, .rep-tabla, .sug-tabla, .eres-tabla,
+  .tabla-compacta, .dash-tabla` les pone la clase `compacta` (estilos en app.css «TABLAS COMPACTAS»), cambia los `<br>` de
+  las celdas por « · » (o los quita si sigue un `<small>`, que recibe el « · » por CSS), marca la columna principal
+  (`col-principal`, por el título: Producto, Nombre, Cliente...), envuelve la tabla en `.tabla-desliza` si hace falta y
+  agrega el borde arrastrable (`.col-asa`; anchos en localStorage `anchos:<ruta>:<n>`; doble clic = automático). Un
+  MutationObserver repite el trabajo con filas nuevas. Excluidas: `.tabla-recepcion`, `.editar-pres-tabla`,
+  `.san-planilla`, `.no-compactar`. `excel.js` quita el « · » final del texto de las celdas.
+- **Lista de productos** (`productos/lista.html` + `productos_lista.js`): sin columna de botones; el nombre es
+  `a.enlace-fila`; `tr[data-url]` + doble clic; `form#form-masivo.acciones-barra` arriba con el menú
+  (`#acciones-menu`), segundo paso para categoría/laboratorio/IVA, «Editar» (`.solo-uno`) solo con un marcado. Usa la
+  misma ruta `productos.masivo` y `ACCIONES_MASIVAS`. Filas marcadas en azul (`tr.marcada`).
+- **Ver recepción**: columna «Subtotal» = cantidad × costo sin IVA (+ IVA aparte) y `tfoot` con la suma, que es el
+  mismo «Subtotal (sin IVA)» de los totales (calculados ahora antes de la tabla).
+- **Limpieza en el Inicio**: `saneamiento.limpieza_para_inicio()` (estado gris/amarillo/hecha + `atrasada` si el
+  período anterior no tiene registro y la tarea ya existía). `inicio.html` → `section.limpieza-inicio` con «✓ Hecho» y
+  «Sí se hizo ayer/la semana pasada» (POST a `saneamiento.limpieza_marcar`, vuelve al Inicio por el referrer). El aviso
+  `limpieza_pendiente` de alertas.py ya no se repite en el Inicio (sigue en Modo inspección).
 
 ### Versión 1.1.18 — corrección de la ventana «Editar producto» (2026-11-12)
 - Problema: un producto importado del programa anterior traía una presentación con precio $0. Al guardar, los

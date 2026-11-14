@@ -2638,13 +2638,35 @@ html body .credito-opcion:hover { border-color: var(--acento); background: var(-
 /* Lista de productos: casillas y barra de acciones sobre varios */
 .tabla-productos .col-marca { width: 2rem; text-align: center; }
 .tabla-productos .col-marca input { width: 1.05rem; height: 1.05rem; cursor: pointer; }
-.barra-masiva { position: static; flex: 0 1 auto; margin: 0 auto; z-index: 900; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
-  padding: .7rem 1rem; background: var(--superficie, #fff); border: 1px solid var(--borde, #cfdcd7);
-  border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
-.barra-masiva[hidden] { display: none !important; }
-.barra-masiva select { max-width: 320px; }
-/* Al bajar por la lista, la barra flota arriba a la derecha */
-.barra-masiva.flotante { position: fixed; top: 4.6rem; right: 1.5rem; max-width: calc(100vw - 3rem); margin: 0; }
+/* Versión 1.1.19: botón «Acciones (N) ▾» arriba de la tabla (antes una barra flotante) */
+.acciones-barra { display: flex; align-items: center; gap: .8rem; margin: 0 0 .5rem; font-size: .88rem; }
+.acciones-caja { position: relative; }
+.acciones-boton { margin: 0; padding: .4rem .9rem; font-weight: 600; white-space: nowrap; }
+.acciones-boton:disabled { opacity: .45; cursor: not-allowed; }
+.acciones-menu {
+  position: absolute; top: calc(100% + .3rem); left: 0; z-index: 950; min-width: 320px; max-height: 70vh; overflow-y: auto;
+  padding: .35rem 0; background: #fff; border: 1px solid #d6dee5; border-radius: 10px; box-shadow: 0 10px 28px rgba(0,0,0,.16);
+}
+.acciones-menu[hidden], .acciones-menu [hidden] { display: none !important; }
+.acciones-lista button {
+  display: block; width: 100%; margin: 0; padding: .42rem 1rem; border: 0; border-radius: 0; background: none;
+  color: #1f2a33; font-size: .86rem; font-weight: 400; text-align: left; cursor: pointer; padding-top: .34rem; padding-bottom: .34rem;
+}
+.acciones-lista button:hover, .acciones-lista button:focus { background: #eef5f1; outline: none; }
+.acciones-lista button small { color: #7a8794; }
+.acciones-lista button.peligro { color: #b3261e; }
+.acciones-lista hr { margin: .3rem 0; border: 0; border-top: 1px solid #e6ebf0; }
+.acciones-paso2 { display: flex; flex-direction: column; gap: .5rem; padding: .7rem 1rem; }
+.acciones-paso2 select { width: 100%; margin: 0; }
+.acciones-paso2-botones { display: flex; gap: .4rem; }
+.acciones-paso2-botones .boton { margin: 0; }
+.enlace-boton { margin: 0; padding: 0; border: 0; background: none; color: var(--acento-fuerte, #0b6b4f);
+  text-decoration: underline; font-size: inherit; cursor: pointer; }
+/* El nombre del producto es un enlace a la ficha; doble clic en la fila también la abre */
+.tabla-productos .enlace-fila { color: var(--acento-fuerte, #0b6b4f); font-weight: 600; text-decoration: none; }
+.tabla-productos .enlace-fila:hover { text-decoration: underline; }
+.tabla-productos tbody tr[data-url] { cursor: default; }
+.tabla tbody tr.marcada, .tabla tbody tr.marcada:nth-child(even) { background: #cfe8f7 !important; }   /* azul: se nota distinto de la cebra */
 .texto-alerta { color: #8a5a00; }
 
 /* ===== Ficha del producto compacta (que quepa sin barra de desplazamiento) ===== */
@@ -3332,4 +3354,79 @@ body.sidebar-colapsado .sidebar-submenu, body.sidebar-colapsado .sidebar-submenu
   .fp-saldo, .fp-botones { grid-column: 2; text-align: left; }
   .fp-editar { flex-wrap: wrap; }
   .fp-agregar-campos { grid-template-columns: 1fr 1fr; }
+}
+
+/* =====================================================================
+   TABLAS COMPACTAS (versión 1.1.19, pedido de Fernando) — static/js/tablas.js
+   pone la clase "compacta" a las tablas de listas y reportes.
+   Letra 12, celda de 15, un solo renglón y filas de dos colores (cebra).
+   ===================================================================== */
+table.compacta { font-size: 12px; }
+table.compacta th, table.compacta td {
+  padding: 2px 8px; line-height: 15px; white-space: nowrap; vertical-align: middle;
+}
+table.compacta th { font-size: 11.5px; position: relative; }          /* (relative: para el borde que se arrastra) */
+table.compacta td small, table.compacta td .suave { font-size: 11px; }
+/* Cebra: una fila blanca y una verde clarito; más verde la que señala el mouse */
+table.compacta tbody tr:nth-child(odd) { background: #ffffff; }
+table.compacta tbody tr:nth-child(even) { background: #eef5f1; }
+table.compacta tbody tr:hover { background: #dcefe5; }
+.moderno table.compacta tbody tr:hover { background: #dcefe5; }
+/* La columna principal (Producto, Nombre...) se queda con el espacio que sobra */
+table.compacta .col-principal { width: 100%; }
+/* Etiquetas, botones y casillas dentro de una fila: pequeños, para no agrandarla */
+table.compacta .tag, table.compacta .tag-resultado, table.compacta .badge, table.compacta .etiqueta, table.compacta .estado {
+  padding: 0 6px; font-size: 11px; line-height: 15px;
+}
+table.compacta td .boton, table.compacta td .boton-chico, table.compacta td button:not(.col-asa) {
+  padding: 1px 8px; font-size: 11px; line-height: 14px; min-height: 0; margin: 0;
+}
+table.compacta td form { margin: 0; display: inline; }
+table.compacta td input:not([type="checkbox"]), table.compacta td select { padding: 1px 6px; font-size: 12px; min-height: 0; }
+/* Columna con ancho puesto a mano: lo que no quepa se corta con «…» */
+table.compacta .col-fija { overflow: hidden; text-overflow: ellipsis; }
+/* El borde que se arrastra para cambiar el ancho */
+table.compacta .col-asa {
+  position: absolute; top: 0; right: -4px; width: 8px; height: 100%; z-index: 2; cursor: col-resize;
+}
+table.compacta th:hover .col-asa { background: linear-gradient(to right, transparent 3px, #9ad3b8 3px, #9ad3b8 5px, transparent 5px); }
+body.arrastrando-columna, body.arrastrando-columna * { cursor: col-resize !important; user-select: none !important; }
+/* Si la tabla no cabe a lo ancho, se desliza de lado dentro de su caja */
+.tabla-desliza { max-width: 100%; overflow-x: auto; }
+.moderno .tabla-desliza > table.tabla { overflow: visible; }
+/* Lo que algunas tablas ponían en un segundo renglón (un <small> o un <div> debajo del nombre)
+   queda en el mismo renglón, separado por « · » */
+table.compacta td small, table.compacta td > div, table.compacta td > p { display: inline; margin: 0; }
+table.compacta td > small:not(:first-child)::before,
+table.compacta td > div:not(:first-child)::before,
+table.compacta td > p:not(:first-child)::before { content: " · "; }
+.enlace-boton[hidden] { display: none !important; }
+/* Ver una recepción (1.1.19): la fila de suma al pie de la columna «Subtotal» */
+.tabla .fila-suma td { border-top: 2px solid #d5dee6; font-weight: 600; background: #f7faf8; }
+.tabla .num, table.compacta td.num { text-align: right; }
+
+/* =====================================================================
+   INICIO → recuadro «Limpieza» (versión 1.1.19). Ver saneamiento.limpieza_para_inicio
+   gris = por hacer · amarillo = queda poco · verde = hecha · rojo = el período pasado no se marcó
+   ===================================================================== */
+.limpieza-inicio { margin: 0 0 1.2rem; padding: .9rem 1rem; background: #fff; border: 1px solid #dde3ea; border-radius: 12px; }
+.limpieza-inicio .alertas-titulo { display: flex; align-items: center; gap: .6rem; margin: 0 0 .6rem; }
+.limpieza-ver { margin-left: auto; font-size: .82rem; font-weight: 500; }
+.alerta-chip.verde { background: #e3f4ea; color: #1d7a3a; }
+.limpieza-filas { display: flex; flex-direction: column; gap: .35rem; }
+.limpieza-fila {
+  display: grid; grid-template-columns: 14rem 1fr auto; align-items: center; gap: .7rem;
+  padding: .4rem .7rem; border-radius: 8px; border-left: 5px solid #b8c2cc; background: #f6f8fa; font-size: .88rem;
+}
+.limpieza-fila.estado-amarillo { border-left-color: #e0a100; background: #fff8e6; }
+.limpieza-fila.estado-hecha { border-left-color: #2e9e5b; background: #eef8f1; color: #2b5b3b; }
+.limpieza-fila.atrasada { border-left-color: #c62828; }
+.limpieza-nombre { display: flex; flex-direction: column; }
+.limpieza-rojo { color: #b3261e; font-weight: 600; }
+.limpieza-botones { display: flex; gap: .4rem; justify-content: flex-end; }
+.limpieza-botones form { margin: 0; }
+.limpieza-botones .boton-chico { margin: 0; white-space: nowrap; }
+@media (max-width: 700px) {
+  .limpieza-fila { grid-template-columns: 1fr; gap: .3rem; }
+  .limpieza-botones { justify-content: flex-start; }
 }

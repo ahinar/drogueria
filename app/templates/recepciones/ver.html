@@ -55,8 +55,17 @@
 </div>
 {% endif %}
 
+{# Totales como en la factura (versión 1.1.6): subtotal sin IVA + IVA = total.
+   (1.1.19: se calculan antes de la tabla para mostrar la suma al pie de la columna «Subtotal») #}
+{% set ns = namespace(sub=0, iva=0) %}
+{% for l in lineas %}
+  {% set sin = (l['costo_sin_iva'] if l['costo_sin_iva'] is not none else l['costo_unitario']) * l['cantidad_recibida'] %}
+  {% set con = (l['costo_con_iva'] if l['costo_con_iva'] is not none else l['costo_unitario']) * l['cantidad_recibida'] %}
+  {% set ns.sub = ns.sub + sin %}{% set ns.iva = ns.iva + (con - sin) %}
+{% endfor %}
+
 <h2 class="titulo-seccion">Líneas</h2>
-<table class="tabla">
+<table class="tabla tabla-recepcion-ver">
   <thead>
     <tr>
       <th>Producto</th>
@@ -64,6 +73,8 @@
       <th>Vence</th>
       <th>Cant. Rec.</th>
       <th>Costo</th>
+      {# Versión 1.1.19 (pedido de Fernando): cuánto suma cada línea, como en la factura #}
+      <th class="num">Subtotal</th>
       <th>Temp. ing.</th>
       <th>Empaque</th>
       <th>Resultado</th>
@@ -91,6 +102,12 @@
           {% else %}{{ l['costo_unitario']|pesos }}{% endif %}
           {# IVA de la línea (versión 1.1.6) #}
           {% if l['iva_tarifa'] %}<br><small class="suave">IVA {{ '%g' % l['iva_tarifa'] }} %</small>{% endif %}</td>
+      {# Subtotal = cantidad recibida × costo SIN IVA (igual que el «Subtotal (sin IVA)» de abajo,
+         así la suma de esta columna cuadra con él). Si la línea tiene IVA, se muestra aparte. #}
+      {% set sub_sin = (l['costo_sin_iva'] if l['costo_sin_iva'] is not none else l['costo_unitario']) * l['cantidad_recibida'] %}
+      {% set sub_con = (l['costo_con_iva'] if l['costo_con_iva'] is not none else l['costo_unitario']) * l['cantidad_recibida'] %}
+      <td class="num"><strong>{{ sub_sin|pesos }}</strong>
+          {% if sub_con - sub_sin >= 0.5 %}<small class="suave">+ IVA {{ (sub_con - sub_sin)|pesos }}</small>{% endif %}</td>
       <td>{% if l['temperatura_ingreso'] is not none %}{{ l['temperatura_ingreso'] }} °C{% else %}—{% endif %}</td>
       <td>{{ empaques.get(l['estado_empaque'], l['estado_empaque']) }}</td>
       <td>
@@ -102,15 +119,14 @@
     </tr>
     {% endfor %}
   </tbody>
+  <tfoot>
+    <tr class="fila-suma">
+      <td colspan="5" class="num">Suma de las líneas (sin IVA):</td>
+      <td class="num"><strong>{{ ns.sub|pesos }}</strong></td>
+      <td colspan="4"></td>
+    </tr>
+  </tfoot>
 </table>
-
-{# Totales como en la factura (versión 1.1.6): subtotal sin IVA + IVA = total #}
-{% set ns = namespace(sub=0, iva=0) %}
-{% for l in lineas %}
-  {% set sin = (l['costo_sin_iva'] if l['costo_sin_iva'] is not none else l['costo_unitario']) * l['cantidad_recibida'] %}
-  {% set con = (l['costo_con_iva'] if l['costo_con_iva'] is not none else l['costo_unitario']) * l['cantidad_recibida'] %}
-  {% set ns.sub = ns.sub + sin %}{% set ns.iva = ns.iva + (con - sin) %}
-{% endfor %}
 <div class="totales-recepcion" style="max-width:420px;margin-left:auto">
   <div class="total-linea"><span>Subtotal (sin IVA):</span><strong>{{ ns.sub|pesos }}</strong></div>
   <div class="total-linea"><span>IVA:</span><strong>{{ ns.iva|pesos }}</strong></div>

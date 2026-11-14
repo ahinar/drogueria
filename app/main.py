@@ -148,7 +148,11 @@ def inicio():
     productos = _productos_alertas(db)
     ventas = _ventas_hoy(db)
     # Panel "¿Qué hay que atender hoy?" (toda la lógica está en app/alertas.py)
-    alertas = calcular_alertas(g.user["rol"])
+    # (1.1.19: la limpieza ya tiene su propio recuadro arriba, así que su aviso no se repite aquí)
+    alertas = [a for a in calcular_alertas(g.user["rol"]) if a["clave"] != "limpieza_pendiente"]
+    # Versión 1.1.19: recuadro «Limpieza» desde que se abre el local (app/saneamiento.py)
+    from .saneamiento import limpieza_para_inicio
+    limpieza = limpieza_para_inicio()
     # Resumen de plata: solo para administrador y director técnico
     resumen = _resumen_negocio(db) if g.user["rol"] in ("administrador", "director_tecnico") else None
 
@@ -172,6 +176,7 @@ def inicio():
         "productos": productos,
         "ventas": ventas,
         "alertas": alertas,
+        "limpieza": limpieza,
         "resumen": resumen,
         "alertas_rojas": sum(1 for a in alertas if a["nivel"] == "rojo"),
         "ultimos_productos": ultimos_productos,

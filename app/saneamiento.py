@@ -180,6 +180,55 @@ def limpieza_pendiente_para_aviso(ahora_dt=None):
     return pendientes
 
 
+# Cuántos días antes del fin del período la tarea se pone AMARILLA («queda poco»).
+# (Son los mismos márgenes del aviso de arriba; las diarias se ponen amarillas a las 3 p. m.)
+MARGEN_AMARILLO = {"semanal": 1, "quincenal": 2, "mensual": 3}
+HORA_AMARILLA_DIARIA = 15
+
+
+def limpieza_para_inicio(ahora_dt=None):
+    """El recuadro «Limpieza» del Inicio (versión 1.1.19, pedido de Fernando).
+
+    Antes el Inicio solo avisaba a última hora (ver limpieza_pendiente_para_aviso).
+    Ahora se ve DESDE QUE SE ABRE EL LOCAL todo lo que falta en el período actual
+    (Pisos hoy, Estanterías esta semana, Nevera este mes...), con un color:
+      - "gris":     por hacer, todavía hay tiempo
+      - "amarillo": queda poco (diaria desde las 3 p. m.; semanal 1 día; quincenal 2; mensual 3)
+      - "hecha":    ya se marcó en este período (sale con quién y cuándo)
+    y aparte, "atrasada" = True si el período ANTERIOR se pasó sin hacerla (ej. ayer no
+    se marcó Pisos): eso sale en rojo, porque así lo verá la Secretaría en la planilla.
+    """
+    ahora_dt = ahora_dt or datetime.now()
+    hoy = ahora_dt.date()
+    db = get_db()
+    lista = []
+    for t in estado_tareas(hoy):
+        if t["hecho"]:
+            estado = "hecha"
+        elif t["frecuencia"] == "diaria":
+            estado = "amarillo" if ahora_dt.hour >= HORA_AMARILLA_DIARIA else "gris"
+        else:
+            estado = "amarillo" if t["quedan"] <= MARGEN_AMARILLO[t["frecuencia"]] else "gris"
+        # ¿El período anterior se pasó sin hacerla? (solo si la tarea ya existía entonces)
+        ant_inicio, ant_fin = periodo(t["frecuencia"], t["inicio"] - timedelta(days=1))
+        creada = (t["creado_en"] or "")[:10]
+        atrasada = False
+        if not creada or creada <= ant_inicio.isoformat():
+            atrasada = db.execute("SELECT 1 FROM limpieza_registros WHERE tarea_id = ? AND fecha BETWEEN ? AND ?",
+                                  (t["id"], ant_inicio.isoformat(), ant_fin.isoformat())).fetchone() is None
+        # Texto corto del período: «hoy», «esta semana (hasta el dom 15/11)», «este mes (hasta el 30/11)»
+        if t["frecuencia"] == "diaria":
+            cuando = "hoy"
+        else:
+            nombre = {"semanal": "esta semana", "quincenal": "esta quincena", "mensual": "este mes"}[t["frecuencia"]]
+            cuando = f"{nombre} (hasta el {t['fin'].strftime('%d/%m')})"
+        anterior = {"diaria": "ayer", "semanal": "la semana pasada", "quincenal": "la quincena pasada",
+                    "mensual": "el mes pasado"}[t["frecuencia"]]
+        lista.append(dict(t, estado=estado, atrasada=atrasada, cuando=cuando, anterior=anterior,
+                          anterior_dia=ant_fin.isoformat()))
+    return lista
+
+
 def planilla_mes(primero, hoy=None):
     """Datos de la planilla de un mes: una fila por tarea y una casilla por día.
 

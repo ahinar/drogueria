@@ -3,35 +3,6 @@
 {% block contenido %}
 <div class="lista-header">
   <h1>Productos</h1>
-  {% if vista != 'grid' and g.user['rol'] in ('administrador', 'director_tecnico') %}
-  <!-- ===== BARRA DE ACCIONES (aparece al marcar productos) =====
-       Va arriba, en el espacio libre del encabezado. Si bajas por
-       la lista, se queda flotando arriba para que siempre se vea. -->
-  <form id="form-masivo" method="post" action="{{ url_for('productos.masivo') }}" class="barra-masiva" hidden>
-    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-    <input type="hidden" name="volver" value="{{ request.full_path }}">
-    <strong id="masivo-cuantos">0 marcados</strong>
-    <select name="accion" id="masivo-accion" aria-label="Qué hacer">
-      <option value="">— ¿Qué hacer con ellos? —</option>
-      {% for clave, texto in acciones.items() %}<option value="{{ clave }}">{{ texto }}</option>{% endfor %}
-    </select>
-    {# Segundo paso, según la acción: categoría, laboratorio o IVA #}
-    <select name="valor" id="masivo-categoria" class="masivo-valor" data-para="categoria" hidden disabled>
-      {% for c in categorias %}<option value="{{ c['id'] }}">{{ c['nombre'] }}</option>{% endfor %}
-    </select>
-    <select name="valor" id="masivo-laboratorio" class="masivo-valor" data-para="laboratorio" hidden disabled>
-      {% for l in laboratorios %}<option value="{{ l['id'] }}">{{ l['nombre'] }}</option>{% endfor %}
-    </select>
-    <select name="valor" id="masivo-iva" class="masivo-valor" data-para="iva" hidden disabled>
-      <option value="excluido">Excluido</option>
-      <option value="exento">Exento</option>
-      <option value="gravado:19">Gravado 19 %</option>
-      <option value="gravado:5">Gravado 5 %</option>
-    </select>
-    <button type="submit" class="boton">Aplicar</button>
-    <button type="button" class="boton secundario" id="masivo-limpiar">Quitar marcas</button>
-  </form>
-  {% endif %}
   <div class="vista-toggle">
     <a class="vista-btn {% if vista == 'grid' %}activo{% endif %}"
        href="{{ url_for('productos.lista', q=q, filtro=filtro, vista='grid') }}"
@@ -110,10 +81,70 @@
     {% endfor %}
   </div>
 {% else %}
-  <!-- ===== VISTA LISTA =====
-       Casillas para marcar varios productos y hacerles algo a todos a la vez
-       (barra de abajo). Las casillas usan form="form-masivo" porque el
-       formulario no puede envolver la tabla (cada fila tiene su propio botón). -->
+  <!-- ===== VISTA LISTA (versión 1.1.19, pedido de Fernando) =====
+       - Sin botones en cada fila: el NOMBRE es el enlace a la ficha (y doble clic
+         en cualquier parte de la fila también la abre).
+       - Se marcan productos con las casillas y se escoge qué hacerles en el botón
+         «Acciones (N) ▾» de arriba. «Editar» solo sale cuando hay UNO marcado.
+       Las casillas usan form="form-masivo" porque el formulario no envuelve la tabla.
+       El código está en static/js/productos_lista.js. -->
+  {% if g.user['rol'] in ('administrador', 'director_tecnico') %}
+  <form id="form-masivo" method="post" action="{{ url_for('productos.masivo') }}" class="acciones-barra"
+        data-url-editar="{{ url_for('productos.editar', prod_id=0) }}">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="volver" value="{{ request.full_path }}">
+    <input type="hidden" name="accion" id="masivo-accion" value="">
+    <div class="acciones-caja">
+      <button type="button" class="boton acciones-boton" id="acciones-boton" disabled aria-haspopup="true"
+              aria-expanded="false">Acciones <span id="acciones-n"></span> ▾</button>
+      <div class="acciones-menu" id="acciones-menu" role="menu" hidden>
+        <div class="acciones-lista" id="acciones-lista">
+          <button type="button" role="menuitem" data-accion="editar" class="solo-uno">✏️ Editar <small>(abre la ficha)</small></button>
+          <hr class="solo-uno">
+          <button type="button" role="menuitem" data-accion="desactivar">⏸️ Desactivar</button>
+          <button type="button" role="menuitem" data-accion="activar">▶️ Activar</button>
+          <hr>
+          <button type="button" role="menuitem" data-accion="categoria">🏷️ Agregar a la categoría…</button>
+          <button type="button" role="menuitem" data-accion="laboratorio">🏭 Poner laboratorio…</button>
+          <button type="button" role="menuitem" data-accion="iva">🧾 Cambiar IVA…</button>
+          <hr>
+          <button type="button" role="menuitem" data-accion="vence_si">📅 Marcar: maneja lote y vencimiento</button>
+          <button type="button" role="menuitem" data-accion="vence_no">📅 Quitar: maneja lote y vencimiento</button>
+          <button type="button" role="menuitem" data-accion="formula_si">℞ Marcar: requiere fórmula médica</button>
+          <button type="button" role="menuitem" data-accion="formula_no">℞ Quitar: requiere fórmula médica</button>
+          <button type="button" role="menuitem" data-accion="frio_si">❄️ Marcar: cadena de frío</button>
+          <button type="button" role="menuitem" data-accion="frio_no">❄️ Quitar: cadena de frío</button>
+          <hr>
+          <button type="button" role="menuitem" data-accion="exportar">📥 Exportar a Excel</button>
+          <hr>
+          <button type="button" role="menuitem" data-accion="eliminar" class="peligro">🗑️ Eliminar <small>(solo los que nunca se usaron)</small></button>
+        </div>
+        {# Segundo paso para categoría, laboratorio o IVA: escoger cuál y «Aplicar» #}
+        <div class="acciones-paso2" id="acciones-paso2" hidden>
+          <strong id="acciones-paso2-titulo"></strong>
+          <select name="valor" id="masivo-categoria" class="masivo-valor" data-para="categoria" hidden disabled>
+            {% for c in categorias %}<option value="{{ c['id'] }}">{{ c['nombre'] }}</option>{% endfor %}
+          </select>
+          <select name="valor" id="masivo-laboratorio" class="masivo-valor" data-para="laboratorio" hidden disabled>
+            {% for l in laboratorios %}<option value="{{ l['id'] }}">{{ l['nombre'] }}</option>{% endfor %}
+          </select>
+          <select name="valor" id="masivo-iva" class="masivo-valor" data-para="iva" hidden disabled>
+            <option value="excluido">Excluido</option>
+            <option value="exento">Exento</option>
+            <option value="gravado:19">Gravado 19 %</option>
+            <option value="gravado:5">Gravado 5 %</option>
+          </select>
+          <div class="acciones-paso2-botones">
+            <button type="submit" class="boton">Aplicar</button>
+            <button type="button" class="boton secundario" id="acciones-volver">Volver</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="suave" id="masivo-cuantos">Marque productos con las casillas para hacerles algo.</span>
+    <button type="button" class="enlace-boton" id="masivo-limpiar" hidden>quitar marcas</button>
+  </form>
+  {% endif %}
   <table class="tabla tabla-productos">
     <thead>
       <tr>
@@ -125,27 +156,30 @@
         <th>Precio y existencias</th>
         <th>Alertas</th>
         <th>Estado</th>
-        <th></th>
       </tr>
     </thead>
     <tbody>
       {% for p in productos %}
-      <tr class="{% if not p['activo'] %}inactivo{% endif %}">
-        {% if g.user['rol'] in ('administrador', 'director_tecnico') %}<td class="col-marca"><input type="checkbox" name="ids" value="{{ p['id'] }}" form="form-masivo" class="marca-producto" aria-label="Marcar {{ p['nombre'] }}"></td>{% endif %}
+      {% set puede_editar = g.user['rol'] in ('administrador', 'director_tecnico') %}
+      <tr class="{% if not p['activo'] %}inactivo{% endif %}"
+          {% if puede_editar %}data-url="{{ url_for('productos.editar', prod_id=p['id']) }}"{% endif %}>
+        {% if puede_editar %}<td class="col-marca"><input type="checkbox" name="ids" value="{{ p['id'] }}" form="form-masivo" class="marca-producto" aria-label="Marcar {{ p['nombre'] }}"></td>{% endif %}
         <td>{{ p['codigo'] }}</td>
-        <td>
-          {{ p['nombre'] }}
-          {% if p['concentracion'] %} <small>{{ p['concentracion'] }}</small>{% endif %}
+        {# El NOMBRE abre la ficha (1.1.19). «col-principal»: esta columna toma el espacio que sobra #}
+        <td class="col-principal" title="{{ p['nombre'] }}{% if p['concentracion'] %} {{ p['concentracion'] }}{% endif %}">
+          {% if puede_editar %}<a class="enlace-fila" href="{{ url_for('productos.editar', prod_id=p['id']) }}">{% endif %}
+          {{ p['nombre'] }}{% if p['concentracion'] %} <small>{{ p['concentracion'] }}</small>{% endif %}
+          {% if puede_editar %}</a>{% endif %}
         </td>
         <td>
-          {{ p['principio_nombre'] or '—' }}<br>
-          <small>{{ p['laboratorio_nombre'] or '—' }}</small>
+          {# (tablas.js / app.css ponen « · » antes del <small>: todo queda en un renglón) #}
+          {{ p['principio_nombre'] or '—' }} <small>{{ p['laboratorio_nombre'] or '—' }}</small>
         </td>
         <td><small>{{ p['categorias_txt'] or '—' }}</small></td>
         <td>
           {% set v = venta.get(p['id'], {}) %}
-          <strong>{{ (v.precio if v else p['precio_venta'])|pesos }}</strong><br>
-          <small>por {{ v.por if v else (p['unidad_nombre'] or 'Unidad') }}</small><br>
+          <strong>{{ (v.precio if v else p['precio_venta'])|pesos }}</strong>
+          <small>por {{ v.por if v else (p['unidad_nombre'] or 'Unidad') }}</small>
           <small class="suave">Hay: {{ v.existencias if v else '—' }}</small>
         </td>
         <td>
@@ -154,18 +188,9 @@
           {% if p['requiere_formula'] %}<span class="tag formula">℞ Fórmula</span>{% endif %}
         </td>
         <td>{{ 'Activo' if p['activo'] else 'Inactivo' }}</td>
-        <td>
-          {% if g.user['rol'] in ('administrador', 'director_tecnico') %}
-            <a href="{{ url_for('productos.editar', prod_id=p['id']) }}">Editar</a>
-            <form method="post" action="{{ url_for('productos.activar', prod_id=p['id']) }}" style="display:inline">
-              <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
-              <button type="submit">{{ 'Desactivar' if p['activo'] else 'Activar' }}</button>
-            </form>
-          {% endif %}
-        </td>
       </tr>
       {% else %}
-      <tr><td colspan="9">No hay productos que coincidan.</td></tr>
+      <tr><td colspan="8">No hay productos que coincidan.</td></tr>
       {% endfor %}
     </tbody>
   </table>

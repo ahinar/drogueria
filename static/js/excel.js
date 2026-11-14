@@ -21,7 +21,8 @@
     // Solo el texto principal (sin el texto pequeño de abajo)
     const copia = celda.cloneNode(true);
     copia.querySelectorAll('small, .rep-barra, details ul').forEach((x) => x.remove());
-    return copia.textContent.replace(/\s+/g, ' ').trim();
+    // (1.1.19: tablas.js pone « · » donde había un salto de renglón; al final no hace falta)
+    return copia.textContent.replace(/\s+/g, ' ').trim().replace(/\s*·$/, '').trim();
   }
 
   // Título de cada tabla: el h2 de su recuadro, o el título de la página

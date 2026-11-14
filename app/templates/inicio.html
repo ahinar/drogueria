@@ -37,6 +37,57 @@
 </div>
 {% endif %}
 
+<!-- ============ LIMPIEZA (versión 1.1.19, pedido de Fernando) ============
+     Se ve desde que se abre el local: lo que falta de limpieza en el período
+     (Pisos hoy, Estanterías esta semana, Nevera este mes...) con su botón «✓ Hecho».
+     Colores: gris = por hacer · amarillo = queda poco · rojo = el período pasado
+     quedó sin hacer. Los datos los arma saneamiento.limpieza_para_inicio(). -->
+{% set pend_limpieza = limpieza|rejectattr('estado', 'equalto', 'hecha')|list %}
+{% set atrasadas = limpieza|selectattr('atrasada')|list %}
+{% if limpieza %}
+<section class="limpieza-inicio">
+  <h2 class="alertas-titulo">🧽 Limpieza
+    {% if not pend_limpieza and not atrasadas %}<span class="alerta-chip verde">al día</span>{% endif %}
+    <a class="limpieza-ver" href="{{ url_for('saneamiento.limpieza') }}">Ver planilla →</a>
+  </h2>
+  <div class="limpieza-filas">
+    {% for t in limpieza %}
+    <div class="limpieza-fila estado-{{ t.estado }}{% if t.atrasada %} atrasada{% endif %}">
+      <span class="limpieza-nombre"><strong>{{ t.nombre }}</strong>
+        <small class="suave">{{ t.frecuencia_texto }}{% if t.area %} · {{ t.area }}{% endif %}</small></span>
+      <span class="limpieza-cuando">
+        {% if t.estado == 'hecha' %}
+          ✓ Hecha · {{ t.hecho['usuario_nombre'] }}{% if t.hecho['creado_en'] %} · {{ t.hecho['fecha'][8:10] }}/{{ t.hecho['fecha'][5:7] }} {{ t.hecho['creado_en'][11:16] }}{% endif %}
+        {% else %}
+          {% if t.estado == 'amarillo' %}⏰ Queda poco · {% endif %}Para {{ t.cuando }}
+        {% endif %}
+        {% if t.atrasada %}<br><span class="limpieza-rojo">⚠ {{ t.anterior|capitalize }} no se marcó</span>{% endif %}
+      </span>
+      <span class="limpieza-botones">
+        {% if t.estado != 'hecha' %}
+        <form method="post" action="{{ url_for('saneamiento.limpieza_marcar') }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <input type="hidden" name="tarea_id" value="{{ t.id }}">
+          <button type="submit" class="boton-chico">✓ Hecho</button>
+        </form>
+        {% endif %}
+        {% if t.atrasada %}
+        {# Para ponerse al día: marcar el período pasado (el último día de ese período) #}
+        <form method="post" action="{{ url_for('saneamiento.limpieza_marcar') }}">
+          <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+          <input type="hidden" name="tarea_id" value="{{ t.id }}">
+          <input type="hidden" name="fecha" value="{{ t.anterior_dia }}">
+          <button type="submit" class="boton-chico secundario"
+                  data-confirmar="¿Marcar «{{ t.nombre }}» como hecha {{ t.anterior }}? Solo si de verdad se hizo.">Sí se hizo {{ t.anterior }}</button>
+        </form>
+        {% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
 <!-- ============ PANEL DE ALERTAS: ¿qué hay que atender hoy? ============
      La lista "alertas" la arma app/alertas.py. Cada alerta trae: nivel
      (rojo / amarillo), título, explicación, hasta 5 casos con su enlace y
