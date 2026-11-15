@@ -143,11 +143,30 @@
     {% endif %}
   </fieldset>
 
-  {# ----- Versión 1.1.16: alertas al celular por Telegram (app/telegram.py) ----- #}
+  {# ----- Alertas al celular: Telegram (1.1.16) y WhatsApp con CallMeBot (1.1.20). Ver app/avisos.py ----- #}
   <fieldset id="telegram">
-    <legend>📱 Alertas al celular (Telegram)</legend>
-    <p class="suave"><small>El programa le manda un mensaje a su Telegram cuando se cierra una caja (con un mini resumen)
-      y cuando una temperatura o humedad queda fuera de rango. Es gratis.</small></p>
+    <legend>📱 Alertas al celular</legend>
+    <p class="suave"><small>El programa le avisa al celular cuando se cierra una caja (con un mini resumen) y cuando
+      una temperatura o humedad queda fuera de rango. Puede recibirlo por Telegram, por WhatsApp o por los dos.</small></p>
+
+    <div class="avisos-grupo">
+      <strong>¿Por dónde avisar?</strong>
+      <label class="switch-linea"><input type="checkbox" name="aviso_telegram" value="si"
+        {% if valores['aviso_telegram'] != 'no' %}checked{% endif %}> ✈️ Telegram <small class="suave">(el más confiable)</small></label>
+      <label class="switch-linea"><input type="checkbox" name="aviso_whatsapp" value="si"
+        {% if valores['aviso_whatsapp'] == 'si' %}checked{% endif %}> 🟢 WhatsApp <small class="suave">(con CallMeBot)</small></label>
+      <small class="suave">Si marca los dos y uno falla un rato, el aviso llega igual por el otro.</small>
+    </div>
+    <div class="avisos-grupo">
+      <strong>¿Qué avisar?</strong>
+      <label class="switch-linea"><input type="checkbox" name="telegram_cierre_caja" value="si"
+        {% if valores['telegram_cierre_caja'] != 'no' %}checked{% endif %}> Cuando se cierre una caja (con mini resumen)</label>
+      <label class="switch-linea"><input type="checkbox" name="telegram_temperatura" value="si"
+        {% if valores['telegram_temperatura'] != 'no' %}checked{% endif %}> Cuando una temperatura o humedad quede fuera de rango</label>
+    </div>
+
+    <!-- ===== Telegram ===== -->
+    <h3 class="avisos-canal">✈️ Telegram</h3>
     <details class="eres-ayuda">
       <summary>❓ ¿Cómo lo configuro? (2 minutos, una sola vez)</summary>
       <ol>
@@ -168,13 +187,37 @@
       <input type="text" name="telegram_chat_id" value="{{ valores['telegram_chat_id'] }}" autocomplete="off"
              placeholder="Se llena solo con «Buscar mi chat»">
     </label>
-    <label class="switch-linea"><input type="checkbox" name="telegram_cierre_caja" value="si"
-      {% if valores['telegram_cierre_caja'] != 'no' %}checked{% endif %}> Avisar cuando se cierre una caja (con mini resumen)</label>
-    <label class="switch-linea"><input type="checkbox" name="telegram_temperatura" value="si"
-      {% if valores['telegram_temperatura'] != 'no' %}checked{% endif %}> Avisar cuando una temperatura o humedad quede fuera de rango</label>
     <div class="acciones">
       <button type="submit" formaction="{{ url_for('configuracion.telegram_buscar_chat') }}" class="secundario">🔎 Buscar mi chat</button>
-      <button type="submit" formaction="{{ url_for('configuracion.telegram_probar') }}" class="secundario">📨 Mandar prueba</button>
+      <button type="submit" formaction="{{ url_for('configuracion.telegram_probar') }}" class="secundario">📨 Mandar prueba por Telegram</button>
+    </div>
+
+    <!-- ===== WhatsApp (CallMeBot) ===== -->
+    <h3 class="avisos-canal" id="avisos-whatsapp">🟢 WhatsApp</h3>
+    <details class="eres-ayuda">
+      <summary>❓ ¿Cómo lo configuro? (2 minutos, una sola vez)</summary>
+      <ol>
+        <li>Entre a <strong>callmebot.com</strong> → WhatsApp y copie el <strong>número de CallMeBot</strong> que aparece ahí.
+          Guárdelo en los contactos de su celular (con el nombre que quiera, ej. <em>CallMeBot</em>).</li>
+        <li>Desde WhatsApp, escríbale a ese contacto exactamente: <code>I allow callmebot to send me messages</code></li>
+        <li>En uno o dos minutos le responde: <em>«API Activated for your phone number. Your APIKEY is 123456»</em>.
+          Ese número es la <strong>clave (apikey)</strong>: cópiela abajo.</li>
+        <li>Escriba su número de celular, toque <strong>📨 Mandar prueba por WhatsApp</strong> y marque «WhatsApp» arriba.</li>
+      </ol>
+      <p class="suave"><small>CallMeBot es gratis y solo le escribe a SU número (el que hizo los pasos). Es un servicio de
+        terceros: a veces se demora o falla por ratos; por eso conviene dejar también Telegram. Si la clave no le llega
+        en 2 minutos, CallMeBot recomienda volver a intentar al otro día.</small></p>
+    </details>
+    <label>Número del celular
+      <input type="tel" name="whatsapp_numero" value="{{ valores['whatsapp_numero'] }}" autocomplete="off"
+             placeholder="Ej: 300 123 4567 (se le pone el +57 solo)">
+    </label>
+    <label>Clave (apikey) de CallMeBot
+      <input type="text" name="whatsapp_apikey" value="{{ valores['whatsapp_apikey'] }}" autocomplete="off"
+             spellcheck="false" placeholder="Ej: 123456">
+    </label>
+    <div class="acciones">
+      <button type="submit" formaction="{{ url_for('configuracion.whatsapp_probar') }}" class="secundario">📨 Mandar prueba por WhatsApp</button>
     </div>
   </fieldset>
 

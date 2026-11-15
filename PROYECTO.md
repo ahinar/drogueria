@@ -512,6 +512,20 @@ Notas:
 | 1.1.17 | 2026-11-06 | UNA SOLA VENTANA «EDITAR PRODUCTO» (POS, toma de inventario y Recepción) con pestañas Venta y Datos técnicos; en la Recepción el botón es «✎ Editar datos» y trae el costo que llegó vs. la compra anterior, cuánto se gana y un precio sugerido (margen de Configuración), y debajo del costo de cada línea «▲ subió 23 %» / «▼ bajó 7 %». COBRAR CON EL TECLADO: Enter abre el cobro, una letra escoge la forma de pago, Enter registra (vacío = exacto), Enter en «Venta registrada» = nueva venta (después de medio segundo), Esc vuelve. CONFIGURACIÓN → FORMAS DE PAGO: agregar cuentas (Bancolombia, Nu...), ocultar (no se borran), ordenar y cambiar nombre o ícono |
 | 1.1.18 | 2026-11-12 | CORRECCIÓN (lo encontró Fernando con POND REJUVENESS): la ventana «Editar producto» revisa todo ANTES de guardar; si una presentación tiene precio $0 no guarda ninguna parte, dice cuál es («SELLO X 10» no tiene precio) y marca la fila en rojo. La línea de la Recepción se actualiza aunque falle la parte de precios. Aviso en Inicio «Presentaciones sin precio» |
 | 1.1.19 | 2026-11-13 | TABLAS COMPACTAS en todo el programa (un renglón, letra 12, celda 15, filas de dos colores, columnas al tamaño de su contenido y ancho ajustable arrastrando el borde del título, recordado en cada computador), menos la recepción en curso. LISTA DE PRODUCTOS sin botones por fila: el nombre abre la ficha (y doble clic en la fila) y botón «Acciones (N) ▾» arriba («Editar» solo con uno marcado). SUBTOTAL por línea al ver una recepción, con la suma al pie. LIMPIEZA EN EL INICIO desde que se abre el local, con «✓ Hecho» y colores (gris, amarillo, verde, rojo si el período pasado quedó sin marcar) |
+| 1.1.20 | 2026-11-14 | ALERTAS POR WHATSAPP (CallMeBot, gratis, al propio celular): en Configuración → Alertas al celular se escoge «¿Por dónde avisar?» Telegram, WhatsApp o los dos; número + clave (apikey) de CallMeBot y botón «Mandar prueba por WhatsApp». Cada canal va por aparte: si uno falla, el otro llega. Trae también todo lo de la 1.1.18 y la 1.1.19 |
+
+### Versión 1.1.20 — avisos por WhatsApp, Telegram o los dos (2026-11-14)
+- **`app/avisos.py`** (nuevo): `canales()` → los canales escogidos Y configurados; `activo(aviso)`; `enviar(texto, aviso)`
+  abre un hilo por canal (`aviso-telegram`, `aviso-whatsapp`). `pos.api_cerrar_caja` y `temperaturas` ya llaman a
+  `avisos` (no a `telegram`). El texto sigue escrito en HTML de Telegram; `a_whatsapp()` lo pasa a `*negrita*`.
+- **WhatsApp por CallMeBot**: `https://api.callmebot.com/whatsapp.php?phone=+57...&text=...&apikey=...`.
+  `numero_whatsapp()` agrega el 57 a un celular de 10 dígitos. `whatsapp_enviar_ahora()` → (ok, error); éxito si la
+  respuesta dice «queued/sent» sin «error/invalid»; clave mala → mensaje claro.
+- **Configuración**: config `aviso_telegram` ('si' por defecto, así quien ya usaba Telegram sigue igual),
+  `aviso_whatsapp` ('no'), `whatsapp_numero`, `whatsapp_apikey`. «Qué avisar» sigue en `telegram_cierre_caja` y
+  `telegram_temperatura` (sirven para los dos canales). Ruta `configuracion.whatsapp_probar` (solo administrador):
+  manda la prueba y, si sale bien, guarda número y clave.
+- Pruebas: `tests/test_version_1120.py` (nunca sale a internet: urlopen y Telegram reemplazados).
 
 ### Versión 1.1.19 — tablas compactas, acciones en Productos, subtotal y limpieza en Inicio (2026-11-13)
 La lista de pedidos del 10 y 13 de noviembre (documento del proyecto «Lista para la próxima actualización»).

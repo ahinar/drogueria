@@ -68,6 +68,12 @@ DEFAULTS = {
     "telegram_chat_id": "",        # a quién le escribe el bot (se busca con «Buscar mi chat»)
     "telegram_cierre_caja": "si",  # mini resumen al cerrar cada caja
     "telegram_temperatura": "si",  # lectura de temperatura/humedad fuera de rango
+    # Versión 1.1.20: escoger por dónde avisar (ver app/avisos.py). Los dos «qué avisar» de arriba
+    # (telegram_cierre_caja y telegram_temperatura) sirven para los dos canales.
+    "aviso_telegram": "si",        # avisar por Telegram
+    "aviso_whatsapp": "no",        # avisar por WhatsApp (CallMeBot)
+    "whatsapp_numero": "",         # el celular que recibe, ej. +573001234567
+    "whatsapp_apikey": "",         # la clave que entrega CallMeBot
 }
 
 MODOS_TIRILLA = {
@@ -138,6 +144,11 @@ def ver():
         nuevos.update(_telegram_del_formulario())
         nuevos["telegram_cierre_caja"] = "si" if request.form.get("telegram_cierre_caja") else "no"
         nuevos["telegram_temperatura"] = "si" if request.form.get("telegram_temperatura") else "no"
+        # 1.1.20: por dónde avisar y los datos de WhatsApp (CallMeBot)
+        if "whatsapp_numero" in request.form:
+            nuevos.update(_whatsapp_del_formulario())
+            nuevos["aviso_telegram"] = "si" if request.form.get("aviso_telegram") else "no"
+            nuevos["aviso_whatsapp"] = "si" if request.form.get("aviso_whatsapp") else "no"
 
         # Manejar subida de logo
         archivo_logo = request.files.get("logo")
@@ -252,6 +263,42 @@ def telegram_probar():
     else:
         flash(f"No se pudo mandar: {error}", "error")
     return redirect(url_for("configuracion.ver") + "#telegram")
+
+
+# ---------------------------------------------------------------------
+# Avisos por WhatsApp con CallMeBot (versión 1.1.20, ver app/avisos.py)
+# ---------------------------------------------------------------------
+
+def _whatsapp_del_formulario():
+    """Número (ya con +57) y clave escritos en la pantalla."""
+    from .avisos import numero_whatsapp
+    return {"whatsapp_numero": numero_whatsapp(request.form.get("whatsapp_numero")),
+            "whatsapp_apikey": (request.form.get("whatsapp_apikey") or "").strip().replace(" ", "")}
+
+
+@bp.route("/whatsapp/probar", methods=["POST"])
+@roles_required("administrador")
+def whatsapp_probar():
+    """Botón «Mandar prueba por WhatsApp»: manda un mensaje YA y dice si CallMeBot lo aceptó.
+
+    Si sale bien, deja guardados el número y la clave (para no tener que darle Guardar).
+    """
+    from . import avisos, telegram
+    datos = _whatsapp_del_formulario()
+    if not (datos["whatsapp_numero"] and datos["whatsapp_apikey"]):
+        flash("Falta el número del celular o la clave (apikey) que le mandó CallMeBot.", "error")
+        return redirect(url_for("configuracion.ver") + "#avisos-whatsapp")
+    negocio = telegram.escapar(obtener_config().get("nombre_comercial") or "La droguería")
+    ok, error = avisos.whatsapp_enviar_ahora(f"✅ <b>{negocio}</b>: las alertas por WhatsApp quedaron funcionando.",
+                                             datos["whatsapp_numero"], datos["whatsapp_apikey"])
+    registrar("whatsapp_prueba", "config", detalle="ok" if ok else error)
+    if ok:
+        guardar_config(datos)
+        flash("Mensaje de prueba enviado: revise WhatsApp en su celular (puede tardar unos segundos). "
+              "No olvide marcar «WhatsApp» en «Por dónde avisar» y darle Guardar.", "ok")
+    else:
+        flash(f"No se pudo mandar por WhatsApp: {error}", "error")
+    return redirect(url_for("configuracion.ver") + "#avisos-whatsapp")
 
 
 @bp.route("/probar-tirilla", methods=["POST"])

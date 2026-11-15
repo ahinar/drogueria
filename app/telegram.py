@@ -75,7 +75,10 @@ def enviar_ahora(texto, token, chat_id):
 
 
 def enviar(texto, aviso=None):
-    """Manda el mensaje EN SEGUNDO PLANO (no hace esperar a nadie). No lanza errores.
+    """Manda el mensaje SOLO por Telegram, EN SEGUNDO PLANO. No lanza errores.
+
+    (Desde la 1.1.20 el programa usa avisos.enviar(), que escoge Telegram, WhatsApp o
+    los dos. Esta función queda por si se necesita mandar algo solo por Telegram.)
 
     aviso: 'cierre_caja' o 'temperatura' (se respeta si está apagado en Configuración).
     """

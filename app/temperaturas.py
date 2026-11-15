@@ -382,12 +382,13 @@ def _guardar_lectura(zona, formulario):
               f"zona={zona['nombre']} turno={turno} temp={temp} humedad={humedad} en_rango={en_rango}")
     if en_rango:
         return True, f"Lectura de la {turno_txt} registrada correctamente.", True
-    # 1.1.16: aviso al celular por Telegram (si está configurado; nunca hace fallar el registro)
+    # Aviso al celular (1.1.16 Telegram; 1.1.20 también WhatsApp). Nunca hace fallar el registro.
     try:
         from . import telegram
-        if telegram.activo("temperatura"):
-            telegram.enviar(telegram.mensaje_temperatura(zona, temp, humedad, accion, g.user["nombre"]),
-                            "temperatura")
+        from . import avisos              # (1.1.20: Telegram, WhatsApp o los dos)
+        if avisos.activo("temperatura"):
+            avisos.enviar(telegram.mensaje_temperatura(zona, temp, humedad, accion, g.user["nombre"]),
+                          "temperatura")
     except Exception:
         logging.getLogger("drogueria").exception("No se pudo armar el aviso de temperatura para Telegram")
     return True, f"Lectura de la {turno_txt} registrada FUERA DE RANGO. Acción correctiva guardada.", False

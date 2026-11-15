@@ -545,9 +545,10 @@ def api_cerrar_caja():
     # 1.1.16: mini resumen al celular por Telegram (si está configurado). Va en segundo
     # plano y nunca hace fallar el cierre: si algo sale mal, solo queda en el log.
     try:
-        from . import telegram
-        if telegram.activo("cierre_caja"):
-            telegram.enviar(telegram.mensaje_cierre_caja(db, caja["id"]), "cierre_caja")
+        # (1.1.20: por Telegram, WhatsApp o los dos, según Configuración → app/avisos.py)
+        from . import avisos, telegram
+        if avisos.activo("cierre_caja"):
+            avisos.enviar(telegram.mensaje_cierre_caja(db, caja["id"]), "cierre_caja")
     except Exception:
         log.exception("No se pudo armar el aviso de cierre de caja para Telegram")
     return jsonify({"ok": True, "caja_id": caja["id"], "diferencia": diferencia})

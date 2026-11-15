@@ -42,8 +42,10 @@ class BaseTelegram(BaseVentas):
         self.config(telegram_token="123:ABC", telegram_chat_id="999", nombre_comercial="Fervifarma")
         self.enviados = []                 # aquí quedan los mensajes que «se mandaron»
         falso = lambda texto, token, chat: (self.enviados.append(texto) or (True, ""))
+        # (1.1.20: los hilos ahora los abre app/avisos.py, que escoge Telegram y/o WhatsApp)
         for p in (mock.patch("app.telegram.enviar_ahora", side_effect=falso),
-                  mock.patch("app.telegram.threading.Thread", HiloInmediato)):
+                  mock.patch("app.telegram.threading.Thread", HiloInmediato),
+                  mock.patch("app.avisos.threading.Thread", HiloInmediato)):
             p.start()
             self.addCleanup(p.stop)
 

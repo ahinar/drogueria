@@ -102,12 +102,12 @@
 .moderno .formulario legend { color: var(--acento-fuerte); }
 .moderno .formulario label { color: var(--texto); }
 .moderno input[type="text"], .moderno input[type="number"], .moderno input[type="date"],
-.moderno input[type="email"], .moderno input[type="password"], .moderno input[type="search"],
+.moderno input[type="email"], .moderno input[type="tel"], .moderno input[type="password"], .moderno input[type="search"],
 .moderno select, .moderno textarea {
   border: 1px solid #CBD5D1; border-radius: 8px; font-family: inherit; color: var(--texto);
 }
 .moderno .formulario input[type="text"], .moderno .formulario input[type="number"], .moderno .formulario input[type="date"],
-.moderno .formulario input[type="email"], .moderno .formulario input[type="password"], .moderno .formulario select,
+.moderno .formulario input[type="email"], .moderno .formulario input[type="tel"], .moderno .formulario input[type="password"], .moderno .formulario select,
 .moderno .formulario textarea { padding: .55rem .65rem; }
 .moderno input:focus, .moderno select:focus, .moderno textarea:focus { outline: none; border-color: var(--acento);
   box-shadow: 0 0 0 3px var(--acento-suave); }
